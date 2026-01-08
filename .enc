@@ -1,0 +1,6 @@
+BOT_TOKEN=8316963643:AAFkrHxY_Nmzx1Yy7blZzeDEN4aVCMnM-vs
+MONGODB_URI=mongodb+srv://sandip102938:Q1g2Fbn7ewNqEvuK@test.ebvv4hf.mongodb.net/two_telegram_bot
+ADMIN_IDS=8435248854
+CLOUDINARY_URL=cloudinary://474713292161728:DHJmvD784FEVmeOt1-K8XeNhCQQ@dneusgyzc
+NODE_ENV=production
+PORT=3000
