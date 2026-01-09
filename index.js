@@ -312,7 +312,6 @@ async function isAdmin(userId) {
 
 // Get Unjoined Channels - FIXED: Handle private channels with join requests
 // Get Unjoined Channels - FIXED: Handle private channels with join requests
-// Get Unjoined Channels - FIXED: Handle private channels with join requests
 async function getUnjoinedChannels(userId) {
     try {
         const config = await db.collection('admin').findOne({ type: 'config' });
@@ -333,6 +332,7 @@ async function getUnjoinedChannels(userId) {
                 }
             }
             
+            // For public channels OR private channels with auto-accept enabled
             try {
                 // Try to get member status
                 const member = await bot.telegram.getChatMember(channel.id, userId);
@@ -340,8 +340,7 @@ async function getUnjoinedChannels(userId) {
                     unjoined.push(channel);
                 }
             } catch (error) {
-                // If we can't check (bot not admin or private channel), assume not joined
-                // For private channels with join requests, we'll still show the button
+                // If we can't check (bot not admin), assume not joined
                 unjoined.push(channel);
             }
         }
@@ -358,6 +357,7 @@ async function getUnjoinedChannels(userId) {
 // ==========================================
 
 // Get Channels to Display in Start Screen - Shows ALL channels (including optional ones)
+// Get Channels to Display in Start Screen - Shows ALL channels (including optional ones)
 async function getChannelsToDisplay(userId) {
     try {
         const config = await db.collection('admin').findOne({ type: 'config' });
@@ -366,6 +366,17 @@ async function getChannelsToDisplay(userId) {
         const channelsToDisplay = [];
         
         for (const channel of config.channels) {
+            // Skip private channels with auto-accept disabled (optional channels)
+            if (channel.type === 'private') {
+                const channelAutoAccept = channel.autoAccept !== false; // Default true
+                if (!channelAutoAccept) {
+                    console.log(`📋 Showing optional private channel "${channel.title}" in start screen`);
+                    channelsToDisplay.push(channel); // ALWAYS show optional channels
+                    continue;
+                }
+            }
+            
+            // For other channels (public OR private with auto-accept enabled)
             // Check if user has already joined this channel
             let userHasJoined = false;
             
@@ -778,35 +789,84 @@ async function showStartScreen(ctx) {
         startMessage = replaceVariables(startMessage, userVars);
         
         // Create buttons
-        const buttons = [];
+        // Create buttons
+const buttons = [];
 
-        // Add channel buttons if there are channels to display (2 per row)
-        if (channelsToDisplay.length > 0) {
-            // Group channels 2 per row
-            for (let i = 0; i < channelsToDisplay.length; i += 2) {
-                const row = [];
-                
-                // First channel in row
-                const channel1 = channelsToDisplay[i];
-                const buttonText1 = channel1.buttonLabel || `Join ${channel1.title}`;
-                row.push({ text: buttonText1, url: channel1.link });
-                
-                // Second channel in row if exists
-                if (i + 1 < channelsToDisplay.length) {
-                    const channel2 = channelsToDisplay[i + 1];
-                    const buttonText2 = channel2.buttonLabel || `Join ${channel2.title}`;
-                    row.push({ text: buttonText2, url: channel2.link });
-                }
-                
-                buttons.push(row);
+// Add channel buttons if there are channels to display (2 per row)
+if (channelsToDisplay.length > 0) {
+    // Separate required and optional channels
+    const requiredChannels = [];
+    const optionalChannels = [];
+    
+    for (const channel of channelsToDisplay) {
+        if (channel.type === 'private') {
+            const channelAutoAccept = channel.autoAccept !== false; // Default true
+            if (!channelAutoAccept) {
+                optionalChannels.push(channel); // Optional channel
+                continue;
+            }
+        }
+        requiredChannels.push(channel); // Required channel
+    }
+    
+    // Show optional channels first (with emoji indicator)
+    if (optionalChannels.length > 0) {
+        buttons.push([{ text: '📌 Optional Channels (Recommended)', callback_data: 'no_action' }]);
+        
+        // Group optional channels 2 per row
+        for (let i = 0; i < optionalChannels.length; i += 2) {
+            const row = [];
+            
+            // First optional channel
+            const channel1 = optionalChannels[i];
+            const buttonText1 = `📌 ${channel1.buttonLabel || `Join ${channel1.title}`}`;
+            row.push({ text: buttonText1, url: channel1.link });
+            
+            // Second optional channel if exists
+            if (i + 1 < optionalChannels.length) {
+                const channel2 = optionalChannels[i + 1];
+                const buttonText2 = `📌 ${channel2.buttonLabel || `Join ${channel2.title}`}`;
+                row.push({ text: buttonText2, url: channel2.link });
             }
             
-            // Add verify button
-            buttons.push([{ text: '✅ Check Joined', callback_data: 'check_joined' }]);
-        } else {
-            // All channels joined - show menu button
-            buttons.push([{ text: '🎮 Go to Menu', callback_data: 'go_to_menu' }]);
+            buttons.push(row);
         }
+        
+        buttons.push([]); // Empty row for spacing
+    }
+    
+    // Show required channels
+    if (requiredChannels.length > 0) {
+        if (optionalChannels.length > 0) {
+            buttons.push([{ text: '🔒 Required Channels', callback_data: 'no_action' }]);
+        }
+        
+        // Group required channels 2 per row
+        for (let i = 0; i < requiredChannels.length; i += 2) {
+            const row = [];
+            
+            // First required channel
+            const channel1 = requiredChannels[i];
+            const buttonText1 = channel1.buttonLabel || `Join ${channel1.title}`;
+            row.push({ text: buttonText1, url: channel1.link });
+            
+            // Second required channel if exists
+            if (i + 1 < requiredChannels.length) {
+                const channel2 = requiredChannels[i + 1];
+                const buttonText2 = channel2.buttonLabel || `Join ${channel2.title}`;
+                row.push({ text: buttonText2, url: channel2.link });
+            }
+            
+            buttons.push(row);
+        }
+    }
+    
+    // Add verify button
+    buttons.push([{ text: '✅ Check Joined', callback_data: 'check_joined' }]);
+} else {
+    // All channels joined - show menu button
+    buttons.push([{ text: '🎮 Go to Menu', callback_data: 'go_to_menu' }]);
+}
         
         // Add contact admin button if enabled
         const configForContact = await db.collection('admin').findOne({ type: 'config' });
