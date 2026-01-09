@@ -22,7 +22,7 @@ cloudinary.config({
 });
 
 // Initialize bot
-const BOT_TOKEN = process.env.BOT_TOKEN || '8525520014:AAHuBfHMb1yQrrKNjAkQwagl9UW3bKIgHS0' ;
+const BOT_TOKEN = process.env.BOT_TOKEN || '8316963643:AAFkrHxY_Nmzx1Yy7blZzeDEN4aVCMnM-vs' ;
 const bot = new Telegraf(BOT_TOKEN);
 
 // MongoDB connection
@@ -114,7 +114,7 @@ editAppDetails: createScene('edit_app_details_scene'),
 Object.values(scenes).forEach(scene => stage.register(scene));
 
 // 🔐 ADMIN CONFIGURATION
-const ADMIN_IDS = process.env.ADMIN_IDS ? process.env.ADMIN_IDS.split(',').map(Number) : [8435248854,7001248146 ];
+const ADMIN_IDS = process.env.ADMIN_IDS ? process.env.ADMIN_IDS.split(',').map(Number) : [8435248854,5518423310 ];
 
 // Default configurations
 const DEFAULT_CONFIG = {
