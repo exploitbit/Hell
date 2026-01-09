@@ -5,6 +5,18 @@
 // Added: Name overlay option for images
 // ==========================================
 
+// Emergency stop for error loop
+bot.command('emergency', async (ctx) => {
+    console.log('🆘 Emergency stop triggered by:', ctx.from.id);
+    errorCooldowns.clear();
+    await ctx.reply('🆘 Emergency error reset executed. Bot should respond now.');
+    
+    // Force respond to other commands
+    setTimeout(async () => {
+        await ctx.reply('✅ Bot is now responsive. Try /start or /admin');
+    }, 1000);
+});
+
 const { Telegraf, Scenes, session, Markup } = require('telegraf');
 const { MongoClient, ObjectId } = require('mongodb');
 const crypto = require('crypto');
@@ -5386,6 +5398,73 @@ bot.action(/^edit_app_confirm_logo_(.+)$/, async (ctx) => {
     }
 });
 
+
+// ==========================================
+// ADMIN ERROR RESET COMMAND
+// ==========================================
+
+bot.command('reseterrors', async (ctx) => {
+    try {
+        if (!await isAdmin(ctx.from.id)) {
+            return safeSendMessage(ctx, '❌ You are not authorized to use this command.');
+        }
+        
+        // Clear all error cooldowns
+        errorCooldowns.clear();
+        
+        // Also clear any stuck sessions
+        if (ctx.session) {
+            delete ctx.session.lastError;
+            delete ctx.session.contactUser;
+            delete ctx.session.replyToAdmin;
+            delete ctx.session.editChannel;
+            delete ctx.session.editApp;
+            delete ctx.session.reorderChannel;
+            delete ctx.session.reorderApp;
+            delete ctx.session.uploadingImageType;
+            delete ctx.session.uploadingImage;
+            delete ctx.session.editingDisabledMessage;
+        }
+        
+        await safeSendMessage(ctx, '✅ All error cooldowns and sessions have been reset!\n\nBot should respond normally now.');
+        
+    } catch (error) {
+        console.error('Reset errors command error:', error);
+        await safeSendMessage(ctx, '❌ Failed to reset errors.');
+    }
+});
+
+bot.command('status', async (ctx) => {
+    try {
+        if (!await isAdmin(ctx.from.id)) {
+            return safeSendMessage(ctx, '❌ You are not authorized to use this command.');
+        }
+        
+        let statusText = '🤖 <b>Bot Status Report</b>\n\n';
+        
+        // Error cooldowns count
+        statusText += `📊 <b>Error Cooldowns Active:</b> ${errorCooldowns.size}\n`;
+        
+        // Bot responsiveness check
+        statusText += `⚡ <b>Bot Responsive:</b> ✅ Yes\n`;
+        
+        // Database connection
+        try {
+            const config = await db.collection('admin').findOne({ type: 'config' });
+            statusText += `🗄️ <b>Database:</b> ✅ Connected\n`;
+            statusText += `👑 <b>Admins:</b> ${config?.admins?.length || 0}\n`;
+            statusText += `👥 <b>Users:</b> ${await db.collection('users').countDocuments()}\n`;
+        } catch (dbError) {
+            statusText += `🗄️ <b>Database:</b> ❌ Error: ${dbError.message}\n`;
+        }
+        
+        await safeSendMessage(ctx, statusText, { parse_mode: 'HTML' });
+        
+    } catch (error) {
+        console.error('Status command error:', error);
+        await safeSendMessage(ctx, '❌ Failed to get bot status.');
+    }
+});
 // ==========================================
 // ERROR HANDLING - FIXED: Better error reporting
 // ==========================================
@@ -5418,6 +5497,49 @@ bot.catch((error, ctx) => {
     }
 });
 
+
+// ==========================================
+// GLOBAL ERROR PROTECTION
+// ==========================================
+
+let errorCount = 0;
+const MAX_ERRORS_BEFORE_RESTART = 10;
+const ERROR_RESET_INTERVAL = 60000; // 1 minute
+
+// Monitor error frequency
+const originalErrorHandler = bot.catch;
+bot.catch = (error, ctx) => {
+    errorCount++;
+    console.error(`🔴 Global Error #${errorCount}:`, error.message);
+    
+    // Reset error count periodically
+    setTimeout(() => {
+        if (errorCount > 0) errorCount--;
+    }, ERROR_RESET_INTERVAL);
+    
+    // If too many errors, suggest restart
+    if (errorCount >= MAX_ERRORS_BEFORE_RESTART) {
+        console.error('🚨 CRITICAL: Too many errors, bot may be stuck');
+        
+        // Notify admins
+        notifyAdmin(`🚨 <b>Bot Error Alert</b>\n\nToo many errors detected (${errorCount}).\nBot may be stuck in error loop.\n\nUse /reseterrors to clear errors or restart the bot.`);
+    }
+    
+    // Call original handler
+    if (originalErrorHandler) {
+        originalErrorHandler(error, ctx);
+    }
+};
+
+// Reset error count on successful admin command
+const originalIsAdmin = isAdmin;
+isAdmin = async (userId) => {
+    const result = await originalIsAdmin(userId);
+    if (result) {
+        errorCount = 0; // Reset error count when admin successfully accesses
+    }
+    return result;
+};
 // ==========================================
 // START BOT
 // ==========================================
