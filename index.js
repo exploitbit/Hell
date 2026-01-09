@@ -135,8 +135,7 @@ async function initBot() {
         const config = await db.collection('admin').findOne({ type: 'config' });
         
         if (!config) {
-            // Create new config
-            await db.collection('admin').insertOne({
+          await db.collection('admin').insertOne({
     type: 'config',
     admins: ADMIN_IDS,
     startImage: DEFAULT_CONFIG.startImage,
@@ -144,7 +143,7 @@ async function initBot() {
     menuImage: DEFAULT_CONFIG.menuImage,
     menuMessage: DEFAULT_CONFIG.menuMessage,
     codeTimer: DEFAULT_CONFIG.codeTimer,
-    showContactButton: true, // NEW: Default is true (show contact button)
+    showContactButton: true,
     channels: [],
     apps: [],
     uploadedImages: [],
@@ -156,6 +155,9 @@ async function initBot() {
     createdAt: new Date(),
     updatedAt: new Date()
 });
+
+
+          
             console.log('✅ Created new bot configuration');
         } else {
             console.log('✅ Loaded existing bot configuration');
@@ -550,10 +552,6 @@ async function isValidImageUrl(url) {
     }
 }
 
-// ==========================================
-// CHAT JOIN REQUEST HANDLER - NEW: Auto-approve users
-// ==========================================
-
 bot.on('chat_join_request', async (ctx) => {
     try {
         const userId = ctx.chatJoinRequest.from.id;
@@ -561,45 +559,65 @@ bot.on('chat_join_request', async (ctx) => {
         
         console.log(`📨 Join request from user ${userId} for chat ${chatId}`);
         
-        // Get config to check if this is one of our channels
+        // Get config to check settings
         const config = await db.collection('admin').findOne({ type: 'config' });
         const channels = config?.channels || [];
+        
+        // Check global auto accept setting
+        const globalAutoAccept = config?.autoAcceptRequests !== false; // Default true
         
         // Check if this chat is in our channel list
         const channel = channels.find(ch => String(ch.id) === String(chatId));
         
         if (channel) {
-            try {
-                // Approve the join request
-                await bot.telegram.approveChatJoinRequest(chatId, userId);
-                console.log(`✅ Approved join request for user ${userId} in channel ${channel.title}`);
-                
-                // Notify admin
-                await notifyAdmin(`✅ <b>Join Request Approved</b>\n\n👤 User: ${userId}\n📺 Channel: ${channel.title}\n🔗 Type: ${channel.type}`);
-                
-                // Check if user has joined all channels now
-                setTimeout(async () => {
-                    try {
-                        const user = await db.collection('users').findOne({ userId: userId });
-                        if (user && !user.joinedAll) {
-                            const unjoinedChannels = await getUnjoinedChannels(userId);
-                            if (unjoinedChannels.length === 0) {
-                                // User has joined all channels
-                                await db.collection('users').updateOne(
-                                    { userId: userId },
-                                    { $set: { joinedAll: true } }
-                                );
-                                console.log(`✅ User ${userId} has joined all channels`);
+            // Check if auto accept is enabled for this channel
+            let shouldAccept = globalAutoAccept;
+            
+            // For private channels, check channel-specific setting
+            if (channel.type === 'private') {
+                const channelAutoAccept = channel.autoAccept !== false; // Default true
+                shouldAccept = globalAutoAccept && channelAutoAccept;
+            } else {
+                // Public channels don't need approval
+                shouldAccept = false;
+            }
+            
+            if (shouldAccept) {
+                try {
+                    // Approve the join request
+                    await bot.telegram.approveChatJoinRequest(chatId, userId);
+                    console.log(`✅ Approved join request for user ${userId} in channel ${channel.title}`);
+                    
+                    // Notify admin
+                    await notifyAdmin(`✅ <b>Join Request Auto-Approved</b>\n\n👤 User: ${userId}\n📺 Channel: ${channel.title}\n🔗 Type: ${channel.type}\n⚙️ Auto-accept: Enabled`);
+                    
+                    // Check if user has joined all channels now
+                    setTimeout(async () => {
+                        try {
+                            const user = await db.collection('users').findOne({ userId: userId });
+                            if (user && !user.joinedAll) {
+                                const unjoinedChannels = await getUnjoinedChannels(userId);
+                                if (unjoinedChannels.length === 0) {
+                                    // User has joined all channels
+                                    await db.collection('users').updateOne(
+                                        { userId: userId },
+                                        { $set: { joinedAll: true } }
+                                    );
+                                    console.log(`✅ User ${userId} has joined all channels`);
+                                }
                             }
+                        } catch (error) {
+                            console.error('Error checking user status after approval:', error);
                         }
-                    } catch (error) {
-                        console.error('Error checking user status after approval:', error);
-                    }
-                }, 2000);
-                
-            } catch (error) {
-                console.error(`❌ Failed to approve join request for user ${userId}:`, error.message);
-                await notifyAdmin(`❌ <b>Join Request Failed</b>\n\n👤 User: ${userId}\n📺 Channel: ${channel.title}\n❌ Error: ${error.message}`);
+                    }, 2000);
+                    
+                } catch (error) {
+                    console.error(`❌ Failed to approve join request for user ${userId}:`, error.message);
+                    await notifyAdmin(`❌ <b>Join Request Failed</b>\n\n👤 User: ${userId}\n📺 Channel: ${channel.title}\n❌ Error: ${error.message}`);
+                }
+            } else {
+                console.log(`⏸️ Join request not auto-approved for user ${userId} in channel ${channel.title}`);
+                await notifyAdmin(`⏸️ <b>Join Request Pending</b>\n\n👤 User: ${userId}\n📺 Channel: ${channel.title}\n🔗 Type: ${channel.type}\n⚙️ Auto-accept: Disabled\n\n⚠️ Manual approval required`);
             }
         } else {
             console.log(`⚠️ Join request for unknown chat ${chatId}`);
@@ -1108,18 +1126,20 @@ bot.command('admin', async (ctx) => {
 async function showAdminPanel(ctx) {
     try {
         const text = '👮‍♂️ <b>Admin Control Panel</b>\n\nSelect an option below:';
-        const keyboard = [
-    [{ text: '📢Broadcast', callback_data: 'admin_broadcast' }, { text: '👥User Stats', callback_data: 'admin_userstats' }],
-    [{ text: '🖼️Start Image', callback_data: 'admin_startimage' }, { text: '📝Start Message', callback_data: 'admin_startmessage' }],
-    [{ text: '🖼️Menu Image', callback_data: 'admin_menuimage' }, { text: '📝Menu Message', callback_data: 'admin_menumessage' }],
-    [{ text: '⏰Code Timer', callback_data: 'admin_timer' }, { text: '📺Manage Channels', callback_data: 'admin_channels' }],
-    [{ text: '📱Manage Apps', callback_data: 'admin_apps' }, { text: '👑Manage Admins', callback_data: 'admin_manage_admins' }],
-    [{ text: '⚙️Image Overlay', callback_data: 'admin_image_overlay' }, { text: '📞Contact Button', callback_data: 'admin_contact_button' }],
-    [{ text: '🔼🔽Channels', callback_data: 'admin_reorder_channels' }, { text: '🔼🔽Apps', callback_data: 'admin_reorder_apps' }],
-    [{ text: '✏️Edit Channels', callback_data: 'admin_edit_channels' }, { text: '✏️Edit Apps', callback_data: 'admin_edit_apps' }],
-    [{ text: '🖼️Manage Images', callback_data: 'admin_manage_images' }, { text: '🗑️Delete Data', callback_data: 'admin_deletedata' }]
-];
         
+        const keyboard = [
+    [{ text: '📢 Broadcast', callback_data: 'admin_broadcast' }, { text: '👥 User Stats', callback_data: 'admin_userstats' }],
+    [{ text: '🖼️ Start Image', callback_data: 'admin_startimage' }, { text: '📝 Start Message', callback_data: 'admin_startmessage' }],
+    [{ text: '🖼️ Menu Image', callback_data: 'admin_menuimage' }, { text: '📝 Menu Message', callback_data: 'admin_menumessage' }],
+    [{ text: '⏰ Code Timer', callback_data: 'admin_timer' }, { text: '📺 Manage Channels', callback_data: 'admin_channels' }],
+    [{ text: '📱 Manage Apps', callback_data: 'admin_apps' }, { text: '👑 Manage Admins', callback_data: 'admin_manage_admins' }],
+    [{ text: '⚙️ Image Overlay', callback_data: 'admin_image_overlay' }, { text: '📞 Contact Button', callback_data: 'admin_contact_button' }],
+    [{ text: '🔼🔽 Channels', callback_data: 'admin_reorder_channels' }, { text: '🔼🔽 Apps', callback_data: 'admin_reorder_apps' }],
+    [{ text: '✏️ Edit Channels', callback_data: 'admin_edit_channels' }, { text: '✏️ Edit Apps', callback_data: 'admin_edit_apps' }],
+    [{ text: '🚫 Disable Bot', callback_data: 'admin_disable_bot' }, { text: '🔒 Auto Accept', callback_data: 'admin_auto_accept' }],
+    [{ text: '🖼️ Manage Images', callback_data: 'admin_manage_images' }, { text: '🗑️ Delete Data', callback_data: 'admin_deletedata' }]
+];
+      
         if (ctx.callbackQuery) {
             await safeEditMessage(ctx, text, {
                 reply_markup: { inline_keyboard: keyboard }
@@ -2650,14 +2670,14 @@ scenes.addPublicChannelLink.on('text', async (ctx) => {
         const channelData = ctx.session.channelData;
         
         // Create channel object
-        const newChannel = {
-            id: channelData.id,
-            title: channelData.title,
-            buttonLabel: channelData.buttonLabel,
-            link: link,
-            type: 'public',
-            addedAt: new Date()
-        };
+const newChannel = {
+    id: channelData.id,
+    title: channelData.title,
+    buttonLabel: channelData.buttonLabel,
+    link: link,
+    type: 'public',
+    addedAt: new Date()
+};
         
         // Add to database
         await db.collection('admin').updateOne(
@@ -2780,15 +2800,7 @@ scenes.addPrivateChannelLink.on('text', async (ctx) => {
         
         const channelData = ctx.session.channelData;
         
-        // Create channel object
-        const newChannel = {
-            id: channelData.id,
-            title: channelData.title,
-            buttonLabel: channelData.buttonLabel,
-            link: link,
-            type: 'private',
-            addedAt: new Date()
-        };
+        
         
         // Add to database
         await db.collection('admin').updateOne(
@@ -2811,8 +2823,17 @@ scenes.addPrivateChannelLink.on('text', async (ctx) => {
     
     await ctx.scene.leave();
     await showAdminPanel(ctx);
-});
-
+// Create channel object
+const newChannel = {
+    id: channelData.id,
+    title: channelData.title,
+    buttonLabel: channelData.buttonLabel,
+    link: link,
+    type: 'private',
+    autoAccept: true, // Default true for private channels
+    addedAt: new Date()
+};
+  
 // Delete Channel
 bot.action('admin_delete_channel', async (ctx) => {
     try {
@@ -4109,6 +4130,308 @@ bot.action('reorder_app_save', async (ctx) => {
 });
 
 // ==========================================
+// ADMIN FEATURES - DISABLE/ENABLE BOT
+// ==========================================
+
+bot.action('admin_disable_bot', async (ctx) => {
+    if (!await isAdmin(ctx.from.id)) return;
+    
+    try {
+        const config = await db.collection('admin').findOne({ type: 'config' });
+        const botDisabled = config?.botDisabled || false;
+        const disabledMessage = config?.disabledMessage || '🚧 Bot is under maintenance. Please check back later.';
+        
+        const text = `<b>🚫 Bot Status Control</b>\n\nCurrent status: ${botDisabled ? '❌ DISABLED' : '✅ ENABLED'}\n\nWhen disabled, users will see this message:\n<code>${escapeMarkdown(disabledMessage)}</code>\n\nSelect an option:`;
+        
+        const keyboard = [
+            [
+                { text: botDisabled ? '❌ Currently Disabled' : '✅ Currently Enabled', callback_data: 'toggle_bot_status' }
+            ],
+            [
+                { text: botDisabled ? '✅ Enable Bot' : '❌ Disable Bot', callback_data: 'set_bot_status' }
+            ],
+            [
+                { text: '✏️ Edit Disabled Message', callback_data: 'edit_disabled_message' }
+            ],
+            [{ text: '🔙 Back', callback_data: 'admin_back' }]
+        ];
+        
+        await safeEditMessage(ctx, text, {
+            reply_markup: { inline_keyboard: keyboard }
+        });
+    } catch (error) {
+        console.error('Disable bot menu error:', error);
+        await safeSendMessage(ctx, '❌ An error occurred.');
+    }
+});
+
+// Toggle bot status
+bot.action('toggle_bot_status', async (ctx) => {
+    try {
+        const config = await db.collection('admin').findOne({ type: 'config' });
+        const currentStatus = config?.botDisabled || false;
+        
+        const newStatus = !currentStatus;
+        
+        await db.collection('admin').updateOne(
+            { type: 'config' },
+            { $set: { botDisabled: newStatus, updatedAt: new Date() } }
+        );
+        
+        await ctx.answerCbQuery(`✅ Bot ${newStatus ? 'disabled' : 'enabled'}`);
+        await bot.action('admin_disable_bot')(ctx);
+    } catch (error) {
+        console.error('Toggle bot status error:', error);
+        await ctx.answerCbQuery('❌ Failed to update status');
+    }
+});
+
+// Set bot status directly
+bot.action('set_bot_status', async (ctx) => {
+    try {
+        const config = await db.collection('admin').findOne({ type: 'config' });
+        const currentStatus = config?.botDisabled || false;
+        
+        const newStatus = !currentStatus;
+        
+        await db.collection('admin').updateOne(
+            { type: 'config' },
+            { $set: { botDisabled: newStatus, updatedAt: new Date() } }
+        );
+        
+        await ctx.answerCbQuery(`✅ Bot ${newStatus ? 'disabled' : 'enabled'}`);
+        await bot.action('admin_disable_bot')(ctx);
+    } catch (error) {
+        console.error('Set bot status error:', error);
+        await ctx.answerCbQuery('❌ Failed to update status');
+    }
+});
+
+// Edit disabled message
+bot.action('edit_disabled_message', async (ctx) => {
+    try {
+        const config = await db.collection('admin').findOne({ type: 'config' });
+        const currentMessage = config?.disabledMessage || '🚧 Bot is under maintenance. Please check back later.';
+        
+        await safeSendMessage(ctx, `Current disabled message:\n<code>${escapeMarkdown(currentMessage)}</code>\n\nEnter new disabled message:\n\n<i>Supports HTML formatting</i>\n\nType "cancel" to cancel.`, {
+            parse_mode: 'HTML'
+        });
+        
+        // Store in session for editing
+        ctx.session.editingDisabledMessage = true;
+        
+    } catch (error) {
+        console.error('Edit disabled message error:', error);
+        await ctx.answerCbQuery('❌ Error');
+    }
+});
+
+// Handle disabled message edit
+bot.on('text', async (ctx) => {
+    try {
+        // Check if we're editing disabled message
+        if (ctx.session?.editingDisabledMessage && !ctx.message.text?.startsWith('/')) {
+            
+            if (ctx.message.text.toLowerCase() === 'cancel') {
+                await safeSendMessage(ctx, '❌ Edit cancelled.');
+                delete ctx.session.editingDisabledMessage;
+                return;
+            }
+            
+            const newMessage = ctx.message.text;
+            
+            await db.collection('admin').updateOne(
+                { type: 'config' },
+                { $set: { disabledMessage: newMessage, updatedAt: new Date() } }
+            );
+            
+            await safeSendMessage(ctx, `✅ Disabled message updated!\n\nNew message:\n<code>${escapeMarkdown(newMessage)}</code>`, {
+                parse_mode: 'HTML'
+            });
+            
+            delete ctx.session.editingDisabledMessage;
+            
+            // Return to disable bot menu
+            setTimeout(async () => {
+                await bot.action('admin_disable_bot')(ctx);
+            }, 1000);
+        }
+    } catch (error) {
+        console.error('Handle disabled message edit error:', error);
+        await safeSendMessage(ctx, '❌ Failed to update message.');
+    }
+});
+
+// ==========================================
+// UPDATE START COMMAND TO CHECK BOT STATUS
+// ==========================================
+
+// Update the bot.start() handler to check bot status
+// Find the bot.start() handler (around line 280-330) and add this check at the beginning:
+
+// OLD CODE in bot.start():
+// bot.start(async (ctx) => {
+//     try {
+//         const user = ctx.from;
+//         const userId = user.id;
+        
+// NEW CODE to add at the beginning of bot.start():
+bot.start(async (ctx) => {
+    try {
+        // Check if bot is disabled
+        const config = await db.collection('admin').findOne({ type: 'config' });
+        const botDisabled = config?.botDisabled || false;
+        
+        if (botDisabled) {
+            const disabledMessage = config?.disabledMessage || '🚧 Bot is under maintenance. \n Please check back later.';
+            await safeSendMessage(ctx, disabledMessage, {
+                parse_mode: 'HTML'
+            });
+            return;
+        }
+        
+        const user = ctx.from;
+        const userId = user.id;
+
+// ==========================================
+// ADMIN FEATURES - AUTO ACCEPT REQUESTS
+// ==========================================
+
+bot.action('admin_auto_accept', async (ctx) => {
+    if (!await isAdmin(ctx.from.id)) return;
+    
+    try {
+        const config = await db.collection('admin').findOne({ type: 'config' });
+        const autoAccept = config?.autoAcceptRequests !== false; // Default true
+        const channels = config?.channels || [];
+        
+        const text = `<b>🔒 Auto Accept Join Requests</b>\n\nGlobal setting: ${autoAccept ? '✅ ENABLED' : '❌ DISABLED'}\n\nWhen enabled, bot will automatically approve join requests for private channels.\n\nChannel-specific settings:`;
+        
+        const keyboard = [
+            [
+                { text: autoAccept ? '✅ Global: Enabled' : '❌ Global: Disabled', callback_data: 'toggle_auto_accept' }
+            ]
+        ];
+        
+        // Add channel-specific toggles if there are channels
+        if (channels.length > 0) {
+            keyboard.push([{ text: '📋 Channel Settings', callback_data: 'channel_auto_accept_settings' }]);
+        }
+        
+        keyboard.push([{ text: '🔙 Back', callback_data: 'admin_back' }]);
+        
+        await safeEditMessage(ctx, text, {
+            reply_markup: { inline_keyboard: keyboard }
+        });
+    } catch (error) {
+        console.error('Auto accept menu error:', error);
+        await safeSendMessage(ctx, '❌ An error occurred.');
+    }
+});
+
+// Toggle global auto accept
+bot.action('toggle_auto_accept', async (ctx) => {
+    try {
+        const config = await db.collection('admin').findOne({ type: 'config' });
+        const currentSetting = config?.autoAcceptRequests !== false; // Default true
+        
+        const newSetting = !currentSetting;
+        
+        await db.collection('admin').updateOne(
+            { type: 'config' },
+            { $set: { autoAcceptRequests: newSetting, updatedAt: new Date() } }
+        );
+        
+        await ctx.answerCbQuery(`✅ Auto accept ${newSetting ? 'enabled' : 'disabled'}`);
+        await bot.action('admin_auto_accept')(ctx);
+    } catch (error) {
+        console.error('Toggle auto accept error:', error);
+        await ctx.answerCbQuery('❌ Failed to update setting');
+    }
+});
+
+// Channel-specific settings
+bot.action('channel_auto_accept_settings', async (ctx) => {
+    try {
+        const config = await db.collection('admin').findOne({ type: 'config' });
+        const channels = config?.channels || [];
+        
+        let text = '<b>📋 Channel Auto Accept Settings</b>\n\n';
+        text += 'Select a channel to configure:\n\n';
+        
+        const keyboard = [];
+        
+        channels.forEach((channel, index) => {
+            const type = channel.type === 'private' ? '🔒' : '🔓';
+            const autoAccept = channel.autoAccept !== false; // Default true for private channels
+            
+            if (channel.type === 'private') {
+                const status = autoAccept ? '✅' : '❌';
+                keyboard.push([{ 
+                    text: `${status} ${index + 1}. ${type} ${channel.buttonLabel || channel.title}`, 
+                    callback_data: `channel_accept_toggle_${index}` 
+                }]);
+            } else {
+                keyboard.push([{ 
+                    text: `⏺️ ${index + 1}. ${type} ${channel.buttonLabel || channel.title} (Public)`, 
+                    callback_data: 'no_action' 
+                }]);
+            }
+        });
+        
+        keyboard.push([{ text: '🔙 Back', callback_data: 'admin_auto_accept' }]);
+        
+        await safeEditMessage(ctx, text, {
+            reply_markup: { inline_keyboard: keyboard }
+        });
+    } catch (error) {
+        console.error('Channel auto accept settings error:', error);
+        await ctx.answerCbQuery('❌ Error');
+    }
+});
+
+// Toggle channel-specific auto accept
+bot.action(/^channel_accept_toggle_(\d+)$/, async (ctx) => {
+    try {
+        const channelIndex = parseInt(ctx.match[1]);
+        const config = await db.collection('admin').findOne({ type: 'config' });
+        const channels = [...config.channels];
+        
+        if (channelIndex < 0 || channelIndex >= channels.length) {
+            await ctx.answerCbQuery('❌ Invalid channel');
+            return;
+        }
+        
+        const channel = channels[channelIndex];
+        
+        // Only private channels can have auto accept
+        if (channel.type !== 'private') {
+            await ctx.answerCbQuery('❌ Only private channels have auto accept');
+            return;
+        }
+        
+        const currentSetting = channel.autoAccept !== false; // Default true
+        const newSetting = !currentSetting;
+        
+        // Update channel
+        channels[channelIndex].autoAccept = newSetting;
+        
+        // Save to database
+        await db.collection('admin').updateOne(
+            { type: 'config' },
+            { $set: { channels: channels, updatedAt: new Date() } }
+        );
+        
+        await ctx.answerCbQuery(`✅ Auto accept ${newSetting ? 'enabled' : 'disabled'} for this channel`);
+        await bot.action('channel_auto_accept_settings')(ctx);
+        
+    } catch (error) {
+        console.error('Toggle channel auto accept error:', error);
+        await ctx.answerCbQuery('❌ Failed to update');
+    }
+});
+
+// ==========================================
 // ADMIN FEATURES - EDIT CHANNELS
 // ==========================================
 
@@ -4168,22 +4491,39 @@ bot.action(/^edit_channel_select_(\d+)$/, async (ctx) => {
         };
         
         // Display channel details
-        let text = '<b>✏️ Edit Channel</b>\n\n';
-        text += '<b>Channel Details:</b>\n';
-        text += `• <b>Button Name:</b> ${channel.buttonLabel || channel.title}\n`;
-        text += `• <b>Channel ID:</b> <code>${channel.id}</code>\n`;
-        text += `• <b>Link:</b> ${channel.link}\n`;
-        text += `• <b>Type:</b> ${channel.type === 'private' ? '🔒 Private' : '🔓 Public'}\n`;
-        text += `• <b>Title:</b> ${channel.title}\n`;
-        text += `• <b>Added:</b> ${new Date(channel.addedAt).toLocaleDateString()}\n`;
+        // Display channel details
+let text = '<b>✏️ Edit Channel</b>\n\n';
+text += '<b>Channel Details:</b>\n';
+text += `• <b>Button Name:</b> ${channel.buttonLabel || channel.title}\n`;
+text += `• <b>Channel ID:</b> <code>${channel.id}</code>\n`;
+text += `• <b>Link:</b> ${channel.link}\n`;
+text += `• <b>Type:</b> ${channel.type === 'private' ? '🔒 Private' : '🔓 Public'}\n`;
+if (channel.type === 'private') {
+    const autoAccept = channel.autoAccept !== false; // Default true
+    text += `• <b>Auto Accept:</b> ${autoAccept ? '✅ Enabled' : '❌ Disabled'}\n`;
+}
+text += `• <b>Title:</b> ${channel.title}\n`;
+text += `• <b>Added:</b> ${new Date(channel.addedAt).toLocaleDateString()}\n`;
         
         const keyboard = [
-            [{ text: '✏️ Change Button Name', callback_data: 'edit_channel_name' }],
-            [{ text: '🔗 Change Link', callback_data: 'edit_channel_link' }],
-            [{ text: '🆔 Change Channel ID', callback_data: 'edit_channel_id' }],
-            [{ text: '🔙 Back to Channels', callback_data: 'admin_edit_channels' }],
-            [{ text: '🔙 Back to Admin', callback_data: 'admin_back' }]
-        ];
+    [{ text: '✏️ Change Button Name', callback_data: 'edit_channel_name' }],
+    [{ text: '🔗 Change Link', callback_data: 'edit_channel_link' }],
+    [{ text: '🆔 Change Channel ID', callback_data: 'edit_channel_id' }]
+];
+
+// Add auto accept toggle for private channels
+if (channel.type === 'private') {
+    const autoAccept = channel.autoAccept !== false; // Default true
+    keyboard.push([{ 
+        text: autoAccept ? '✅ Auto Accept: ON' : '❌ Auto Accept: OFF', 
+        callback_data: 'edit_channel_auto_accept' 
+    }]);
+}
+
+keyboard.push(
+    [{ text: '🔙 Back to Channels', callback_data: 'admin_edit_channels' }],
+    [{ text: '🔙 Back to Admin', callback_data: 'admin_back' }]
+);
         
         await safeEditMessage(ctx, text, {
             reply_markup: { inline_keyboard: keyboard },
@@ -4264,6 +4604,52 @@ bot.action('edit_channel_id', async (ctx) => {
     } catch (error) {
         console.error('Edit channel ID error:', error);
         await safeSendMessage(ctx, '❌ An error occurred.');
+    }
+});
+
+// Edit channel auto accept
+bot.action('edit_channel_auto_accept', async (ctx) => {
+    try {
+        if (!ctx.session.editChannel) {
+            await safeSendMessage(ctx, '❌ Session expired. Please start again.');
+            return;
+        }
+        
+        const channelIndex = ctx.session.editChannel.index;
+        const channel = ctx.session.editChannel.channel;
+        
+        if (channel.type !== 'private') {
+            await ctx.answerCbQuery('❌ Only private channels have auto accept');
+            return;
+        }
+        
+        const currentSetting = channel.autoAccept !== false; // Default true
+        const newSetting = !currentSetting;
+        
+        // Get current config
+        const config = await db.collection('admin').findOne({ type: 'config' });
+        const channels = [...config.channels];
+        
+        // Update channel
+        channels[channelIndex].autoAccept = newSetting;
+        
+        // Save to database
+        await db.collection('admin').updateOne(
+            { type: 'config' },
+            { $set: { channels: channels, updatedAt: new Date() } }
+        );
+        
+        // Update session
+        ctx.session.editChannel.channel = channels[channelIndex];
+        
+        await ctx.answerCbQuery(`✅ Auto accept ${newSetting ? 'enabled' : 'disabled'}`);
+        
+        // Refresh the edit view
+        await bot.action(`edit_channel_select_${channelIndex}`)(ctx);
+        
+    } catch (error) {
+        console.error('Edit channel auto accept error:', error);
+        await ctx.answerCbQuery('❌ Failed to update');
     }
 });
 
