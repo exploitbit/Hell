@@ -20,7 +20,7 @@ cloudinary.config({
 });
 
 // Initialize bot
-const BOT_TOKEN = process.env.BOT_TOKEN || '8316963643:AAFkrHxY_Nmzx1Yy7blZzeDEN4aVCMnM-vs' ;
+const BOT_TOKEN = process.env.BOT_TOKEN || '8316963643:AAFkrHxY_Nmzx1Yy7blZzeDEN4aVCMnM-vs';
 const bot = new Telegraf(BOT_TOKEN);
 
 // MongoDB connection
@@ -65,35 +65,34 @@ const scenes = {
     addPrivateChannelLink: createScene('add_private_channel_link_scene'),
     
     // App scenes
-    // App scenes
-addAppName: createScene('add_app_name_scene'),
-addAppImage: createScene('add_app_image_scene'),
-addAppCodeCount: createScene('add_app_code_count_scene'),
-addAppCodePrefixes: createScene('add_app_code_prefixes_scene'),  // ADD THIS LINE
-addAppCodeLengths: createScene('add_app_code_lengths_scene'),    // ADD THIS LINE
-addAppCodeMessage: createScene('add_app_code_message_scene'),
+    addAppName: createScene('add_app_name_scene'),
+    addAppImage: createScene('add_app_image_scene'),
+    addAppCodeCount: createScene('add_app_code_count_scene'),
+    addAppCodePrefixes: createScene('add_app_code_prefixes_scene'),
+    addAppCodeLengths: createScene('add_app_code_lengths_scene'),
+    addAppCodeMessage: createScene('add_app_code_message_scene'),
     
     // Contact user scenes
-contactUserMessage: createScene('contact_user_message_scene'),
+    contactUserMessage: createScene('contact_user_message_scene'),
 
-// Edit scenes
-editStartImage: createScene('edit_start_image_scene'),
-editStartMessage: createScene('edit_start_message_scene'),
-editMenuImage: createScene('edit_menu_image_scene'),
-editMenuMessage: createScene('edit_menu_message_scene'),
+    // Edit scenes
+    editStartImage: createScene('edit_start_image_scene'),
+    editStartMessage: createScene('edit_start_message_scene'),
+    editMenuImage: createScene('edit_menu_image_scene'),
+    editMenuMessage: createScene('edit_menu_message_scene'),
 
-// Timer scene
-editTimer: createScene('edit_timer_scene'),
+    // Timer scene
+    editTimer: createScene('edit_timer_scene'),
 
-// Reorder scenes
-reorderChannels: createScene('reorder_channels_scene'),
-reorderApps: createScene('reorder_apps_scene'),
+    // Reorder scenes
+    reorderChannels: createScene('reorder_channels_scene'),
+    reorderApps: createScene('reorder_apps_scene'),
 
-// Edit channels and apps scenes
-editChannelSelect: createScene('edit_channel_select_scene'),
-editChannelDetails: createScene('edit_channel_details_scene'),
-editAppSelect: createScene('edit_app_select_scene'),
-editAppDetails: createScene('edit_app_details_scene'),
+    // Edit channels and apps scenes
+    editChannelSelect: createScene('edit_channel_select_scene'),
+    editChannelDetails: createScene('edit_channel_details_scene'),
+    editAppSelect: createScene('edit_app_select_scene'),
+    editAppDetails: createScene('edit_app_details_scene'),
     
     // Report to admin scene
     reportToAdmin: createScene('report_to_admin_scene'),
@@ -112,7 +111,7 @@ editAppDetails: createScene('edit_app_details_scene'),
 Object.values(scenes).forEach(scene => stage.register(scene));
 
 // 🔐 ADMIN CONFIGURATION
-const ADMIN_IDS = process.env.ADMIN_IDS ? process.env.ADMIN_IDS.split(',').map(Number) : [8435248854,5518423310 ];
+const ADMIN_IDS = process.env.ADMIN_IDS ? process.env.ADMIN_IDS.split(',').map(Number) : [8435248854, 5518423310];
 
 // Default configurations
 const DEFAULT_CONFIG = {
@@ -133,29 +132,27 @@ async function initBot() {
         const config = await db.collection('admin').findOne({ type: 'config' });
         
         if (!config) {
-          await db.collection('admin').insertOne({
-    type: 'config',
-    admins: ADMIN_IDS,
-    startImage: DEFAULT_CONFIG.startImage,
-    startMessage: DEFAULT_CONFIG.startMessage,
-    menuImage: DEFAULT_CONFIG.menuImage,
-    menuMessage: DEFAULT_CONFIG.menuMessage,
-    codeTimer: DEFAULT_CONFIG.codeTimer,
-    showContactButton: true,
-    channels: [],
-    apps: [],
-    uploadedImages: [],
-    imageOverlaySettings: {
-        startImage: true,
-        menuImage: true,
-        appImages: true
-    },
-    createdAt: new Date(),
-    updatedAt: new Date()
-});
-
-
-          
+            await db.collection('admin').insertOne({
+                type: 'config',
+                admins: ADMIN_IDS,
+                startImage: DEFAULT_CONFIG.startImage,
+                startMessage: DEFAULT_CONFIG.startMessage,
+                menuImage: DEFAULT_CONFIG.menuImage,
+                menuMessage: DEFAULT_CONFIG.menuMessage,
+                codeTimer: DEFAULT_CONFIG.codeTimer,
+                showContactButton: true,
+                channels: [],
+                apps: [],
+                uploadedImages: [],
+                imageOverlaySettings: {
+                    startImage: true,
+                    menuImage: true,
+                    appImages: true
+                },
+                createdAt: new Date(),
+                updatedAt: new Date()
+            });
+            
             console.log('✅ Created new bot configuration');
         } else {
             console.log('✅ Loaded existing bot configuration');
@@ -631,6 +628,18 @@ bot.on('chat_join_request', async (ctx) => {
 
 bot.start(async (ctx) => {
     try {
+        // Check if bot is disabled
+        const config = await db.collection('admin').findOne({ type: 'config' });
+        const botDisabled = config?.botDisabled || false;
+        
+        if (botDisabled) {
+            const disabledMessage = config?.disabledMessage || '🚧 Bot is under maintenance. \n Please check back later.';
+            await safeSendMessage(ctx, disabledMessage, {
+                parse_mode: 'HTML'
+            });
+            return;
+        }
+        
         const user = ctx.from;
         const userId = user.id;
         
@@ -722,12 +731,12 @@ async function showStartScreen(ctx) {
         }
         
         // Add contact admin button if enabled
-const configForContact = await db.collection('admin').findOne({ type: 'config' });
-const showContactButton = configForContact?.showContactButton !== false; // Default true
+        const configForContact = await db.collection('admin').findOne({ type: 'config' });
+        const showContactButton = configForContact?.showContactButton !== false; // Default true
 
-if (showContactButton) {
-    buttons.push([{ text: '📞 Contact Admin', callback_data: 'contact_admin' }]);
-}
+        if (showContactButton) {
+            buttons.push([{ text: '📞 Contact Admin', callback_data: 'contact_admin' }]);
+        }
         
         await ctx.replyWithPhoto(startImage, {
             caption: startMessage,
@@ -907,12 +916,12 @@ async function showMainMenu(ctx) {
         keyboard.push([{ text: '🔙 Back to Start', callback_data: 'back_to_start' }]);
         
         // Add contact admin button if enabled
-const configForContact = await db.collection('admin').findOne({ type: 'config' });
-const showContactButton = configForContact?.showContactButton !== false; // Default true
+        const configForContact = await db.collection('admin').findOne({ type: 'config' });
+        const showContactButton = configForContact?.showContactButton !== false; // Default true
 
-if (showContactButton) {
-    keyboard.push([{ text: '📞 Contact Admin', callback_data: 'contact_admin' }]);
-}
+        if (showContactButton) {
+            keyboard.push([{ text: '📞 Contact Admin', callback_data: 'contact_admin' }]);
+        }
         
         await ctx.replyWithPhoto(menuImage, {
             caption: menuMessage,
@@ -954,6 +963,7 @@ bot.action('back_to_start', async (ctx) => {
 bot.action('no_apps', async (ctx) => {
     await ctx.answerCbQuery('No apps available yet. Please check back later.');
 });
+
 // ==========================================
 // APP CODE GENERATION - FIXED
 // ==========================================
@@ -1103,10 +1113,6 @@ bot.action('back_to_menu', async (ctx) => {
 // 🛡️ ADMIN PANEL - FIXED
 // ==========================================
 
-// ==========================================
-// 🛡️ ADMIN PANEL - FIXED
-// ==========================================
-
 // Admin command - FIXED: Only works with /admin command
 bot.command('admin', async (ctx) => {
     try {
@@ -1126,18 +1132,18 @@ async function showAdminPanel(ctx) {
         const text = '👮‍♂️ <b>Admin Control Panel</b>\n\nSelect an option below:';
         
         const keyboard = [
-    [{ text: '📢 Broadcast', callback_data: 'admin_broadcast' }, { text: '👥 User Stats', callback_data: 'admin_userstats' }],
-    [{ text: '🖼️ Start Image', callback_data: 'admin_startimage' }, { text: '📝 Start Message', callback_data: 'admin_startmessage' }],
-    [{ text: '🖼️ Menu Image', callback_data: 'admin_menuimage' }, { text: '📝 Menu Message', callback_data: 'admin_menumessage' }],
-    [{ text: '⏰ Code Timer', callback_data: 'admin_timer' }, { text: '📺 Manage Channels', callback_data: 'admin_channels' }],
-    [{ text: '📱 Manage Apps', callback_data: 'admin_apps' }, { text: '👑 Manage Admins', callback_data: 'admin_manage_admins' }],
-    [{ text: '⚙️ Image Overlay', callback_data: 'admin_image_overlay' }, { text: '📞 Contact Button', callback_data: 'admin_contact_button' }],
-    [{ text: '🔼🔽 Channels', callback_data: 'admin_reorder_channels' }, { text: '🔼🔽 Apps', callback_data: 'admin_reorder_apps' }],
-    [{ text: '✏️ Edit Channels', callback_data: 'admin_edit_channels' }, { text: '✏️ Edit Apps', callback_data: 'admin_edit_apps' }],
-    [{ text: '🚫 Disable Bot', callback_data: 'admin_disable_bot' }, { text: '🔒 Auto Accept', callback_data: 'admin_auto_accept' }],
-    [{ text: '🖼️ Manage Images', callback_data: 'admin_manage_images' }, { text: '🗑️ Delete Data', callback_data: 'admin_deletedata' }]
-];
-      
+            [{ text: '📢 Broadcast', callback_data: 'admin_broadcast' }, { text: '👥 User Stats', callback_data: 'admin_userstats' }],
+            [{ text: '🖼️ Start Image', callback_data: 'admin_startimage' }, { text: '📝 Start Message', callback_data: 'admin_startmessage' }],
+            [{ text: '🖼️ Menu Image', callback_data: 'admin_menuimage' }, { text: '📝 Menu Message', callback_data: 'admin_menumessage' }],
+            [{ text: '⏰ Code Timer', callback_data: 'admin_timer' }, { text: '📺 Manage Channels', callback_data: 'admin_channels' }],
+            [{ text: '📱 Manage Apps', callback_data: 'admin_apps' }, { text: '👑 Manage Admins', callback_data: 'admin_manage_admins' }],
+            [{ text: '⚙️ Image Overlay', callback_data: 'admin_image_overlay' }, { text: '📞 Contact Button', callback_data: 'admin_contact_button' }],
+            [{ text: '🔼🔽 Channels', callback_data: 'admin_reorder_channels' }, { text: '🔼🔽 Apps', callback_data: 'admin_reorder_apps' }],
+            [{ text: '✏️ Edit Channels', callback_data: 'admin_edit_channels' }, { text: '✏️ Edit Apps', callback_data: 'admin_edit_apps' }],
+            [{ text: '🚫 Disable Bot', callback_data: 'admin_disable_bot' }, { text: '🔒 Auto Accept', callback_data: 'admin_auto_accept' }],
+            [{ text: '🖼️ Manage Images', callback_data: 'admin_manage_images' }, { text: '🗑️ Delete Data', callback_data: 'admin_deletedata' }]
+        ];
+        
         if (ctx.callbackQuery) {
             await safeEditMessage(ctx, text, {
                 reply_markup: { inline_keyboard: keyboard }
@@ -2668,14 +2674,14 @@ scenes.addPublicChannelLink.on('text', async (ctx) => {
         const channelData = ctx.session.channelData;
         
         // Create channel object
-const newChannel = {
-    id: channelData.id,
-    title: channelData.title,
-    buttonLabel: channelData.buttonLabel,
-    link: link,
-    type: 'public',
-    addedAt: new Date()
-};
+        const newChannel = {
+            id: channelData.id,
+            title: channelData.title,
+            buttonLabel: channelData.buttonLabel,
+            link: link,
+            type: 'public',
+            addedAt: new Date()
+        };
         
         // Add to database
         await db.collection('admin').updateOne(
@@ -2798,7 +2804,16 @@ scenes.addPrivateChannelLink.on('text', async (ctx) => {
         
         const channelData = ctx.session.channelData;
         
-        
+        // Create channel object
+        const newChannel = {
+            id: channelData.id,
+            title: channelData.title,
+            buttonLabel: channelData.buttonLabel,
+            link: link,
+            type: 'private',
+            autoAccept: true, // Default true for private channels
+            addedAt: new Date()
+        };
         
         // Add to database
         await db.collection('admin').updateOne(
@@ -2821,17 +2836,8 @@ scenes.addPrivateChannelLink.on('text', async (ctx) => {
     
     await ctx.scene.leave();
     await showAdminPanel(ctx);
-// Create channel object
-const newChannel = {
-    id: channelData.id,
-    title: channelData.title,
-    buttonLabel: channelData.buttonLabel,
-    link: link,
-    type: 'private',
-    autoAccept: true, // Default true for private channels
-    addedAt: new Date()
-};
-  
+});
+
 // Delete Channel
 bot.action('admin_delete_channel', async (ctx) => {
     try {
@@ -3089,7 +3095,6 @@ scenes.addAppCodeCount.on('text', async (ctx) => {
     }
 });
 
-
 scenes.addAppCodePrefixes.on('text', async (ctx) => {
     try {
         if (!ctx.session.appData) {
@@ -3116,7 +3121,6 @@ scenes.addAppCodePrefixes.on('text', async (ctx) => {
         await ctx.scene.leave();
     }
 });
-
 
 scenes.addAppCodeLengths.on('text', async (ctx) => {
     try {
@@ -4261,37 +4265,6 @@ bot.on('text', async (ctx) => {
 });
 
 // ==========================================
-// UPDATE START COMMAND TO CHECK BOT STATUS
-// ==========================================
-
-// Update the bot.start() handler to check bot status
-// Find the bot.start() handler (around line 280-330) and add this check at the beginning:
-
-// OLD CODE in bot.start():
-// bot.start(async (ctx) => {
-//     try {
-//         const user = ctx.from;
-//         const userId = user.id;
-        
-// NEW CODE to add at the beginning of bot.start():
-bot.start(async (ctx) => {
-    try {
-        // Check if bot is disabled
-        const config = await db.collection('admin').findOne({ type: 'config' });
-        const botDisabled = config?.botDisabled || false;
-        
-        if (botDisabled) {
-            const disabledMessage = config?.disabledMessage || '🚧 Bot is under maintenance. \n Please check back later.';
-            await safeSendMessage(ctx, disabledMessage, {
-                parse_mode: 'HTML'
-            });
-            return;
-        }
-        
-        const user = ctx.from;
-        const userId = user.id;
-
-// ==========================================
 // ADMIN FEATURES - AUTO ACCEPT REQUESTS
 // ==========================================
 
@@ -4489,39 +4462,38 @@ bot.action(/^edit_channel_select_(\d+)$/, async (ctx) => {
         };
         
         // Display channel details
-        // Display channel details
-let text = '<b>✏️ Edit Channel</b>\n\n';
-text += '<b>Channel Details:</b>\n';
-text += `• <b>Button Name:</b> ${channel.buttonLabel || channel.title}\n`;
-text += `• <b>Channel ID:</b> <code>${channel.id}</code>\n`;
-text += `• <b>Link:</b> ${channel.link}\n`;
-text += `• <b>Type:</b> ${channel.type === 'private' ? '🔒 Private' : '🔓 Public'}\n`;
-if (channel.type === 'private') {
-    const autoAccept = channel.autoAccept !== false; // Default true
-    text += `• <b>Auto Accept:</b> ${autoAccept ? '✅ Enabled' : '❌ Disabled'}\n`;
-}
-text += `• <b>Title:</b> ${channel.title}\n`;
-text += `• <b>Added:</b> ${new Date(channel.addedAt).toLocaleDateString()}\n`;
+        let text = '<b>✏️ Edit Channel</b>\n\n';
+        text += '<b>Channel Details:</b>\n';
+        text += `• <b>Button Name:</b> ${channel.buttonLabel || channel.title}\n`;
+        text += `• <b>Channel ID:</b> <code>${channel.id}</code>\n`;
+        text += `• <b>Link:</b> ${channel.link}\n`;
+        text += `• <b>Type:</b> ${channel.type === 'private' ? '🔒 Private' : '🔓 Public'}\n`;
+        if (channel.type === 'private') {
+            const autoAccept = channel.autoAccept !== false; // Default true
+            text += `• <b>Auto Accept:</b> ${autoAccept ? '✅ Enabled' : '❌ Disabled'}\n`;
+        }
+        text += `• <b>Title:</b> ${channel.title}\n`;
+        text += `• <b>Added:</b> ${new Date(channel.addedAt).toLocaleDateString()}\n`;
         
         const keyboard = [
-    [{ text: '✏️ Change Button Name', callback_data: 'edit_channel_name' }],
-    [{ text: '🔗 Change Link', callback_data: 'edit_channel_link' }],
-    [{ text: '🆔 Change Channel ID', callback_data: 'edit_channel_id' }]
-];
+            [{ text: '✏️ Change Button Name', callback_data: 'edit_channel_name' }],
+            [{ text: '🔗 Change Link', callback_data: 'edit_channel_link' }],
+            [{ text: '🆔 Change Channel ID', callback_data: 'edit_channel_id' }]
+        ];
 
-// Add auto accept toggle for private channels
-if (channel.type === 'private') {
-    const autoAccept = channel.autoAccept !== false; // Default true
-    keyboard.push([{ 
-        text: autoAccept ? '✅ Auto Accept: ON' : '❌ Auto Accept: OFF', 
-        callback_data: 'edit_channel_auto_accept' 
-    }]);
-}
+        // Add auto accept toggle for private channels
+        if (channel.type === 'private') {
+            const autoAccept = channel.autoAccept !== false; // Default true
+            keyboard.push([{ 
+                text: autoAccept ? '✅ Auto Accept: ON' : '❌ Auto Accept: OFF', 
+                callback_data: 'edit_channel_auto_accept' 
+            }]);
+        }
 
-keyboard.push(
-    [{ text: '🔙 Back to Channels', callback_data: 'admin_edit_channels' }],
-    [{ text: '🔙 Back to Admin', callback_data: 'admin_back' }]
-);
+        keyboard.push(
+            [{ text: '🔙 Back to Channels', callback_data: 'admin_edit_channels' }],
+            [{ text: '🔙 Back to Admin', callback_data: 'admin_back' }]
+        );
         
         await safeEditMessage(ctx, text, {
             reply_markup: { inline_keyboard: keyboard },
@@ -5196,8 +5168,6 @@ bot.action(/^edit_app_confirm_logo_(.+)$/, async (ctx) => {
     }
 });
 
-
-
 // ==========================================
 // ERROR HANDLING - FIXED: Better error reporting
 // ==========================================
@@ -5261,5 +5231,5 @@ async function startBot() {
 }
 
 // Handle Railway port bin
-      startBot();
+startBot();
 console.log('Bot Starting...');
