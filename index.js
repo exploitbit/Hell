@@ -648,9 +648,41 @@ bot.on('chat_join_request', async (ctx) => {
                 shouldNotify = true;
             }
             
-            if (shouldAccept) {
+                        if (shouldAccept) {
                 try {
-                    // Approve the join request
+                    // First check if user is already a member (prevent USER_ALREADY_PARTICIPANT error)
+                    try {
+                        const member = await bot.telegram.getChatMember(chatId, userId);
+                        if (member.status !== 'left' && member.status !== 'kicked') {
+                            console.log(`✅ User ${userId} is already a member of "${channel.title}" - skipping approval`);
+                            
+                            // Still update user verification if needed
+                            setTimeout(async () => {
+                                try {
+                                    const user = await db.collection('users').findOne({ userId: userId });
+                                    if (user && !user.joinedAll) {
+                                        const unjoinedChannels = await getUnjoinedChannels(userId);
+                                        if (unjoinedChannels.length === 0) {
+                                            await db.collection('users').updateOne(
+                                                { userId: userId },
+                                                { $set: { joinedAll: true } }
+                                            );
+                                            console.log(`✅ User ${userId} has joined all channels`);
+                                        }
+                                    }
+                                } catch (err) {
+                                    console.error('Error checking user status:', err);
+                                }
+                            }, 2000);
+                            
+                            return; // Skip approval attempt
+                        }
+                    } catch (checkError) {
+                        // Can't check membership, proceed with approval
+                        console.log(`⚠️ Could not check membership for user ${userId}:`, checkError.message);
+                    }
+                    
+                    // If not already a member, proceed with approval
                     await bot.telegram.approveChatJoinRequest(chatId, userId);
                     console.log(`✅ Approved join request for user ${userId} in channel ${channel.title}`);
                     
@@ -677,10 +709,19 @@ bot.on('chat_join_request', async (ctx) => {
                         }
                     }, 2000);
                     
-                } catch (error) {
+                                } catch (error) {
                     console.error(`❌ Failed to approve join request for user ${userId}:`, error.message);
-                    await notifyAdmin(`❌ <b>Join Request Failed</b>\n\n👤 User: ${userId}\n📺 Channel: ${channel.title}\n❌ Error: ${error.message}`);
+                    
+                    // Check if error is "USER_ALREADY_PARTICIPANT" - this is not a real error
+                    if (error.message.includes('USER_ALREADY_PARTICIPANT')) {
+                        console.log(`✅ User ${userId} is already a member of "${channel.title}"`);
+                        // Don't notify admin for this non-error
+                    } else {
+                        // Only notify admin for real errors
+                        await notifyAdmin(`❌ <b>Join Request Failed</b>\n\n👤 User: ${userId}\n📺 Channel: ${channel.title}\n❌ Error: ${error.message}`);
+                    }
                 }
+                
             } else {
                 console.log(`⏸️ Join request not auto-approved for user ${userId} in channel ${channel.title}`);
                 
