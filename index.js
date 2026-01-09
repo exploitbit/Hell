@@ -3,8 +3,6 @@
 // ==========================================
 // Fixed: All bugs, proper flow, pagination, contact system
 // Added: Name overlay option for images
-// Added: Chat join request approval
-// Modified: Admin adds codes manually instead of auto-generation
 // ==========================================
 
 const { Telegraf, Scenes, session, Markup } = require('telegraf');
