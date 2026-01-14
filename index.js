@@ -13,7 +13,7 @@ cloudinary.config({
 });
 
 // Initialize bot
-const BOT_TOKEN = process.env.BOT_TOKEN || '8316963643:AAFkrHxY_Nmzx1Yy7blZzeDEN4aVCMnM-vs';
+const BOT_TOKEN = process.env.BOT_TOKEN || '8043573365:AAGi5rnWt6AAYEVQchQDl3ezglFIpZMVyNo';
 const bot = new Telegraf(BOT_TOKEN);
 
 // Emergency stop for error loop - MOVED HERE AFTER bot IS DEFINED
