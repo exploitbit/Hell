@@ -318,9 +318,7 @@ async function showMainMenu(ctx) {
             Markup.button.callback('📜 View History', 'view_history_dates_1'), 
             Markup.button.callback('📥 Download Data', 'download_menu')
         ],
-        [
-            Markup.button.callback('🗑️ Delete Data', 'delete_menu')
-        ]
+        [Markup.button.callback('🗑️ Delete Data', 'delete_menu')]
     ]);
 
     await safeEdit(ctx, text, keyboard);
@@ -1515,25 +1513,24 @@ bot.action('delete_all_final', async (ctx) => {
         
         const totalDeleted = tasksResult.deletedCount + historyResult.deletedCount + notesResult.deletedCount;
         
-        // 3. Send confirmation with files
-        if (totalDeleted > 0) {
-            // Create backup files before deletion confirmation
-            const tasksData = await db.collection('tasks').find({ userId }).toArray();
-            const historyData = await db.collection('history').find({ userId }).toArray();
-            const notesData = await db.collection('notes').find({ userId }).toArray();
-            
-            if (tasksData.length > 0) {
-                const tasksBuff = Buffer.from(JSON.stringify(tasksData, null, 2));
-                await ctx.replyWithDocument({ source: tasksBuff, filename: 'backup_tasks_deleted.json' });
-            }
-            if (historyData.length > 0) {
-                const histBuff = Buffer.from(JSON.stringify(historyData, null, 2));
-                await ctx.replyWithDocument({ source: histBuff, filename: 'backup_history_deleted.json' });
-            }
-            if (notesData.length > 0) {
-                const notesBuff = Buffer.from(JSON.stringify(notesData, null, 2));
-                await ctx.replyWithDocument({ source: notesBuff, filename: 'backup_notes_deleted.json' });
-            }
+        // 3. Send backup files before confirming deletion
+        if (tasksResult.deletedCount > 0) {
+            const tasksBuff = Buffer.from(JSON.stringify(tasks, null, 2));
+            await ctx.replyWithDocument({ source: tasksBuff, filename: 'backup_tasks_deleted.json' });
+        }
+        
+        // For history and notes, we need to fetch them before deletion
+        const history = await db.collection('history').find({ userId }).toArray();
+        const notes = await db.collection('notes').find({ userId }).toArray();
+        
+        if (history.length > 0) {
+            const histBuff = Buffer.from(JSON.stringify(history, null, 2));
+            await ctx.replyWithDocument({ source: histBuff, filename: 'backup_history_deleted.json' });
+        }
+        
+        if (notes.length > 0) {
+            const notesBuff = Buffer.from(JSON.stringify(notes, null, 2));
+            await ctx.replyWithDocument({ source: notesBuff, filename: 'backup_notes_deleted.json' });
         }
         
         await ctx.answerCbQuery(`✅ Deleted ${totalDeleted} items total`);
@@ -1542,11 +1539,6 @@ bot.action('delete_all_final', async (ctx) => {
         console.error('Error deleting all data:', error);
         await ctx.answerCbQuery('❌ Error deleting data');
     }
-});
-
-bot.action('main_menu', async (ctx) => {
-    ctx.session.step = null;
-    await showMainMenu(ctx);
 });
 
 // ==========================================
