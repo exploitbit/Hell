@@ -10,6 +10,7 @@ const bot = new Telegraf(BOT_TOKEN);
 // MongoDB connection
 const mongoUri = process.env.MONGODB_URI || 'mongodb+srv://sandip:9E9AISFqTfU3VI5i@cluster0.p8irtov.mongodb.net/two_telegram_bot';
 let db, client;
+let isDbConnected = false;
 
 async function connectDB() {
     try {
@@ -21,10 +22,12 @@ async function connectDB() {
         });
         await client.connect();
         db = client.db();
+        isDbConnected = true;
         console.log('✅ Connected to MongoDB');
         return true;
     } catch (error) {
         console.error('❌ MongoDB connection error:', error);
+        isDbConnected = false;
         return false;
     }
 }
@@ -152,6 +155,10 @@ bot.command('time', async (ctx) => {
         
         await safeSendMessage(ctx, 'Enter the target time in HH:MM format (24-hour, IST):\n\nExample: 14:30 for 2:30 PM\n\nType "cancel" to cancel.');
         
+        // Initialize session if not exists
+        if (!ctx.session) {
+            ctx.session = {};
+        }
         ctx.session.waitingForTime = true;
     } catch (error) {
         console.error('Time command error:', error);
@@ -168,6 +175,10 @@ bot.command('settime', async (ctx) => {
         
         await safeSendMessage(ctx, 'Enter interval and number of times in format: minutes/times\n\nExample: 5/10 (every 5 minutes, 10 times)\n\nType "cancel" to cancel.');
         
+        // Initialize session if not exists
+        if (!ctx.session) {
+            ctx.session = {};
+        }
         ctx.session.waitingForSetTime = true;
     } catch (error) {
         console.error('Settime command error:', error);
@@ -182,8 +193,17 @@ bot.command('note', async (ctx) => {
             return await safeSendMessage(ctx, '❌ You are not authorized to use this command.');
         }
         
+        // Check if database is connected
+        if (!isDbConnected) {
+            return await safeSendMessage(ctx, '❌ Database not connected. Please try again in a moment.');
+        }
+        
         await safeSendMessage(ctx, 'Enter your note (max 1000 characters):\n\nType "cancel" to cancel.');
         
+        // Initialize session if not exists
+        if (!ctx.session) {
+            ctx.session = {};
+        }
         ctx.session.waitingForNote = true;
     } catch (error) {
         console.error('Note command error:', error);
@@ -196,6 +216,11 @@ bot.command('notes', async (ctx) => {
     try {
         if (!isAdmin(ctx.from.id)) {
             return await safeSendMessage(ctx, '❌ You are not authorized to use this command.');
+        }
+        
+        // Check if database is connected
+        if (!isDbConnected) {
+            return await safeSendMessage(ctx, '❌ Database not connected. Please try again in a moment.');
         }
         
         const notes = await db.collection('notes')
@@ -228,6 +253,11 @@ bot.command('clearnotes', async (ctx) => {
     try {
         if (!isAdmin(ctx.from.id)) {
             return await safeSendMessage(ctx, '❌ You are not authorized to use this command.');
+        }
+        
+        // Check if database is connected
+        if (!isDbConnected) {
+            return await safeSendMessage(ctx, '❌ Database not connected. Please try again in a moment.');
         }
         
         const result = await db.collection('notes').deleteMany({ userId: ctx.from.id });
@@ -329,15 +359,17 @@ bot.command('status', async (ctx) => {
 
 bot.on('text', async (ctx) => {
     try {
+        const messageText = ctx.message.text;
+        
         // Handle time command input
-        if (ctx.session?.waitingForTime) {
-            if (ctx.message.text.toLowerCase() === 'cancel') {
+        if (ctx.session && ctx.session.waitingForTime) {
+            if (messageText.toLowerCase() === 'cancel') {
                 delete ctx.session.waitingForTime;
                 await safeSendMessage(ctx, '❌ Time scheduling cancelled.');
                 return;
             }
             
-            const timeInput = ctx.message.text.trim();
+            const timeInput = messageText.trim();
             
             // Validate time format
             const timeRegex = /^([01]?[0-9]|2[0-3]):([0-5][0-9])$/;
@@ -356,14 +388,14 @@ bot.on('text', async (ctx) => {
         }
         
         // Handle settime command input
-        if (ctx.session?.waitingForSetTime) {
-            if (ctx.message.text.toLowerCase() === 'cancel') {
+        if (ctx.session && ctx.session.waitingForSetTime) {
+            if (messageText.toLowerCase() === 'cancel') {
                 delete ctx.session.waitingForSetTime;
                 await safeSendMessage(ctx, '❌ Interval scheduling cancelled.');
                 return;
             }
             
-            const input = ctx.message.text.trim();
+            const input = messageText.trim();
             
             // Validate format: minutes/times
             const match = input.match(/^(\d+)\/(\d+)$/);
@@ -393,17 +425,23 @@ bot.on('text', async (ctx) => {
         }
         
         // Handle note command input
-        if (ctx.session?.waitingForNote) {
-            if (ctx.message.text.toLowerCase() === 'cancel') {
+        if (ctx.session && ctx.session.waitingForNote) {
+            if (messageText.toLowerCase() === 'cancel') {
                 delete ctx.session.waitingForNote;
                 await safeSendMessage(ctx, '❌ Note creation cancelled.');
                 return;
             }
             
-            const noteContent = ctx.message.text.trim();
+            const noteContent = messageText.trim();
             
             if (noteContent.length > 1000) {
                 await safeSendMessage(ctx, '❌ Note is too long. Maximum 1000 characters.');
+                return;
+            }
+            
+            // Check if database is connected
+            if (!isDbConnected) {
+                await safeSendMessage(ctx, '❌ Database not connected. Please try again in a moment.');
                 return;
             }
             
@@ -704,8 +742,11 @@ bot.catch((error, ctx) => {
 async function initBot() {
     try {
         // Create indexes
-        await db.collection('notes').createIndex({ userId: 1 });
-        await db.collection('notes').createIndex({ createdAt: -1 });
+        if (isDbConnected && db) {
+            await db.collection('notes').createIndex({ userId: 1 });
+            await db.collection('notes').createIndex({ createdAt: -1 });
+            console.log('✅ Database indexes created');
+        }
         
         console.log('✅ Bot initialized successfully');
         return true;
@@ -717,6 +758,7 @@ async function initBot() {
 
 async function startBot() {
     try {
+        console.log('🔗 Connecting to MongoDB...');
         // Connect to database
         const dbConnected = await connectDB();
         if (!dbConnected) {
@@ -728,6 +770,7 @@ async function startBot() {
         // Initialize bot
         await initBot();
         
+        console.log('🚀 Starting bot...');
         // Start bot
         await bot.launch({
             dropPendingUpdates: true,
