@@ -693,7 +693,7 @@ bot.on('text', async (ctx) => {
             `━━━━━━━━━━━━━━━━━━━━\n` +
             `Enter end time in 24-hour format (HH:MM):\n\n` +
             `⏰ Start Time: ${text}\n` +
-            `📝 <i>End time must be after start time</i>`,
+            `📝 <i>End time must be after start time and before 23:59</i>`,
             { parse_mode: 'HTML' }
         );
     }
@@ -702,8 +702,14 @@ bot.on('text', async (ctx) => {
             return ctx.reply('❌ Invalid format. Use HH:MM (24-hour). Example: 15:30');
         }
         
-        const [sh, sm] = ctx.session.task.startTimeStr.split(':').map(Number);
         const [eh, em] = text.split(':').map(Number);
+        
+        // Check if end time is valid (before 23:59)
+        if (eh > 23 || (eh === 23 && em > 59)) {
+            return ctx.reply('❌ End time must be before 23:59');
+        }
+        
+        const [sh, sm] = ctx.session.task.startTimeStr.split(':').map(Number);
         const { year, month, day } = ctx.session.task;
         
         // Create IST dates using corrected function
@@ -737,46 +743,15 @@ bot.on('text', async (ctx) => {
             }
         );
     }
-    else if (step === 'edit_task_repeat_count') {
-    const taskId = ctx.session.editTaskId;
-    
-    // Check if task exists
-    const taskExists = await db.collection('tasks').findOne({ taskId });
-    if (!taskExists) {
-        ctx.session.step = null;
-        delete ctx.session.editTaskId;
-        return ctx.reply('❌ Task not found. It may have been deleted.');
-    }
-    
-    const count = parseInt(text);
-    if (isNaN(count) || count < 0 || count > 365) {
-        return ctx.reply('❌ Invalid Number. Enter 0-365');
-    }
-    
-    // Rest of the code remains the same...
-    const updates = { repeatCount: count };
-    if (count === 0) updates.repeat = 'none';
-
-    try {
-        await db.collection('tasks').updateOne({ taskId }, { $set: updates });
-        
-        ctx.session.step = null;
-        delete ctx.session.editTaskId;
-        await ctx.reply(`✅ <b>COUNT UPDATED!</b>`, { parse_mode: 'HTML' });
-        
-        // Show updated task details
-        const updatedTask = await db.collection('tasks').findOne({ taskId });
-        if (updatedTask) {
-            await showTaskDetail(ctx, taskId);
-        } else {
-            await ctx.reply('❌ Task not found after update.');
-            await showMainMenu(ctx);
+    else if (step === 'task_repeat_count') {
+        const count = parseInt(text);
+        if (isNaN(count) || count < 1 || count > 365) {
+            return ctx.reply('❌ Please enter a valid number between 1 and 365.');
         }
-    } catch (error) {
-        console.error('Error updating repeat count:', error);
-        await ctx.reply('❌ Failed to update. Please try again.');
+        
+        ctx.session.task.repeatCount = count;
+        await saveTask(ctx);
     }
-}
 
     // --- NOTE FLOW ---
     else if (step === 'note_title') {
@@ -826,37 +801,61 @@ bot.on('text', async (ctx) => {
     }
 
     // --- EDIT TASK FLOW ---
-    else if (step && step.startsWith('edit_task_')) {
+    else if (step === 'edit_task_title') {
         const taskId = ctx.session.editTaskId;
-        const field = step.replace('edit_task_', '');
+        if (text.length === 0) return ctx.reply('❌ Title cannot be empty.');
         
-        // Check if task still exists
-        const taskExists = await db.collection('tasks').findOne({ taskId });
-        if (!taskExists) {
+        try {
+            await db.collection('tasks').updateOne(
+                { taskId: taskId }, 
+                { $set: { title: text } }
+            );
+            
             ctx.session.step = null;
             delete ctx.session.editTaskId;
-            return ctx.reply('❌ Task not found. It may have been deleted.');
+            await ctx.reply(`✅ <b>TITLE UPDATED!</b>`, { parse_mode: 'HTML' });
+            await showTaskDetail(ctx, taskId);
+        } catch (error) {
+            console.error('Error updating title:', error);
+            await ctx.reply('❌ Failed to update title.');
         }
+    }
+    else if (step === 'edit_task_desc') {
+        const taskId = ctx.session.editTaskId;
+        if (text.split(/\s+/).length > 100) return ctx.reply('❌ Too long! Max 100 words.');
         
-        const updates = {};
-        if (field === 'title') {
-            if (text.length === 0) return ctx.reply('❌ Title cannot be empty.');
-            updates.title = text;
-        }
-        if (field === 'desc') {
-            if (text.split(/\s+/).length > 100) return ctx.reply('❌ Too long! Max 100 words.');
-            updates.description = text;
-        }
-        
-        if (field === 'start' || field === 'end') {
-            if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(text)) {
-                return ctx.reply('❌ Invalid Format. Use HH:MM (24-hour)');
-            }
-             
-            const task = await db.collection('tasks').findOne({ taskId });
-            const dateObj = new Date(field === 'start' ? task.startDate : task.endDate);
+        try {
+            await db.collection('tasks').updateOne(
+                { taskId: taskId }, 
+                { $set: { description: text } }
+            );
             
-            // Convert to IST to get current date components
+            ctx.session.step = null;
+            delete ctx.session.editTaskId;
+            await ctx.reply(`✅ <b>DESCRIPTION UPDATED!</b>`, { parse_mode: 'HTML' });
+            await showTaskDetail(ctx, taskId);
+        } catch (error) {
+            console.error('Error updating description:', error);
+            await ctx.reply('❌ Failed to update description.');
+        }
+    }
+    else if (step === 'edit_task_start') {
+        const taskId = ctx.session.editTaskId;
+        
+        if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(text)) {
+            return ctx.reply('❌ Invalid Format. Use HH:MM (24-hour)');
+        }
+        
+        try {
+            // Get current task to know end time
+            const task = await db.collection('tasks').findOne({ taskId });
+            if (!task) {
+                ctx.session.step = null;
+                delete ctx.session.editTaskId;
+                return ctx.reply('❌ Task not found.');
+            }
+            
+            const dateObj = new Date(task.startDate);
             const dateObjIST = new Date(dateObj.getTime() + (5.5 * 60 * 60 * 1000));
             const year = dateObjIST.getUTCFullYear();
             const month = dateObjIST.getUTCMonth() + 1;
@@ -864,49 +863,123 @@ bot.on('text', async (ctx) => {
             const [h, m] = text.split(':').map(Number);
             
             // Create new IST date
-            const newDate = createISTDate(year, month, day, h, m);
-             
-            updates[field === 'start' ? 'startDate' : 'endDate'] = newDate;
+            const newStartDate = createISTDate(year, month, day, h, m);
             
-            // If updating start time, also update nextOccurrence
-            if (field === 'start') {
-                updates.nextOccurrence = newDate;
+            // Check if new start time is after end time
+            if (newStartDate >= task.endDate) {
+                return ctx.reply('❌ Start time must be before end time. Current end time is ' + formatTime(task.endDate));
             }
-        }
-
-        if (field === 'repeat_count') {
-            const count = parseInt(text);
-            if (isNaN(count) || count < 0 || count > 365) {
-                return ctx.reply('❌ Invalid Number. Enter 0-365');
-            }
-            updates.repeatCount = count;
-            if (count === 0) updates.repeat = 'none';
-        }
-
-        try {
-            await db.collection('tasks').updateOne({ taskId }, { $set: updates });
             
-            // Reschedule if start time changed
-            if (field === 'start') {
-                const updatedTask = await db.collection('tasks').findOne({ taskId });
-                scheduleTask(updatedTask);
-            }
-
+            // Calculate duration to preserve it
+            const duration = task.endDate.getTime() - task.startDate.getTime();
+            const newEndDate = new Date(newStartDate.getTime() + duration);
+            
+            await db.collection('tasks').updateOne(
+                { taskId: taskId }, 
+                { 
+                    $set: { 
+                        startDate: newStartDate,
+                        endDate: newEndDate,
+                        nextOccurrence: newStartDate
+                    } 
+                }
+            );
+            
+            // Reschedule the task
+            const updatedTask = await db.collection('tasks').findOne({ taskId });
+            scheduleTask(updatedTask);
+            
             ctx.session.step = null;
             delete ctx.session.editTaskId;
-            await ctx.reply(`✅ <b>${field.toUpperCase()} UPDATED!</b>`, { parse_mode: 'HTML' });
-            
-            // Show updated task details
-            const updatedTask = await db.collection('tasks').findOne({ taskId });
-            if (updatedTask) {
-                await showTaskDetail(ctx, taskId);
-            } else {
-                await ctx.reply('❌ Task not found after update.');
-                await showMainMenu(ctx);
-            }
+            await ctx.reply(`✅ <b>START TIME UPDATED!</b>\n\nEnd time adjusted to: ${formatTime(newEndDate)}`, { parse_mode: 'HTML' });
+            await showTaskDetail(ctx, taskId);
         } catch (error) {
-            console.error('Error updating task:', error);
-            await ctx.reply('❌ Failed to update. Please try again.');
+            console.error('Error updating start time:', error);
+            await ctx.reply('❌ Failed to update start time.');
+        }
+    }
+    else if (step === 'edit_task_end') {
+        const taskId = ctx.session.editTaskId;
+        
+        if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(text)) {
+            return ctx.reply('❌ Invalid Format. Use HH:MM (24-hour)');
+        }
+        
+        const [eh, em] = text.split(':').map(Number);
+        
+        // Check if end time is valid (before 23:59)
+        if (eh > 23 || (eh === 23 && em > 59)) {
+            return ctx.reply('❌ End time must be before 23:59');
+        }
+        
+        try {
+            // Get current task to know start time
+            const task = await db.collection('tasks').findOne({ taskId });
+            if (!task) {
+                ctx.session.step = null;
+                delete ctx.session.editTaskId;
+                return ctx.reply('❌ Task not found.');
+            }
+            
+            const dateObj = new Date(task.endDate);
+            const dateObjIST = new Date(dateObj.getTime() + (5.5 * 60 * 60 * 1000));
+            const year = dateObjIST.getUTCFullYear();
+            const month = dateObjIST.getUTCMonth() + 1;
+            const day = dateObjIST.getUTCDate();
+            
+            // Create new IST date
+            const newEndDate = createISTDate(year, month, day, eh, em);
+            
+            // Check if new end time is before start time
+            if (newEndDate <= task.startDate) {
+                return ctx.reply('❌ End time must be after start time. Current start time is ' + formatTime(task.startDate));
+            }
+            
+            await db.collection('tasks').updateOne(
+                { taskId: taskId }, 
+                { 
+                    $set: { 
+                        endDate: newEndDate
+                    } 
+                }
+            );
+            
+            ctx.session.step = null;
+            delete ctx.session.editTaskId;
+            await ctx.reply(`✅ <b>END TIME UPDATED!</b>`, { parse_mode: 'HTML' });
+            await showTaskDetail(ctx, taskId);
+        } catch (error) {
+            console.error('Error updating end time:', error);
+            await ctx.reply('❌ Failed to update end time.');
+        }
+    }
+    else if (step === 'edit_task_repeat_count') {
+        const taskId = ctx.session.editTaskId;
+        const count = parseInt(text);
+        
+        if (isNaN(count) || count < 0 || count > 365) {
+            return ctx.reply('❌ Invalid Number. Enter 0-365');
+        }
+        
+        try {
+            // Simply update the count in database
+            await db.collection('tasks').updateOne(
+                { taskId: taskId }, 
+                { 
+                    $set: { 
+                        repeatCount: count,
+                        ...(count === 0 && { repeat: 'none' })
+                    } 
+                }
+            );
+            
+            ctx.session.step = null;
+            delete ctx.session.editTaskId;
+            await ctx.reply(`✅ <b>REPEAT COUNT UPDATED!</b>`, { parse_mode: 'HTML' });
+            await showTaskDetail(ctx, taskId);
+        } catch (error) {
+            console.error('Error updating repeat count:', error);
+            await ctx.reply('❌ Failed to update repeat count.');
         }
     }
     
@@ -916,13 +989,6 @@ bot.on('text', async (ctx) => {
         
         try {
             const noteId = ctx.session.editNoteId;
-            const noteExists = await db.collection('notes').findOne({ noteId });
-            if (!noteExists) {
-                ctx.session.step = null;
-                delete ctx.session.editNoteId;
-                return ctx.reply('❌ Note not found. It may have been deleted.');
-            }
-            
             await db.collection('notes').updateOne(
                 { noteId: noteId }, 
                 { $set: { title: text, updatedAt: new Date() } }
@@ -953,13 +1019,6 @@ bot.on('text', async (ctx) => {
         
         try {
             const noteId = ctx.session.editNoteId;
-            const noteExists = await db.collection('notes').findOne({ noteId });
-            if (!noteExists) {
-                ctx.session.step = null;
-                delete ctx.session.editNoteId;
-                return ctx.reply('❌ Note not found. It may have been deleted.');
-            }
-            
             await db.collection('notes').updateOne(
                 { noteId: noteId }, 
                 { $set: { content: text, updatedAt: new Date() } }
@@ -1182,16 +1241,16 @@ bot.action(/^edit_menu_(.+)$/, async (ctx) => {
     const text = `✏️ <b>𝗘𝗗𝗜𝗧 𝗧𝗔𝗦𝗞</b>\n\n━━━━━━━━━━━━━━━━━━━━\nSelect what you want to edit:`;
     const keyboard = Markup.inlineKeyboard([
         [
-            Markup.button.callback('🏷 Title', `edit_task_${taskId}_title`), 
-            Markup.button.callback('📝 Description', `edit_task_${taskId}_desc`)
+            Markup.button.callback('🏷 Title', `edit_task_title_${taskId}`), 
+            Markup.button.callback('📝 Description', `edit_task_desc_${taskId}`)
         ],
         [
-            Markup.button.callback('⏰ Start Time', `edit_task_${taskId}_start`), 
-            Markup.button.callback('🏁 End Time', `edit_task_${taskId}_end`)
+            Markup.button.callback('⏰ Start Time', `edit_task_start_${taskId}`), 
+            Markup.button.callback('🏁 End Time', `edit_task_end_${taskId}`)
         ],
         [
             Markup.button.callback('🔄 Repeat', `edit_rep_${taskId}`), 
-            Markup.button.callback('🔢 Count', `edit_task_${taskId}_repeat_count`)
+            Markup.button.callback('🔢 Count', `edit_task_count_${taskId}`)
         ],
         [Markup.button.callback('🔙 Back', `task_det_${taskId}`)]
     ]);
@@ -1199,31 +1258,94 @@ bot.action(/^edit_menu_(.+)$/, async (ctx) => {
     await safeEdit(ctx, text, keyboard);
 });
 
-bot.action(/^edit_task_(.+)_(.+)$/, async (ctx) => {
+// Direct edit action handlers (NEW APPROACH)
+bot.action(/^edit_task_title_(.+)$/, async (ctx) => {
     const taskId = ctx.match[1];
-    const field = ctx.match[2];
+    ctx.session.editTaskId = taskId;
+    ctx.session.step = 'edit_task_title';
     
-    // Check if task exists before allowing edit
-    const taskExists = await db.collection('tasks').findOne({ taskId });
-    if (!taskExists) {
+    await ctx.reply(
+        `✏️ <b>𝗘𝗗𝗜𝗧 𝗧𝗜𝗧𝗟𝗘</b>\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `Enter new title:`,
+        Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `task_det_${taskId}`)]])
+    );
+});
+
+bot.action(/^edit_task_desc_(.+)$/, async (ctx) => {
+    const taskId = ctx.match[1];
+    ctx.session.editTaskId = taskId;
+    ctx.session.step = 'edit_task_desc';
+    
+    await ctx.reply(
+        `✏️ <b>𝗘𝗗𝗜𝗧 𝗗𝗘𝗦𝗖𝗥𝗜𝗣𝗧𝗜𝗢𝗡</b>\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `Enter new description (Max 100 words):`,
+        Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `task_det_${taskId}`)]])
+    );
+});
+
+bot.action(/^edit_task_start_(.+)$/, async (ctx) => {
+    const taskId = ctx.match[1];
+    const task = await db.collection('tasks').findOne({ taskId });
+    
+    if (!task) {
         await ctx.answerCbQuery('❌ Task not found');
         return showMainMenu(ctx);
     }
     
     ctx.session.editTaskId = taskId;
-    ctx.session.step = `edit_task_${field}`;
+    ctx.session.step = 'edit_task_start';
     
-    let msg = '';
-    if (field === 'title') msg = 'Enter new Title:';
-    if (field === 'desc') msg = 'Enter new Description (Max 100 words):';
-    if (field === 'start') msg = 'Enter new Start Time (HH:MM, 24-hour):';
-    if (field === 'end') msg = 'Enter new End Time (HH:MM, 24-hour):';
-    if (field === 'repeat_count') msg = 'Enter new Repeat Count (0-365):';
-
     await ctx.reply(
-        `✏️ <b>𝗘𝗗𝗜𝗧 ${field.toUpperCase()}</b>\n\n` +
+        `✏️ <b>𝗘𝗗𝗜𝗧 𝗦𝗧𝗔𝗥𝗧 𝗧𝗜𝗠𝗘</b>\n\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
-        `${msg}`,
+        `Enter new start time (HH:MM, 24-hour):\n\n` +
+        `📝 Current end time: ${formatTime(task.endDate)}\n` +
+        `⚠️ New start time must be before end time`,
+        Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `task_det_${taskId}`)]])
+    );
+});
+
+bot.action(/^edit_task_end_(.+)$/, async (ctx) => {
+    const taskId = ctx.match[1];
+    const task = await db.collection('tasks').findOne({ taskId });
+    
+    if (!task) {
+        await ctx.answerCbQuery('❌ Task not found');
+        return showMainMenu(ctx);
+    }
+    
+    ctx.session.editTaskId = taskId;
+    ctx.session.step = 'edit_task_end';
+    
+    await ctx.reply(
+        `✏️ <b>𝗘𝗗𝗜𝗧 𝗘𝗡𝗗 𝗧𝗜𝗠𝗘</b>\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `Enter new end time (HH:MM, 24-hour):\n\n` +
+        `📝 Current start time: ${formatTime(task.startDate)}\n` +
+        `⚠️ End time must be after start time and before 23:59`,
+        Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `task_det_${taskId}`)]])
+    );
+});
+
+bot.action(/^edit_task_count_(.+)$/, async (ctx) => {
+    const taskId = ctx.match[1];
+    const task = await db.collection('tasks').findOne({ taskId });
+    
+    if (!task) {
+        await ctx.answerCbQuery('❌ Task not found');
+        return showMainMenu(ctx);
+    }
+    
+    ctx.session.editTaskId = taskId;
+    ctx.session.step = 'edit_task_repeat_count';
+    
+    await ctx.reply(
+        `✏️ <b>𝗘𝗗𝗜𝗧 𝗥𝗘𝗣𝗘𝗔𝗧 𝗖𝗢𝗨𝗡𝗧</b>\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `Enter new repeat count (0-365):\n\n` +
+        `📝 Current count: ${task.repeatCount || 0}`,
         Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `task_det_${taskId}`)]])
     );
 });
@@ -1250,7 +1372,9 @@ bot.action(/^set_rep_(.+)_(.+)$/, async (ctx) => {
         if (mode === 'none') {
             updates.repeatCount = 0;
         } else {
-            updates.repeatCount = 10; // Default 10 repeats
+            // Keep existing count or set to 10 if not exists
+            const task = await db.collection('tasks').findOne({ taskId });
+            updates.repeatCount = task?.repeatCount || 10;
         }
         
         await db.collection('tasks').updateOne({ taskId }, { $set: updates });
