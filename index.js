@@ -2120,8 +2120,9 @@ bot.action(/^delete_note_(.+)$/, async (ctx) => {
     }
 });
 
+
 // ==========================================
-// 📥 DOWNLOAD DATA MENU
+// 📥 DOWNLOAD DATA MENU (FIXED FILE SENDING)
 // ==========================================
 
 bot.action('download_menu', async (ctx) => {
@@ -2139,68 +2140,193 @@ bot.action('download_menu', async (ctx) => {
 });
 
 bot.action('download_tasks', async (ctx) => {
-    const userId = ctx.from.id;
-    const tasks = await db.collection('tasks').find({ userId }).toArray();
-    
-    // Always send file, even if empty
-    const tasksData = tasks.length > 0 ? tasks : [];
-    const tasksBuff = Buffer.from(JSON.stringify(tasksData, null, 2));
-    
-    await ctx.replyWithDocument({ source: tasksBuff, filename: 'active_tasks.json' });
-    await ctx.answerCbQuery(`✅ Sent ${tasks.length} tasks`);
+    try {
+        await ctx.answerCbQuery('⏳ Fetching tasks...');
+        const userId = ctx.from.id;
+        const tasks = await db.collection('tasks').find({ userId }).toArray();
+        
+        // Create JSON data
+        const tasksData = {
+            total: tasks.length,
+            downloadedAt: new Date().toISOString(),
+            userId: userId,
+            data: tasks.length > 0 ? tasks : []
+        };
+        
+        const tasksJson = JSON.stringify(tasksData, null, 2);
+        const tasksBuff = Buffer.from(tasksJson, 'utf-8');
+        
+        // Send file with proper options
+        await ctx.replyWithDocument({
+            source: tasksBuff,
+            filename: `tasks_${userId}_${Date.now()}.json`
+        }, {
+            caption: `📋 <b>Your Tasks Data</b>\nTotal: ${tasks.length} task${tasks.length !== 1 ? 's' : ''}\n📅 ${formatDateTime(new Date())}`,
+            parse_mode: 'HTML'
+        });
+        
+        await ctx.answerCbQuery(`✅ Sent ${tasks.length} tasks`);
+    } catch (error) {
+        console.error('Error downloading tasks:', error);
+        await ctx.answerCbQuery('❌ Error sending tasks file');
+        await ctx.reply('❌ Failed to send tasks file. Please try again.');
+    }
 });
 
 bot.action('download_history', async (ctx) => {
-    const userId = ctx.from.id;
-    const history = await db.collection('history').find({ userId }).toArray();
-    
-    // Always send file, even if empty
-    const historyData = history.length > 0 ? history : [];
-    const histBuff = Buffer.from(JSON.stringify(historyData, null, 2));
-    
-    await ctx.replyWithDocument({ source: histBuff, filename: 'history.json' });
-    await ctx.answerCbQuery(`✅ Sent ${history.length} history items`);
+    try {
+        await ctx.answerCbQuery('⏳ Fetching history...');
+        const userId = ctx.from.id;
+        const history = await db.collection('history').find({ userId }).toArray();
+        
+        // Create JSON data
+        const historyData = {
+            total: history.length,
+            downloadedAt: new Date().toISOString(),
+            userId: userId,
+            data: history.length > 0 ? history : []
+        };
+        
+        const historyJson = JSON.stringify(historyData, null, 2);
+        const histBuff = Buffer.from(historyJson, 'utf-8');
+        
+        // Send file with proper options
+        await ctx.replyWithDocument({
+            source: histBuff,
+            filename: `history_${userId}_${Date.now()}.json`
+        }, {
+            caption: `📜 <b>Your History Data</b>\nTotal: ${history.length} item${history.length !== 1 ? 's' : ''}\n📅 ${formatDateTime(new Date())}`,
+            parse_mode: 'HTML'
+        });
+        
+        await ctx.answerCbQuery(`✅ Sent ${history.length} history items`);
+    } catch (error) {
+        console.error('Error downloading history:', error);
+        await ctx.answerCbQuery('❌ Error sending history file');
+        await ctx.reply('❌ Failed to send history file. Please try again.');
+    }
 });
 
 bot.action('download_notes', async (ctx) => {
-    const userId = ctx.from.id;
-    const notes = await db.collection('notes').find({ userId }).toArray();
-    
-    // Always send file, even if empty
-    const notesData = notes.length > 0 ? notes : [];
-    const notesBuff = Buffer.from(JSON.stringify(notesData, null, 2));
-    
-    await ctx.replyWithDocument({ source: notesBuff, filename: 'notes.json' });
-    await ctx.answerCbQuery(`✅ Sent ${notes.length} notes`);
+    try {
+        await ctx.answerCbQuery('⏳ Fetching notes...');
+        const userId = ctx.from.id;
+        const notes = await db.collection('notes').find({ userId }).toArray();
+        
+        // Create JSON data
+        const notesData = {
+            total: notes.length,
+            downloadedAt: new Date().toISOString(),
+            userId: userId,
+            data: notes.length > 0 ? notes : []
+        };
+        
+        const notesJson = JSON.stringify(notesData, null, 2);
+        const notesBuff = Buffer.from(notesJson, 'utf-8');
+        
+        // Send file with proper options
+        await ctx.replyWithDocument({
+            source: notesBuff,
+            filename: `notes_${userId}_${Date.now()}.json`
+        }, {
+            caption: `🗒️ <b>Your Notes Data</b>\nTotal: ${notes.length} note${notes.length !== 1 ? 's' : ''}\n📅 ${formatDateTime(new Date())}`,
+            parse_mode: 'HTML'
+        });
+        
+        await ctx.answerCbQuery(`✅ Sent ${notes.length} notes`);
+    } catch (error) {
+        console.error('Error downloading notes:', error);
+        await ctx.answerCbQuery('❌ Error sending notes file');
+        await ctx.reply('❌ Failed to send notes file. Please try again.');
+    }
 });
 
 bot.action('download_all', async (ctx) => {
-    const userId = ctx.from.id;
-    
-    // Fetch all data
-    const tasks = await db.collection('tasks').find({ userId }).toArray();
-    const history = await db.collection('history').find({ userId }).toArray();
-    const notes = await db.collection('notes').find({ userId }).toArray();
-    
-    // Send tasks file (always send, even if empty)
-    const tasksData = tasks.length > 0 ? tasks : [];
-    const tasksBuff = Buffer.from(JSON.stringify(tasksData, null, 2));
-    await ctx.replyWithDocument({ source: tasksBuff, filename: 'active_tasks.json' });
-    
-    // Send history file (always send, even if empty)
-    const historyData = history.length > 0 ? history : [];
-    const histBuff = Buffer.from(JSON.stringify(historyData, null, 2));
-    await ctx.replyWithDocument({ source: histBuff, filename: 'history.json' });
-    
-    // Send notes file (always send, even if empty)
-    const notesData = notes.length > 0 ? notes : [];
-    const notesBuff = Buffer.from(JSON.stringify(notesData, null, 2));
-    await ctx.replyWithDocument({ source: notesBuff, filename: 'notes.json' });
-    
-    const totalItems = tasks.length + history.length + notes.length;
-    await ctx.answerCbQuery(`✅ Sent ${totalItems} items across 3 files`);
+    try {
+        await ctx.answerCbQuery('⏳ Preparing all data...');
+        const userId = ctx.from.id;
+        const timestamp = Date.now();
+        
+        // Fetch all data
+        const tasks = await db.collection('tasks').find({ userId }).toArray();
+        const history = await db.collection('history').find({ userId }).toArray();
+        const notes = await db.collection('notes').find({ userId }).toArray();
+        
+        const totalItems = tasks.length + history.length + notes.length;
+        
+        // Send tasks file
+        if (tasks.length > 0 || true) { // Always send file, even if empty
+            const tasksData = {
+                total: tasks.length,
+                downloadedAt: new Date().toISOString(),
+                userId: userId,
+                data: tasks
+            };
+            const tasksBuff = Buffer.from(JSON.stringify(tasksData, null, 2), 'utf-8');
+            await ctx.replyWithDocument({
+                source: tasksBuff,
+                filename: `tasks_${userId}_${timestamp}.json`
+            }, {
+                caption: `📋 <b>Tasks</b> (${tasks.length} item${tasks.length !== 1 ? 's' : ''})`,
+                parse_mode: 'HTML'
+            });
+        }
+        
+        // Send history file
+        if (history.length > 0 || true) { // Always send file, even if empty
+            const historyData = {
+                total: history.length,
+                downloadedAt: new Date().toISOString(),
+                userId: userId,
+                data: history
+            };
+            const histBuff = Buffer.from(JSON.stringify(historyData, null, 2), 'utf-8');
+            await ctx.replyWithDocument({
+                source: histBuff,
+                filename: `history_${userId}_${timestamp}.json`
+            }, {
+                caption: `📜 <b>History</b> (${history.length} item${history.length !== 1 ? 's' : ''})`,
+                parse_mode: 'HTML'
+            });
+        }
+        
+        // Send notes file
+        if (notes.length > 0 || true) { // Always send file, even if empty
+            const notesData = {
+                total: notes.length,
+                downloadedAt: new Date().toISOString(),
+                userId: userId,
+                data: notes
+            };
+            const notesBuff = Buffer.from(JSON.stringify(notesData, null, 2), 'utf-8');
+            await ctx.replyWithDocument({
+                source: notesBuff,
+                filename: `notes_${userId}_${timestamp}.json`
+            }, {
+                caption: `🗒️ <b>Notes</b> (${notes.length} item${notes.length !== 1 ? 's' : ''})`,
+                parse_mode: 'HTML'
+            });
+        }
+        
+        // Send summary
+        await ctx.reply(
+            `📦 <b>ALL DATA DOWNLOAD COMPLETE</b>\n━━━━━━━━━━━━━━━━━━━━\n` +
+            `📋 Tasks: ${tasks.length} item${tasks.length !== 1 ? 's' : ''}\n` +
+            `📜 History: ${history.length} item${history.length !== 1 ? 's' : ''}\n` +
+            `🗒️ Notes: ${notes.length} item${notes.length !== 1 ? 's' : ''}\n` +
+            `📊 Total: ${totalItems} items\n` +
+            `📁 3 JSON files sent\n` +
+            `📅 ${formatDateTime(new Date())}\n━━━━━━━━━━━━━━━━━━━━`,
+            { parse_mode: 'HTML' }
+        );
+        
+        await ctx.answerCbQuery(`✅ Sent ${totalItems} items across 3 files`);
+    } catch (error) {
+        console.error('Error downloading all data:', error);
+        await ctx.answerCbQuery('❌ Error sending files');
+        await ctx.reply('❌ Failed to send files. Please try again.');
+    }
 });
-
 // ==========================================
 // 🗑️ DELETE DATA MENU (FIXED)
 // ==========================================
