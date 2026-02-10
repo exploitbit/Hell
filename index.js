@@ -123,6 +123,20 @@ function getTomorrowIST() {
     return tomorrow;
 }
 
+// Get IST date for a specific date (for history grouping)
+function getISTDateForHistory(date) {
+    const istDate = new Date(date.getTime() + (5.5 * 60 * 60 * 1000));
+    istDate.setHours(0, 0, 0, 0);
+    return istDate;
+}
+
+// Get IST date from any date (for completedAt timestamp)
+function getCurrentISTDateTime() {
+    const now = new Date();
+    // Convert to IST (UTC+5:30)
+    return new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
+}
+
 // SIMPLIFIED safeEdit function
 async function safeEdit(ctx, text, keyboard = null) {
     try {
@@ -169,6 +183,8 @@ async function connectDB() {
         await db.collection('tasks').createIndex({ userId: 1, nextOccurrence: 1 });
         await db.collection('tasks').createIndex({ userId: 1, orderIndex: 1 });
         await db.collection('history').createIndex({ userId: 1, completedAt: -1 });
+        await db.collection('history').createIndex({ originalTaskId: 1 });
+        await db.collection('history').createIndex({ userId: 1, completedDate: -1 });
         await db.collection('notes').createIndex({ userId: 1 });
         await db.collection('notes').createIndex({ noteId: 1 }, { unique: true });
         await db.collection('notes').createIndex({ userId: 1, orderIndex: 1 });
@@ -626,7 +642,6 @@ bot.action('add_note', async (ctx) => {
     await safeEdit(ctx, text, keyboard);
 });
 
-
 // ==========================================
 // 📨 TEXT INPUT HANDLER (FIXED TIMEZONE)
 // ==========================================
@@ -856,14 +871,23 @@ bot.on('text', async (ctx) => {
         if (text.length === 0) return ctx.reply('❌ Title cannot be empty.');
         
         try {
+            // 1. Update the task in the tasks collection
             await db.collection('tasks').updateOne(
                 { taskId: taskId }, 
                 { $set: { title: text } }
             );
             
+            // 2. Update ALL history entries with the same originalTaskId
+            const result = await db.collection('history').updateMany(
+                { originalTaskId: taskId }, 
+                { $set: { title: text } }
+            );
+            
+            console.log(`Updated ${result.modifiedCount} history entries for task ${taskId}`);
+            
             ctx.session.step = null;
             delete ctx.session.editTaskId;
-            await ctx.reply(`✅ <b>TITLE UPDATED!</b>`, { parse_mode: 'HTML' });
+            await ctx.reply(`✅ <b>TITLE UPDATED!</b>\n\nAlso updated ${result.modifiedCount} history entry${result.modifiedCount !== 1 ? 's' : ''}`, { parse_mode: 'HTML' });
             await showTaskDetail(ctx, taskId);
         } catch (error) {
             console.error('Error updating title:', error);
@@ -875,14 +899,23 @@ bot.on('text', async (ctx) => {
         if (text.split(/\s+/).length > 100) return ctx.reply('❌ Too long! Max 100 words.');
         
         try {
+            // 1. Update the task in the tasks collection
             await db.collection('tasks').updateOne(
                 { taskId: taskId }, 
                 { $set: { description: text } }
             );
             
+            // 2. Update ALL history entries with the same originalTaskId
+            const result = await db.collection('history').updateMany(
+                { originalTaskId: taskId }, 
+                { $set: { description: text } }
+            );
+            
+            console.log(`Updated ${result.modifiedCount} history entries for task ${taskId}`);
+            
             ctx.session.step = null;
             delete ctx.session.editTaskId;
-            await ctx.reply(`✅ <b>DESCRIPTION UPDATED!</b>`, { parse_mode: 'HTML' });
+            await ctx.reply(`✅ <b>DESCRIPTION UPDATED!</b>\n\nAlso updated ${result.modifiedCount} history entry${result.modifiedCount !== 1 ? 's' : ''}`, { parse_mode: 'HTML' });
             await showTaskDetail(ctx, taskId);
         } catch (error) {
             console.error('Error updating description:', error);
@@ -924,6 +957,7 @@ bot.on('text', async (ctx) => {
             const duration = task.endDate.getTime() - task.startDate.getTime();
             const newEndDate = new Date(newStartDate.getTime() + duration);
             
+            // 1. Update the task in the tasks collection
             await db.collection('tasks').updateOne(
                 { taskId: taskId }, 
                 { 
@@ -935,13 +969,26 @@ bot.on('text', async (ctx) => {
                 }
             );
             
+            // 2. Update ALL history entries with the same originalTaskId
+            const result = await db.collection('history').updateMany(
+                { originalTaskId: taskId }, 
+                { 
+                    $set: { 
+                        startDate: newStartDate,
+                        endDate: newEndDate
+                    } 
+                }
+            );
+            
+            console.log(`Updated ${result.modifiedCount} history entries for task ${taskId}`);
+            
             // Reschedule the task
             const updatedTask = await db.collection('tasks').findOne({ taskId });
             scheduleTask(updatedTask);
             
             ctx.session.step = null;
             delete ctx.session.editTaskId;
-            await ctx.reply(`✅ <b>START TIME UPDATED!</b>\n\nEnd time adjusted to: ${formatTime(newEndDate)}`, { parse_mode: 'HTML' });
+            await ctx.reply(`✅ <b>START TIME UPDATED!</b>\n\nEnd time adjusted to: ${formatTime(newEndDate)}\nAlso updated ${result.modifiedCount} history entry${result.modifiedCount !== 1 ? 's' : ''}`, { parse_mode: 'HTML' });
             await showTaskDetail(ctx, taskId);
         } catch (error) {
             console.error('Error updating start time:', error);
@@ -985,6 +1032,7 @@ bot.on('text', async (ctx) => {
                 return ctx.reply('❌ End time must be after start time. Current start time is ' + formatTime(task.startDate));
             }
             
+            // 1. Update the task in the tasks collection
             await db.collection('tasks').updateOne(
                 { taskId: taskId }, 
                 { 
@@ -994,9 +1042,21 @@ bot.on('text', async (ctx) => {
                 }
             );
             
+            // 2. Update ALL history entries with the same originalTaskId
+            const result = await db.collection('history').updateMany(
+                { originalTaskId: taskId }, 
+                { 
+                    $set: { 
+                        endDate: newEndDate
+                    } 
+                }
+            );
+            
+            console.log(`Updated ${result.modifiedCount} history entries for task ${taskId}`);
+            
             ctx.session.step = null;
             delete ctx.session.editTaskId;
-            await ctx.reply(`✅ <b>END TIME UPDATED!</b>`, { parse_mode: 'HTML' });
+            await ctx.reply(`✅ <b>END TIME UPDATED!</b>\n\nAlso updated ${result.modifiedCount} history entry${result.modifiedCount !== 1 ? 's' : ''}`, { parse_mode: 'HTML' });
             await showTaskDetail(ctx, taskId);
         } catch (error) {
             console.error('Error updating end time:', error);
@@ -1012,7 +1072,7 @@ bot.on('text', async (ctx) => {
         }
         
         try {
-            // Simply update the count in database
+            // 1. Update the task in the tasks collection
             await db.collection('tasks').updateOne(
                 { taskId: taskId }, 
                 { 
@@ -1023,9 +1083,22 @@ bot.on('text', async (ctx) => {
                 }
             );
             
+            // 2. Update ALL history entries with the same originalTaskId
+            const result = await db.collection('history').updateMany(
+                { originalTaskId: taskId }, 
+                { 
+                    $set: { 
+                        repeatCount: count,
+                        ...(count === 0 && { repeat: 'none' })
+                    } 
+                }
+            );
+            
+            console.log(`Updated ${result.modifiedCount} history entries for task ${taskId}`);
+            
             ctx.session.step = null;
             delete ctx.session.editTaskId;
-            await ctx.reply(`✅ <b>REPEAT COUNT UPDATED!</b>`, { parse_mode: 'HTML' });
+            await ctx.reply(`✅ <b>REPEAT COUNT UPDATED!</b>\n\nAlso updated ${result.modifiedCount} history entry${result.modifiedCount !== 1 ? 's' : ''}`, { parse_mode: 'HTML' });
             await showTaskDetail(ctx, taskId);
         } catch (error) {
             console.error('Error updating repeat count:', error);
@@ -1113,8 +1186,6 @@ bot.on('text', async (ctx) => {
         }
     }
 });
-
-
 
 // ==========================================
 // 🕹️ BUTTON ACTIONS
@@ -1246,17 +1317,23 @@ ${formatBlockquote(task.description)}
     await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
 }
 
-// --- COMPLETE TASK (with next occurrence logic) ---
+// --- COMPLETE TASK (with next occurrence logic) - FIXED IST DATE ---
 bot.action(/^complete_(.+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     const task = await db.collection('tasks').findOne({ taskId });
     if (!task) return ctx.answerCbQuery('Task not found');
 
+    // Get current IST date and time for completedAt
+    const completedAtIST = getCurrentISTDateTime();
+    // Also store a date-only version for grouping
+    const completedDateIST = getISTDateForHistory(completedAtIST);
+    
     // 1. Create History Copy
     const historyItem = {
         ...task,
         _id: undefined,
-        completedAt: new Date(),
+        completedAt: completedAtIST, // Store in IST
+        completedDate: completedDateIST, // Store date-only for grouping
         originalTaskId: task.taskId,
         status: 'completed',
         completedFromDate: task.nextOccurrence
@@ -1452,8 +1529,18 @@ bot.action(/^set_rep_(.+)_(.+)$/, async (ctx) => {
             updates.repeatCount = task?.repeatCount || 10;
         }
         
+        // 1. Update the task in the tasks collection
         await db.collection('tasks').updateOne({ taskId }, { $set: updates });
-        await ctx.answerCbQuery(`✅ Updated to ${mode}`);
+        
+        // 2. Update ALL history entries with the same originalTaskId
+        const result = await db.collection('history').updateMany(
+            { originalTaskId: taskId }, 
+            { $set: updates }
+        );
+        
+        console.log(`Updated ${result.modifiedCount} history entries for task ${taskId}`);
+        
+        await ctx.answerCbQuery(`✅ Updated to ${mode} (also updated ${result.modifiedCount} history entries)`);
         await showTaskDetail(ctx, taskId);
     } catch (error) {
         console.error('Error updating repeat mode:', error);
@@ -1466,8 +1553,13 @@ bot.action(/^delete_task_(.+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     try {
         await db.collection('tasks').deleteOne({ taskId });
+        
+        // Also delete all history entries for this task
+        const historyResult = await db.collection('history').deleteMany({ originalTaskId: taskId });
+        console.log(`Deleted ${historyResult.deletedCount} history entries for task ${taskId}`);
+        
         cancelTaskSchedule(taskId);
-        await ctx.answerCbQuery('✅ Task Deleted');
+        await ctx.answerCbQuery(`✅ Task Deleted (also deleted ${historyResult.deletedCount} history entries)`);
         await showMainMenu(ctx);
     } catch (error) {
         console.error('Error deleting task:', error);
@@ -2035,7 +2127,7 @@ bot.action('reorder_note_save', async (ctx) => {
 });
 
 // ==========================================
-// 📜 VIEW HISTORY - WITH PAGINATION
+// 📜 VIEW HISTORY - WITH PAGINATION (FIXED IST DATE GROUPING)
 // ==========================================
 
 bot.action(/^view_history_dates_(\d+)$/, async (ctx) => {
@@ -2046,19 +2138,21 @@ bot.action(/^view_history_dates_(\d+)$/, async (ctx) => {
     const perPage = 10;
     const skip = (page - 1) * perPage;
     
-    // Get total count of distinct dates
+    // Get distinct dates from completedDate field (which stores IST date only)
     const dates = await db.collection('history').aggregate([
         { $match: { userId } },
-        { $group: { 
-            _id: { 
-                year: { $year: "$completedAt" },
-                month: { $month: "$completedAt" },
-                day: { $dayOfMonth: "$completedAt" }
-            },
-            count: { $sum: 1 },
-            date: { $first: "$completedAt" }
-        }},
-        { $sort: { "_id.year": -1, "_id.month": -1, "_id.day": -1 } },
+        { 
+            $group: { 
+                _id: { 
+                    year: { $year: "$completedDate" },
+                    month: { $month: "$completedDate" },
+                    day: { $dayOfMonth: "$completedDate" }
+                },
+                count: { $sum: 1 },
+                completedDate: { $first: "$completedDate" }
+            }
+        },
+        { $sort: { completedDate: -1 } }, // Sort by date descending (newest first)
         { 
             $facet: {
                 metadata: [{ $count: "total" }],
@@ -2074,8 +2168,8 @@ bot.action(/^view_history_dates_(\d+)$/, async (ctx) => {
     const text = `📜 <b>𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘𝗗 𝗧𝗔𝗦𝗞𝗦 𝗛𝗜𝗦𝗧𝗢𝗥𝗬</b>\n━━━━━━━━━━━━━━━━━━━━\n📊 Total: ${totalDates} date${totalDates !== 1 ? 's' : ''}\n📄 Page: ${page}/${totalPages}\n━━━━━━━━━━━━━━━━━━━━\nSelect a date to view:`;
     
     const buttons = dateList.map(d => {
-        const dateStr = `${d._id.year}-${String(d._id.month).padStart(2, '0')}-${String(d._id.day).padStart(2, '0')}`;
-        const date = new Date(d._id.year, d._id.month - 1, d._id.day);
+        const date = new Date(d.completedDate);
+        const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
         return [Markup.button.callback(`📅 ${formatDate(date)} (${d.count})`, `hist_list_${dateStr}_1`)];
     });
     
@@ -2107,19 +2201,25 @@ bot.action(/^hist_list_([\d-]+)_(\d+)$/, async (ctx) => {
     const userId = ctx.from.id;
 
     const [year, month, day] = dateStr.split('-').map(Number);
-    const startDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
-    const endDate = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
+    
+    // Create IST date for the selected day
+    const selectedDate = new Date(year, month - 1, day);
+    const selectedDateIST = new Date(selectedDate.getTime() + (5.5 * 60 * 60 * 1000));
+    selectedDateIST.setHours(0, 0, 0, 0);
+    
+    const nextDay = new Date(selectedDateIST);
+    nextDay.setDate(nextDay.getDate() + 1);
 
     // Items per page
     const perPage = 10;
     const skip = (page - 1) * perPage;
     
-    // Get total count
+    // Get total count - match by completedDate (IST date only)
     const totalTasks = await db.collection('history').countDocuments({
         userId: userId,
-        completedAt: {
-            $gte: startDate,
-            $lt: endDate
+        completedDate: {
+            $gte: selectedDateIST,
+            $lt: nextDay
         }
     });
     
@@ -2127,9 +2227,9 @@ bot.action(/^hist_list_([\d-]+)_(\d+)$/, async (ctx) => {
 
     const tasks = await db.collection('history').find({
         userId: userId,
-        completedAt: {
-            $gte: startDate,
-            $lt: endDate
+        completedDate: {
+            $gte: selectedDateIST,
+            $lt: nextDay
         }
     }).sort({ completedAt: -1 }).skip(skip).limit(perPage).toArray();
 
@@ -2187,7 +2287,6 @@ ${formatBlockquote(task.description)}
     
     await safeEdit(ctx, text, keyboard);
 });
-
 
 // ==========================================
 // 🗒️ VIEW NOTES - WITH PAGINATION
@@ -2280,6 +2379,7 @@ ${note.updatedAt ? `✏️ <b>Updated:</b> ${formatDateTime(note.updatedAt)}` : 
 
     await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
 }
+
 // ==========================================
 // ✏️ EDIT NOTE HANDLERS (FIXED)
 // ==========================================
