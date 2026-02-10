@@ -13,7 +13,12 @@ let db, client;
 
 async function connectDB() {
     try {
-        client = new MongoClient(mongoUri);
+        client = new MongoClient(mongoUri, {
+            serverSelectionTimeoutMS: 5000,
+            connectTimeoutMS: 10000,
+            maxPoolSize: 10,
+            minPoolSize: 1
+        });
         await client.connect();
         db = client.db();
         console.log('✅ Connected to MongoDB');
@@ -35,18 +40,21 @@ function isAdmin(userId) {
     return ADMIN_IDS.includes(Number(userId));
 }
 
-// Store scheduled jobs
-const scheduledJobs = new Map();
-
 // Helper function to safely send messages
 async function safeSendMessage(ctx, text, options = {}) {
     try {
-        return await ctx.reply(text, options);
+        return await ctx.reply(text, { 
+            ...options 
+        });
     } catch (error) {
         console.error('Error sending message:', error.message);
+        // Try without options
         return await ctx.reply(text);
     }
 }
+
+// Store scheduled jobs
+const scheduledJobs = new Map();
 
 // Convert IST to UTC (IST is UTC+5:30)
 function istToUTC(hours, minutes) {
@@ -68,47 +76,261 @@ function istToUTC(hours, minutes) {
 }
 
 // ==========================================
-// TIME NOTIFICATION FEATURE
+// COMMAND HANDLERS
 // ==========================================
+
+// /start command
+bot.command('start', async (ctx) => {
+    try {
+        const welcomeMessage = `👋 Welcome to the Notification Bot!
+
+Available commands:
+• /time - Schedule notifications before a specific time
+• /settime - Schedule interval notifications
+• /note - Save a note
+• /notes - View your notes
+• /clearnotes - Delete all notes
+• /stop - Stop all notifications
+• /status - Check active notifications
+• /help - Show help guide
+
+Note: Only admin can use these commands.`;
+
+        await safeSendMessage(ctx, welcomeMessage);
+    } catch (error) {
+        console.error('Start command error:', error);
+        await safeSendMessage(ctx, '❌ An error occurred. Please try again.');
+    }
+});
+
+// /help command
+bot.command('help', async (ctx) => {
+    try {
+        const helpMessage = `📋 Help Guide:
+
+1. /time
+   - Enter target time in HH:MM (24-hour, IST)
+   - Bot will send 10 notifications per minute starting 10 minutes before target time
+   - Example: Enter "14:30" → notifications at 14:20, 14:21, ..., 14:29
+
+2. /settime
+   - Enter interval in format: minutes/times
+   - Example: "5/10" = every 5 minutes, 10 times
+   - First notification starts immediately
+
+3. /note
+   - Save a text note (max 1000 characters)
+   - Notes are stored in database
+
+4. /notes
+   - View your last 10 notes
+
+5. /clearnotes
+   - Delete all your notes
+
+6. /stop
+   - Stop all active notifications
+
+7. /status
+   - Check status of active notifications
+
+All times are in IST (Indian Standard Time).`;
+
+        await safeSendMessage(ctx, helpMessage);
+    } catch (error) {
+        console.error('Help command error:', error);
+        await safeSendMessage(ctx, '❌ An error occurred.');
+    }
+});
 
 // /time command - Schedule notifications before a specific time
 bot.command('time', async (ctx) => {
-    if (!isAdmin(ctx.from.id)) {
-        return safeSendMessage(ctx, '❌ You are not authorized to use this command.');
+    try {
+        if (!isAdmin(ctx.from.id)) {
+            return await safeSendMessage(ctx, '❌ You are not authorized to use this command.');
+        }
+        
+        await safeSendMessage(ctx, 'Enter the target time in HH:MM format (24-hour, IST):\n\nExample: 14:30 for 2:30 PM\n\nType "cancel" to cancel.');
+        
+        ctx.session.waitingForTime = true;
+    } catch (error) {
+        console.error('Time command error:', error);
+        await safeSendMessage(ctx, '❌ An error occurred.');
     }
-    
-    await safeSendMessage(ctx, 'Enter the target time in HH:MM format (24-hour, IST):\n\nExample: 14:30 for 2:30 PM\n\nType "cancel" to cancel.');
-    
-    ctx.session.waitingForTime = true;
 });
 
 // /settime command - Schedule interval notifications
 bot.command('settime', async (ctx) => {
-    if (!isAdmin(ctx.from.id)) {
-        return safeSendMessage(ctx, '❌ You are not authorized to use this command.');
+    try {
+        if (!isAdmin(ctx.from.id)) {
+            return await safeSendMessage(ctx, '❌ You are not authorized to use this command.');
+        }
+        
+        await safeSendMessage(ctx, 'Enter interval and number of times in format: minutes/times\n\nExample: 5/10 (every 5 minutes, 10 times)\n\nType "cancel" to cancel.');
+        
+        ctx.session.waitingForSetTime = true;
+    } catch (error) {
+        console.error('Settime command error:', error);
+        await safeSendMessage(ctx, '❌ An error occurred.');
     }
-    
-    await safeSendMessage(ctx, 'Enter interval and number of times in format: minutes/times\n\nExample: 5/10 (every 5 minutes, 10 times)\n\nType "cancel" to cancel.');
-    
-    ctx.session.waitingForSetTime = true;
 });
 
 // /note command - Save a note
 bot.command('note', async (ctx) => {
-    if (!isAdmin(ctx.from.id)) {
-        return safeSendMessage(ctx, '❌ You are not authorized to use this command.');
+    try {
+        if (!isAdmin(ctx.from.id)) {
+            return await safeSendMessage(ctx, '❌ You are not authorized to use this command.');
+        }
+        
+        await safeSendMessage(ctx, 'Enter your note (max 1000 characters):\n\nType "cancel" to cancel.');
+        
+        ctx.session.waitingForNote = true;
+    } catch (error) {
+        console.error('Note command error:', error);
+        await safeSendMessage(ctx, '❌ An error occurred.');
     }
-    
-    await safeSendMessage(ctx, 'Enter your note (max 1000 characters):\n\nType "cancel" to cancel.');
-    
-    ctx.session.waitingForNote = true;
 });
 
-// Handle text inputs for commands
+// /notes command - List all notes
+bot.command('notes', async (ctx) => {
+    try {
+        if (!isAdmin(ctx.from.id)) {
+            return await safeSendMessage(ctx, '❌ You are not authorized to use this command.');
+        }
+        
+        const notes = await db.collection('notes')
+            .find({ userId: ctx.from.id })
+            .sort({ createdAt: -1 })
+            .limit(10)
+            .toArray();
+        
+        if (notes.length === 0) {
+            await safeSendMessage(ctx, '📝 No notes found.');
+            return;
+        }
+        
+        let notesText = '📝 Your Notes:\n\n';
+        notes.forEach((note, index) => {
+            const date = new Date(note.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+            const contentPreview = note.content.length > 50 ? note.content.substring(0, 50) + '...' : note.content;
+            notesText += `${index + 1}. ${contentPreview}\n   📅 ${date} IST\n\n`;
+        });
+        
+        await safeSendMessage(ctx, notesText);
+    } catch (error) {
+        console.error('Error fetching notes:', error);
+        await safeSendMessage(ctx, '❌ Failed to fetch notes.');
+    }
+});
+
+// /clearnotes command - Delete all notes
+bot.command('clearnotes', async (ctx) => {
+    try {
+        if (!isAdmin(ctx.from.id)) {
+            return await safeSendMessage(ctx, '❌ You are not authorized to use this command.');
+        }
+        
+        const result = await db.collection('notes').deleteMany({ userId: ctx.from.id });
+        await safeSendMessage(ctx, `✅ Deleted ${result.deletedCount} notes.`);
+    } catch (error) {
+        console.error('Error clearing notes:', error);
+        await safeSendMessage(ctx, '❌ Failed to clear notes.');
+    }
+});
+
+// /stop command - Stop all notifications
+bot.command('stop', async (ctx) => {
+    try {
+        if (!isAdmin(ctx.from.id)) {
+            return await safeSendMessage(ctx, '❌ You are not authorized to use this command.');
+        }
+        
+        const userId = ctx.from.id;
+        
+        if (scheduledJobs.has(userId)) {
+            const job = scheduledJobs.get(userId);
+            
+            // Cancel scheduled job
+            if (job.job) {
+                job.job.cancel();
+            }
+            
+            // Clear interval if exists
+            if (job.intervalId) {
+                clearInterval(job.intervalId);
+            }
+            
+            scheduledJobs.delete(userId);
+            
+            await safeSendMessage(ctx, '✅ All scheduled notifications stopped.');
+        } else {
+            await safeSendMessage(ctx, '❌ No active notifications found.');
+        }
+    } catch (error) {
+        console.error('Stop command error:', error);
+        await safeSendMessage(ctx, '❌ An error occurred.');
+    }
+});
+
+// /status command - Check active notifications
+bot.command('status', async (ctx) => {
+    try {
+        if (!isAdmin(ctx.from.id)) {
+            return await safeSendMessage(ctx, '❌ You are not authorized to use this command.');
+        }
+        
+        const userId = ctx.from.id;
+        
+        if (scheduledJobs.has(userId)) {
+            const job = scheduledJobs.get(userId);
+            const now = new Date();
+            
+            let statusMessage = '📊 Active Notifications:\n\n';
+            
+            if (job.type === 'time') {
+                const timeLeft = Math.max(0, Math.floor((job.startTime - now) / 1000));
+                const minutesLeft = Math.floor(timeLeft / 60);
+                const secondsLeft = timeLeft % 60;
+                
+                // Convert UTC target time back to IST for display
+                const targetTimeIST = new Date(job.targetTime);
+                targetTimeIST.setUTCHours(targetTimeIST.getUTCHours() + 5);
+                targetTimeIST.setUTCMinutes(targetTimeIST.getUTCMinutes() + 30);
+                
+                statusMessage += `Type: Time-based notifications\n`;
+                statusMessage += `Target time: ${targetTimeIST.getHours()}:${targetTimeIST.getMinutes().toString().padStart(2, '0')} IST\n`;
+                
+                if (timeLeft > 0) {
+                    statusMessage += `Starts in: ${minutesLeft}m ${secondsLeft}s\n`;
+                } else {
+                    statusMessage += `Status: Running (${job.count || 0}/${job.totalMessages} sent)\n`;
+                }
+                
+            } else if (job.type === 'interval') {
+                statusMessage += `Type: Interval notifications\n`;
+                statusMessage += `Interval: ${job.intervalMinutes} minutes\n`;
+                statusMessage += `Progress: ${job.count || 0}/${job.totalTimes}\n`;
+                statusMessage += `Status: Active\n`;
+            }
+            
+            await safeSendMessage(ctx, statusMessage);
+        } else {
+            await safeSendMessage(ctx, '❌ No active notifications.');
+        }
+    } catch (error) {
+        console.error('Status command error:', error);
+        await safeSendMessage(ctx, '❌ An error occurred.');
+    }
+});
+
+// ==========================================
+// TEXT MESSAGE HANDLER
+// ==========================================
+
 bot.on('text', async (ctx) => {
     try {
         // Handle time command input
-        if (ctx.session.waitingForTime) {
+        if (ctx.session?.waitingForTime) {
             if (ctx.message.text.toLowerCase() === 'cancel') {
                 delete ctx.session.waitingForTime;
                 await safeSendMessage(ctx, '❌ Time scheduling cancelled.');
@@ -134,7 +356,7 @@ bot.on('text', async (ctx) => {
         }
         
         // Handle settime command input
-        if (ctx.session.waitingForSetTime) {
+        if (ctx.session?.waitingForSetTime) {
             if (ctx.message.text.toLowerCase() === 'cancel') {
                 delete ctx.session.waitingForSetTime;
                 await safeSendMessage(ctx, '❌ Interval scheduling cancelled.');
@@ -171,7 +393,7 @@ bot.on('text', async (ctx) => {
         }
         
         // Handle note command input
-        if (ctx.session.waitingForNote) {
+        if (ctx.session?.waitingForNote) {
             if (ctx.message.text.toLowerCase() === 'cancel') {
                 delete ctx.session.waitingForNote;
                 await safeSendMessage(ctx, '❌ Note creation cancelled.');
@@ -210,401 +432,289 @@ bot.on('text', async (ctx) => {
     }
 });
 
+// ==========================================
+// SCHEDULING FUNCTIONS
+// ==========================================
+
 // Schedule time-based notifications
 async function scheduleTimeNotifications(ctx, targetHours, targetMinutes) {
-    const userId = ctx.from.id;
-    
-    // Clear any existing job for this user
-    if (scheduledJobs.has(userId)) {
-        const job = scheduledJobs.get(userId);
-        if (job.job) job.job.cancel();
-        scheduledJobs.delete(userId);
+    try {
+        const userId = ctx.from.id;
+        
+        // Clear any existing job for this user
+        if (scheduledJobs.has(userId)) {
+            const job = scheduledJobs.get(userId);
+            if (job.job) job.job.cancel();
+            if (job.intervalId) clearInterval(job.intervalId);
+            scheduledJobs.delete(userId);
+        }
+        
+        // Convert IST to UTC
+        const { utcHours: targetUtcHours, utcMinutes: targetUtcMinutes } = istToUTC(targetHours, targetMinutes);
+        
+        // Create target time for today
+        const now = new Date();
+        const targetTime = new Date(now);
+        targetTime.setUTCHours(targetUtcHours, targetUtcMinutes, 0, 0);
+        
+        // If target time is in the past, schedule for tomorrow
+        if (targetTime <= now) {
+            targetTime.setUTCDate(targetTime.getUTCDate() + 1);
+        }
+        
+        // Calculate start time (10 minutes before target)
+        const startTime = new Date(targetTime);
+        startTime.setUTCMinutes(startTime.getUTCMinutes() - 10);
+        
+        // Create job data
+        const jobData = {
+            type: 'time',
+            targetTime: targetTime,
+            startTime: startTime,
+            count: 0,
+            totalMessages: 10,
+            userId: userId
+        };
+        
+        // Schedule the job using node-schedule
+        const job = schedule.scheduleJob(startTime, async function() {
+            await executeTimeNotifications(jobData);
+        });
+        
+        jobData.job = job;
+        scheduledJobs.set(userId, jobData);
+        
+        // Calculate time until start
+        const timeUntilStart = Math.max(0, startTime - now);
+        const minutesUntilStart = Math.floor(timeUntilStart / (1000 * 60));
+        const secondsUntilStart = Math.floor((timeUntilStart % (1000 * 60)) / 1000);
+        
+        // Convert start time back to IST for display
+        const startTimeIST = new Date(startTime);
+        startTimeIST.setUTCHours(startTimeIST.getUTCHours() + 5);
+        startTimeIST.setUTCMinutes(startTimeIST.getUTCMinutes() + 30);
+        
+        await safeSendMessage(ctx, 
+            `✅ Scheduled time notifications!\n\n` +
+            `Target time: ${targetHours}:${targetMinutes.toString().padStart(2, '0')} IST\n` +
+            `Start time: ${startTimeIST.getHours()}:${startTimeIST.getMinutes().toString().padStart(2, '0')} IST\n` +
+            `Notifications will start in: ${minutesUntilStart}m ${secondsUntilStart}s\n` +
+            `Total notifications: 10 (one per minute)`
+        );
+    } catch (error) {
+        console.error('Schedule time notifications error:', error);
+        await safeSendMessage(ctx, '❌ Failed to schedule notifications.');
     }
-    
-    // Convert IST to UTC
-    const { utcHours: targetUtcHours, utcMinutes: targetUtcMinutes } = istToUTC(targetHours, targetMinutes);
-    
-    // Create target time for today
-    const now = new Date();
-    const targetTime = new Date(now);
-    targetTime.setUTCHours(targetUtcHours, targetUtcMinutes, 0, 0);
-    
-    // If target time is in the past, schedule for tomorrow
-    if (targetTime <= now) {
-        targetTime.setUTCDate(targetTime.getUTCDate() + 1);
-    }
-    
-    // Calculate start time (10 minutes before target)
-    const startTime = new Date(targetTime);
-    startTime.setUTCMinutes(startTime.getUTCMinutes() - 10);
-    
-    // Create job data
-    const jobData = {
-        type: 'time',
-        targetTime: targetTime,
-        startTime: startTime,
-        count: 0,
-        totalMessages: 10,
-        userId: userId
-    };
-    
-    // Schedule the job using node-schedule
-    const job = schedule.scheduleJob(startTime, async function() {
-        await executeTimeNotifications(jobData);
-    });
-    
-    jobData.job = job;
-    scheduledJobs.set(userId, jobData);
-    
-    // Calculate time until start
-    const timeUntilStart = Math.max(0, startTime - now);
-    const minutesUntilStart = Math.floor(timeUntilStart / (1000 * 60));
-    const secondsUntilStart = Math.floor((timeUntilStart % (1000 * 60)) / 1000);
-    
-    await safeSendMessage(ctx, 
-        `✅ Scheduled time notifications!\n\n` +
-        `Target time: ${targetHours}:${targetMinutes.toString().padStart(2, '0')} IST\n` +
-        `Notifications will start in: ${minutesUntilStart}m ${secondsUntilStart}s\n` +
-        `Total notifications: 10 (one per minute)\n` +
-        `From: ${(targetHours - 10) % 24}:${targetMinutes.toString().padStart(2, '0')} to ${targetHours}:${targetMinutes.toString().padStart(2, '0')} IST`
-    );
 }
 
 // Execute time notifications
 async function executeTimeNotifications(jobData) {
-    const { userId, targetTime, count, totalMessages } = jobData;
-    
-    // Create interval for notifications
-    const intervalId = setInterval(async () => {
-        jobData.count++;
+    try {
+        const { userId, targetTime, totalMessages } = jobData;
         
+        // Create interval for notifications
+        const intervalId = setInterval(async () => {
+            try {
+                jobData.count++;
+                
+                const now = new Date();
+                const timeLeft = Math.max(0, Math.floor((targetTime - now) / 1000));
+                const minutesLeft = Math.floor(timeLeft / 60);
+                const secondsLeft = timeLeft % 60;
+                
+                // Convert current time to IST
+                const istTime = now.toLocaleTimeString('en-IN', { 
+                    timeZone: 'Asia/Kolkata',
+                    hour12: false 
+                });
+                
+                const message = `⏰ Notification ${jobData.count}/${totalMessages}\n` +
+                               `Current time: ${istTime} IST\n` +
+                               `Time until target: ${minutesLeft}m ${secondsLeft}s`;
+                
+                await bot.telegram.sendMessage(userId, message);
+                
+                // Stop after 10 messages or when target time is reached
+                if (jobData.count >= totalMessages || now >= targetTime) {
+                    clearInterval(intervalId);
+                    
+                    // Update job data
+                    jobData.intervalId = null;
+                    scheduledJobs.set(userId, jobData);
+                    
+                    if (now >= targetTime) {
+                        await bot.telegram.sendMessage(userId, '🎯 Target time reached! Notifications stopped.');
+                    } else {
+                        await bot.telegram.sendMessage(userId, `✅ Completed ${totalMessages} notifications!`);
+                    }
+                }
+            } catch (error) {
+                console.error('Error in notification interval:', error);
+            }
+        }, 60 * 1000); // Every minute
+        
+        jobData.intervalId = intervalId;
+        scheduledJobs.set(userId, jobData);
+        
+        // Send first notification immediately
+        jobData.count++;
         const now = new Date();
         const timeLeft = Math.max(0, Math.floor((targetTime - now) / 1000));
         const minutesLeft = Math.floor(timeLeft / 60);
         const secondsLeft = timeLeft % 60;
         
-        const message = `⏰ Notification ${jobData.count}/${totalMessages}\n` +
-                       `Time until target: ${minutesLeft}m ${secondsLeft}s`;
+        // Convert current time to IST
+        const istTime = now.toLocaleTimeString('en-IN', { 
+            timeZone: 'Asia/Kolkata',
+            hour12: false 
+        });
         
-        try {
-            await bot.telegram.sendMessage(userId, message);
-        } catch (error) {
-            console.error('Error sending notification:', error);
-        }
+        const firstMessage = `⏰ Notification 1/${totalMessages}\n` +
+                            `Current time: ${istTime} IST\n` +
+                            `Time until target: ${minutesLeft}m ${secondsLeft}s\n` +
+                            `Notifications will continue every minute.`;
         
-        // Stop after 10 messages or when target time is reached
-        if (jobData.count >= totalMessages || now >= targetTime) {
-            clearInterval(intervalId);
-            
-            // Update job data
-            jobData.intervalId = null;
-            scheduledJobs.set(userId, jobData);
-            
-            if (now >= targetTime) {
-                await bot.telegram.sendMessage(userId, '🎯 Target time reached! Notifications stopped.');
-            } else {
-                await bot.telegram.sendMessage(userId, `✅ Completed ${totalMessages} notifications!`);
-            }
-        }
-    }, 60 * 1000); // Every minute
-    
-    jobData.intervalId = intervalId;
-    scheduledJobs.set(userId, jobData);
-    
-    // Send first notification immediately
-    jobData.count++;
-    const now = new Date();
-    const timeLeft = Math.max(0, Math.floor((targetTime - now) / 1000));
-    const minutesLeft = Math.floor(timeLeft / 60);
-    const secondsLeft = timeLeft % 60;
-    
-    const firstMessage = `⏰ Notification 1/${totalMessages}\n` +
-                        `Time until target: ${minutesLeft}m ${secondsLeft}s\n` +
-                        `Notifications will continue every minute.`;
-    
-    await bot.telegram.sendMessage(userId, firstMessage);
+        await bot.telegram.sendMessage(userId, firstMessage);
+        
+    } catch (error) {
+        console.error('Execute time notifications error:', error);
+    }
 }
 
 // Schedule interval notifications
 async function scheduleIntervalNotifications(ctx, intervalMinutes, totalTimes) {
-    const userId = ctx.from.id;
-    
-    // Clear any existing job for this user
-    if (scheduledJobs.has(userId)) {
-        const job = scheduledJobs.get(userId);
-        if (job.job) job.job.cancel();
-        if (job.intervalId) clearInterval(job.intervalId);
-        scheduledJobs.delete(userId);
+    try {
+        const userId = ctx.from.id;
+        
+        // Clear any existing job for this user
+        if (scheduledJobs.has(userId)) {
+            const job = scheduledJobs.get(userId);
+            if (job.job) job.job.cancel();
+            if (job.intervalId) clearInterval(job.intervalId);
+            scheduledJobs.delete(userId);
+        }
+        
+        // Create job data
+        const jobData = {
+            type: 'interval',
+            intervalMinutes: intervalMinutes,
+            count: 0,
+            totalTimes: totalTimes,
+            userId: userId
+        };
+        
+        // Schedule immediate start
+        const job = schedule.scheduleJob(new Date(Date.now() + 1000), async function() {
+            await executeIntervalNotifications(jobData);
+        });
+        
+        jobData.job = job;
+        scheduledJobs.set(userId, jobData);
+        
+        await safeSendMessage(ctx,
+            `✅ Scheduled interval notifications!\n\n` +
+            `Interval: ${intervalMinutes} minutes\n` +
+            `Total messages: ${totalTimes}\n` +
+            `First message will arrive in 1 second.`
+        );
+    } catch (error) {
+        console.error('Schedule interval notifications error:', error);
+        await safeSendMessage(ctx, '❌ Failed to schedule interval notifications.');
     }
-    
-    // Create job data
-    const jobData = {
-        type: 'interval',
-        intervalMinutes: intervalMinutes,
-        count: 0,
-        totalTimes: totalTimes,
-        userId: userId
-    };
-    
-    // Schedule immediate start
-    const job = schedule.scheduleJob(new Date(Date.now() + 1000), async function() {
-        await executeIntervalNotifications(jobData);
-    });
-    
-    jobData.job = job;
-    scheduledJobs.set(userId, jobData);
-    
-    await safeSendMessage(ctx,
-        `✅ Scheduled interval notifications!\n\n` +
-        `Interval: ${intervalMinutes} minutes\n` +
-        `Total messages: ${totalTimes}\n` +
-        `First message will arrive in 1 second.`
-    );
 }
 
 // Execute interval notifications
 async function executeIntervalNotifications(jobData) {
-    const { userId, intervalMinutes, totalTimes } = jobData;
-    
-    // Create interval
-    const intervalId = setInterval(async () => {
-        jobData.count++;
+    try {
+        const { userId, intervalMinutes, totalTimes } = jobData;
         
+        // Create interval
+        const intervalId = setInterval(async () => {
+            try {
+                jobData.count++;
+                
+                const now = new Date();
+                const istTime = now.toLocaleTimeString('en-IN', { 
+                    timeZone: 'Asia/Kolkata',
+                    hour12: false 
+                });
+                
+                const message = `🔄 Interval Notification ${jobData.count}/${totalTimes}\n` +
+                               `Interval: ${intervalMinutes} minutes\n` +
+                               `Sent at: ${istTime} IST`;
+                
+                await bot.telegram.sendMessage(userId, message);
+                
+                // Stop after reaching total times
+                if (jobData.count >= totalTimes) {
+                    clearInterval(intervalId);
+                    jobData.intervalId = null;
+                    scheduledJobs.set(userId, jobData);
+                    
+                    await bot.telegram.sendMessage(userId, `✅ Completed ${totalTimes} interval notifications!`);
+                }
+            } catch (error) {
+                console.error('Error in interval notification:', error);
+            }
+        }, intervalMinutes * 60 * 1000);
+        
+        jobData.intervalId = intervalId;
+        scheduledJobs.set(userId, jobData);
+        
+        // Send first notification immediately
+        jobData.count++;
         const now = new Date();
         const istTime = now.toLocaleTimeString('en-IN', { 
             timeZone: 'Asia/Kolkata',
             hour12: false 
         });
         
-        const message = `🔄 Interval Notification ${jobData.count}/${totalTimes}\n` +
-                       `Interval: ${intervalMinutes} minutes\n` +
-                       `Sent at: ${istTime} IST`;
+        const firstMessage = `🔄 Interval Notification 1/${totalTimes}\n` +
+                            `Interval: ${intervalMinutes} minutes\n` +
+                            `Sent at: ${istTime} IST\n` +
+                            `Next notification in ${intervalMinutes} minutes.`;
         
-        try {
-            await bot.telegram.sendMessage(userId, message);
-        } catch (error) {
-            console.error('Error sending interval notification:', error);
-        }
+        await bot.telegram.sendMessage(userId, firstMessage);
         
-        // Stop after reaching total times
-        if (jobData.count >= totalTimes) {
-            clearInterval(intervalId);
-            jobData.intervalId = null;
-            scheduledJobs.set(userId, jobData);
-            
-            await bot.telegram.sendMessage(userId, `✅ Completed ${totalTimes} interval notifications!`);
-        }
-    }, intervalMinutes * 60 * 1000);
-    
-    jobData.intervalId = intervalId;
-    scheduledJobs.set(userId, jobData);
-    
-    // Send first notification immediately
-    jobData.count++;
-    const now = new Date();
-    const istTime = now.toLocaleTimeString('en-IN', { 
-        timeZone: 'Asia/Kolkata',
-        hour12: false 
-    });
-    
-    const firstMessage = `🔄 Interval Notification 1/${totalTimes}\n` +
-                        `Interval: ${intervalMinutes} minutes\n` +
-                        `Sent at: ${istTime} IST\n` +
-                        `Next notification in ${intervalMinutes} minutes.`;
-    
-    await bot.telegram.sendMessage(userId, firstMessage);
+    } catch (error) {
+        console.error('Execute interval notifications error:', error);
+    }
 }
 
-// /stop command - Stop all notifications
-bot.command('stop', async (ctx) => {
-    if (!isAdmin(ctx.from.id)) {
-        return safeSendMessage(ctx, '❌ You are not authorized to use this command.');
-    }
-    
-    const userId = ctx.from.id;
-    
-    if (scheduledJobs.has(userId)) {
-        const job = scheduledJobs.get(userId);
-        
-        // Cancel scheduled job
-        if (job.job) {
-            job.job.cancel();
-        }
-        
-        // Clear interval if exists
-        if (job.intervalId) {
-            clearInterval(job.intervalId);
-        }
-        
-        scheduledJobs.delete(userId);
-        
-        await safeSendMessage(ctx, '✅ All scheduled notifications stopped.');
-    } else {
-        await safeSendMessage(ctx, '❌ No active notifications found.');
-    }
-});
+// ==========================================
+// ERROR HANDLING
+// ==========================================
 
-// /status command - Check active notifications
-bot.command('status', async (ctx) => {
-    if (!isAdmin(ctx.from.id)) {
-        return safeSendMessage(ctx, '❌ You are not authorized to use this command.');
-    }
-    
-    const userId = ctx.from.id;
-    
-    if (scheduledJobs.has(userId)) {
-        const job = scheduledJobs.get(userId);
-        const now = new Date();
-        
-        let statusMessage = '📊 Active Notifications:\n\n';
-        
-        if (job.type === 'time') {
-            const timeLeft = Math.max(0, Math.floor((job.startTime - now) / 1000));
-            const minutesLeft = Math.floor(timeLeft / 60);
-            const secondsLeft = timeLeft % 60;
-            
-            // Convert UTC target time back to IST for display
-            const targetTimeIST = new Date(job.targetTime);
-            targetTimeIST.setUTCHours(targetTimeIST.getUTCHours() + 5);
-            targetTimeIST.setUTCMinutes(targetTimeIST.getUTCMinutes() + 30);
-            
-            statusMessage += `Type: Time-based notifications\n`;
-            statusMessage += `Target time: ${targetTimeIST.getHours()}:${targetTimeIST.getMinutes().toString().padStart(2, '0')} IST\n`;
-            
-            if (timeLeft > 0) {
-                statusMessage += `Starts in: ${minutesLeft}m ${secondsLeft}s\n`;
-            } else {
-                statusMessage += `Status: Running (${job.count || 0}/${job.totalMessages} sent)\n`;
-            }
-            
-        } else if (job.type === 'interval') {
-            statusMessage += `Type: Interval notifications\n`;
-            statusMessage += `Interval: ${job.intervalMinutes} minutes\n`;
-            statusMessage += `Progress: ${job.count || 0}/${job.totalTimes}\n`;
-            statusMessage += `Status: Active\n`;
-        }
-        
-        await safeSendMessage(ctx, statusMessage);
-    } else {
-        await safeSendMessage(ctx, '❌ No active notifications.');
-    }
-});
-
-// /notes command - List all notes
-bot.command('notes', async (ctx) => {
-    if (!isAdmin(ctx.from.id)) {
-        return safeSendMessage(ctx, '❌ You are not authorized to use this command.');
-    }
-    
-    try {
-        const notes = await db.collection('notes')
-            .find({ userId: ctx.from.id })
-            .sort({ createdAt: -1 })
-            .limit(10)
-            .toArray();
-        
-        if (notes.length === 0) {
-            await safeSendMessage(ctx, '📝 No notes found.');
-            return;
-        }
-        
-        let notesText = '📝 Your Notes:\n\n';
-        notes.forEach((note, index) => {
-            const date = new Date(note.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
-            const contentPreview = note.content.length > 50 ? note.content.substring(0, 50) + '...' : note.content;
-            notesText += `${index + 1}. ${contentPreview}\n   📅 ${date} IST\n\n`;
-        });
-        
-        await safeSendMessage(ctx, notesText);
-    } catch (error) {
-        console.error('Error fetching notes:', error);
-        await safeSendMessage(ctx, '❌ Failed to fetch notes.');
-    }
-});
-
-// /clearnotes command - Delete all notes
-bot.command('clearnotes', async (ctx) => {
-    if (!isAdmin(ctx.from.id)) {
-        return safeSendMessage(ctx, '❌ You are not authorized to use this command.');
-    }
-    
-    try {
-        const result = await db.collection('notes').deleteMany({ userId: ctx.from.id });
-        await safeSendMessage(ctx, `✅ Deleted ${result.deletedCount} notes.`);
-    } catch (error) {
-        console.error('Error clearing notes:', error);
-        await safeSendMessage(ctx, '❌ Failed to clear notes.');
-    }
-});
-
-// /start command
-bot.start(async (ctx) => {
-    const welcomeMessage = `👋 Welcome to the Notification Bot!
-
-Available commands:
-• /time - Schedule notifications before a specific time
-• /settime - Schedule interval notifications
-• /note - Save a note
-• /notes - View your notes
-• /clearnotes - Delete all notes
-• /stop - Stop all notifications
-• /status - Check active notifications
-• /help - Show help guide
-
-Note: Only admin can use these commands.`;
-
-    await safeSendMessage(ctx, welcomeMessage);
-});
-
-// /help command
-bot.command('help', async (ctx) => {
-    const helpMessage = `📋 Help Guide:
-
-1. /time
-   - Enter target time in HH:MM (24-hour, IST)
-   - Bot will send 10 notifications per minute starting 10 minutes before target time
-   - Example: Enter "14:30" → notifications at 14:20, 14:21, ..., 14:29
-
-2. /settime
-   - Enter interval in format: minutes/times
-   - Example: "5/10" = every 5 minutes, 10 times
-   - First notification starts immediately
-
-3. /note
-   - Save a text note (max 1000 characters)
-   - Notes are stored in database
-
-4. /notes
-   - View your last 10 notes
-
-5. /clearnotes
-   - Delete all your notes
-
-6. /stop
-   - Stop all active notifications
-
-7. /status
-   - Check status of active notifications
-
-All times are in IST (Indian Standard Time).`;
-
-    await safeSendMessage(ctx, helpMessage);
-});
-
-// Error handling
 bot.catch((error, ctx) => {
     console.error('Bot error:', error);
     
     try {
         if (ctx.message) {
-            safeSendMessage(ctx, '❌ An error occurred. Please try again.');
+            ctx.reply('❌ An error occurred. Please try again.');
         }
     } catch (e) {
         console.error('Error in error handler:', e);
     }
 });
 
-// Initialize database and start bot
+// ==========================================
+// INITIALIZE AND START BOT
+// ==========================================
+
+async function initBot() {
+    try {
+        // Create indexes
+        await db.collection('notes').createIndex({ userId: 1 });
+        await db.collection('notes').createIndex({ createdAt: -1 });
+        
+        console.log('✅ Bot initialized successfully');
+        return true;
+    } catch (error) {
+        console.error('❌ Error initializing bot:', error);
+        return false;
+    }
+}
+
 async function startBot() {
     try {
         // Connect to database
@@ -615,14 +725,13 @@ async function startBot() {
             return;
         }
         
-        // Create collections if they don't exist
-        await db.collection('notes').createIndex({ userId: 1 });
-        await db.collection('notes').createIndex({ createdAt: -1 });
+        // Initialize bot
+        await initBot();
         
         // Start bot
         await bot.launch({
             dropPendingUpdates: true,
-            allowedUpdates: ['message', 'callback_query']
+            allowedUpdates: ['message']
         });
         console.log('🤖 Bot is running...');
         
@@ -637,11 +746,11 @@ async function startBot() {
             await bot.telegram.sendMessage(ADMIN_IDS[0], 
                 `🤖 Notification Bot started successfully!\n` +
                 `Time: ${istTime} IST\n` +
-                `Scheduler is ready to schedule notifications.`
+                `Scheduler is ready.`
             );
             console.log('✅ Startup message sent to admin');
         } catch (error) {
-            console.log('⚠️ Could not send startup message');
+            console.log('⚠️ Could not send startup message:', error.message);
         }
         
         // Graceful shutdown
