@@ -6,6 +6,7 @@ require('dotenv').config();
 // ==========================================
 // ⚙️ CONFIGURATION
 // ==========================================
+// Replace these with your actual values if not using .env
 const BOT_TOKEN = process.env.BOT_TOKEN || 'YOUR_BOT_TOKEN_HERE';
 const MONGODB_URI = process.env.MONGODB_URI || 'YOUR_MONGODB_URI_HERE';
 
@@ -28,17 +29,14 @@ bot.use(session());
 // 🛠️ UTILITY FUNCTIONS
 // ==========================================
 
-// Generate unique 10-char ID for Tasks
 function generateTaskId() {
     return Math.random().toString(36).substring(2, 12).toUpperCase();
 }
 
-// Generate unique 5-char ID for Notes
 function generateNoteId() {
     return Math.random().toString(36).substring(2, 7).toUpperCase();
 }
 
-// Format Date: DD/MM/YYYY
 function formatDate(date) {
     return new Date(date).toLocaleDateString('en-IN', {
         timeZone: 'Asia/Kolkata',
@@ -46,7 +44,6 @@ function formatDate(date) {
     });
 }
 
-// Format Time: HH:MM
 function formatTime(date) {
     return new Date(date).toLocaleTimeString('en-IN', {
         timeZone: 'Asia/Kolkata',
@@ -54,17 +51,16 @@ function formatTime(date) {
     });
 }
 
-// Get Day Name (e.g., Sunday)
 function getDayName(date) {
     return new Date(date).toLocaleDateString('en-IN', { weekday: 'long', timeZone: 'Asia/Kolkata' });
 }
 
-// Safe Message Editor (prevents errors if message content is same)
+// Safe Message Editor
 async function safeEdit(ctx, text, extra) {
     try {
+        // We spread ...extra to ensure reply_markup is at the top level of the options object
         await ctx.editMessageText(text, { parse_mode: 'HTML', ...extra });
     } catch (err) {
-        // If edit fails (e.g., message too old or not found), send new message
         if (err.description && err.description.includes("message is not modified")) return;
         try {
             await ctx.reply(text, { parse_mode: 'HTML', ...extra });
@@ -82,7 +78,6 @@ async function connectDB() {
         db = client.db('telegram_task_bot');
         console.log('✅ Connected to MongoDB');
         
-        // Indexes for performance
         await db.collection('tasks').createIndex({ userId: 1, status: 1 });
         await db.collection('tasks').createIndex({ taskId: 1 }, { unique: true });
         await db.collection('notes').createIndex({ userId: 1 });
@@ -95,7 +90,7 @@ async function connectDB() {
 }
 
 // ==========================================
-// ⏰ SCHEDULER LOGIC (The Core Requirement)
+// ⏰ SCHEDULER LOGIC
 // ==========================================
 
 function scheduleTask(task) {
@@ -105,36 +100,33 @@ function scheduleTask(task) {
         const startTime = new Date(task.startDate);
         const now = new Date();
 
-        // 1. Clear existing schedules for this task
+        // 1. Clear existing schedules
         cancelTaskSchedule(taskId);
 
-        // 2. Calculate "Notification Start Time" (10 mins before task)
+        // 2. Notification triggers 10 mins before start
         const notifyTime = new Date(startTime.getTime() - 10 * 60000);
 
-        // If task is already passed or less than 1 min away, don't schedule full sequence
+        // Skip if task is in the past
         if (startTime <= now) return;
 
-        console.log(`⏰ Scheduling Task ${taskId}: Notify at ${notifyTime.toLocaleTimeString()} for Start at ${startTime.toLocaleTimeString()}`);
+        console.log(`⏰ Scheduled: ${task.title} (Notify: ${formatTime(notifyTime)})`);
 
-        // 3. Schedule the Trigger Job
-        // If notify time is in past but start time is future (e.g., bot restart 5 mins before task), start NOW.
+        // 3. Schedule the trigger
         const triggerDate = notifyTime > now ? notifyTime : now;
 
         const startJob = schedule.scheduleJob(triggerDate, function() {
-            console.log(`🚀 Starting notification sequence for ${taskId}`);
-            
             let count = 0;
             const maxNotifications = 10;
             
-            // Function to send countdown message
             const sendReminder = async () => {
                 const currentTime = new Date();
-                // Stop if we passed start time or hit 10 msgs
+                
+                // Stop if task started or max notifications reached
                 if (currentTime >= startTime || count >= maxNotifications) {
                     clearInterval(activeSchedules.get(taskId)?.interval);
                     try {
                         await bot.telegram.sendMessage(userId, `🚀 <b>TASK STARTED:</b> ${task.title}\n\nGood luck!`, { parse_mode: 'HTML' });
-                    } catch (e) { console.error(`Error sending start msg: ${e.message}`); }
+                    } catch (e) {}
                     return;
                 }
 
@@ -143,24 +135,22 @@ function scheduleTask(task) {
 
                 try {
                     await bot.telegram.sendMessage(userId, 
-                        `🔔 <b>Task Reminder (${count + 1}/10)</b>\n\n` +
-                        `📌 <b>${task.title}</b>\n` +
-                        `⏳ Starts in: <b>${minutesLeft} mins</b>\n` +
-                        `⏰ At: ${formatTime(task.startDate)}`, 
+                        `🔔 <b>Reminder (${count + 1}/10)</b>\n` +
+                        `📌 ${task.title}\n` +
+                        `⏳ Starts in: <b>${minutesLeft} mins</b>`, 
                         { parse_mode: 'HTML' }
                     );
-                } catch (e) { console.error(`Reminder fail: ${e.message}`); }
+                } catch (e) {}
                 
                 count++;
             };
 
-            // Send first immediate msg
+            // Send first msg immediately
             sendReminder();
 
-            // Set interval for subsequent messages (every 60s)
+            // Loop every minute
             const interval = setInterval(sendReminder, 60000);
             
-            // Update map with interval so we can cancel it later
             if (activeSchedules.has(taskId)) {
                 activeSchedules.get(taskId).interval = interval;
             } else {
@@ -168,31 +158,27 @@ function scheduleTask(task) {
             }
         });
 
-        // Save job reference
         activeSchedules.set(taskId, { startJob });
 
     } catch (error) {
-        console.error(`Scheduler Error for ${task.taskId}:`, error);
+        console.error(`Scheduler Error:`, error);
     }
 }
 
 function cancelTaskSchedule(taskId) {
     if (activeSchedules.has(taskId)) {
-        const scheduleData = activeSchedules.get(taskId);
-        if (scheduleData.startJob) scheduleData.startJob.cancel();
-        if (scheduleData.interval) clearInterval(scheduleData.interval);
+        const s = activeSchedules.get(taskId);
+        if (s.startJob) s.startJob.cancel();
+        if (s.interval) clearInterval(s.interval);
         activeSchedules.delete(taskId);
-        console.log(`🛑 Cancelled schedule for ${taskId}`);
     }
 }
 
 async function rescheduleAllPending() {
-    console.log('♻️ Rescheduling all pending tasks...');
     const tasks = await db.collection('tasks').find({ 
         status: 'pending', 
         startDate: { $gt: new Date() } 
     }).toArray();
-    
     tasks.forEach(task => scheduleTask(task));
     console.log(`✅ Rescheduled ${tasks.length} tasks.`);
 }
@@ -202,7 +188,7 @@ async function rescheduleAllPending() {
 // ==========================================
 
 bot.command('start', async (ctx) => {
-    ctx.session = {}; // Reset session
+    ctx.session = {}; 
     await showMainMenu(ctx);
 });
 
@@ -235,10 +221,6 @@ bot.action('add_task', async (ctx) => {
     await safeEdit(ctx, `✏️ <b>Task Creation</b>\n\nEnter the <b>Title</b> of the task (e.g., "Gym Workout"):`, Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', 'main_menu')]]));
 });
 
-// ==========================================
-// 📝 ADD NOTE WIZARD
-// ==========================================
-
 bot.action('add_note', async (ctx) => {
     ctx.session.step = 'note_title';
     ctx.session.note = { 
@@ -249,7 +231,7 @@ bot.action('add_note', async (ctx) => {
 });
 
 // ==========================================
-// 📨 TEXT INPUT HANDLER (The Brain)
+// 📨 TEXT INPUT HANDLER (CRITICAL FIXES HERE)
 // ==========================================
 
 bot.on('text', async (ctx) => {
@@ -276,16 +258,8 @@ bot.on('text', async (ctx) => {
         const [h, m] = text.split(':').map(Number);
         const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m);
         
-        // If time passed today, assume user implies tomorrow? 
-        // Or strictly today? Let's assume strict time input. If passed, it's for today (and might trigger immediate start).
-        // Actually, for a scheduler, better to check.
-        if (startDate < now) {
-           // Optional: Auto-move to tomorrow or keep today (which makes it "overdue" immediately)
-           // Let's keep it today to allow setting tasks for immediate execution.
-        }
-
         ctx.session.task.startDate = startDate;
-        ctx.session.task.startTimeStr = text; // Save string for validation logic
+        ctx.session.task.startTimeStr = text; 
         ctx.session.step = 'task_end';
         await ctx.reply(`🏁 Enter <b>End Time</b> (HH:MM, must be after ${text}):`);
     }
@@ -299,18 +273,20 @@ bot.on('text', async (ctx) => {
         
         const endDate = new Date(ctx.session.task.startDate);
         endDate.setHours(eh, em);
-        // Ensure endDate doesn't roll over to next day (per requirement "can't exceed day time")
-        // Since we constructed it from startDate's day, it's fine unless user entered smaller hour which we blocked.
-
+        
         ctx.session.task.endDate = endDate;
-        ctx.session.step = null; // Exit text input mode
+        ctx.session.step = null; // Exit text input
 
-        // Ask for Repeat
+        // --- FIX: BUTTON DISPLAY ---
         const dayName = getDayName(ctx.session.task.startDate);
+        
+        // We use the spread operator ...Markup.inlineKeyboard(...) inside the options object
+        // OR pass the markup as the second argument if not using extra options like parse_mode.
+        // The safest way in Telegraf 4 is passing the markup object directly or merging it.
         
         await ctx.reply(`🔄 <b>Repeat this task?</b>\n\nChoose an option:`, {
             parse_mode: 'HTML',
-            reply_markup: Markup.inlineKeyboard([
+            ...Markup.inlineKeyboard([
                 [Markup.button.callback('❌ None', 'repeat_none')],
                 [Markup.button.callback('📅 Daily', 'repeat_daily')],
                 [Markup.button.callback(`📅 Weekly (${dayName})`, 'repeat_weekly')]
@@ -349,7 +325,7 @@ bot.on('text', async (ctx) => {
     }
     
     // --- EDIT TASK FLOW ---
-    else if (step.startsWith('edit_')) {
+    else if (step && step.startsWith('edit_')) {
         const taskId = ctx.session.editTaskId;
         const field = step.replace('edit_', '');
         
@@ -370,7 +346,6 @@ bot.on('text', async (ctx) => {
 
         await db.collection('tasks').updateOne({ taskId }, { $set: updates });
         
-        // If start time changed, update schedule
         if (field === 'start') {
             const updatedTask = await db.collection('tasks').findOne({ taskId });
             scheduleTask(updatedTask);
@@ -378,7 +353,7 @@ bot.on('text', async (ctx) => {
 
         ctx.session.step = null;
         await ctx.reply(`✅ <b>${field.toUpperCase()} Updated!</b>`, { parse_mode: 'HTML' });
-        await showTaskDetail(ctx, taskId); // Return to task view
+        await showTaskDetail(ctx, taskId);
     }
 });
 
@@ -386,7 +361,6 @@ bot.on('text', async (ctx) => {
 // 🕹️ BUTTON ACTIONS
 // ==========================================
 
-// --- REPEAT ACTIONS ---
 bot.action('repeat_none', async (ctx) => {
     ctx.session.task.repeat = 'none';
     await saveTask(ctx);
@@ -395,13 +369,13 @@ bot.action('repeat_none', async (ctx) => {
 bot.action('repeat_daily', async (ctx) => {
     ctx.session.task.repeat = 'daily';
     ctx.session.step = 'task_repeat_end_date';
-    await safeEdit(ctx, `📅 <b>Daily Repeat Selected</b>\n\nUntil when? Enter End Date (DD/MM/YYYY):`, Markup.inlineKeyboard([]));
+    await ctx.reply(`📅 <b>Daily Repeat Selected</b>\n\nUntil when? Enter End Date (DD/MM/YYYY):`, { parse_mode: 'HTML' });
 });
 
 bot.action('repeat_weekly', async (ctx) => {
     ctx.session.task.repeat = 'weekly';
     ctx.session.step = 'task_repeat_end_date';
-    await safeEdit(ctx, `📅 <b>Weekly Repeat Selected</b>\n\nUntil when? Enter End Date (DD/MM/YYYY):`, Markup.inlineKeyboard([]));
+    await ctx.reply(`📅 <b>Weekly Repeat Selected</b>\n\nUntil when? Enter End Date (DD/MM/YYYY):`, { parse_mode: 'HTML' });
 });
 
 async function saveTask(ctx) {
@@ -476,7 +450,7 @@ async function showTaskDetail(ctx, taskId) {
     await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
 }
 
-// --- COMPLETE TASK (Logic for Repeat) ---
+// --- COMPLETE TASK (Repeat Logic) ---
 bot.action(/^complete_(.+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     const task = await db.collection('tasks').findOne({ taskId });
@@ -486,26 +460,22 @@ bot.action(/^complete_(.+)$/, async (ctx) => {
     await db.collection('tasks').updateOne({ taskId }, { 
         $set: { status: 'completed', completedAt: new Date() } 
     });
-    
-    // Stop Notification
     cancelTaskSchedule(taskId);
 
-    // 2. Schedule Next Occurrence if Repeating
+    // 2. Schedule Next Occurrence
     if (task.repeat !== 'none' && task.repeatEndDate) {
         const nextStart = new Date(task.startDate);
         const nextEnd = new Date(task.endDate);
 
-        // Add days
         const daysToAdd = task.repeat === 'weekly' ? 7 : 1;
         nextStart.setDate(nextStart.getDate() + daysToAdd);
         nextEnd.setDate(nextEnd.getDate() + daysToAdd);
 
-        // Check if within repeat end date
         if (nextStart <= new Date(task.repeatEndDate)) {
             const newTask = {
                 ...task,
-                _id: undefined, // mongo generates new
-                taskId: generateTaskId(), // New ID
+                _id: undefined, 
+                taskId: generateTaskId(),
                 startDate: nextStart,
                 endDate: nextEnd,
                 status: 'pending',
@@ -516,7 +486,7 @@ bot.action(/^complete_(.+)$/, async (ctx) => {
             scheduleTask(newTask);
             await ctx.answerCbQuery('✅ Completed! Next instance scheduled.');
         } else {
-            await ctx.answerCbQuery('✅ Completed! Repetition finished.');
+            await ctx.answerCbQuery('✅ Completed! Repeat Ended.');
         }
     } else {
         await ctx.answerCbQuery('✅ Task Completed!');
@@ -545,7 +515,7 @@ bot.action(/^edit_do_(.+)_(.+)$/, async (ctx) => {
     if (field === 'start') msg = 'Enter new Start Time (HH:MM):';
     if (field === 'end') msg = 'Enter new End Time (HH:MM):';
 
-    await safeEdit(ctx, `✏️ ${msg}`, Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `task_det_${ctx.match[1]}`)]]));
+    await ctx.reply(`✏️ ${msg}`, Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `task_det_${ctx.match[1]}`)]]));
 });
 
 // --- DELETE TASK ---
@@ -558,7 +528,7 @@ bot.action(/^delete_(.+)$/, async (ctx) => {
 });
 
 // ==========================================
-// 📜 VIEW HISTORY (Dates -> Tasks)
+// 📜 VIEW HISTORY
 // ==========================================
 
 bot.action(/^view_history_dates_(\d+)$/, async (ctx) => {
@@ -566,7 +536,6 @@ bot.action(/^view_history_dates_(\d+)$/, async (ctx) => {
     const limit = 10;
     const skip = (page - 1) * limit;
 
-    // Aggregate unique dates
     const dates = await db.collection('tasks').aggregate([
         { $match: { userId: ctx.from.id, status: 'completed' } },
         { $group: { 
@@ -578,7 +547,6 @@ bot.action(/^view_history_dates_(\d+)$/, async (ctx) => {
         { $limit: limit }
     ]).toArray();
 
-    // Count total unique dates
     const allGroups = await db.collection('tasks').aggregate([
         { $match: { userId: ctx.from.id, status: 'completed' } },
         { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$completedAt" } } } }
@@ -608,21 +576,16 @@ bot.action(/^hist_list_([\d-]+)_(\d+)$/, async (ctx) => {
     const limit = 10;
     const skip = (page - 1) * limit;
 
-    // Find tasks completed on that date (Approx match via string for simplicity)
     const tasks = await db.collection('tasks').find({
         userId: ctx.from.id,
         status: 'completed',
         $expr: {
-            $eq: [
-                { $dateToString: { format: "%Y-%m-%d", date: "$completedAt", timezone: "Asia/Kolkata" } },
-                dateStr
-            ]
+            $eq: [{ $dateToString: { format: "%Y-%m-%d", date: "$completedAt", timezone: "Asia/Kolkata" } }, dateStr]
         }
     }).sort({ completedAt: -1 }).skip(skip).limit(limit).toArray();
 
     const count = await db.collection('tasks').countDocuments({
-        userId: ctx.from.id, 
-        status: 'completed',
+        userId: ctx.from.id, status: 'completed',
         $expr: {
             $eq: [{ $dateToString: { format: "%Y-%m-%d", date: "$completedAt", timezone: "Asia/Kolkata" } }, dateStr]
         }
@@ -634,7 +597,7 @@ bot.action(/^hist_list_([\d-]+)_(\d+)$/, async (ctx) => {
     const buttons = [];
     tasks.forEach(t => {
         text += `✅ ${t.title} (${formatTime(t.completedAt)})\n`;
-        buttons.push([Markup.button.callback(`🔍 ${t.title}`, `task_det_${t.taskId}`)]); // Reuse task detail view
+        buttons.push([Markup.button.callback(`🔍 ${t.title}`, `task_det_${t.taskId}`)]);
     });
 
     const nav = [];
@@ -662,6 +625,8 @@ bot.action(/^view_notes_(\d+)$/, async (ctx) => {
     const totalPages = Math.ceil(count / limit) || 1;
 
     let text = `🗒️ <b>Notes (Page ${page}/${totalPages})</b>\n\n`;
+    if (notes.length === 0) text += "<i>No notes found.</i>";
+
     const buttons = [];
     notes.forEach(n => {
         text += `• ${n.title}\n`;
@@ -698,7 +663,6 @@ bot.action('download_data', async (ctx) => {
     const tasks = await db.collection('tasks').find({ userId }).toArray();
     const notes = await db.collection('notes').find({ userId }).toArray();
     
-    // Split tasks into active/history
     const active = tasks.filter(t => t.status === 'pending');
     const history = tasks.filter(t => t.status === 'completed');
 
@@ -706,7 +670,7 @@ bot.action('download_data', async (ctx) => {
     const histBuff = Buffer.from(JSON.stringify(history, null, 2));
     const notesBuff = Buffer.from(JSON.stringify(notes, null, 2));
 
-    await ctx.replyWithDocument({ source: activeBuff, filename: 'tasks.json' });
+    await ctx.replyWithDocument({ source: activeBuff, filename: 'active_tasks.json' });
     await ctx.replyWithDocument({ source: histBuff, filename: 'history.json' });
     await ctx.replyWithDocument({ source: notesBuff, filename: 'notes.json' });
     
@@ -722,8 +686,6 @@ bot.action('delete_all_confirm', async (ctx) => {
 
 bot.action('delete_all_final', async (ctx) => {
     const userId = ctx.from.id;
-    
-    // Fetch pending tasks to cancel schedules
     const tasks = await db.collection('tasks').find({ userId, status: 'pending' }).toArray();
     tasks.forEach(t => cancelTaskSchedule(t.taskId));
     
@@ -751,7 +713,6 @@ async function start() {
     }
 }
 
-// Graceful Stop
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
 
