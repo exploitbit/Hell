@@ -13,7 +13,7 @@ cloudinary.config({
 });
 
 // Initialize bot
-const BOT_TOKEN = process.env.BOT_TOKEN || '8043573365:AAGi5rnWt6AAYEVQchQDl3ezglFIpZMVyNo';
+const BOT_TOKEN = process.env.BOT_TOKEN || '8365287371:AAHBks0ToDhlNOU1LPvWlY7PW59qAtKcwG8';
 const bot = new Telegraf(BOT_TOKEN);
 
 // Emergency stop for error loop - MOVED HERE AFTER bot IS DEFINED
@@ -29,7 +29,7 @@ bot.command('emergency', async (ctx) => {
 });
 
 // MongoDB connection
-const mongoUri = process.env.MONGODB_URI || 'mongodb+srv://sandip102938:Q1g2Fbn7ewNqEvuK@test.ebvv4hf.mongodb.net/two_telegram_bot';
+const mongoUri = process.env.MONGODB_URI || 'mongodb+srv://sandip:9E9AISFqTfU3VI5i@cluster0.p8irtov.mongodb.net/two_telegram_bot';
 let db, client;
 
 async function connectDB() {
@@ -124,7 +124,7 @@ const scenes = {
 Object.values(scenes).forEach(scene => stage.register(scene));
 
 // 🔐 ADMIN CONFIGURATION
-const ADMIN_IDS = process.env.ADMIN_IDS ? process.env.ADMIN_IDS.split(',').map(Number) : [8435248854, 5518423310, 8469993808];
+const ADMIN_IDS = process.env.ADMIN_IDS ? process.env.ADMIN_IDS.split(',').map(Number) : [8469993808];
 
 // Default configurations
 const DEFAULT_CONFIG = {
