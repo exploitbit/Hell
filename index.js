@@ -1,3 +1,5 @@
+
+
 const { Telegraf, session, Markup } = require('telegraf');
 const { MongoClient, ObjectId } = require('mongodb');
 const schedule = require('node-schedule');
@@ -250,8 +252,8 @@ function scheduleTask(task) {
                 try {
                     await bot.telegram.sendMessage(userId, 
                         `🔔 <b>𝗥𝗘𝗠𝗜𝗡𝗗𝗘𝗥 (${count + 1}/${maxNotifications})</b>\n` +
-                        `━━━━━━━━━━━━━━━━━━━━\n` +
-                        `🛡️<b>${task.title}</b>\n` +
+                        `━━━━━━━━━━━━━━━━━━━━` +
+                        `📌 <b>${task.title}</b>\n` +
                         `⏳ Starts in: <b>${minutesLeft} minute${minutesLeft !== 1 ? 's' : ''}</b>\n` +
                         `⏰ Start Time: ${formatTime(startTime)}\n` +
                         `📅 Date: ${formatDate(startTime)}\n` +
@@ -989,125 +991,21 @@ bot.on('text', async (ctx) => {
         }
     }
     
-// ==========================================
-// 📝 NOTE EDITING SYSTEM (FIXED)
-// ==========================================
-
-// Edit Note Title - FIXED
-bot.action(/^edit_note_title_(.+)$/, async (ctx) => {
-    try {
-        const noteId = ctx.match[1];
-        const note = await db.collection('notes').findOne({ noteId: noteId });
-        
-        if (!note) {
-            await ctx.answerCbQuery('❌ Note not found');
-            return;
-        }
-        
-        // Set up session for editing
-        ctx.session.step = 'edit_note_title';
-        ctx.session.editNoteId = noteId;
-        
-        // Send the edit prompt in a NEW message (not edit)
-        await ctx.reply(
-            `✏️ <b>𝗘𝗗𝗜𝗧 𝗡𝗢𝗧𝗘 𝗧𝗜𝗧𝗟𝗘</b>\n` +
-            `━━━━━━━━━━━━━━━━━━━━\n` +
-            `Current title: <b>${note.title}</b>\n\n` +
-            `Enter new title for your note:`,
-            { 
-                parse_mode: 'HTML',
-                ...Markup.inlineKeyboard([
-                    [Markup.button.callback('🔙 Cancel', `note_det_${noteId}`)]
-                ])
-            }
-        );
-        
-    } catch (error) {
-        console.error('Edit note title error:', error);
-        await ctx.answerCbQuery('❌ Error loading editor');
-    }
-});
-
-// Edit Note Content - FIXED
-bot.action(/^edit_note_content_(.+)$/, async (ctx) => {
-    try {
-        const noteId = ctx.match[1];
-        const note = await db.collection('notes').findOne({ noteId: noteId });
-        
-        if (!note) {
-            await ctx.answerCbQuery('❌ Note not found');
-            return;
-        }
-        
-        // Set up session for editing
-        ctx.session.step = 'edit_note_content';
-        ctx.session.editNoteId = noteId;
-        
-        // Send the edit prompt in a NEW message (not edit)
-        await ctx.reply(
-            `✏️ <b>𝗘𝗗𝗜𝗧 𝗡𝗢𝗧𝗘 𝗖𝗢𝗡𝗧𝗘𝗡𝗧</b>\n` +
-            `━━━━━━━━━━━━━━━━━━━━\n` +
-            `Current content:\n<blockquote>${note.content}</blockquote>\n\n` +
-            `Enter new content for your note (Max 400 words):`,
-            { 
-                parse_mode: 'HTML',
-                ...Markup.inlineKeyboard([
-                    [Markup.button.callback('🔙 Cancel', `note_det_${noteId}`)]
-                ])
-            }
-        );
-        
-    } catch (error) {
-        console.error('Edit note content error:', error);
-        await ctx.answerCbQuery('❌ Error loading editor');
-    }
-});
-
-// ==========================================
-// 📨 TEXT INPUT HANDLER - NOTE EDITING PART (FIXED)
-// ==========================================
-
-// Update the text handler for note editing (add this or replace existing handlers)
-
-bot.on('text', async (ctx) => {
-    if (!ctx.session || !ctx.session.step) return;
-    const text = ctx.message.text.trim();
-    const step = ctx.session.step;
-
-    console.log(`Text handler step: ${step}, editNoteId: ${ctx.session.editNoteId}`);
-
-    // --- EDIT NOTE TITLE ---
-    if (step === 'edit_note_title') {
+    // --- EDIT NOTE FLOW (FIXED) ---
+    else if (step === 'edit_note_title') {
         const noteId = ctx.session.editNoteId;
-        
-        if (!noteId) {
-            await ctx.reply('❌ Session error. Please try again.');
-            ctx.session.step = null;
-            delete ctx.session.editNoteId;
-            return;
-        }
-        
-        if (text.length === 0) {
-            await ctx.reply('❌ Title cannot be empty. Please enter a title:');
-            return;
-        }
+        if (text.length === 0) return ctx.reply('❌ Title cannot be empty.');
         
         try {
             await db.collection('notes').updateOne(
                 { noteId: noteId }, 
-                { $set: { 
-                    title: text, 
-                    updatedAt: new Date() 
-                } }
+                { $set: { title: text, updatedAt: new Date() } }
             );
             
-            // Clear session
             ctx.session.step = null;
             delete ctx.session.editNoteId;
             
-            // Get updated note
             const updatedNote = await db.collection('notes').findOne({ noteId: noteId });
-            
             await ctx.reply(
                 `✅ <b>𝗡𝗢𝗧𝗘 𝗧𝗜𝗧𝗟𝗘 𝗨𝗣𝗗𝗔𝗧𝗘𝗗!</b>\n` +
                 `━━━━━━━━━━━━━━━━━━━━\n` +
@@ -1117,47 +1015,30 @@ bot.on('text', async (ctx) => {
                 { parse_mode: 'HTML' }
             );
             
-            // Show note details again
+            // Go back to note detail
             await showNoteDetail(ctx, noteId);
             
         } catch (error) {
             console.error('Error updating note title:', error);
-            await ctx.reply('❌ Failed to update title. Please try again.');
+            await ctx.reply('❌ Failed to update title.');
         }
     }
-    
-    // --- EDIT NOTE CONTENT ---
     else if (step === 'edit_note_content') {
         const noteId = ctx.session.editNoteId;
-        
-        if (!noteId) {
-            await ctx.reply('❌ Session error. Please try again.');
-            ctx.session.step = null;
-            delete ctx.session.editNoteId;
-            return;
-        }
-        
         if (text.split(/\s+/).length > 400) {
-            await ctx.reply('❌ Too long! Max 400 words. Please enter shorter content:');
-            return;
+            return ctx.reply('❌ Too long! Max 400 words.');
         }
         
         try {
             await db.collection('notes').updateOne(
                 { noteId: noteId }, 
-                { $set: { 
-                    content: text, 
-                    updatedAt: new Date() 
-                } }
+                { $set: { content: text, updatedAt: new Date() } }
             );
             
-            // Clear session
             ctx.session.step = null;
             delete ctx.session.editNoteId;
             
-            // Get updated note
             const updatedNote = await db.collection('notes').findOne({ noteId: noteId });
-            
             await ctx.reply(
                 `✅ <b>𝗡𝗢𝗧𝗘 𝗖𝗢𝗡𝗧𝗘𝗡𝗧 𝗨𝗣𝗗𝗔𝗧𝗘𝗗!</b>\n` +
                 `━━━━━━━━━━━━━━━━━━━━\n` +
@@ -1167,57 +1048,15 @@ bot.on('text', async (ctx) => {
                 { parse_mode: 'HTML' }
             );
             
-            // Show note details again
+            // Go back to note detail
             await showNoteDetail(ctx, noteId);
             
         } catch (error) {
             console.error('Error updating note content:', error);
-            await ctx.reply('❌ Failed to update content. Please try again.');
+            await ctx.reply('❌ Failed to update content.');
         }
     }
-    
-    // ... (keep your existing text handlers for other steps)
 });
-
-// Helper function to show note detail (ensure this exists)
-async function showNoteDetail(ctx, noteId) {
-    try {
-        const note = await db.collection('notes').findOne({ noteId: noteId });
-        if (!note) {
-            await ctx.reply('❌ Note not found');
-            return;
-        }
-
-        const text = `
-📝 <b>𝗡𝗢𝗧𝗘 𝗗𝗘𝗧𝗔𝗜𝗟𝗦</b>
-━━━━━━━━━━━━━━━━━━━━
-📌 <b>${note.title}</b>
-${formatBlockquote(note.content)}
-📅 <b>Created:</b> ${formatDateTime(note.createdAt)}
-${note.updatedAt ? `✏️ <b>Updated:</b> ${formatDateTime(note.updatedAt)}` : ''}
-🏷️ <b>Order:</b> ${note.orderIndex + 1}
-━━━━━━━━━━━━━━━━━━━━`;
-        
-        const buttons = [
-            [
-                Markup.button.callback('✏️ Edit Title', `edit_note_title_${note.noteId}`), 
-                Markup.button.callback('✏️ Edit Content', `edit_note_content_${note.noteId}`)
-            ],
-            [
-                Markup.button.callback('🗑️ Delete', `delete_note_${note.noteId}`),
-                Markup.button.callback('🔙 Back to Notes', 'view_notes_1')
-            ]
-        ];
-
-        await ctx.reply(text, {
-            parse_mode: 'HTML',
-            reply_markup: { inline_keyboard: buttons }
-        });
-    } catch (error) {
-        console.error('Error showing note detail:', error);
-        await ctx.reply('❌ Error loading note details');
-    }
-}
 
 // ==========================================
 // 🕹️ BUTTON ACTIONS
