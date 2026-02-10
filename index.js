@@ -1639,59 +1639,78 @@ bot.action('download_all', async (ctx) => {
 });
 
 // ==========================================
-// 🗑️ DELETE DATA MENU (FIXED)
+// 🗑️ DELETE DATA MENU (COMPLETELY FIXED)
 // ==========================================
 
 bot.action('delete_menu', async (ctx) => {
-    const text = `🗑️ <b>𝗗𝗘𝗟𝗘𝗧𝗘 𝗗𝗔𝗧𝗔</b>\n━━━━━━━━━━━━━━━━━━━━\n⚠️ </b>Select what you want to delete:`;
-    
-    const keyboard = Markup.inlineKeyboard([
-        [Markup.button.callback('📋 Delete All Tasks', 'delete_tasks_confirm')],
-        [Markup.button.callback('📜 Delete All History', 'delete_history_confirm')],
-        [Markup.button.callback('🗒️ Delete All Notes', 'delete_notes_confirm')],
-        [Markup.button.callback('🔥 Delete EVERYTHING', 'delete_all_confirm')],
-        [Markup.button.callback('🔙 Back', 'main_menu')]
-    ]);
-    
-    await safeEdit(ctx, text, keyboard);
+    try {
+        const text = `🗑️ <b>𝗗𝗘𝗟𝗘𝗧𝗘 𝗗𝗔𝗧𝗔</b>\n━━━━━━━━━━━━━━━━━━━━\n⚠️ <b>Select what you want to delete:</b>`;
+        
+        const keyboard = Markup.inlineKeyboard([
+            [Markup.button.callback('📋 Delete All Tasks', 'delete_tasks_confirm')],
+            [Markup.button.callback('📜 Delete All History', 'delete_history_confirm')],
+            [Markup.button.callback('🗒️ Delete All Notes', 'delete_notes_confirm')],
+            [Markup.button.callback('🔥 Delete EVERYTHING', 'delete_all_confirm')],
+            [Markup.button.callback('🔙 Back to Main Menu', 'main_menu')]
+        ]);
+        
+        await safeEdit(ctx, text, keyboard);
+    } catch (error) {
+        console.error('Error in delete_menu:', error);
+        await ctx.answerCbQuery('❌ Error loading delete menu');
+    }
 });
 
 // DELETE TASKS CONFIRMATION
 bot.action('delete_tasks_confirm', async (ctx) => {
-    const text = `⚠️ <b>𝗖𝗢𝗡𝗙𝗜𝗥𝗠 𝗗𝗘𝗟𝗘𝗧𝗜𝗢𝗡</b>\n━━━━━━━━━━━━━━━━━━━━\nAre you sure you want to delete ALL tasks?\n━━━━━━━━━━━━━━━━━━━━`;
-    
-    const keyboard = Markup.inlineKeyboard([
-        [Markup.button.callback('✅ YES, DELETE ALL TASKS', 'delete_tasks_final')],
-        [Markup.button.callback('🔙 Cancel', 'delete_menu')]
-    ]);
-    
-    await safeEdit(ctx, text, keyboard);
+    try {
+        const userId = ctx.from.id;
+        const taskCount = await db.collection('tasks').countDocuments({ userId });
+        
+        const text = `⚠️ <b>𝗖𝗢𝗡𝗙𝗜𝗥𝗠 𝗗𝗘𝗟𝗘𝗧𝗜𝗢𝗡</b>\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Delete ALL ${taskCount} task${taskCount !== 1 ? 's' : ''}?\n\n⚠️ <b>This action cannot be undone!</b>\n━━━━━━━━━━━━━━━━━━━━`;
+        
+        const keyboard = Markup.inlineKeyboard([
+            [Markup.button.callback('✅ YES, DELETE ALL TASKS', 'delete_tasks_final')],
+            [Markup.button.callback('🔙 Cancel', 'delete_menu')]
+        ]);
+        
+        await safeEdit(ctx, text, keyboard);
+    } catch (error) {
+        console.error('Error in delete_tasks_confirm:', error);
+        await ctx.answerCbQuery('❌ Error loading confirmation');
+    }
 });
 
 // DELETE TASKS FINAL
 bot.action('delete_tasks_final', async (ctx) => {
-    const userId = ctx.from.id;
-    
     try {
-        // Get all tasks to cancel schedules
+        await ctx.answerCbQuery('⏳ Processing...');
+        const userId = ctx.from.id;
+        
+        // Get all tasks before deletion for backup
         const tasks = await db.collection('tasks').find({ userId }).toArray();
+        
+        // Cancel all schedules first
         tasks.forEach(t => cancelTaskSchedule(t.taskId));
         
         // Delete from database
         const result = await db.collection('tasks').deleteMany({ userId });
         
-        // Send backup file
-        const backupData = tasks.length > 0 ? tasks : [];
-        const backupBuff = Buffer.from(JSON.stringify(backupData, null, 2));
-        await ctx.replyWithDocument({ 
-            source: backupBuff, 
-            filename: `tasks_backup_${new Date().getTime()}.json` 
-        });
-        
-        await ctx.answerCbQuery(`✅ Deleted ${result.deletedCount} tasks`);
+        // Send backup file if there were tasks
+        if (tasks.length > 0) {
+            const backupBuff = Buffer.from(JSON.stringify(tasks, null, 2));
+            try {
+                await ctx.replyWithDocument({ 
+                    source: backupBuff, 
+                    filename: `tasks_backup_${Date.now()}.json` 
+                });
+            } catch (sendError) {
+                console.error('Error sending backup:', sendError);
+            }
+        }
         
         // Show success message
-        const successText = `✅ <b>𝗗𝗘𝗟𝗘𝗧𝗜𝗢𝗡 𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘</b>\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Deleted ${result.deletedCount} tasks\n📁 Backup file has been sent!\n━━━━━━━━━━━━━━━━━━━━`;
+        const successText = `✅ <b>𝗗𝗘𝗟𝗘𝗧𝗜𝗢𝗡 𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘</b>\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Deleted ${result.deletedCount} task${result.deletedCount !== 1 ? 's' : ''}\n${tasks.length > 0 ? '📁 Backup file sent!\n' : ''}━━━━━━━━━━━━━━━━━━━━`;
         
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback('🔙 Back to Main Menu', 'main_menu')]
@@ -1707,38 +1726,51 @@ bot.action('delete_tasks_final', async (ctx) => {
 
 // DELETE HISTORY CONFIRMATION
 bot.action('delete_history_confirm', async (ctx) => {
-    const text = `⚠️ <b>𝗖𝗢𝗡𝗙𝗜𝗥𝗠 𝗗𝗘𝗟𝗘𝗧𝗜𝗢𝗡</b>\n━━━━━━━━━━━━━━━━━━━━\nAre you sure you want to delete ALL history?\n━━━━━━━━━━━━━━━━━━━━`;
-    
-    const keyboard = Markup.inlineKeyboard([
-        [Markup.button.callback('✅ YES, DELETE ALL HISTORY', 'delete_history_final')],
-        [Markup.button.callback('🔙 Cancel', 'delete_menu')]
-    ]);
-    
-    await safeEdit(ctx, text, keyboard);
+    try {
+        const userId = ctx.from.id;
+        const historyCount = await db.collection('history').countDocuments({ userId });
+        
+        const text = `⚠️ <b>𝗖𝗢𝗡𝗙𝗜𝗥𝗠 𝗗𝗘𝗟𝗘𝗧𝗜𝗢𝗡</b>\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Delete ALL ${historyCount} history item${historyCount !== 1 ? 's' : ''}?\n\n⚠️ <b>This action cannot be undone!</b>\n━━━━━━━━━━━━━━━━━━━━`;
+        
+        const keyboard = Markup.inlineKeyboard([
+            [Markup.button.callback('✅ YES, DELETE ALL HISTORY', 'delete_history_final')],
+            [Markup.button.callback('🔙 Cancel', 'delete_menu')]
+        ]);
+        
+        await safeEdit(ctx, text, keyboard);
+    } catch (error) {
+        console.error('Error in delete_history_confirm:', error);
+        await ctx.answerCbQuery('❌ Error loading confirmation');
+    }
 });
 
 // DELETE HISTORY FINAL
 bot.action('delete_history_final', async (ctx) => {
-    const userId = ctx.from.id;
     try {
-        // Get data before deletion for backup
+        await ctx.answerCbQuery('⏳ Processing...');
+        const userId = ctx.from.id;
+        
+        // Get all history before deletion for backup
         const history = await db.collection('history').find({ userId }).toArray();
         
         // Delete from database
         const result = await db.collection('history').deleteMany({ userId });
         
-        // Send backup file
-        const backupData = history.length > 0 ? history : [];
-        const backupBuff = Buffer.from(JSON.stringify(backupData, null, 2));
-        await ctx.replyWithDocument({ 
-            source: backupBuff, 
-            filename: `history_backup_${new Date().getTime()}.json` 
-        });
-        
-        await ctx.answerCbQuery(`✅ Deleted ${result.deletedCount} history items`);
+        // Send backup file if there were history items
+        if (history.length > 0) {
+            const backupBuff = Buffer.from(JSON.stringify(history, null, 2));
+            try {
+                await ctx.replyWithDocument({ 
+                    source: backupBuff, 
+                    filename: `history_backup_${Date.now()}.json` 
+                });
+            } catch (sendError) {
+                console.error('Error sending backup:', sendError);
+            }
+        }
         
         // Show success message
-        const successText = `✅ <b>𝗗𝗘𝗟𝗘𝗧𝗜𝗢𝗡 𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘</b>\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Deleted ${result.deletedCount} history items\n📁 Backup file has been sent!\n━━━━━━━━━━━━━━━━━━━━`;
+        const successText = `✅ <b>𝗗𝗘𝗟𝗘𝗧𝗜𝗢𝗡 𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘</b>\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Deleted ${result.deletedCount} history item${result.deletedCount !== 1 ? 's' : ''}\n${history.length > 0 ? '📁 Backup file sent!\n' : ''}━━━━━━━━━━━━━━━━━━━━`;
         
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback('🔙 Back to Main Menu', 'main_menu')]
@@ -1754,38 +1786,51 @@ bot.action('delete_history_final', async (ctx) => {
 
 // DELETE NOTES CONFIRMATION
 bot.action('delete_notes_confirm', async (ctx) => {
-    const text = `⚠️ <b>𝗖𝗢𝗡𝗙𝗜𝗥𝗠 𝗗𝗘𝗟𝗘𝗧𝗜𝗢𝗡</b>\n━━━━━━━━━━━━━━━━━━━━\nAre you sure you want to delete ALL notes?\n━━━━━━━━━━━━━━━━━━━━`;
-    
-    const keyboard = Markup.inlineKeyboard([
-        [Markup.button.callback('✅ YES, DELETE ALL NOTES', 'delete_notes_final')],
-        [Markup.button.callback('🔙 Cancel', 'delete_menu')]
-    ]);
-    
-    await safeEdit(ctx, text, keyboard);
+    try {
+        const userId = ctx.from.id;
+        const notesCount = await db.collection('notes').countDocuments({ userId });
+        
+        const text = `⚠️ <b>𝗖𝗢𝗡𝗙𝗜𝗥𝗠 𝗗𝗘𝗟𝗘𝗧𝗜𝗢𝗡</b>\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Delete ALL ${notesCount} note${notesCount !== 1 ? 's' : ''}?\n\n⚠️ <b>This action cannot be undone!</b>\n━━━━━━━━━━━━━━━━━━━━`;
+        
+        const keyboard = Markup.inlineKeyboard([
+            [Markup.button.callback('✅ YES, DELETE ALL NOTES', 'delete_notes_final')],
+            [Markup.button.callback('🔙 Cancel', 'delete_menu')]
+        ]);
+        
+        await safeEdit(ctx, text, keyboard);
+    } catch (error) {
+        console.error('Error in delete_notes_confirm:', error);
+        await ctx.answerCbQuery('❌ Error loading confirmation');
+    }
 });
 
 // DELETE NOTES FINAL
 bot.action('delete_notes_final', async (ctx) => {
-    const userId = ctx.from.id;
     try {
-        // Get data before deletion for backup
+        await ctx.answerCbQuery('⏳ Processing...');
+        const userId = ctx.from.id;
+        
+        // Get all notes before deletion for backup
         const notes = await db.collection('notes').find({ userId }).toArray();
         
         // Delete from database
         const result = await db.collection('notes').deleteMany({ userId });
         
-        // Send backup file
-        const backupData = notes.length > 0 ? notes : [];
-        const backupBuff = Buffer.from(JSON.stringify(backupData, null, 2));
-        await ctx.replyWithDocument({ 
-            source: backupBuff, 
-            filename: `notes_backup_${new Date().getTime()}.json` 
-        });
-        
-        await ctx.answerCbQuery(`✅ Deleted ${result.deletedCount} notes`);
+        // Send backup file if there were notes
+        if (notes.length > 0) {
+            const backupBuff = Buffer.from(JSON.stringify(notes, null, 2));
+            try {
+                await ctx.replyWithDocument({ 
+                    source: backupBuff, 
+                    filename: `notes_backup_${Date.now()}.json` 
+                });
+            } catch (sendError) {
+                console.error('Error sending backup:', sendError);
+            }
+        }
         
         // Show success message
-        const successText = `✅ <b>𝗗𝗘𝗟𝗘𝗧𝗜𝗢𝗡 𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘</b>\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Deleted ${result.deletedCount} notes\n📁 Backup file has been sent!\n━━━━━━━━━━━━━━━━━━━━`;
+        const successText = `✅ <b>𝗗𝗘𝗟𝗘𝗧𝗜𝗢𝗡 𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘</b>\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Deleted ${result.deletedCount} note${result.deletedCount !== 1 ? 's' : ''}\n${notes.length > 0 ? '📁 Backup file sent!\n' : ''}━━━━━━━━━━━━━━━━━━━━`;
         
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback('🔙 Back to Main Menu', 'main_menu')]
@@ -1801,21 +1846,33 @@ bot.action('delete_notes_final', async (ctx) => {
 
 // DELETE ALL CONFIRMATION
 bot.action('delete_all_confirm', async (ctx) => {
-    const text = `⚠️ <b>𝗙𝗜𝗡𝗔𝗟 𝗪𝗔𝗥𝗡𝗜𝗡𝗚</b>\n━━━━━━━━━━━━━━━━━━━━\nAre you sure you want to delete ALL data?\n━━━━━━━━━━━━━━━━━━━━`;
-    
-    const keyboard = Markup.inlineKeyboard([
-        [Markup.button.callback('🔥 YES, DELETE EVERYTHING', 'delete_all_final')],
-        [Markup.button.callback('🔙 Cancel', 'delete_menu')]
-    ]);
-    
-    await safeEdit(ctx, text, keyboard);
+    try {
+        const userId = ctx.from.id;
+        const tasksCount = await db.collection('tasks').countDocuments({ userId });
+        const historyCount = await db.collection('history').countDocuments({ userId });
+        const notesCount = await db.collection('notes').countDocuments({ userId });
+        const totalCount = tasksCount + historyCount + notesCount;
+        
+        const text = `⚠️ <b>𝗙𝗜𝗡𝗔𝗟 𝗪𝗔𝗥𝗡𝗜𝗡𝗚</b>\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Delete ALL ${totalCount} items?\n\n📋 Tasks: ${tasksCount}\n📜 History: ${historyCount}\n🗒️ Notes: ${notesCount}\n\n<b>⚠️ THIS ACTION CANNOT BE UNDONE!</b>\n━━━━━━━━━━━━━━━━━━━━`;
+        
+        const keyboard = Markup.inlineKeyboard([
+            [Markup.button.callback('🔥 YES, DELETE EVERYTHING', 'delete_all_final')],
+            [Markup.button.callback('🔙 Cancel', 'delete_menu')]
+        ]);
+        
+        await safeEdit(ctx, text, keyboard);
+    } catch (error) {
+        console.error('Error in delete_all_confirm:', error);
+        await ctx.answerCbQuery('❌ Error loading confirmation');
+    }
 });
 
 // DELETE ALL FINAL
 bot.action('delete_all_final', async (ctx) => {
-    const userId = ctx.from.id;
-    
     try {
+        await ctx.answerCbQuery('⏳ Processing...');
+        const userId = ctx.from.id;
+        
         // 1. Get all data for backup FIRST
         const tasks = await db.collection('tasks').find({ userId }).toArray();
         const history = await db.collection('history').find({ userId }).toArray();
@@ -1830,38 +1887,35 @@ bot.action('delete_all_final', async (ctx) => {
         const notesResult = await db.collection('notes').deleteMany({ userId });
         
         const totalDeleted = tasksResult.deletedCount + historyResult.deletedCount + notesResult.deletedCount;
+        const timestamp = Date.now();
         
-        // 4. Send backup files
-        const timestamp = new Date().getTime();
+        // 4. Send backup files for each collection that had data
+        if (tasks.length > 0) {
+            const tasksBuff = Buffer.from(JSON.stringify(tasks, null, 2));
+            await ctx.replyWithDocument({ 
+                source: tasksBuff, 
+                filename: `all_backup_tasks_${timestamp}.json` 
+            });
+        }
         
-        // Tasks backup
-        const tasksData = tasks.length > 0 ? tasks : [];
-        const tasksBuff = Buffer.from(JSON.stringify(tasksData, null, 2));
-        await ctx.replyWithDocument({ 
-            source: tasksBuff, 
-            filename: `all_backup_tasks_${timestamp}.json` 
-        });
+        if (history.length > 0) {
+            const histBuff = Buffer.from(JSON.stringify(history, null, 2));
+            await ctx.replyWithDocument({ 
+                source: histBuff, 
+                filename: `all_backup_history_${timestamp}.json` 
+            });
+        }
         
-        // History backup
-        const historyData = history.length > 0 ? history : [];
-        const histBuff = Buffer.from(JSON.stringify(historyData, null, 2));
-        await ctx.replyWithDocument({ 
-            source: histBuff, 
-            filename: `all_backup_history_${timestamp}.json` 
-        });
-        
-        // Notes backup
-        const notesData = notes.length > 0 ? notes : [];
-        const notesBuff = Buffer.from(JSON.stringify(notesData, null, 2));
-        await ctx.replyWithDocument({ 
-            source: notesBuff, 
-            filename: `all_backup_notes_${timestamp}.json` 
-        });
-        
-        await ctx.answerCbQuery(`✅ Deleted ${totalDeleted} items total`);
+        if (notes.length > 0) {
+            const notesBuff = Buffer.from(JSON.stringify(notes, null, 2));
+            await ctx.replyWithDocument({ 
+                source: notesBuff, 
+                filename: `all_backup_notes_${timestamp}.json` 
+            });
+        }
         
         // Show success message
-        const successText = `✅ <b>𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘 𝗗𝗘𝗟𝗘𝗧𝗜𝗢𝗡</b>\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Deleted ${totalDeleted} items total\n📁 3 backup files have been sent!\n━━━━━━━━━━━━━━━━━━━━`;
+        const successText = `✅ <b>𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘 𝗗𝗘𝗟𝗘𝗧𝗜𝗢𝗡</b>\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Deleted ${totalDeleted} items total\n\n📋 Tasks: ${tasksResult.deletedCount}\n📜 History: ${historyResult.deletedCount}\n🗒️ Notes: ${notesResult.deletedCount}\n\n${(tasks.length + history.length + notes.length) > 0 ? '📁 Backup files sent!\n' : ''}━━━━━━━━━━━━━━━━━━━━`;
         
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback('🔙 Back to Main Menu', 'main_menu')]
