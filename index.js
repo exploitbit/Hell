@@ -143,6 +143,9 @@ async function connectDB() {
 // ⏰ FIXED SCHEDULER LOGIC
 // ==========================================
 
+// Map to store active jobs: key = taskId, value = { startJob, interval }
+const activeSchedules = new Map();
+
 function scheduleTask(task) {
     try {
         const taskId = task.taskId;
@@ -150,7 +153,7 @@ function scheduleTask(task) {
         const startTime = new Date(task.startDate);
         const now = new Date();
 
-        // 1. Clear existing schedules
+        // 1. Clear existing schedules for this task to prevent duplicates
         cancelTaskSchedule(taskId);
 
         // Skip if task start time has passed
@@ -162,19 +165,17 @@ function scheduleTask(task) {
         // 2. Calculate notification start time (10 mins before)
         const notifyTime = new Date(startTime.getTime() - 10 * 60000);
         
-        // If notify time is in the past, start immediately
+        // If notify time is in the past (but task is future), start immediately
         const triggerDate = notifyTime > now ? notifyTime : now;
 
-        console.log(`⏰ Scheduled: ${task.title} for ${formatDateTime(startTime)}`);
+        console.log(`⏰ Scheduled: ${task.title} for ${startTime.toLocaleString()}`);
 
-        // Schedule the main notification job
+        // Schedule the main trigger job
         const startJob = schedule.scheduleJob(triggerDate, async function() {
-            console.log(`🔔 Starting notifications for task: ${task.title}`);
-            
             let count = 0;
             const maxNotifications = 10;
             
-            // Send first notification immediately
+            // Function to send the notification
             const sendNotification = async () => {
                 const currentTime = new Date();
                 
@@ -186,20 +187,19 @@ function scheduleTask(task) {
                         activeSchedule.interval = null;
                     }
                     
-                    // Send final "task started" message
+                    // Send final "Task Started" message
                     if (currentTime >= startTime) {
                         try {
                             await bot.telegram.sendMessage(userId, 
                                 `🚀 <b>TASK STARTED NOW!</b>\n\n` +
-                                `📌 <b>${task.title}</b>\n\n` +
+                                `📌 <b>${task.title}</b>\n` +
                                 `Time to work! ⏰`, 
                                 { parse_mode: 'HTML' }
                             );
                         } catch (e) {
-                            console.error('Error sending start message:', e);
+                            console.error('Error sending start message:', e.message);
                         }
                     }
-                    
                     return;
                 }
 
@@ -211,26 +211,23 @@ function scheduleTask(task) {
                         `🔔 <b>REMINDER (${count + 1}/${maxNotifications})</b>\n\n` +
                         `📌 <b>${task.title}</b>\n` +
                         `⏳ Starts in: <b>${minutesLeft} minute${minutesLeft !== 1 ? 's' : ''}</b>\n` +
-                        `⏰ Start Time: ${formatTime(task.startDate)}\n` +
-                        `📅 Date: ${formatDate(task.startDate)}\n` +
-                        `━━━━━━━━━━━━━━━━━━━━`, 
+                        `⏰ Start Time: ${new Date(task.startDate).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })}`, 
                         { parse_mode: 'HTML' }
                     );
-                    console.log(`📤 Sent notification ${count + 1} for task: ${task.title}`);
                 } catch (e) {
-                    console.error('Error sending notification:', e);
+                    console.error('Error sending notification:', e.message);
                 }
                 
                 count++;
             };
 
-            // Send first notification immediately
+            // Send first notification immediately when job triggers
             await sendNotification();
             
-            // Set up interval for remaining notifications (every minute)
+            // Set up interval for remaining notifications (every 60 seconds)
             const interval = setInterval(sendNotification, 60000);
             
-            // Store the interval in active schedules
+            // Store the interval in active schedules so we can cancel it
             if (activeSchedules.has(taskId)) {
                 activeSchedules.get(taskId).interval = interval;
             } else {
@@ -238,7 +235,7 @@ function scheduleTask(task) {
             }
         });
 
-        // Store the job
+        // Store the start job
         if (activeSchedules.has(taskId)) {
             activeSchedules.get(taskId).startJob = startJob;
         } else {
@@ -253,32 +250,21 @@ function scheduleTask(task) {
 function cancelTaskSchedule(taskId) {
     if (activeSchedules.has(taskId)) {
         const s = activeSchedules.get(taskId);
-        if (s.startJob) {
-            s.startJob.cancel();
-            console.log(`🗑️ Cancelled job for task ${taskId}`);
-        }
-        if (s.interval) {
-            clearInterval(s.interval);
-            console.log(`🗑️ Cleared interval for task ${taskId}`);
-        }
+        if (s.startJob) s.startJob.cancel();
+        if (s.interval) clearInterval(s.interval);
         activeSchedules.delete(taskId);
     }
 }
 
 async function rescheduleAllPending() {
     try {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
         const tasks = await db.collection('tasks').find({ 
-            userId: { $exists: true },
             status: 'pending',
             startDate: { $gt: new Date() }
         }).toArray();
         
         console.log(`🔄 Rescheduling ${tasks.length} pending tasks...`);
         tasks.forEach(task => scheduleTask(task));
-        console.log(`✅ Rescheduled ${tasks.length} tasks.`);
     } catch (error) {
         console.error('❌ Error rescheduling tasks:', error);
     }
