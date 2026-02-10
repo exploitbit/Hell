@@ -4,11 +4,11 @@ const schedule = require('node-schedule');
 require('dotenv').config();
 
 // Initialize bot
-const BOT_TOKEN = process.env.BOT_TOKEN || '8365287371:AAHBks0ToDhlNOU1LPvWlY7PW59qAtKcwG8';
+const BOT_TOKEN = process.env.BOT_TOKEN || 'your_bot_token_here';
 const bot = new Telegraf(BOT_TOKEN);
 
 // MongoDB connection
-const mongoUri = process.env.MONGODB_URI || 'mongodb+srv://sandip:9E9AISFqTfU3VI5i@cluster0.p8irtov.mongodb.net/two_telegram_bot';
+const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/task_manager_bot';
 let db, client;
 let isDbConnected = false;
 
@@ -35,23 +35,29 @@ async function connectDB() {
 // Initialize session
 bot.use(session());
 
-// Admin configuration
-const ADMIN_IDS = [8469993808];
-
-// Check if user is admin
-function isAdmin(userId) {
-    return ADMIN_IDS.includes(Number(userId));
-}
-
 // Helper function to safely send messages
 async function safeSendMessage(ctx, text, options = {}) {
     try {
         return await ctx.reply(text, { 
+            parse_mode: 'HTML',
             ...options 
         });
     } catch (error) {
         console.error('Error sending message:', error.message);
         return await ctx.reply(text);
+    }
+}
+
+// Helper function to safely edit messages
+async function safeEditMessage(ctx, text, options = {}) {
+    try {
+        return await ctx.editMessageText(text, { 
+            parse_mode: 'HTML',
+            ...options 
+        });
+    } catch (error) {
+        console.error('Error editing message:', error.message);
+        return await ctx.editMessageText(text, options);
     }
 }
 
@@ -227,88 +233,44 @@ async function getHistoryDates(userId, page = 1, limit = 10) {
     try {
         const skip = (page - 1) * limit;
         
-        // Get distinct completion dates
-        const pipeline = [
-            { 
-                $match: { 
-                    userId: userId, 
-                    status: 'completed',
-                    completedAt: { $exists: true }
-                } 
-            },
-            {
-                $project: {
-                    date: {
-                        $dateToString: {
-                            format: "%Y-%m-%d",
-                            date: "$completedAt"
-                        }
-                    }
-                }
-            },
-            { $group: { _id: "$date" } },
-            { $sort: { _id: -1 } },
+        // Get unique completion dates
+        const dates = await db.collection('tasks').aggregate([
+            { $match: { userId: userId, status: 'completed' } },
+            { $group: { 
+                _id: { 
+                    year: { $year: "$completedAt" },
+                    month: { $month: "$completedAt" },
+                    day: { $dayOfMonth: "$completedAt" }
+                },
+                date: { $first: "$completedAt" },
+                count: { $sum: 1 }
+            }},
+            { $sort: { date: -1 } },
             { $skip: skip },
             { $limit: limit }
-        ];
+        ]).toArray();
         
-        const dates = await db.collection('tasks').aggregate(pipeline).toArray();
+        const totalDates = await db.collection('tasks').distinct('completedAt', { 
+            userId: userId, 
+            status: 'completed' 
+        });
         
-        // Get count for each date
-        const datesWithCount = [];
-        for (const dateObj of dates) {
-            const date = new Date(dateObj._id);
-            const nextDay = new Date(date);
-            nextDay.setDate(nextDay.getDate() + 1);
-            
-            const count = await db.collection('tasks').countDocuments({
-                userId: userId,
-                status: 'completed',
-                completedAt: { $gte: date, $lt: nextDay }
-            });
-            
-            datesWithCount.push({
-                date: date,
-                count: count,
-                displayDate: date.toLocaleDateString('en-IN', {
+        const totalPages = Math.ceil(totalDates.length / limit);
+        
+        return {
+            dates: dates.map(d => ({
+                date: d.date,
+                count: d.count,
+                displayDate: new Date(d.date).toLocaleDateString('en-US', {
                     weekday: 'long',
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric'
                 })
-            });
-        }
-        
-        // Get total unique dates count
-        const totalDatesResult = await db.collection('tasks').aggregate([
-            { 
-                $match: { 
-                    userId: userId, 
-                    status: 'completed',
-                    completedAt: { $exists: true }
-                } 
-            },
-            {
-                $group: {
-                    _id: {
-                        $dateToString: {
-                            format: "%Y-%m-%d",
-                            date: "$completedAt"
-                        }
-                    }
-                }
-            },
-            { $count: "total" }
-        ]).toArray();
-        
-        const totalDates = totalDatesResult.length > 0 ? totalDatesResult[0].total : 0;
-        const totalPages = Math.ceil(totalDates / limit);
-        
-        return {
-            dates: datesWithCount,
+            })),
             page,
             totalPages,
-            totalDates,
+            totalDates: totalDates.length,
             hasNext: page < totalPages,
             hasPrev: page > 1
         };
@@ -381,17 +343,13 @@ function scheduleTaskNotifications(task) {
         const notificationStartTime = new Date(startTime);
         notificationStartTime.setMinutes(notificationStartTime.getMinutes() - 10);
         
-        // Only schedule if notification time is in the future
-        if (notificationStartTime > new Date()) {
-            const job = schedule.scheduleJob(notificationStartTime, async function() {
-                await executeTaskNotifications(task);
-            });
-            
-            scheduledJobs.set(`${userId}_${taskId}`, job);
-            console.log(`✅ Scheduled notifications for task ${taskId} at ${notificationStartTime}`);
-        } else {
-            console.log(`⚠️ Cannot schedule notifications for past task ${taskId}`);
-        }
+        const job = schedule.scheduleJob(notificationStartTime, async function() {
+            await executeTaskNotifications(task);
+        });
+        
+        scheduledJobs.set(`${userId}_${taskId}`, job);
+        
+        console.log(`✅ Scheduled notifications for task ${taskId} at ${notificationStartTime}`);
     } catch (error) {
         console.error('Error scheduling task notifications:', error);
     }
@@ -415,17 +373,11 @@ async function executeTaskNotifications(task) {
                 const minutesLeft = Math.floor(timeLeft / 60);
                 const secondsLeft = timeLeft % 60;
                 
-                // Convert to IST
-                const istTime = now.toLocaleTimeString('en-IN', { 
-                    timeZone: 'Asia/Kolkata',
-                    hour12: false 
-                });
-                
                 const message = `🔔 Task Reminder ${count}/${totalMessages}\n\n` +
                                `Task: ${task.title}\n` +
-                               `Starts at: ${new Date(task.startDate).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })} IST\n` +
+                               `Starts at: ${new Date(task.startDate).toLocaleTimeString()}\n` +
                                `Time left: ${minutesLeft}m ${secondsLeft}s\n` +
-                               `Current time: ${istTime} IST`;
+                               `Current time: ${now.toLocaleTimeString()}`;
                 
                 await bot.telegram.sendMessage(userId, message);
                 
@@ -444,9 +396,6 @@ async function executeTaskNotifications(task) {
             }
         }, 60 * 1000); // Every minute
         
-        // Store interval ID for cleanup
-        scheduledJobs.set(`${userId}_${taskId}_interval`, intervalId);
-        
         // Send first notification immediately
         count++;
         const now = new Date();
@@ -454,16 +403,11 @@ async function executeTaskNotifications(task) {
         const minutesLeft = Math.floor(timeLeft / 60);
         const secondsLeft = timeLeft % 60;
         
-        const istTime = now.toLocaleTimeString('en-IN', { 
-            timeZone: 'Asia/Kolkata',
-            hour12: false 
-        });
-        
         const firstMessage = `🔔 Task Reminder 1/${totalMessages}\n\n` +
                            `Task: ${task.title}\n` +
-                           `Starts at: ${new Date(task.startDate).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })} IST\n` +
+                           `Starts at: ${new Date(task.startDate).toLocaleTimeString()}\n` +
                            `Time left: ${minutesLeft}m ${secondsLeft}s\n` +
-                           `Current time: ${istTime} IST\n\n` +
+                           `Current time: ${now.toLocaleTimeString()}\n\n` +
                            `Notifications will continue every minute.`;
         
         await bot.telegram.sendMessage(userId, firstMessage);
@@ -525,12 +469,7 @@ bot.command('start', async (ctx) => {
 
 bot.action('add_tasks', async (ctx) => {
     try {
-        if (!isAdmin(ctx.from.id)) {
-            return await ctx.answerCbQuery('❌ You are not authorized.');
-        }
-        
         // Initialize task data in session
-        ctx.session = ctx.session || {};
         ctx.session.taskData = {
             step: 'title',
             taskId: generateTaskId(),
@@ -548,19 +487,14 @@ bot.action('add_tasks', async (ctx) => {
     }
 });
 
-// Handle text messages for task creation
+// Handle task creation steps
 bot.on('text', async (ctx) => {
     try {
         const messageText = ctx.message.text;
         const userId = ctx.from.id;
         
-        // Initialize session if not exists
-        if (!ctx.session) {
-            ctx.session = {};
-        }
-        
         // Check if we're in task creation flow
-        if (ctx.session.taskData) {
+        if (ctx.session?.taskData) {
             const taskData = ctx.session.taskData;
             
             if (messageText.toLowerCase() === 'cancel') {
@@ -592,7 +526,7 @@ bot.on('text', async (ctx) => {
                         taskData.description = '';
                     }
                     taskData.step = 'start_time';
-                    await safeSendMessage(ctx, '⏰ Enter start time in HH:MM format (24-hour, IST):\n\nExample: 14:30 for 2:30 PM');
+                    await safeSendMessage(ctx, '⏰ Enter start time in HH:MM format (24-hour):\n\nExample: 14:30 for 2:30 PM');
                     break;
                     
                 case 'start_time':
@@ -603,13 +537,11 @@ bot.on('text', async (ctx) => {
                     }
                     
                     const [startHours, startMinutes] = messageText.split(':').map(Number);
-                    
-                    // Create start date (today)
                     const now = new Date();
                     const startDate = new Date(now);
                     startDate.setHours(startHours, startMinutes, 0, 0);
                     
-                    // If time has passed today, schedule for tomorrow
+                    // If start time is in the past, schedule for tomorrow
                     if (startDate <= now) {
                         startDate.setDate(startDate.getDate() + 1);
                     }
@@ -629,22 +561,12 @@ bot.on('text', async (ctx) => {
                     
                     const [endHours, endMinutes] = messageText.split(':').map(Number);
                     
-                    // Create end date (same day as start date)
+                    // Validate end time is after start time
                     const endDate = new Date(taskData.startDate);
                     endDate.setHours(endHours, endMinutes, 0, 0);
                     
-                    // Validate end time is after start time
                     if (endDate <= taskData.startDate) {
                         await safeSendMessage(ctx, '❌ End time must be after start time. Please enter a later time:');
-                        return;
-                    }
-                    
-                    // Check if end time is within same day (before 23:59)
-                    const maxEndTime = new Date(taskData.startDate);
-                    maxEndTime.setHours(23, 59, 0, 0);
-                    
-                    if (endDate > maxEndTime) {
-                        await safeSendMessage(ctx, '❌ End time cannot exceed 23:59. Please enter a time within the same day:');
                         return;
                     }
                     
@@ -666,39 +588,6 @@ bot.on('text', async (ctx) => {
                     await safeSendMessage(ctx, '🔄 Select repeat type:\n\n• Daily: Task repeats every day\n• Weekly: Task repeats every week on same day\n• None: Task doesn\'t repeat', keyboard);
                     break;
                     
-                case 'repeat_end_date':
-                    if (messageText.toLowerCase() === 'none') {
-                        taskData.repeatEndDate = null;
-                    } else {
-                        const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
-                        const match = messageText.match(dateRegex);
-                        
-                        if (!match) {
-                            await safeSendMessage(ctx, '❌ Invalid date format. Please use DD/MM/YYYY.\n\nExample: 12/03/2026\n\nType "none" for no end date.');
-                            return;
-                        }
-                        
-                        const [_, day, month, year] = match;
-                        const repeatEndDate = new Date(year, month - 1, day);
-                        
-                        if (isNaN(repeatEndDate.getTime())) {
-                            await safeSendMessage(ctx, '❌ Invalid date. Please enter a valid date.');
-                            return;
-                        }
-                        
-                        // Ensure end date is after start date
-                        if (repeatEndDate < taskData.startDate) {
-                            await safeSendMessage(ctx, '❌ Repeat end date must be after task start date. Please enter a later date:');
-                            return;
-                        }
-                        
-                        taskData.repeatEndDate = repeatEndDate;
-                    }
-                    
-                    // Save the task
-                    await saveAndScheduleTask(ctx);
-                    break;
-                    
                 default:
                     delete ctx.session.taskData;
                     await safeSendMessage(ctx, '❌ Invalid step. Task creation cancelled.');
@@ -708,7 +597,7 @@ bot.on('text', async (ctx) => {
         }
         
         // Check if we're in note creation flow
-        if (ctx.session.noteData) {
+        if (ctx.session?.noteData) {
             const noteData = ctx.session.noteData;
             
             if (messageText.toLowerCase() === 'cancel') {
@@ -860,6 +749,53 @@ bot.action('task_back', async (ctx) => {
     }
 });
 
+// Handle date input for task creation
+bot.on('text', async (ctx) => {
+    try {
+        // Check for repeat end date input
+        if (ctx.session?.taskData && ctx.session.taskData.step === 'repeat_end_date') {
+            const messageText = ctx.message.text;
+            
+            if (messageText.toLowerCase() === 'cancel') {
+                delete ctx.session.taskData;
+                await safeSendMessage(ctx, '❌ Task creation cancelled.');
+                await bot.command('start')(ctx);
+                return;
+            }
+            
+            if (messageText.toLowerCase() !== 'none') {
+                const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+                const match = messageText.match(dateRegex);
+                
+                if (!match) {
+                    await safeSendMessage(ctx, '❌ Invalid date format. Please use DD/MM/YYYY.\n\nExample: 12/03/2026');
+                    return;
+                }
+                
+                const [_, day, month, year] = match;
+                const repeatEndDate = new Date(year, month - 1, day);
+                
+                if (isNaN(repeatEndDate.getTime())) {
+                    await safeSendMessage(ctx, '❌ Invalid date. Please enter a valid date.');
+                    return;
+                }
+                
+                ctx.session.taskData.repeatEndDate = repeatEndDate;
+            } else {
+                ctx.session.taskData.repeatEndDate = null;
+            }
+            
+            // Save the task
+            await saveAndScheduleTask(ctx);
+            return;
+        }
+        
+    } catch (error) {
+        console.error('Date input error:', error);
+        await safeSendMessage(ctx, '❌ An error occurred.');
+    }
+});
+
 async function saveAndScheduleTask(ctx) {
     try {
         const taskData = ctx.session.taskData;
@@ -888,37 +824,20 @@ async function saveAndScheduleTask(ctx) {
             // Schedule notifications
             scheduleTaskNotifications(taskToSave);
             
-            // Format dates for display
-            const startDateIST = new Date(taskData.startDate);
-            const startTimeStr = startDateIST.toLocaleTimeString('en-IN', { 
-                timeZone: 'Asia/Kolkata',
-                hour12: false,
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-            
-            const endDateIST = new Date(taskData.endDate);
-            const endTimeStr = endDateIST.toLocaleTimeString('en-IN', { 
-                timeZone: 'Asia/Kolkata',
-                hour12: false,
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-            
             let message = `✅ Task saved successfully!\n\n` +
                          `📌 ID: ${taskData.taskId}\n` +
                          `📝 Title: ${taskData.title}\n` +
-                         `⏰ Start: ${startTimeStr} IST\n` +
-                         `⏰ End: ${endTimeStr} IST\n` +
+                         `⏰ Start: ${new Date(taskData.startDate).toLocaleTimeString()}\n` +
+                         `⏰ End: ${new Date(taskData.endDate).toLocaleTimeString()}\n` +
                          `🔄 Repeat: ${taskData.repeatType === 'none' ? 'No repetition' : taskData.repeatType}\n\n`;
             
             if (taskData.repeatEndDate) {
-                message += `📅 Repeat until: ${taskData.repeatEndDate.toLocaleDateString('en-IN')}\n\n`;
+                message += `📅 Repeat until: ${taskData.repeatEndDate.toLocaleDateString()}\n\n`;
             }
             
             message += `🔔 Notifications will start 10 minutes before task start time.`;
             
-            await ctx.reply(message);
+            await safeSendMessage(ctx, message);
             
             // Clear session
             delete ctx.session.taskData;
@@ -928,11 +847,11 @@ async function saveAndScheduleTask(ctx) {
                 await bot.command('start')(ctx);
             }, 2000);
         } else {
-            await ctx.reply('❌ Failed to save task. Please try again.');
+            await safeSendMessage(ctx, '❌ Failed to save task. Please try again.');
         }
     } catch (error) {
         console.error('Save task error:', error);
-        await ctx.reply('❌ Failed to save task.');
+        await safeSendMessage(ctx, '❌ Failed to save task.');
     }
 }
 
@@ -942,12 +861,7 @@ async function saveAndScheduleTask(ctx) {
 
 bot.action('add_notes', async (ctx) => {
     try {
-        if (!isAdmin(ctx.from.id)) {
-            return await ctx.answerCbQuery('❌ You are not authorized.');
-        }
-        
         // Initialize note data in session
-        ctx.session = ctx.session || {};
         ctx.session.noteData = {
             step: 'title',
             noteId: generateNoteId(),
@@ -969,10 +883,6 @@ bot.action('add_notes', async (ctx) => {
 
 bot.action(/^view_tasks_(\d+)$/, async (ctx) => {
     try {
-        if (!isAdmin(ctx.from.id)) {
-            return await ctx.answerCbQuery('❌ You are not authorized.');
-        }
-        
         const page = parseInt(ctx.match[1]);
         const userId = ctx.from.id;
         
@@ -993,14 +903,8 @@ bot.action(/^view_tasks_(\d+)$/, async (ctx) => {
         
         tasksData.tasks.forEach((task, index) => {
             const taskIndex = (page - 1) * 10 + index + 1;
-            const startDate = new Date(task.startDate);
-            const startTimeStr = startDate.toLocaleTimeString('en-IN', { 
-                timeZone: 'Asia/Kolkata',
-                hour12: false,
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-            message += `${taskIndex}. ${task.title}\n   ⏰ ${startTimeStr} IST | 📌 ${task.taskId}\n\n`;
+            const startTime = new Date(task.startDate).toLocaleTimeString();
+            message += `${taskIndex}. ${task.title}\n   ⏰ ${startTime} | 📌 ${task.taskId}\n\n`;
         });
         
         message += `Total: ${tasksData.totalTasks} tasks`;
@@ -1009,8 +913,7 @@ bot.action(/^view_tasks_(\d+)$/, async (ctx) => {
         
         // Add task buttons (10 per page)
         tasksData.tasks.forEach((task) => {
-            const buttonText = `📌 ${task.taskId} - ${task.title.substring(0, 20)}${task.title.length > 20 ? '...' : ''}`;
-            keyboard.push([Markup.button.callback(buttonText, `task_detail_${task.taskId}`)]);
+            keyboard.push([Markup.button.callback(`📌 ${task.taskId} - ${task.title.substring(0, 20)}`, `task_detail_${task.taskId}`)]);
         });
         
         // Add navigation buttons
@@ -1045,52 +948,22 @@ bot.action(/^task_detail_(.+)$/, async (ctx) => {
             return await ctx.answerCbQuery('❌ Task not found.');
         }
         
-        // Format dates
-        const startDate = new Date(task.startDate);
-        const startTimeStr = startDate.toLocaleTimeString('en-IN', { 
-            timeZone: 'Asia/Kolkata',
-            hour12: false,
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-        
-        const endDate = new Date(task.endDate);
-        const endTimeStr = endDate.toLocaleTimeString('en-IN', { 
-            timeZone: 'Asia/Kolkata',
-            hour12: false,
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-        
-        const createdAt = new Date(task.createdAt);
-        const createdAtStr = createdAt.toLocaleString('en-IN', { 
-            timeZone: 'Asia/Kolkata',
-            dateStyle: 'medium',
-            timeStyle: 'short'
-        });
-        
         let message = `📋 *Task Details*\n\n` +
                      `📌 ID: ${task.taskId}\n` +
                      `📝 Title: ${task.title}\n` +
                      `📄 Description: ${task.description || 'No description'}\n` +
-                     `⏰ Start Time: ${startTimeStr} IST\n` +
-                     `⏰ End Time: ${endTimeStr} IST\n` +
+                     `⏰ Start Time: ${new Date(task.startDate).toLocaleTimeString()}\n` +
+                     `⏰ End Time: ${new Date(task.endDate).toLocaleTimeString()}\n` +
                      `🔄 Repeat: ${task.repeatType === 'none' ? 'No repetition' : task.repeatType}\n` +
-                     `📅 Created: ${createdAtStr}\n` +
+                     `📅 Created: ${new Date(task.createdAt).toLocaleString()}\n` +
                      `📊 Status: ${task.status === 'completed' ? '✅ Completed' : '⏳ Pending'}`;
         
         if (task.repeatEndDate) {
-            message += `\n📅 Repeat until: ${new Date(task.repeatEndDate).toLocaleDateString('en-IN')}`;
+            message += `\n📅 Repeat until: ${new Date(task.repeatEndDate).toLocaleDateString()}`;
         }
         
         if (task.completedAt) {
-            const completedDate = new Date(task.completedAt);
-            const completedStr = completedDate.toLocaleString('en-IN', { 
-                timeZone: 'Asia/Kolkata',
-                dateStyle: 'medium',
-                timeStyle: 'short'
-            });
-            message += `\n✅ Completed at: ${completedStr}`;
+            message += `\n✅ Completed at: ${new Date(task.completedAt).toLocaleString()}`;
         }
         
         const keyboard = Markup.inlineKeyboard([
@@ -1139,13 +1012,6 @@ bot.action(/^complete_task_(.+)$/, async (ctx) => {
                 scheduledJobs.delete(`${ctx.from.id}_${taskId}`);
             }
             
-            // Cancel interval if exists
-            if (scheduledJobs.has(`${ctx.from.id}_${taskId}_interval`)) {
-                const interval = scheduledJobs.get(`${ctx.from.id}_${taskId}_interval`);
-                if (interval) clearInterval(interval);
-                scheduledJobs.delete(`${ctx.from.id}_${taskId}_interval`);
-            }
-            
             await ctx.answerCbQuery('✅ Task marked as complete!');
             
             // Refresh task detail view
@@ -1174,13 +1040,6 @@ bot.action(/^delete_task_(.+)$/, async (ctx) => {
                 scheduledJobs.delete(`${ctx.from.id}_${taskId}`);
             }
             
-            // Cancel interval if exists
-            if (scheduledJobs.has(`${ctx.from.id}_${taskId}_interval`)) {
-                const interval = scheduledJobs.get(`${ctx.from.id}_${taskId}_interval`);
-                if (interval) clearInterval(interval);
-                scheduledJobs.delete(`${ctx.from.id}_${taskId}_interval`);
-            }
-            
             await ctx.answerCbQuery('✅ Task deleted!');
             
             // Go back to tasks list
@@ -1194,16 +1053,48 @@ bot.action(/^delete_task_(.+)$/, async (ctx) => {
     }
 });
 
+// Edit task
+bot.action(/^edit_task_(.+)$/, async (ctx) => {
+    try {
+        const taskId = ctx.match[1];
+        const task = await getTaskById(taskId);
+        
+        if (!task) {
+            return await ctx.answerCbQuery('❌ Task not found.');
+        }
+        
+        const keyboard = Markup.inlineKeyboard([
+            [
+                Markup.button.callback('📝 Title', `edit_task_title_${taskId}`),
+                Markup.button.callback('📄 Description', `edit_task_desc_${taskId}`)
+            ],
+            [
+                Markup.button.callback('⏰ Start Time', `edit_task_start_${taskId}`),
+                Markup.button.callback('⏰ End Time', `edit_task_end_${taskId}`)
+            ],
+            [
+                Markup.button.callback('🔄 Repeat', `edit_task_repeat_${taskId}`),
+                Markup.button.callback('↩️ Back', `task_detail_${taskId}`)
+            ]
+        ]);
+        
+        await ctx.editMessageText('✏️ *Edit Task*\n\nSelect what you want to edit:', {
+            parse_mode: 'Markdown',
+            reply_markup: keyboard
+        });
+        
+    } catch (error) {
+        console.error('Edit task error:', error);
+        await ctx.answerCbQuery('❌ An error occurred.');
+    }
+});
+
 // ==========================================
 // VIEW HISTORY
 // ==========================================
 
 bot.action(/^view_history_(\d+)$/, async (ctx) => {
     try {
-        if (!isAdmin(ctx.from.id)) {
-            return await ctx.answerCbQuery('❌ You are not authorized.');
-        }
-        
         const page = parseInt(ctx.match[1]);
         const userId = ctx.from.id;
         
@@ -1234,8 +1125,7 @@ bot.action(/^view_history_(\d+)$/, async (ctx) => {
         // Add date buttons
         historyData.dates.forEach((date) => {
             const dateStr = date.date.toISOString().split('T')[0];
-            const buttonText = `📅 ${date.displayDate.substring(0, 30)} (${date.count} tasks)`;
-            keyboard.push([Markup.button.callback(buttonText, `history_date_${dateStr}_1`)]);
+            keyboard.push([Markup.button.callback(`📅 ${date.displayDate} (${date.count} tasks)`, `history_date_${dateStr}_1`)]);
         });
         
         // Add navigation buttons
@@ -1271,7 +1161,7 @@ bot.action(/^history_date_(.+)_(\d+)$/, async (ctx) => {
         const tasksData = await getTasksByDate(userId, date, page);
         
         if (tasksData.tasks.length === 0) {
-            await ctx.editMessageText(`📭 No tasks found for ${date.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}.`, {
+            await ctx.editMessageText(`📭 No tasks found for ${date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}.`, {
                 parse_mode: 'Markdown',
                 reply_markup: Markup.inlineKeyboard([
                     [Markup.button.callback('↩️ Back to History', 'view_history_1')]
@@ -1280,7 +1170,7 @@ bot.action(/^history_date_(.+)_(\d+)$/, async (ctx) => {
             return;
         }
         
-        const displayDate = date.toLocaleDateString('en-IN', {
+        const displayDate = date.toLocaleDateString('en-US', {
             weekday: 'long',
             year: 'numeric',
             month: 'long',
@@ -1291,23 +1181,14 @@ bot.action(/^history_date_(.+)_(\d+)$/, async (ctx) => {
         
         tasksData.tasks.forEach((task, index) => {
             const taskIndex = (page - 1) * 10 + index + 1;
-            const completedAt = new Date(task.completedAt);
-            const completedTimeStr = completedAt.toLocaleTimeString('en-IN', { 
-                timeZone: 'Asia/Kolkata',
-                hour12: false,
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-            
-            message += `${taskIndex}. ${task.title}\n   ✅ ${completedTimeStr} IST | 📌 ${task.taskId}\n\n`;
+            message += `${taskIndex}. ${task.title}\n   ✅ ${new Date(task.completedAt).toLocaleTimeString()} | 📌 ${task.taskId}\n\n`;
         });
         
         const keyboard = [];
         
         // Add task buttons
         tasksData.tasks.forEach((task) => {
-            const buttonText = `📌 ${task.taskId} - ${task.title.substring(0, 20)}${task.title.length > 20 ? '...' : ''}`;
-            keyboard.push([Markup.button.callback(buttonText, `task_detail_${task.taskId}`)]);
+            keyboard.push([Markup.button.callback(`📌 ${task.taskId} - ${task.title.substring(0, 20)}`, `task_detail_${task.taskId}`)]);
         });
         
         // Add navigation buttons
@@ -1338,10 +1219,6 @@ bot.action(/^history_date_(.+)_(\d+)$/, async (ctx) => {
 
 bot.action(/^view_notes_(\d+)$/, async (ctx) => {
     try {
-        if (!isAdmin(ctx.from.id)) {
-            return await ctx.answerCbQuery('❌ You are not authorized.');
-        }
-        
         const page = parseInt(ctx.match[1]);
         const userId = ctx.from.id;
         
@@ -1362,10 +1239,7 @@ bot.action(/^view_notes_(\d+)$/, async (ctx) => {
         
         notesData.notes.forEach((note, index) => {
             const noteIndex = (page - 1) * 10 + index + 1;
-            const createdDate = new Date(note.createdAt);
-            const dateStr = createdDate.toLocaleDateString('en-IN');
-            
-            message += `${noteIndex}. ${note.title}\n   📌 ${note.noteId} | 📅 ${dateStr}\n\n`;
+            message += `${noteIndex}. ${note.title}\n   📌 ${note.noteId} | 📅 ${new Date(note.createdAt).toLocaleDateString()}\n\n`;
         });
         
         message += `Total: ${notesData.totalNotes} notes`;
@@ -1374,8 +1248,7 @@ bot.action(/^view_notes_(\d+)$/, async (ctx) => {
         
         // Add note buttons
         notesData.notes.forEach((note) => {
-            const buttonText = `📌 ${note.noteId} - ${note.title.substring(0, 20)}${note.title.length > 20 ? '...' : ''}`;
-            keyboard.push([Markup.button.callback(buttonText, `note_detail_${note.noteId}`)]);
+            keyboard.push([Markup.button.callback(`📌 ${note.noteId} - ${note.title.substring(0, 20)}`, `note_detail_${note.noteId}`)]);
         });
         
         // Add navigation buttons
@@ -1410,26 +1283,12 @@ bot.action(/^note_detail_(.+)$/, async (ctx) => {
             return await ctx.answerCbQuery('❌ Note not found.');
         }
         
-        const createdAt = new Date(note.createdAt);
-        const createdAtStr = createdAt.toLocaleString('en-IN', { 
-            timeZone: 'Asia/Kolkata',
-            dateStyle: 'medium',
-            timeStyle: 'short'
-        });
-        
-        const updatedAt = new Date(note.updatedAt);
-        const updatedAtStr = updatedAt.toLocaleString('en-IN', { 
-            timeZone: 'Asia/Kolkata',
-            dateStyle: 'medium',
-            timeStyle: 'short'
-        });
-        
         let message = `🗒️ *Note Details*\n\n` +
                      `📌 ID: ${note.noteId}\n` +
                      `📝 Title: ${note.title}\n` +
                      `📄 Content:\n${note.content || 'No content'}\n\n` +
-                     `📅 Created: ${createdAtStr}\n` +
-                     `📅 Updated: ${updatedAtStr}`;
+                     `📅 Created: ${new Date(note.createdAt).toLocaleString()}\n` +
+                     `📅 Updated: ${new Date(note.updatedAt).toLocaleString()}`;
         
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback('↩️ Back to Notes', 'view_notes_1')]
@@ -1452,10 +1311,6 @@ bot.action(/^note_detail_(.+)$/, async (ctx) => {
 
 bot.action('download_data', async (ctx) => {
     try {
-        if (!isAdmin(ctx.from.id)) {
-            return await ctx.answerCbQuery('❌ You are not authorized.');
-        }
-        
         const userId = ctx.from.id;
         
         // Get all data
@@ -1498,13 +1353,21 @@ bot.action('download_tasks', async (ctx) => {
         // Convert to JSON string
         const tasksJson = JSON.stringify(tasks, null, 2);
         
-        // Send as file
-        await ctx.replyWithDocument({
-            source: Buffer.from(tasksJson),
-            filename: `tasks_${userId}_${Date.now()}.json`
-        });
-        
-        await ctx.answerCbQuery('✅ Tasks data sent as file!');
+        // Send as file if too long, otherwise as message
+        if (tasksJson.length > 4000) {
+            await ctx.replyWithDocument({
+                source: Buffer.from(tasksJson),
+                filename: 'tasks.json'
+            });
+            await ctx.answerCbQuery('✅ Tasks data sent as file!');
+        } else {
+            await ctx.editMessageText(`📋 *Your Tasks Data*\n\n\`\`\`json\n${tasksJson}\n\`\`\``, {
+                parse_mode: 'Markdown',
+                reply_markup: Markup.inlineKeyboard([
+                    [Markup.button.callback('↩️ Back to Downloads', 'download_data')]
+                ])
+            });
+        }
         
     } catch (error) {
         console.error('Download tasks error:', error);
@@ -1520,13 +1383,21 @@ bot.action('download_notes', async (ctx) => {
         // Convert to JSON string
         const notesJson = JSON.stringify(notes, null, 2);
         
-        // Send as file
-        await ctx.replyWithDocument({
-            source: Buffer.from(notesJson),
-            filename: `notes_${userId}_${Date.now()}.json`
-        });
-        
-        await ctx.answerCbQuery('✅ Notes data sent as file!');
+        // Send as file if too long, otherwise as message
+        if (notesJson.length > 4000) {
+            await ctx.replyWithDocument({
+                source: Buffer.from(notesJson),
+                filename: 'notes.json'
+            });
+            await ctx.answerCbQuery('✅ Notes data sent as file!');
+        } else {
+            await ctx.editMessageText(`🗒️ *Your Notes Data*\n\n\`\`\`json\n${notesJson}\n\`\`\``, {
+                parse_mode: 'Markdown',
+                reply_markup: Markup.inlineKeyboard([
+                    [Markup.button.callback('↩️ Back to Downloads', 'download_data')]
+                ])
+            });
+        }
         
     } catch (error) {
         console.error('Download notes error:', error);
@@ -1546,7 +1417,7 @@ bot.action('download_all', async (ctx) => {
         const allData = {
             tasks: tasks,
             notes: notes,
-            exportedAt: new Date().toISOString(),
+            exportDate: new Date().toISOString(),
             userId: userId
         };
         
@@ -1556,14 +1427,14 @@ bot.action('download_all', async (ctx) => {
         // Send as file
         await ctx.replyWithDocument({
             source: Buffer.from(allDataJson),
-            filename: `all_data_${userId}_${Date.now()}.json`
+            filename: 'all_data.json'
         });
         
         await ctx.answerCbQuery('✅ All data sent as file!');
         
     } catch (error) {
         console.error('Download all error:', error);
-        await ctx.answerCbQuery('❌ Failed to download data.');
+        await ctx.answerCbQuery('❌ Failed to download all data.');
     }
 });
 
@@ -1573,10 +1444,6 @@ bot.action('download_all', async (ctx) => {
 
 bot.action('delete_data', async (ctx) => {
     try {
-        if (!isAdmin(ctx.from.id)) {
-            return await ctx.answerCbQuery('❌ You are not authorized.');
-        }
-        
         const keyboard = Markup.inlineKeyboard([
             [
                 Markup.button.callback('✅ YES, DELETE ALL', 'confirm_delete_all'),
@@ -1599,17 +1466,10 @@ bot.action('confirm_delete_all', async (ctx) => {
     try {
         const userId = ctx.from.id;
         
-        // Cancel all scheduled jobs for this user
+        // Cancel all scheduled jobs
         for (const [key, job] of scheduledJobs) {
             if (key.startsWith(`${userId}_`)) {
-                if (job) {
-                    if (typeof job.cancel === 'function') {
-                        job.cancel();
-                    } else if (typeof clearInterval === 'function') {
-                        clearInterval(job);
-                    }
-                }
-                scheduledJobs.delete(key);
+                if (job) job.cancel();
             }
         }
         
@@ -1667,7 +1527,7 @@ bot.action('help', async (ctx) => {
                           `• Delete all data (with confirmation)\n\n` +
                           `*Tips:*\n` +
                           `• Use 24-hour format for times\n` +
-                          `• Tasks automatically adjust for IST timezone\n` +
+                          `• Tasks automatically adjust if time is in the past\n` +
                           `• Notifications start 10 minutes before task start\n` +
                           `• Repeating tasks auto-create for next day/week`;
         
@@ -1751,37 +1611,13 @@ async function startBot() {
         });
         console.log('🤖 Bot is running...');
         
-        // Send startup message to admin
-        try {
-            const now = new Date();
-            const istTime = now.toLocaleTimeString('en-IN', { 
-                timeZone: 'Asia/Kolkata',
-                hour12: false 
-            });
-            
-            await bot.telegram.sendMessage(ADMIN_IDS[0], 
-                `🤖 Task Manager Bot started successfully!\n` +
-                `Time: ${istTime} IST\n` +
-                `Task scheduler is ready.`
-            );
-            console.log('✅ Startup message sent to admin');
-        } catch (error) {
-            console.log('⚠️ Could not send startup message:', error.message);
-        }
-        
         // Graceful shutdown
         process.once('SIGINT', () => {
             console.log('🛑 SIGINT received, shutting down gracefully...');
             
             // Cancel all scheduled jobs
             for (const [key, job] of scheduledJobs) {
-                if (job) {
-                    if (typeof job.cancel === 'function') {
-                        job.cancel();
-                    } else if (typeof clearInterval === 'function') {
-                        clearInterval(job);
-                    }
-                }
+                if (job) job.cancel();
             }
             
             bot.stop('SIGINT');
@@ -1794,13 +1630,7 @@ async function startBot() {
             
             // Cancel all scheduled jobs
             for (const [key, job] of scheduledJobs) {
-                if (job) {
-                    if (typeof job.cancel === 'function') {
-                        job.cancel();
-                    } else if (typeof clearInterval === 'function') {
-                        clearInterval(job);
-                    }
-                }
+                if (job) job.cancel();
             }
             
             bot.stop('SIGTERM');
