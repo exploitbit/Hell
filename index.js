@@ -40,22 +40,61 @@ function getCurrentIST() {
     });
 }
 
+// Get current IST Date (YYYY-MM-DD)
+function getCurrentISTDate() {
+    return new Date().toLocaleDateString('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    }).split('/').reverse().join('-'); // Format: YYYY-MM-DD
+}
+
 function formatDate(date) {
     return new Date(date).toLocaleDateString('en-IN', {
         timeZone: 'Asia/Kolkata',
-        day: '2-digit', month: '2-digit', year: 'numeric'
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        weekday: 'long'
     });
 }
 
 function formatTime(date) {
     return new Date(date).toLocaleTimeString('en-IN', {
         timeZone: 'Asia/Kolkata',
-        hour: '2-digit', minute: '2-digit', hour12: false
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
     });
 }
 
+function formatDateTime(date) {
+    return `${formatDate(date)} at ${formatTime(date)}`;
+}
+
 function getDayName(date) {
-    return new Date(date).toLocaleDateString('en-IN', { weekday: 'long', timeZone: 'Asia/Kolkata' });
+    return new Date(date).toLocaleDateString('en-IN', {
+        weekday: 'long',
+        timeZone: 'Asia/Kolkata'
+    });
+}
+
+// Create IST date from components (NO timezone conversion)
+function createISTDate(year, month, day, hour = 0, minute = 0) {
+    // Create date in local timezone, but treat it as IST
+    // Since we're showing times in IST, we store them as-is
+    return new Date(year, month - 1, day, hour, minute, 0);
+}
+
+// Check if two dates are the same day (in IST)
+function isSameDay(date1, date2) {
+    const d1 = new Date(date1);
+    const d2 = new Date(date2);
+    
+    return d1.getFullYear() === d2.getFullYear() &&
+           d1.getMonth() === d2.getMonth() &&
+           d1.getDate() === d2.getDate();
 }
 
 async function safeEdit(ctx, text, extra) {
@@ -67,6 +106,12 @@ async function safeEdit(ctx, text, extra) {
             await ctx.reply(text, { parse_mode: 'HTML', ...extra });
         } catch (e) { console.error('SafeEdit Error:', e); }
     }
+}
+
+// Format text in blockquote
+function formatBlockquote(text) {
+    if (!text) return '';
+    return `<blockquote>${text}</blockquote>`;
 }
 
 // ==========================================
@@ -82,8 +127,10 @@ async function connectDB() {
         // Indexes
         await db.collection('tasks').createIndex({ userId: 1, status: 1 });
         await db.collection('tasks').createIndex({ taskId: 1 }, { unique: true });
+        await db.collection('tasks').createIndex({ userId: 1, nextOccurrence: 1 });
         await db.collection('history').createIndex({ userId: 1, completedAt: -1 });
         await db.collection('notes').createIndex({ userId: 1 });
+        await db.collection('notes').createIndex({ noteId: 1 }, { unique: true });
         
         return true;
     } catch (error) {
@@ -118,7 +165,7 @@ function scheduleTask(task) {
         // If notify time is in the past, start immediately
         const triggerDate = notifyTime > now ? notifyTime : now;
 
-        console.log(`⏰ Scheduled: ${task.title} for ${startTime.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })}`);
+        console.log(`⏰ Scheduled: ${task.title} for ${formatDateTime(startTime)}`);
 
         // Schedule the main notification job
         const startJob = schedule.scheduleJob(triggerDate, async function() {
@@ -143,7 +190,9 @@ function scheduleTask(task) {
                     if (currentTime >= startTime) {
                         try {
                             await bot.telegram.sendMessage(userId, 
-                                `🚀 <b>TASK STARTED:</b> ${task.title}\n\nTime to work!`, 
+                                `🚀 <b>TASK STARTED NOW!</b>\n\n` +
+                                `📌 <b>${task.title}</b>\n\n` +
+                                `Time to work! ⏰`, 
                                 { parse_mode: 'HTML' }
                             );
                         } catch (e) {
@@ -159,11 +208,12 @@ function scheduleTask(task) {
 
                 try {
                     await bot.telegram.sendMessage(userId, 
-                        `🔔 <b>Reminder (${count + 1}/${maxNotifications})</b>\n` +
-                        `📌 ${task.title}\n` +
+                        `🔔 <b>REMINDER (${count + 1}/${maxNotifications})</b>\n\n` +
+                        `📌 <b>${task.title}</b>\n` +
                         `⏳ Starts in: <b>${minutesLeft} minute${minutesLeft !== 1 ? 's' : ''}</b>\n` +
                         `⏰ Start Time: ${formatTime(task.startDate)}\n` +
-                        `📅 Date: ${formatDate(task.startDate)}`, 
+                        `📅 Date: ${formatDate(task.startDate)}\n` +
+                        `━━━━━━━━━━━━━━━━━━━━`, 
                         { parse_mode: 'HTML' }
                     );
                     console.log(`📤 Sent notification ${count + 1} for task: ${task.title}`);
@@ -217,9 +267,13 @@ function cancelTaskSchedule(taskId) {
 
 async function rescheduleAllPending() {
     try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
         const tasks = await db.collection('tasks').find({ 
-            status: 'pending', 
-            startDate: { $gt: new Date() } 
+            userId: { $exists: true },
+            status: 'pending',
+            startDate: { $gt: new Date() }
         }).toArray();
         
         console.log(`🔄 Rescheduling ${tasks.length} pending tasks...`);
@@ -240,21 +294,36 @@ bot.command('start', async (ctx) => {
 });
 
 async function showMainMenu(ctx) {
-    const text = `👋 <b>Task Manager Bot</b>\n\n` +
-                 `Current Time: <b>${getCurrentIST()}</b>\n` +
-                 `Select an option below:`;
+    const text = `
+┌──────────────────────────┐
+│     📋 TASK MANAGER      │
+│         🤖 BOT           │
+├──────────────────────────┤
+│ ⏰ Current Time: ${getCurrentIST()}  │
+│ 📅 Today: ${formatDate(new Date())} │
+└──────────────────────────┘
+
+🌟 <b>Select an option:</b>`;
 
     const keyboard = Markup.inlineKeyboard([
-        [Markup.button.callback('➕ Add Task', 'add_task'), Markup.button.callback('📝 Add Note', 'add_note')],
-        [Markup.button.callback('📋 View Tasks', 'view_tasks_1'), Markup.button.callback('🗒️ View Notes', 'view_notes_1')],
-        [Markup.button.callback('📜 History', 'view_history_dates_1'), Markup.button.callback('📥 Download Data', 'download_menu')],
-        [Markup.button.callback('🗑️ Delete Data', 'delete_menu')]
+        [
+            Markup.button.callback('➕ Add Task', 'add_task'), 
+            Markup.button.callback('📝 Add Note', 'add_note')
+        ],
+        [
+            Markup.button.callback('📋 View Tasks', 'view_tasks_1'), 
+            Markup.button.callback('🗒️ View Notes', 'view_notes_1')
+        ],
+        [
+            Markup.button.callback('📜 View History', 'view_history_dates_1'), 
+            Markup.button.callback('📥 Download Data', 'download_menu')
+        ],
+        [
+            Markup.button.callback('🗑️ Delete Data', 'delete_menu')
+        ]
     ]);
 
-    await ctx.reply(text, { 
-        parse_mode: 'HTML',
-        reply_markup: keyboard.reply_markup 
-    });
+    await safeEdit(ctx, text, keyboard);
 }
 
 // ==========================================
@@ -269,23 +338,29 @@ bot.action('add_task', async (ctx) => {
         status: 'pending',
         createdAt: new Date()
     };
-    await ctx.editMessageText(`✏️ <b>Task Creation</b>\n\nEnter the <b>Title</b> of the task (e.g., "Gym"):`, { 
-        parse_mode: 'HTML',
-        reply_markup: Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', 'main_menu')]]).reply_markup
-    });
+    await safeEdit(ctx, 
+        `🎯 <b>CREATE NEW TASK</b>\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `Enter the <b>Title</b> of your task:\n\n` +
+        `📝 <i>Example: "Morning Yoga Session"</i>`,
+        Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', 'main_menu')]])
+    );
 });
 
 bot.action('add_note', async (ctx) => {
     ctx.session.step = 'note_title';
     ctx.session.note = { 
-        noteId: generateId(5), 
+        noteId: generateId(8), 
         userId: ctx.from.id,
         createdAt: new Date()
     };
-    await ctx.editMessageText(`📝 <b>Note Creation</b>\n\nEnter the <b>Title</b> of the note:`, { 
-        parse_mode: 'HTML',
-        reply_markup: Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', 'main_menu')]]).reply_markup
-    });
+    await safeEdit(ctx, 
+        `📝 <b>CREATE NEW NOTE</b>\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `Enter the <b>Title</b> for your note:\n\n` +
+        `📝 <i>Example: "Meeting Points"</i>`,
+        Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', 'main_menu')]])
+    );
 });
 
 // ==========================================
@@ -302,13 +377,26 @@ bot.on('text', async (ctx) => {
         if (text.length === 0) return ctx.reply('❌ Title cannot be empty.');
         ctx.session.task.title = text;
         ctx.session.step = 'task_desc';
-        await ctx.reply(`📄 Enter <b>Description</b> (Max 100 words):`, { parse_mode: 'HTML' });
+        await ctx.reply(
+            `📄 <b>ENTER DESCRIPTION</b>\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━\n` +
+            `Describe your task (Max 100 words):\n\n` +
+            `📝 <i>Example: "Complete 30 minutes of yoga with 10 minutes of meditation"</i>`,
+            { parse_mode: 'HTML' }
+        );
     }
     else if (step === 'task_desc') {
         if (text.split(/\s+/).length > 100) return ctx.reply('❌ Too long! Keep it under 100 words.');
         ctx.session.task.description = text;
         ctx.session.step = 'task_date';
-        await ctx.reply(`📅 Enter <b>Date</b> (DD-MM-YYYY)\nToday: ${formatDate(new Date())}:`);
+        await ctx.reply(
+            `📅 <b>SELECT DATE</b>\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━\n` +
+            `Enter the date (DD-MM-YYYY):\n\n` +
+            `📆 Today: ${formatDate(new Date())}\n` +
+            `📝 <i>Format: DD-MM-YYYY (Example: 15-02-2024)</i>`,
+            { parse_mode: 'HTML' }
+        );
     }
     else if (step === 'task_date') {
         // Validate date format DD-MM-YYYY
@@ -317,67 +405,121 @@ bot.on('text', async (ctx) => {
         }
         
         const [day, month, year] = text.split('-').map(Number);
-        const date = new Date(year, month - 1, day);
         
-        // Check if date is valid
+        // Validate date
+        const date = new Date(year, month - 1, day);
         if (date.getDate() !== day || date.getMonth() !== month - 1 || date.getFullYear() !== year) {
             return ctx.reply('❌ Invalid date. Please check the day, month, and year.');
         }
         
+        // Check if date is in the past
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        date.setHours(0, 0, 0, 0);
+        if (date < today) {
+            return ctx.reply('❌ Date cannot be in the past. Please select today or a future date.');
+        }
+        
         ctx.session.task.dateStr = text;
+        ctx.session.task.year = year;
+        ctx.session.task.month = month;
+        ctx.session.task.day = day;
         ctx.session.step = 'task_start';
-        await ctx.reply(`⏰ Enter <b>Start Time</b> (HH:MM, 24-hour format)\nCurrent Time: ${getCurrentIST()}:`);
+        
+        await ctx.reply(
+            `⏰ <b>SELECT START TIME</b>\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━\n` +
+            `Enter start time in 24-hour format (HH:MM):\n\n` +
+            `🕒 Current Time: ${getCurrentIST()}\n` +
+            `📝 <i>Example: 14:30 for 2:30 PM</i>`,
+            { parse_mode: 'HTML' }
+        );
     }
     else if (step === 'task_start') {
-        if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(text)) return ctx.reply('❌ Invalid format. Use HH:MM (24-hour).');
+        if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(text)) {
+            return ctx.reply('❌ Invalid format. Use HH:MM (24-hour). Example: 14:30');
+        }
         
         const [h, m] = text.split(':').map(Number);
-        const [day, month, year] = ctx.session.task.dateStr.split('-').map(Number);
+        const { year, month, day } = ctx.session.task;
         
-        // Create start date in LOCAL time (no UTC conversion)
+        // Create date in IST (NO timezone conversion - use as-is)
         const startDate = new Date(year, month - 1, day, h, m, 0);
         
-        // Check if time is in the past
+        // Check if time is in the past for today's date
         const now = new Date();
-        if (startDate <= now) {
-            return ctx.reply('❌ Start time is in the past. Please enter a future time.');
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        startDate.setHours(0, 0, 0, 0);
+        
+        if (isSameDay(startDate, today)) {
+            const currentHour = new Date().getHours();
+            const currentMinute = new Date().getMinutes();
+            
+            if (h < currentHour || (h === currentHour && m <= currentMinute)) {
+                return ctx.reply('❌ Start time is in the past. Please enter a future time.');
+            }
         }
         
         ctx.session.task.startDate = startDate;
         ctx.session.task.startTimeStr = text; 
         ctx.session.step = 'task_end';
-        await ctx.reply(`🏁 Enter <b>End Time</b> (HH:MM, 24-hour format)\nMust be after ${text}:`);
+        
+        await ctx.reply(
+            `🏁 <b>SELECT END TIME</b>\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━\n` +
+            `Enter end time in 24-hour format (HH:MM):\n\n` +
+            `⏰ Start Time: ${text}\n` +
+            `📝 <i>End time must be after start time</i>`,
+            { parse_mode: 'HTML' }
+        );
     }
     else if (step === 'task_end') {
-        if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(text)) return ctx.reply('❌ Invalid format. Use HH:MM (24-hour).');
+        if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(text)) {
+            return ctx.reply('❌ Invalid format. Use HH:MM (24-hour). Example: 15:30');
+        }
         
         const [sh, sm] = ctx.session.task.startTimeStr.split(':').map(Number);
         const [eh, em] = text.split(':').map(Number);
+        const { year, month, day } = ctx.session.task;
         
-        // Create end date using the same date as start
-        const [day, month, year] = ctx.session.task.dateStr.split('-').map(Number);
+        // Create dates (NO timezone conversion)
         const startDate = new Date(year, month - 1, day, sh, sm, 0);
         const endDate = new Date(year, month - 1, day, eh, em, 0);
         
-        if (endDate <= startDate) return ctx.reply('❌ End time must be after Start time.');
+        if (endDate <= startDate) {
+            return ctx.reply('❌ End time must be after Start time.');
+        }
         
         ctx.session.task.endDate = endDate;
+        ctx.session.task.nextOccurrence = startDate; // Initial next occurrence
         ctx.session.step = null;
 
         const dayName = getDayName(startDate);
         
-        await ctx.reply(`🔄 <b>Repeat this task?</b>\n\nChoose an option:`, {
-            parse_mode: 'HTML',
-            reply_markup: Markup.inlineKeyboard([
-                [Markup.button.callback('❌ None', 'repeat_none')],
-                [Markup.button.callback('📅 Daily', 'repeat_daily')],
-                [Markup.button.callback(`📅 Weekly (${dayName})`, 'repeat_weekly')]
-            ]).reply_markup
-        });
+        await ctx.reply(
+            `🔄 <b>REPEAT OPTIONS</b>\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━\n` +
+            `How should this task repeat?\n\n` +
+            `📅 Task Date: ${formatDate(startDate)} (${dayName})\n` +
+            `⏰ Time: ${ctx.session.task.startTimeStr} - ${text}\n\n` +
+            `Select repeat type:`,
+            {
+                parse_mode: 'HTML',
+                ...Markup.inlineKeyboard([
+                    [Markup.button.callback('❌ No Repeat', 'repeat_none')],
+                    [Markup.button.callback('📅 Repeat Daily', 'repeat_daily')],
+                    [Markup.button.callback(`📅 Repeat Weekly (${dayName})`, 'repeat_weekly')],
+                    [Markup.button.callback('🔙 Cancel', 'main_menu')]
+                ])
+            }
+        );
     }
     else if (step === 'task_repeat_count') {
         const count = parseInt(text);
-        if (isNaN(count) || count < 1 || count > 365) return ctx.reply('❌ Please enter a valid number between 1 and 365.');
+        if (isNaN(count) || count < 1 || count > 365) {
+            return ctx.reply('❌ Please enter a valid number between 1 and 365.');
+        }
         
         ctx.session.task.repeatCount = count;
         await saveTask(ctx);
@@ -388,19 +530,39 @@ bot.on('text', async (ctx) => {
         if (text.length === 0) return ctx.reply('❌ Title cannot be empty.');
         ctx.session.note.title = text;
         ctx.session.step = 'note_content';
-        await ctx.reply(`📝 Enter <b>Note Content</b> (Max 400 words):`, { parse_mode: 'HTML' });
+        await ctx.reply(
+            `📝 <b>ENTER NOTE CONTENT</b>\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━\n` +
+            `Enter your note content (Max 400 words):\n\n` +
+            `📝 <i>You can add detailed information here...</i>`,
+            { parse_mode: 'HTML' }
+        );
     }
     else if (step === 'note_content') {
-        if (text.split(/\s+/).length > 400) return ctx.reply('❌ Too long! Keep it under 400 words.');
+        if (text.split(/\s+/).length > 400) {
+            return ctx.reply('❌ Too long! Keep it under 400 words.');
+        }
         
         ctx.session.note.content = text;
         ctx.session.note.createdAt = new Date();
         
-        await db.collection('notes').insertOne(ctx.session.note);
-        ctx.session.step = null;
-        
-        await ctx.reply('✅ <b>Note Saved!</b>', { parse_mode: 'HTML' });
-        await showMainMenu(ctx);
+        try {
+            await db.collection('notes').insertOne(ctx.session.note);
+            ctx.session.step = null;
+            
+            await ctx.reply(
+                `✅ <b>NOTE SAVED SUCCESSFULLY!</b>\n\n` +
+                `━━━━━━━━━━━━━━━━━━━━\n` +
+                `📌 <b>${ctx.session.note.title}</b>\n\n` +
+                `${formatBlockquote(text)}\n\n` +
+                `📅 Saved on: ${formatDateTime(new Date())}`,
+                { parse_mode: 'HTML' }
+            );
+            await showMainMenu(ctx);
+        } catch (error) {
+            console.error('Error saving note:', error);
+            await ctx.reply('❌ Failed to save note. Please try again.');
+        }
     }
 
     // --- EDIT TASK FLOW ---
@@ -409,66 +571,96 @@ bot.on('text', async (ctx) => {
         const field = step.replace('edit_', '');
         
         const updates = {};
-        if (field === 'title') updates.title = text;
-        if (field === 'desc') updates.description = text;
+        if (field === 'title') {
+            if (text.length === 0) return ctx.reply('❌ Title cannot be empty.');
+            updates.title = text;
+        }
+        if (field === 'desc') {
+            if (text.split(/\s+/).length > 100) return ctx.reply('❌ Too long! Max 100 words.');
+            updates.description = text;
+        }
         
         if (field === 'start' || field === 'end') {
-             if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(text)) return ctx.reply('❌ Invalid Format (HH:MM)');
+            if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(text)) {
+                return ctx.reply('❌ Invalid Format. Use HH:MM (24-hour)');
+            }
              
-             const task = await db.collection('tasks').findOne({ taskId });
-             const dateObj = new Date(field === 'start' ? task.startDate : task.endDate);
-             const [h, m] = text.split(':').map(Number);
+            const task = await db.collection('tasks').findOne({ taskId });
+            const dateObj = new Date(field === 'start' ? task.startDate : task.endDate);
+            const [h, m] = text.split(':').map(Number);
+            
+            // Update only hours and minutes (NO timezone conversion)
+            dateObj.setHours(h, m, 0, 0);
              
-             // Update time in LOCAL timezone
-             dateObj.setHours(h, m, 0, 0);
-             
-             updates[field === 'start' ? 'startDate' : 'endDate'] = dateObj;
+            updates[field === 'start' ? 'startDate' : 'endDate'] = dateObj;
+            
+            // If updating start time, also update nextOccurrence
+            if (field === 'start') {
+                updates.nextOccurrence = dateObj;
+            }
         }
 
         if (field === 'repeat_count') {
-             const count = parseInt(text);
-             if (isNaN(count) || count < 0 || count > 365) return ctx.reply('❌ Invalid Number (0-365)');
-             updates.repeatCount = count;
-             if (count === 0) updates.repeat = 'none';
+            const count = parseInt(text);
+            if (isNaN(count) || count < 0 || count > 365) {
+                return ctx.reply('❌ Invalid Number. Enter 0-365');
+            }
+            updates.repeatCount = count;
+            if (count === 0) updates.repeat = 'none';
         }
 
-        await db.collection('tasks').updateOne({ taskId }, { $set: updates });
-        
-        // Reschedule if start time changed
-        if (field === 'start') {
-            const updatedTask = await db.collection('tasks').findOne({ taskId });
-            scheduleTask(updatedTask);
-        }
+        try {
+            await db.collection('tasks').updateOne({ taskId }, { $set: updates });
+            
+            // Reschedule if start time changed
+            if (field === 'start') {
+                const updatedTask = await db.collection('tasks').findOne({ taskId });
+                scheduleTask(updatedTask);
+            }
 
-        ctx.session.step = null;
-        await ctx.reply(`✅ <b>${field.toUpperCase()} Updated!</b>`, { parse_mode: 'HTML' });
-        await showTaskDetail(ctx, taskId);
+            ctx.session.step = null;
+            await ctx.reply(`✅ <b>${field.toUpperCase()} UPDATED SUCCESSFULLY!</b>`, { parse_mode: 'HTML' });
+            await showTaskDetail(ctx, taskId);
+        } catch (error) {
+            console.error('Error updating task:', error);
+            await ctx.reply('❌ Failed to update. Please try again.');
+        }
     }
     
     // --- EDIT NOTE FLOW ---
     else if (step === 'edit_note_title') {
         if (text.length === 0) return ctx.reply('❌ Title cannot be empty.');
         
-        await db.collection('notes').updateOne(
-            { noteId: ctx.session.editNoteId }, 
-            { $set: { title: text, updatedAt: new Date() } }
-        );
-        ctx.session.step = null;
-        ctx.session.editNoteId = null;
-        await ctx.reply('✅ Title Updated');
-        await showMainMenu(ctx);
+        try {
+            await db.collection('notes').updateOne(
+                { noteId: ctx.session.editNoteId }, 
+                { $set: { title: text, updatedAt: new Date() } }
+            );
+            ctx.session.step = null;
+            await ctx.reply('✅ <b>TITLE UPDATED!</b>', { parse_mode: 'HTML' });
+            await showMainMenu(ctx);
+        } catch (error) {
+            console.error('Error updating note title:', error);
+            await ctx.reply('❌ Failed to update title.');
+        }
     }
     else if (step === 'edit_note_content') {
-        if (text.length === 0) return ctx.reply('❌ Content cannot be empty.');
+        if (text.split(/\s+/).length > 400) {
+            return ctx.reply('❌ Too long! Max 400 words.');
+        }
         
-        await db.collection('notes').updateOne(
-            { noteId: ctx.session.editNoteId }, 
-            { $set: { content: text, updatedAt: new Date() } }
-        );
-        ctx.session.step = null;
-        ctx.session.editNoteId = null;
-        await ctx.reply('✅ Content Updated');
-        await showMainMenu(ctx);
+        try {
+            await db.collection('notes').updateOne(
+                { noteId: ctx.session.editNoteId }, 
+                { $set: { content: text, updatedAt: new Date() } }
+            );
+            ctx.session.step = null;
+            await ctx.reply('✅ <b>CONTENT UPDATED!</b>', { parse_mode: 'HTML' });
+            await showMainMenu(ctx);
+        } catch (error) {
+            console.error('Error updating note content:', error);
+            await ctx.reply('❌ Failed to update content.');
+        }
     }
 });
 
@@ -485,83 +677,136 @@ bot.action('repeat_none', async (ctx) => {
 bot.action('repeat_daily', async (ctx) => {
     ctx.session.task.repeat = 'daily';
     ctx.session.step = 'task_repeat_count';
-    await ctx.reply(`🔢 <b>Daily Repeat Selected</b>\n\nHow many times should it repeat? (e.g., 10 for 10 days):`, { parse_mode: 'HTML' });
+    await ctx.reply(
+        `🔢 <b>DAILY REPEAT</b>\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `How many times should this task repeat?\n\n` +
+        `📝 <i>Enter a number (e.g., 10 for 10 days):</i>`,
+        { parse_mode: 'HTML' }
+    );
 });
 
 bot.action('repeat_weekly', async (ctx) => {
     ctx.session.task.repeat = 'weekly';
     ctx.session.step = 'task_repeat_count';
-    await ctx.reply(`🔢 <b>Weekly Repeat Selected</b>\n\nHow many times should it repeat? (e.g., 5 for 5 weeks):`, { parse_mode: 'HTML' });
+    await ctx.reply(
+        `🔢 <b>WEEKLY REPEAT</b>\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `How many times should this task repeat?\n\n` +
+        `📝 <i>Enter a number (e.g., 5 for 5 weeks):</i>`,
+        { parse_mode: 'HTML' }
+    );
 });
 
 async function saveTask(ctx) {
     const task = ctx.session.task;
-    // Ensure task status is pending
+    
+    // Ensure required fields
     task.status = 'pending';
     task.createdAt = new Date();
-    task.nextOccurrence = task.startDate; // Initialize next occurrence
+    if (!task.nextOccurrence) {
+        task.nextOccurrence = task.startDate;
+    }
     
-    await db.collection('tasks').insertOne(task);
-    scheduleTask(task);
-    
-    ctx.session.step = null;
-    const msg = `✅ <b>Task Saved Successfully!</b>\n\n` +
-                `📌 ${task.title}\n` +
-                `📅 ${formatDate(task.startDate)}\n` +
-                `⏰ ${formatTime(task.startDate)} - ${formatTime(task.endDate)}\n` +
-                `🔄 Repeat: ${task.repeat} (${task.repeatCount} times)\n\n` +
-                `🔔 You will receive notifications starting 10 minutes before the task.`;
+    try {
+        await db.collection('tasks').insertOne(task);
+        scheduleTask(task);
+        
+        ctx.session.step = null;
+        const msg = `
+✅ <b>TASK CREATED SUCCESSFULLY!</b>
+
+━━━━━━━━━━━━━━━━━━━━
+📌 <b>${task.title}</b>
+
+${formatBlockquote(task.description)}
+
+📅 <b>Date:</b> ${formatDate(task.startDate)}
+⏰ <b>Time:</b> ${formatTime(task.startDate)} - ${formatTime(task.endDate)}
+🔄 <b>Repeat:</b> ${task.repeat} (${task.repeatCount || 0} times)
+📊 <b>Status:</b> ⏳ Pending
+
+🔔 <i>Notifications will start 10 minutes before the task.</i>
+━━━━━━━━━━━━━━━━━━━━`;
                 
-    await ctx.editMessageText(msg, { 
-        parse_mode: 'HTML',
-        reply_markup: Markup.inlineKeyboard([[Markup.button.callback('🔙 Main Menu', 'main_menu')]]).reply_markup
-    });
+        await safeEdit(ctx, msg, Markup.inlineKeyboard([
+            [Markup.button.callback('📋 View All Tasks', 'view_tasks_1')],
+            [Markup.button.callback('🏠 Main Menu', 'main_menu')]
+        ]));
+    } catch (error) {
+        console.error('Error saving task:', error);
+        await ctx.reply('❌ Failed to save task. Please try again.');
+    }
 }
 
 // --- VIEW TASKS LIST ---
 bot.action(/^view_tasks_(\d+)$/, async (ctx) => {
     const page = parseInt(ctx.match[1]);
-    const limit = 10;
+    const limit = 8;
     const skip = (page - 1) * limit;
-
-    // Only show tasks that haven't started yet or are for today/future
-    const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
     
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Only show tasks where nextOccurrence is today or in the future
     const tasks = await db.collection('tasks')
         .find({ 
             userId: ctx.from.id, 
             status: 'pending',
-            startDate: { $gt: now } // Only future tasks
+            nextOccurrence: { $gte: today }
         })
-        .sort({ startDate: 1 })
+        .sort({ nextOccurrence: 1 })
         .skip(skip).limit(limit).toArray();
 
     const count = await db.collection('tasks').countDocuments({ 
         userId: ctx.from.id, 
         status: 'pending',
-        startDate: { $gt: now }
+        nextOccurrence: { $gte: today }
     });
     const totalPages = Math.ceil(count / limit) || 1;
 
-    let text = `📋 <b>Pending Tasks (Page ${page}/${totalPages})</b>\nSelect a task to view details:`;
-    if (tasks.length === 0) text = "<i>No pending tasks found.</i>";
+    let text = `
+📋 <b>YOUR ACTIVE TASKS</b>
+
+━━━━━━━━━━━━━━━━━━━━
+📊 Page ${page} of ${totalPages}
+📈 Total Tasks: ${count}
+━━━━━━━━━━━━━━━━━━━━
+
+Select a task to view details:`;
+
+    if (tasks.length === 0) {
+        text = `
+📋 <b>YOUR ACTIVE TASKS</b>
+
+━━━━━━━━━━━━━━━━━━━━
+📭 <i>No active tasks found.</i>
+<i>Create your first task using "Add Task"!</i>
+━━━━━━━━━━━━━━━━━━━━`;
+    }
 
     const buttons = [];
     tasks.forEach(t => {
-        buttons.push([Markup.button.callback(`📌 ${t.title} (${formatTime(t.startDate)})`, `task_det_${t.taskId}`)]);
+        const isToday = isSameDay(t.nextOccurrence, new Date());
+        const datePrefix = isToday ? '⏰ TODAY' : `📅 ${formatDate(t.nextOccurrence)}`;
+        buttons.push([
+            Markup.button.callback(
+                `${datePrefix} - ${t.title}`, 
+                `task_det_${t.taskId}`
+            )
+        ]);
     });
 
     const nav = [];
-    if (page > 1) nav.push(Markup.button.callback('⬅️ Prev', `view_tasks_${page - 1}`));
+    if (page > 1) nav.push(Markup.button.callback('⬅️ Previous', `view_tasks_${page - 1}`));
     if (page < totalPages) nav.push(Markup.button.callback('Next ➡️', `view_tasks_${page + 1}`));
     if (nav.length > 0) buttons.push(nav);
-    buttons.push([Markup.button.callback('🔙 Main Menu', 'main_menu')]);
+    buttons.push([
+        Markup.button.callback('➕ Add New Task', 'add_task'),
+        Markup.button.callback('🏠 Main Menu', 'main_menu')
+    ]);
 
-    await ctx.editMessageText(text, { 
-        parse_mode: 'HTML',
-        reply_markup: Markup.inlineKeyboard(buttons).reply_markup
-    });
+    await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
 });
 
 // --- TASK DETAILS ---
@@ -572,43 +817,47 @@ bot.action(/^task_det_(.+)$/, async (ctx) => {
 async function showTaskDetail(ctx, taskId) {
     const task = await db.collection('tasks').findOne({ taskId });
     if (!task) {
-        await ctx.editMessageText('❌ Task not found or completed.', { 
-            parse_mode: 'HTML',
-            reply_markup: Markup.inlineKeyboard([[Markup.button.callback('🔙 Back', 'view_tasks_1')]]).reply_markup
-        });
-        return;
+        return safeEdit(ctx, 
+            '❌ <b>TASK NOT FOUND</b>\n\nThis task may have been completed or deleted.',
+            Markup.inlineKeyboard([[Markup.button.callback('🔙 Back to Tasks', 'view_tasks_1')]])
+        );
     }
 
-    const text = `📌 <b>Task Details</b>\n\n` +
-                 `🆔 ID: <code>${task.taskId}</code>\n` +
-                 `🏷 Title: <b>${task.title}</b>\n` +
-                 `📝 Description:\n<blockquote>${task.description || 'No description'}</blockquote>\n` +
-                 `📅 Date: ${formatDate(task.startDate)}\n` +
-                 `⏰ Time: ${formatTime(task.startDate)} - ${formatTime(task.endDate)}\n` +
-                 `🔄 Repeat: ${task.repeat} (${task.repeatCount || 0} left)\n` +
-                 (task.nextOccurrence ? `📅 Next Occurrence: ${formatDate(task.nextOccurrence)}\n` : '') +
-                 `📊 Status: ${task.status}`;
+    const text = `
+📌 <b>TASK DETAILS</b>
+
+━━━━━━━━━━━━━━━━━━━━
+🆔 <b>Task ID:</b> <code>${task.taskId}</code>
+📛 <b>Title:</b> ${task.title}
+
+${formatBlockquote(task.description)}
+
+📅 <b>Next Occurrence:</b> ${formatDateTime(task.nextOccurrence)}
+⏰ <b>Time:</b> ${formatTime(task.startDate)} - ${formatTime(task.endDate)}
+🔄 <b>Repeat:</b> ${task.repeat === 'none' ? 'No Repeat' : task.repeat} 
+🔢 <b>Remaining Repeats:</b> ${task.repeatCount || 0}
+📊 <b>Status:</b> ${task.status === 'pending' ? '⏳ Pending' : '✅ Completed'}
+
+📝 <b>Created:</b> ${formatDateTime(task.createdAt)}
+━━━━━━━━━━━━━━━━━━━━`;
 
     const buttons = [
         [Markup.button.callback('✅ Mark as Complete', `complete_${taskId}`)],
-        [Markup.button.callback('✏️ Edit', `edit_menu_${taskId}`), Markup.button.callback('🗑️ Delete', `delete_${taskId}`)],
-        [Markup.button.callback('🔙 Back List', 'view_tasks_1')]
+        [
+            Markup.button.callback('✏️ Edit', `edit_menu_${taskId}`), 
+            Markup.button.callback('🗑️ Delete', `delete_${taskId}`)
+        ],
+        [Markup.button.callback('🔙 Back to Tasks', 'view_tasks_1')]
     ];
     
-    await ctx.editMessageText(text, { 
-        parse_mode: 'HTML',
-        reply_markup: Markup.inlineKeyboard(buttons).reply_markup
-    });
+    await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
 }
 
-// --- COMPLETE TASK ---
+// --- COMPLETE TASK (with next occurrence logic) ---
 bot.action(/^complete_(.+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     const task = await db.collection('tasks').findOne({ taskId });
-    if (!task) {
-        await ctx.answerCbQuery('❌ Task not found');
-        return;
-    }
+    if (!task) return ctx.answerCbQuery('Task not found');
 
     // 1. Create History Copy
     const historyItem = {
@@ -616,58 +865,82 @@ bot.action(/^complete_(.+)$/, async (ctx) => {
         _id: undefined,
         completedAt: new Date(),
         originalTaskId: task.taskId,
-        status: 'completed'
+        status: 'completed',
+        completedFromDate: task.nextOccurrence // Store which occurrence was completed
     };
-    await db.collection('history').insertOne(historyItem);
     
-    // Stop Notification
-    cancelTaskSchedule(taskId);
+    try {
+        await db.collection('history').insertOne(historyItem);
+        
+        // Stop Notification for current occurrence
+        cancelTaskSchedule(taskId);
 
-    // 2. Handle Repetition
-    if (task.repeat !== 'none' && task.repeatCount > 0) {
-        const nextStart = new Date(task.startDate);
-        const nextEnd = new Date(task.endDate);
-
-        const daysToAdd = task.repeat === 'weekly' ? 7 : 1;
-        nextStart.setDate(nextStart.getDate() + daysToAdd);
-        nextEnd.setDate(nextEnd.getDate() + daysToAdd);
-
-        // Update the existing task with next occurrence
-        await db.collection('tasks').updateOne({ taskId }, {
-            $set: {
-                startDate: nextStart,
-                endDate: nextEnd,
-                repeatCount: task.repeatCount - 1,
-                nextOccurrence: nextStart,
-                status: 'pending'
+        // 2. Handle Repetition
+        if (task.repeat !== 'none' && task.repeatCount > 0) {
+            const nextOccurrence = new Date(task.nextOccurrence);
+            
+            // Calculate next occurrence based on repeat type
+            const daysToAdd = task.repeat === 'weekly' ? 7 : 1;
+            nextOccurrence.setDate(nextOccurrence.getDate() + daysToAdd);
+            
+            // Update the task with next occurrence
+            await db.collection('tasks').updateOne({ taskId }, {
+                $set: {
+                    nextOccurrence: nextOccurrence,
+                    repeatCount: task.repeatCount - 1,
+                    startDate: nextOccurrence, // Also update start date for scheduling
+                    // Adjust end date accordingly
+                    endDate: new Date(nextOccurrence.getTime() + 
+                        (task.endDate.getTime() - task.startDate.getTime()))
+                }
+            });
+            
+            // Reschedule for next occurrence
+            const updatedTask = await db.collection('tasks').findOne({ taskId });
+            
+            // Only schedule if next occurrence is in the future
+            if (updatedTask.nextOccurrence > new Date()) {
+                scheduleTask(updatedTask);
+                await ctx.answerCbQuery('✅ Completed! Next occurrence scheduled.');
+            } else {
+                await ctx.answerCbQuery('✅ Completed! No future occurrences.');
             }
-        });
+        } else {
+            // Not repeating or count finished -> Delete from active tasks
+            await db.collection('tasks').deleteOne({ taskId });
+            await ctx.answerCbQuery('✅ Task Completed & Moved to History!');
+        }
         
-        const updatedTask = await db.collection('tasks').findOne({ taskId });
-        scheduleTask(updatedTask);
-        
-        await ctx.answerCbQuery(`✅ Completed! Next occurrence: ${formatDate(nextStart)}`);
-    } else {
-        // Not repeating - delete from tasks
-        await db.collection('tasks').deleteOne({ taskId });
-        await ctx.answerCbQuery('✅ Task Finished & Moved to History!');
+        await showMainMenu(ctx);
+    } catch (error) {
+        console.error('Error completing task:', error);
+        await ctx.answerCbQuery('❌ Error completing task');
     }
-    
-    await showMainMenu(ctx);
 });
 
 // --- EDIT MENU ---
 bot.action(/^edit_menu_(.+)$/, async (ctx) => {
     const taskId = ctx.match[1];
-    await ctx.editMessageText(`✏️ <b>Edit Task</b>\nSelect what to change:`, { 
-        parse_mode: 'HTML',
-        reply_markup: Markup.inlineKeyboard([
-            [Markup.button.callback('🏷 Title', `edit_do_${taskId}_title`), Markup.button.callback('📝 Desc', `edit_do_${taskId}_desc`)],
-            [Markup.button.callback('⏰ Start', `edit_do_${taskId}_start`), Markup.button.callback('🏁 End', `edit_do_${taskId}_end`)],
-            [Markup.button.callback('🔄 Repeat Mode', `edit_rep_${taskId}`), Markup.button.callback('🔢 Repeat Count', `edit_do_${taskId}_repeat_count`)],
+    await safeEdit(ctx, 
+        `✏️ <b>EDIT TASK</b>\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `Select what you want to edit:`,
+        Markup.inlineKeyboard([
+            [
+                Markup.button.callback('🏷 Title', `edit_do_${taskId}_title`), 
+                Markup.button.callback('📝 Desc', `edit_do_${taskId}_desc`)
+            ],
+            [
+                Markup.button.callback('⏰ Start Time', `edit_do_${taskId}_start`), 
+                Markup.button.callback('🏁 End Time', `edit_do_${taskId}_end`)
+            ],
+            [
+                Markup.button.callback('🔄 Repeat Mode', `edit_rep_${taskId}`), 
+                Markup.button.callback('🔢 Repeat Count', `edit_do_${taskId}_repeat_count`)
+            ],
             [Markup.button.callback('🔙 Back', `task_det_${taskId}`)]
-        ]).reply_markup
-    });
+        ])
+    );
 });
 
 bot.action(/^edit_do_(.+)_(.+)$/, async (ctx) => {
@@ -677,27 +950,32 @@ bot.action(/^edit_do_(.+)_(.+)$/, async (ctx) => {
     
     let msg = '';
     if (field === 'title') msg = 'Enter new Title:';
-    if (field === 'desc') msg = 'Enter new Description:';
-    if (field === 'start') msg = 'Enter new Start Time (HH:MM):';
-    if (field === 'end') msg = 'Enter new End Time (HH:MM):';
-    if (field === 'repeat_count') msg = 'Enter new Repeat Count number:';
+    if (field === 'desc') msg = 'Enter new Description (Max 100 words):';
+    if (field === 'start') msg = 'Enter new Start Time (HH:MM, 24-hour):';
+    if (field === 'end') msg = 'Enter new End Time (HH:MM, 24-hour):';
+    if (field === 'repeat_count') msg = 'Enter new Repeat Count (0-365):';
 
-    await ctx.reply(`✏️ ${msg}`, { 
-        reply_markup: Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `task_det_${ctx.match[1]}`)]]).reply_markup
-    });
+    await ctx.reply(
+        `✏️ <b>EDIT ${field.toUpperCase()}</b>\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `${msg}`,
+        Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `task_det_${ctx.match[1]}`)]])
+    );
 });
 
 bot.action(/^edit_rep_(.+)$/, async (ctx) => {
     const taskId = ctx.match[1];
-    await ctx.editMessageText(`🔄 <b>Change Repeat Mode</b>`, { 
-        parse_mode: 'HTML',
-        reply_markup: Markup.inlineKeyboard([
-            [Markup.button.callback('❌ None', `set_rep_${taskId}_none`)],
+    await safeEdit(ctx, 
+        `🔄 <b>CHANGE REPEAT MODE</b>\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `Select new repeat mode:`,
+        Markup.inlineKeyboard([
+            [Markup.button.callback('❌ No Repeat', `set_rep_${taskId}_none`)],
             [Markup.button.callback('📅 Daily', `set_rep_${taskId}_daily`)],
             [Markup.button.callback('📅 Weekly', `set_rep_${taskId}_weekly`)],
             [Markup.button.callback('🔙 Back', `edit_menu_${taskId}`)]
-        ]).reply_markup
-    });
+        ])
+    );
 });
 
 bot.action(/^set_rep_(.+)_(.+)$/, async (ctx) => {
@@ -708,8 +986,7 @@ bot.action(/^set_rep_(.+)_(.+)$/, async (ctx) => {
     if (mode === 'none') {
         updates.repeatCount = 0;
     } else {
-        // If changing to repeat mode, set a default count
-        updates.repeatCount = 10;
+        updates.repeatCount = 10; // Default 10 repeats
     }
     
     await db.collection('tasks').updateOne({ taskId }, { $set: updates });
@@ -720,10 +997,15 @@ bot.action(/^set_rep_(.+)_(.+)$/, async (ctx) => {
 // --- DELETE TASK ---
 bot.action(/^delete_(.+)$/, async (ctx) => {
     const taskId = ctx.match[1];
-    await db.collection('tasks').deleteOne({ taskId });
-    cancelTaskSchedule(taskId);
-    await ctx.answerCbQuery('✅ Task Deleted');
-    await showMainMenu(ctx);
+    try {
+        await db.collection('tasks').deleteOne({ taskId });
+        cancelTaskSchedule(taskId);
+        await ctx.answerCbQuery('✅ Task Deleted');
+        await showMainMenu(ctx);
+    } catch (error) {
+        console.error('Error deleting task:', error);
+        await ctx.answerCbQuery('❌ Error deleting task');
+    }
 });
 
 // ==========================================
@@ -752,24 +1034,44 @@ bot.action(/^view_history_dates_(\d+)$/, async (ctx) => {
     ]).toArray();
     const totalPages = Math.ceil(allGroups.length / limit) || 1;
 
-    let text = `📜 <b>History Dates (Page ${page}/${totalPages})</b>\nSelect a date to view completed tasks:`;
-    if (dates.length === 0) text = "<i>No history yet.</i>";
+    let text = `
+📜 <b>COMPLETED TASKS HISTORY</b>
+
+━━━━━━━━━━━━━━━━━━━━
+📊 Page ${page} of ${totalPages}
+📈 Total Dates: ${allGroups.length}
+━━━━━━━━━━━━━━━━━━━━
+
+Select a date to view completed tasks:`;
+
+    if (dates.length === 0) {
+        text = `
+📜 <b>COMPLETED TASKS HISTORY</b>
+
+━━━━━━━━━━━━━━━━━━━━
+📭 <i>No completed tasks yet.</i>
+<i>Complete some tasks to see history here!</i>
+━━━━━━━━━━━━━━━━━━━━`;
+    }
 
     const buttons = [];
     dates.forEach(d => {
-        buttons.push([Markup.button.callback(`📅 ${d._id} (${d.count} tasks)`, `hist_list_${d._id}_1`)]);
+        const date = new Date(d._id);
+        buttons.push([
+            Markup.button.callback(
+                `📅 ${formatDate(date)} (${d.count} tasks)`, 
+                `hist_list_${d._id}_1`
+            )
+        ]);
     });
 
     const nav = [];
     if (page > 1) nav.push(Markup.button.callback('⬅️', `view_history_dates_${page - 1}`));
     if (page < totalPages) nav.push(Markup.button.callback('➡️', `view_history_dates_${page + 1}`));
     if (nav.length > 0) buttons.push(nav);
-    buttons.push([Markup.button.callback('🔙 Main Menu', 'main_menu')]);
+    buttons.push([Markup.button.callback('🏠 Main Menu', 'main_menu')]);
 
-    await ctx.editMessageText(text, { 
-        parse_mode: 'HTML',
-        reply_markup: Markup.inlineKeyboard(buttons).reply_markup
-    });
+    await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
 });
 
 bot.action(/^hist_list_([\d-]+)_(\d+)$/, async (ctx) => {
@@ -793,11 +1095,24 @@ bot.action(/^hist_list_([\d-]+)_(\d+)$/, async (ctx) => {
     });
     const totalPages = Math.ceil(count / limit) || 1;
 
-    let text = `📅 <b>Completed on ${dateStr} (Page ${page}/${totalPages})</b>`;
+    const date = new Date(dateStr);
+    let text = `
+📅 <b>COMPLETED ON ${formatDate(date).toUpperCase()}</b>
+
+━━━━━━━━━━━━━━━━━━━━
+📊 Page ${page} of ${totalPages}
+📈 Total Tasks: ${count}
+━━━━━━━━━━━━━━━━━━━━`;
     
     const buttons = [];
     tasks.forEach(t => {
-        buttons.push([Markup.button.callback(`✅ ${t.title} (${formatTime(t.completedAt)})`, `hist_det_${t._id}`)]);
+        const time = formatTime(t.completedAt);
+        buttons.push([
+            Markup.button.callback(
+                `✅ ${t.title} (${time})`, 
+                `hist_det_${t._id}`
+            )
+        ]);
     });
 
     const nav = [];
@@ -806,29 +1121,31 @@ bot.action(/^hist_list_([\d-]+)_(\d+)$/, async (ctx) => {
     if (nav.length > 0) buttons.push(nav);
     buttons.push([Markup.button.callback('🔙 Back to Dates', 'view_history_dates_1')]);
 
-    await ctx.editMessageText(text, { 
-        reply_markup: Markup.inlineKeyboard(buttons).reply_markup
-    });
+    await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
 });
 
 bot.action(/^hist_det_(.+)$/, async (ctx) => {
     const id = ctx.match[1];
     const task = await db.collection('history').findOne({ _id: new ObjectId(id) });
 
-    if (!task) {
-        await ctx.answerCbQuery('Not found');
-        return;
-    }
+    if (!task) return ctx.answerCbQuery('Task not found');
 
-    const text = `📜 <b>History Detail</b>\n\n` +
-                 `📌 ${task.title}\n` +
-                 `📝 Description:\n<blockquote>${task.description || 'No description'}</blockquote>\n` +
-                 `✅ Completed At: ${formatDate(task.completedAt)} ${formatTime(task.completedAt)}`;
+    const text = `
+📜 <b>HISTORY DETAIL</b>
 
-    await ctx.editMessageText(text, { 
-        parse_mode: 'HTML',
-        reply_markup: Markup.inlineKeyboard([[Markup.button.callback('🔙 Back', `view_history_dates_1`)]]).reply_markup
-    });
+━━━━━━━━━━━━━━━━━━━━
+📌 <b>${task.title}</b>
+
+${formatBlockquote(task.description)}
+
+✅ <b>Completed At:</b> ${formatDateTime(task.completedAt)}
+⏰ <b>Original Time:</b> ${formatTime(task.startDate)} - ${formatTime(task.endDate)}
+🔄 <b>Repeat Type:</b> ${task.repeat === 'none' ? 'No Repeat' : task.repeat}
+━━━━━━━━━━━━━━━━━━━━`;
+
+    await safeEdit(ctx, text, Markup.inlineKeyboard([
+        [Markup.button.callback('🔙 Back to History', 'view_history_dates_1')]
+    ]));
 });
 
 // ==========================================
@@ -837,7 +1154,7 @@ bot.action(/^hist_det_(.+)$/, async (ctx) => {
 
 bot.action(/^view_notes_(\d+)$/, async (ctx) => {
     const page = parseInt(ctx.match[1]);
-    const limit = 10;
+    const limit = 8;
     const skip = (page - 1) * limit;
 
     const notes = await db.collection('notes').find({ userId: ctx.from.id })
@@ -846,77 +1163,116 @@ bot.action(/^view_notes_(\d+)$/, async (ctx) => {
     const count = await db.collection('notes').countDocuments({ userId: ctx.from.id });
     const totalPages = Math.ceil(count / limit) || 1;
 
-    let text = `🗒️ <b>Your Notes (Page ${page}/${totalPages})</b>`;
-    if (notes.length === 0) text = "<i>No notes found.</i>";
+    let text = `
+🗒️ <b>YOUR NOTES</b>
+
+━━━━━━━━━━━━━━━━━━━━
+📊 Page ${page} of ${totalPages}
+📈 Total Notes: ${count}
+━━━━━━━━━━━━━━━━━━━━
+
+Select a note to view:`;
+
+    if (notes.length === 0) {
+        text = `
+🗒️ <b>YOUR NOTES</b>
+
+━━━━━━━━━━━━━━━━━━━━
+📭 <i>No notes found.</i>
+<i>Create your first note using "Add Note"!</i>
+━━━━━━━━━━━━━━━━━━━━`;
+    }
 
     const buttons = [];
     notes.forEach(n => {
-        buttons.push([Markup.button.callback(`📄 ${n.title}`, `note_det_${n.noteId}`)]);
+        const preview = n.title.length > 30 ? n.title.substring(0, 30) + '...' : n.title;
+        buttons.push([Markup.button.callback(`📄 ${preview}`, `note_det_${n.noteId}`)]);
     });
 
     const nav = [];
     if (page > 1) nav.push(Markup.button.callback('⬅️', `view_notes_${page - 1}`));
     if (page < totalPages) nav.push(Markup.button.callback('➡️', `view_notes_${page + 1}`));
     if (nav.length > 0) buttons.push(nav);
-    buttons.push([Markup.button.callback('🔙 Main Menu', 'main_menu')]);
+    buttons.push([
+        Markup.button.callback('📝 Add New Note', 'add_note'),
+        Markup.button.callback('🏠 Main Menu', 'main_menu')
+    ]);
 
-    await ctx.editMessageText(text, { 
-        parse_mode: 'HTML',
-        reply_markup: Markup.inlineKeyboard(buttons).reply_markup
-    });
+    await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
 });
 
 bot.action(/^note_det_(.+)$/, async (ctx) => {
     const note = await db.collection('notes').findOne({ noteId: ctx.match[1] });
-    if (!note) {
-        await ctx.answerCbQuery('Note not found');
-        return;
-    }
+    if (!note) return ctx.answerCbQuery('Note not found');
 
-    const text = `📝 <b>Note Details</b>\n\n` +
-                 `📌 <b>${note.title}</b>\n` +
-                 `📅 ${formatDate(note.createdAt)}\n\n` +
-                 `Content:\n<blockquote>${note.content}</blockquote>`;
+    const text = `
+📝 <b>NOTE DETAILS</b>
+
+━━━━━━━━━━━━━━━━━━━━
+📌 <b>${note.title}</b>
+
+${formatBlockquote(note.content)}
+
+📅 <b>Created:</b> ${formatDateTime(note.createdAt)}
+${note.updatedAt ? `✏️ <b>Updated:</b> ${formatDateTime(note.updatedAt)}` : ''}
+━━━━━━━━━━━━━━━━━━━━`;
     
     const buttons = [
-        [Markup.button.callback('✏️ Edit', `edit_note_${note.noteId}`), Markup.button.callback('🗑️ Delete', `del_note_${note.noteId}`)],
-        [Markup.button.callback('🔙 Back', 'view_notes_1')]
+        [
+            Markup.button.callback('✏️ Edit', `edit_note_${note.noteId}`), 
+            Markup.button.callback('🗑️ Delete', `del_note_${note.noteId}`)
+        ],
+        [Markup.button.callback('🔙 Back to Notes', 'view_notes_1')]
     ];
 
-    await ctx.editMessageText(text, { 
-        parse_mode: 'HTML',
-        reply_markup: Markup.inlineKeyboard(buttons).reply_markup
-    });
+    await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
 });
 
 bot.action(/^del_note_(.+)$/, async (ctx) => {
-    await db.collection('notes').deleteOne({ noteId: ctx.match[1] });
-    await ctx.answerCbQuery('✅ Note Deleted');
-    await showMainMenu(ctx);
+    try {
+        await db.collection('notes').deleteOne({ noteId: ctx.match[1] });
+        await ctx.answerCbQuery('✅ Note Deleted');
+        await showMainMenu(ctx);
+    } catch (error) {
+        console.error('Error deleting note:', error);
+        await ctx.answerCbQuery('❌ Error deleting note');
+    }
 });
 
 bot.action(/^edit_note_(.+)$/, async (ctx) => {
     ctx.session.editNoteId = ctx.match[1];
-    await ctx.editMessageText(`✏️ Select what to edit:`, { 
-        reply_markup: Markup.inlineKeyboard([
-            [Markup.button.callback('Title', 'edit_nt_title'), Markup.button.callback('Content', 'edit_nt_content')],
+    await safeEdit(ctx, 
+        `✏️ <b>EDIT NOTE</b>\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `Select what you want to edit:`,
+        Markup.inlineKeyboard([
+            [
+                Markup.button.callback('📝 Title', 'edit_nt_title'), 
+                Markup.button.callback('📄 Content', 'edit_nt_content')
+            ],
             [Markup.button.callback('🔙 Back', `note_det_${ctx.match[1]}`)]
-        ]).reply_markup
-    });
+        ])
+    );
 });
 
 bot.action('edit_nt_title', async (ctx) => {
     ctx.session.step = 'edit_note_title';
-    await ctx.reply('Enter new Title:', { 
-        reply_markup: Markup.inlineKeyboard([[Markup.button.callback('Cancel', `note_det_${ctx.session.editNoteId}`)]]).reply_markup
-    });
+    await ctx.reply(
+        `✏️ <b>EDIT NOTE TITLE</b>\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `Enter new title:`,
+        Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `note_det_${ctx.session.editNoteId}`)]])
+    );
 });
 
 bot.action('edit_nt_content', async (ctx) => {
     ctx.session.step = 'edit_note_content';
-    await ctx.reply('Enter new Content:', { 
-        reply_markup: Markup.inlineKeyboard([[Markup.button.callback('Cancel', `note_det_${ctx.session.editNoteId}`)]]).reply_markup
-    });
+    await ctx.reply(
+        `✏️ <b>EDIT NOTE CONTENT</b>\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `Enter new content (Max 400 words):`,
+        Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `note_det_${ctx.session.editNoteId}`)]])
+    );
 });
 
 // ==========================================
@@ -924,16 +1280,19 @@ bot.action('edit_nt_content', async (ctx) => {
 // ==========================================
 
 bot.action('download_menu', async (ctx) => {
-    await ctx.editMessageText('📥 <b>Download Data</b>\n\nSelect what you want to download:', { 
-        parse_mode: 'HTML',
-        reply_markup: Markup.inlineKeyboard([
-            [Markup.button.callback('📋 All Tasks (Active)', 'download_tasks')],
-            [Markup.button.callback('📜 All History', 'download_history')],
-            [Markup.button.callback('🗒️ All Notes', 'download_notes')],
-            [Markup.button.callback('📦 Everything (All Data)', 'download_all')],
-            [Markup.button.callback('🔙 Main Menu', 'main_menu')]
-        ]).reply_markup
-    });
+    await safeEdit(ctx, 
+        `📥 <b>DOWNLOAD YOUR DATA</b>\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `Select what you want to download:\n\n` +
+        `📁 <i>Files will be sent as JSON documents</i>`,
+        Markup.inlineKeyboard([
+            [Markup.button.callback('📋 Active Tasks', 'download_tasks')],
+            [Markup.button.callback('📜 History', 'download_history')],
+            [Markup.button.callback('🗒️ Notes', 'download_notes')],
+            [Markup.button.callback('📦 All Data (3 files)', 'download_all')],
+            [Markup.button.callback('🏠 Main Menu', 'main_menu')]
+        ])
+    );
 });
 
 bot.action('download_tasks', async (ctx) => {
@@ -941,7 +1300,7 @@ bot.action('download_tasks', async (ctx) => {
     const tasks = await db.collection('tasks').find({ userId }).toArray();
     
     if (tasks.length === 0) {
-        await ctx.answerCbQuery('❌ No tasks found');
+        await ctx.answerCbQuery('No tasks found');
         return;
     }
     
@@ -955,7 +1314,7 @@ bot.action('download_history', async (ctx) => {
     const history = await db.collection('history').find({ userId }).toArray();
     
     if (history.length === 0) {
-        await ctx.answerCbQuery('❌ No history found');
+        await ctx.answerCbQuery('No history found');
         return;
     }
     
@@ -969,7 +1328,7 @@ bot.action('download_notes', async (ctx) => {
     const notes = await db.collection('notes').find({ userId }).toArray();
     
     if (notes.length === 0) {
-        await ctx.answerCbQuery('❌ No notes found');
+        await ctx.answerCbQuery('No notes found');
         return;
     }
     
@@ -981,160 +1340,212 @@ bot.action('download_notes', async (ctx) => {
 bot.action('download_all', async (ctx) => {
     const userId = ctx.from.id;
     
+    // Send all three files separately
     const tasks = await db.collection('tasks').find({ userId }).toArray();
     const history = await db.collection('history').find({ userId }).toArray();
     const notes = await db.collection('notes').find({ userId }).toArray();
     
-    // Send 3 separate files
+    // Send tasks file
     if (tasks.length > 0) {
         const tasksBuff = Buffer.from(JSON.stringify(tasks, null, 2));
         await ctx.replyWithDocument({ source: tasksBuff, filename: 'active_tasks.json' });
     }
     
+    // Send history file
     if (history.length > 0) {
         const histBuff = Buffer.from(JSON.stringify(history, null, 2));
         await ctx.replyWithDocument({ source: histBuff, filename: 'history.json' });
     }
     
+    // Send notes file
     if (notes.length > 0) {
         const notesBuff = Buffer.from(JSON.stringify(notes, null, 2));
         await ctx.replyWithDocument({ source: notesBuff, filename: 'notes.json' });
     }
     
     if (tasks.length === 0 && history.length === 0 && notes.length === 0) {
-        await ctx.answerCbQuery('❌ No data found to download');
+        await ctx.answerCbQuery('No data found to download');
     } else {
         await ctx.answerCbQuery('✅ All data files sent');
     }
 });
 
 // ==========================================
-// 🗑️ DELETE DATA MENU
+// 🗑️ DELETE DATA MENU (FIXED)
 // ==========================================
 
 bot.action('delete_menu', async (ctx) => {
-    await ctx.editMessageText('🗑️ <b>Delete Data</b>\n\n⚠️ <b>WARNING: This cannot be undone!</b>\nSelect what you want to delete:', { 
-        parse_mode: 'HTML',
-        reply_markup: Markup.inlineKeyboard([
+    await safeEdit(ctx, 
+        `🗑️ <b>DELETE DATA</b>\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `⚠️ <b>WARNING: This action cannot be undone!</b>\n\n` +
+        `Select what you want to delete:`,
+        Markup.inlineKeyboard([
             [Markup.button.callback('📋 Delete All Tasks', 'delete_tasks_confirm')],
             [Markup.button.callback('📜 Delete All History', 'delete_history_confirm')],
             [Markup.button.callback('🗒️ Delete All Notes', 'delete_notes_confirm')],
             [Markup.button.callback('🔥 Delete EVERYTHING', 'delete_all_confirm')],
-            [Markup.button.callback('🔙 Main Menu', 'main_menu')]
-        ]).reply_markup
-    });
+            [Markup.button.callback('🏠 Main Menu', 'main_menu')]
+        ])
+    );
 });
 
 bot.action('delete_tasks_confirm', async (ctx) => {
-    await ctx.editMessageText('⚠️ <b>Delete ALL Tasks?</b>\n\nThis will delete all your active tasks and stop their notifications.\nThis action cannot be undone!', { 
-        parse_mode: 'HTML',
-        reply_markup: Markup.inlineKeyboard([
-            [Markup.button.callback('✅ YES, Delete Tasks', 'delete_tasks_final')],
+    await safeEdit(ctx, 
+        `⚠️ <b>CONFIRM DELETION</b>\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `Are you sure you want to delete ALL tasks?\n\n` +
+        `📋 This will delete all your active tasks\n` +
+        `🔔 All notifications will be cancelled\n` +
+        `❌ This action cannot be undone!\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━`,
+        Markup.inlineKeyboard([
+            [Markup.button.callback('✅ YES, DELETE ALL TASKS', 'delete_tasks_final')],
             [Markup.button.callback('🔙 Cancel', 'delete_menu')]
-        ]).reply_markup
-    });
+        ])
+    );
 });
 
 bot.action('delete_tasks_final', async (ctx) => {
     const userId = ctx.from.id;
     
-    // Get all tasks to cancel schedules
-    const tasks = await db.collection('tasks').find({ userId }).toArray();
-    tasks.forEach(t => cancelTaskSchedule(t.taskId));
-    
-    // Delete from database
-    const result = await db.collection('tasks').deleteMany({ userId });
-    
-    await ctx.answerCbQuery(`✅ Deleted ${result.deletedCount} tasks`);
-    await showMainMenu(ctx);
+    try {
+        // Get all tasks to cancel schedules
+        const tasks = await db.collection('tasks').find({ userId }).toArray();
+        tasks.forEach(t => cancelTaskSchedule(t.taskId));
+        
+        // Delete from database
+        const result = await db.collection('tasks').deleteMany({ userId });
+        
+        await ctx.answerCbQuery(`✅ Deleted ${result.deletedCount} tasks`);
+        await showMainMenu(ctx);
+    } catch (error) {
+        console.error('Error deleting tasks:', error);
+        await ctx.answerCbQuery('❌ Error deleting tasks');
+    }
 });
 
 bot.action('delete_history_confirm', async (ctx) => {
-    await ctx.editMessageText('⚠️ <b>Delete ALL History?</b>\n\nThis will delete all your completed task history.\nThis action cannot be undone!', { 
-        parse_mode: 'HTML',
-        reply_markup: Markup.inlineKeyboard([
-            [Markup.button.callback('✅ YES, Delete History', 'delete_history_final')],
+    await safeEdit(ctx, 
+        `⚠️ <b>CONFIRM DELETION</b>\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `Are you sure you want to delete ALL history?\n\n` +
+        `📜 This will delete all your completed task history\n` +
+        `📊 All statistics will be lost\n` +
+        `❌ This action cannot be undone!\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━`,
+        Markup.inlineKeyboard([
+            [Markup.button.callback('✅ YES, DELETE ALL HISTORY', 'delete_history_final')],
             [Markup.button.callback('🔙 Cancel', 'delete_menu')]
-        ]).reply_markup
-    });
+        ])
+    );
 });
 
 bot.action('delete_history_final', async (ctx) => {
     const userId = ctx.from.id;
-    const result = await db.collection('history').deleteMany({ userId });
-    await ctx.answerCbQuery(`✅ Deleted ${result.deletedCount} history items`);
-    await showMainMenu(ctx);
+    try {
+        const result = await db.collection('history').deleteMany({ userId });
+        await ctx.answerCbQuery(`✅ Deleted ${result.deletedCount} history items`);
+        await showMainMenu(ctx);
+    } catch (error) {
+        console.error('Error deleting history:', error);
+        await ctx.answerCbQuery('❌ Error deleting history');
+    }
 });
 
 bot.action('delete_notes_confirm', async (ctx) => {
-    await ctx.editMessageText('⚠️ <b>Delete ALL Notes?</b>\n\nThis will delete all your saved notes.\nThis action cannot be undone!', { 
-        parse_mode: 'HTML',
-        reply_markup: Markup.inlineKeyboard([
-            [Markup.button.callback('✅ YES, Delete Notes', 'delete_notes_final')],
+    await safeEdit(ctx, 
+        `⚠️ <b>CONFIRM DELETION</b>\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `Are you sure you want to delete ALL notes?\n\n` +
+        `🗒️ This will delete all your saved notes\n` +
+        `📝 All your personal notes will be lost\n` +
+        `❌ This action cannot be undone!\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━`,
+        Markup.inlineKeyboard([
+            [Markup.button.callback('✅ YES, DELETE ALL NOTES', 'delete_notes_final')],
             [Markup.button.callback('🔙 Cancel', 'delete_menu')]
-        ]).reply_markup
-    });
+        ])
+    );
 });
 
 bot.action('delete_notes_final', async (ctx) => {
     const userId = ctx.from.id;
-    const result = await db.collection('notes').deleteMany({ userId });
-    await ctx.answerCbQuery(`✅ Deleted ${result.deletedCount} notes`);
-    await showMainMenu(ctx);
+    try {
+        const result = await db.collection('notes').deleteMany({ userId });
+        await ctx.answerCbQuery(`✅ Deleted ${result.deletedCount} notes`);
+        await showMainMenu(ctx);
+    } catch (error) {
+        console.error('Error deleting notes:', error);
+        await ctx.answerCbQuery('❌ Error deleting notes');
+    }
 });
 
 bot.action('delete_all_confirm', async (ctx) => {
-    await ctx.editMessageText('⚠️ <b>WARNING: DELETE ALL DATA?</b>\n\nThis will delete:\n• All active tasks\n• All completed history\n• All saved notes\n\nThis action cannot be undone!', { 
-        parse_mode: 'HTML',
-        reply_markup: Markup.inlineKeyboard([
+    await safeEdit(ctx, 
+        `⚠️ <b>FINAL WARNING</b>\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `Are you sure you want to delete ALL data?\n\n` +
+        `📋 All active tasks\n` +
+        `📜 All completed history\n` +
+        `🗒️ All saved notes\n\n` +
+        `🔔 All notifications will be cancelled\n` +
+        `📊 All statistics will be lost\n` +
+        `❌ This action cannot be undone!\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━`,
+        Markup.inlineKeyboard([
             [Markup.button.callback('🔥 YES, DELETE EVERYTHING', 'delete_all_final')],
             [Markup.button.callback('🔙 Cancel', 'delete_menu')]
-        ]).reply_markup
-    });
+        ])
+    );
 });
 
 bot.action('delete_all_final', async (ctx) => {
     const userId = ctx.from.id;
     
-    // First, download data before deleting
-    const tasks = await db.collection('tasks').find({ userId }).toArray();
-    const history = await db.collection('history').find({ userId }).toArray();
-    const notes = await db.collection('notes').find({ userId }).toArray();
-    
-    // Send data files before deletion
-    if (tasks.length > 0) {
-        const tasksBuff = Buffer.from(JSON.stringify(tasks, null, 2));
-        await ctx.replyWithDocument({ source: tasksBuff, filename: 'tasks_backup.json' });
+    try {
+        // 1. Stop all schedulers
+        const tasks = await db.collection('tasks').find({ userId }).toArray();
+        tasks.forEach(t => cancelTaskSchedule(t.taskId));
+        
+        // 2. Delete everything
+        const tasksResult = await db.collection('tasks').deleteMany({ userId });
+        const historyResult = await db.collection('history').deleteMany({ userId });
+        const notesResult = await db.collection('notes').deleteMany({ userId });
+        
+        const totalDeleted = tasksResult.deletedCount + historyResult.deletedCount + notesResult.deletedCount;
+        
+        // 3. Send confirmation with files
+        if (totalDeleted > 0) {
+            // Create backup files before deletion confirmation
+            const tasksData = await db.collection('tasks').find({ userId }).toArray();
+            const historyData = await db.collection('history').find({ userId }).toArray();
+            const notesData = await db.collection('notes').find({ userId }).toArray();
+            
+            if (tasksData.length > 0) {
+                const tasksBuff = Buffer.from(JSON.stringify(tasksData, null, 2));
+                await ctx.replyWithDocument({ source: tasksBuff, filename: 'backup_tasks_deleted.json' });
+            }
+            if (historyData.length > 0) {
+                const histBuff = Buffer.from(JSON.stringify(historyData, null, 2));
+                await ctx.replyWithDocument({ source: histBuff, filename: 'backup_history_deleted.json' });
+            }
+            if (notesData.length > 0) {
+                const notesBuff = Buffer.from(JSON.stringify(notesData, null, 2));
+                await ctx.replyWithDocument({ source: notesBuff, filename: 'backup_notes_deleted.json' });
+            }
+        }
+        
+        await ctx.answerCbQuery(`✅ Deleted ${totalDeleted} items total`);
+        await showMainMenu(ctx);
+    } catch (error) {
+        console.error('Error deleting all data:', error);
+        await ctx.answerCbQuery('❌ Error deleting data');
     }
-    
-    if (history.length > 0) {
-        const histBuff = Buffer.from(JSON.stringify(history, null, 2));
-        await ctx.replyWithDocument({ source: histBuff, filename: 'history_backup.json' });
-    }
-    
-    if (notes.length > 0) {
-        const notesBuff = Buffer.from(JSON.stringify(notes, null, 2));
-        await ctx.replyWithDocument({ source: notesBuff, filename: 'notes_backup.json' });
-    }
-    
-    // Stop all schedulers
-    tasks.forEach(t => cancelTaskSchedule(t.taskId));
-    
-    // Delete everything
-    const tasksResult = await db.collection('tasks').deleteMany({ userId });
-    const historyResult = await db.collection('history').deleteMany({ userId });
-    const notesResult = await db.collection('notes').deleteMany({ userId });
-    
-    const totalDeleted = tasksResult.deletedCount + historyResult.deletedCount + notesResult.deletedCount;
-    
-    await ctx.answerCbQuery(`✅ Deleted ${totalDeleted} items total`);
-    await showMainMenu(ctx);
 });
 
 bot.action('main_menu', async (ctx) => {
     ctx.session.step = null;
-    ctx.session.editNoteId = null;
-    ctx.session.editTaskId = null;
     await showMainMenu(ctx);
 });
 
@@ -1143,19 +1554,40 @@ bot.action('main_menu', async (ctx) => {
 // ==========================================
 
 async function start() {
-    if (await connectDB()) {
-        await rescheduleAllPending();
-        bot.launch();
-        console.log('🤖 Bot Started!');
-        
-        // Send startup message
-        console.log(`✅ Scheduler is active. Currently tracking ${activeSchedules.size} tasks.`);
+    try {
+        if (await connectDB()) {
+            await rescheduleAllPending();
+            await bot.launch();
+            console.log('🤖 Bot Started Successfully!');
+            console.log(`⏰ Current IST Time: ${getCurrentIST()}`);
+            console.log(`📊 Currently tracking ${activeSchedules.size} tasks`);
+            
+            // Set up keep-alive for Railway
+            const PORT = process.env.PORT || 3000;
+            if (process.env.RAILWAY_ENVIRONMENT || process.env.PORT) {
+                const http = require('http');
+                const server = http.createServer((req, res) => {
+                    res.writeHead(200, { 'Content-Type': 'text/plain' });
+                    res.end('✅ Task Manager Bot is running with scheduler...');
+                });
+                
+                server.listen(PORT, () => {
+                    console.log(`🚂 Server listening on port ${PORT}`);
+                });
+            }
+        } else {
+            console.error('❌ Failed to connect to database. Retrying in 5 seconds...');
+            setTimeout(start, 5000);
+        }
+    } catch (error) {
+        console.error('❌ Failed to start bot:', error);
+        setTimeout(start, 10000);
     }
 }
 
 // Graceful Stop
 process.once('SIGINT', () => {
-    console.log('🛑 Stopping bot gracefully...');
+    console.log('🛑 SIGINT received, stopping bot gracefully...');
     
     // Cancel all scheduled jobs
     for (const [taskId, schedule] of activeSchedules) {
@@ -1165,11 +1597,12 @@ process.once('SIGINT', () => {
     
     bot.stop('SIGINT');
     if (client) client.close();
+    console.log('👋 Bot stopped gracefully');
     process.exit(0);
 });
 
 process.once('SIGTERM', () => {
-    console.log('🛑 Stopping bot gracefully...');
+    console.log('🛑 SIGTERM received, stopping bot gracefully...');
     
     // Cancel all scheduled jobs
     for (const [taskId, schedule] of activeSchedules) {
@@ -1179,7 +1612,9 @@ process.once('SIGTERM', () => {
     
     bot.stop('SIGTERM');
     if (client) client.close();
+    console.log('👋 Bot stopped gracefully');
     process.exit(0);
 });
 
+// Start the bot
 start();
