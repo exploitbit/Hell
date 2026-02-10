@@ -737,15 +737,46 @@ bot.on('text', async (ctx) => {
             }
         );
     }
-    else if (step === 'task_repeat_count') {
-        const count = parseInt(text);
-        if (isNaN(count) || count < 1 || count > 365) {
-            return ctx.reply('❌ Please enter a valid number between 1 and 365.');
-        }
-        
-        ctx.session.task.repeatCount = count;
-        await saveTask(ctx);
+    else if (step === 'edit_task_repeat_count') {
+    const taskId = ctx.session.editTaskId;
+    
+    // Check if task exists
+    const taskExists = await db.collection('tasks').findOne({ taskId });
+    if (!taskExists) {
+        ctx.session.step = null;
+        delete ctx.session.editTaskId;
+        return ctx.reply('❌ Task not found. It may have been deleted.');
     }
+    
+    const count = parseInt(text);
+    if (isNaN(count) || count < 0 || count > 365) {
+        return ctx.reply('❌ Invalid Number. Enter 0-365');
+    }
+    
+    // Rest of the code remains the same...
+    const updates = { repeatCount: count };
+    if (count === 0) updates.repeat = 'none';
+
+    try {
+        await db.collection('tasks').updateOne({ taskId }, { $set: updates });
+        
+        ctx.session.step = null;
+        delete ctx.session.editTaskId;
+        await ctx.reply(`✅ <b>COUNT UPDATED!</b>`, { parse_mode: 'HTML' });
+        
+        // Show updated task details
+        const updatedTask = await db.collection('tasks').findOne({ taskId });
+        if (updatedTask) {
+            await showTaskDetail(ctx, taskId);
+        } else {
+            await ctx.reply('❌ Task not found after update.');
+            await showMainMenu(ctx);
+        }
+    } catch (error) {
+        console.error('Error updating repeat count:', error);
+        await ctx.reply('❌ Failed to update. Please try again.');
+    }
+}
 
     // --- NOTE FLOW ---
     else if (step === 'note_title') {
@@ -1169,8 +1200,17 @@ bot.action(/^edit_menu_(.+)$/, async (ctx) => {
 });
 
 bot.action(/^edit_task_(.+)_(.+)$/, async (ctx) => {
-    ctx.session.editTaskId = ctx.match[1];
+    const taskId = ctx.match[1];
     const field = ctx.match[2];
+    
+    // Check if task exists before allowing edit
+    const taskExists = await db.collection('tasks').findOne({ taskId });
+    if (!taskExists) {
+        await ctx.answerCbQuery('❌ Task not found');
+        return showMainMenu(ctx);
+    }
+    
+    ctx.session.editTaskId = taskId;
     ctx.session.step = `edit_task_${field}`;
     
     let msg = '';
@@ -1184,7 +1224,7 @@ bot.action(/^edit_task_(.+)_(.+)$/, async (ctx) => {
         `✏️ <b>𝗘𝗗𝗜𝗧 ${field.toUpperCase()}</b>\n\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
         `${msg}`,
-        Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `task_det_${ctx.match[1]}`)]])
+        Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `task_det_${taskId}`)]])
     );
 });
 
