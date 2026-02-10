@@ -229,8 +229,9 @@ function scheduleTask(task) {
                     if (currentTime >= startTime) {
                         try {
                             await bot.telegram.sendMessage(userId, 
+                                `━━━━━━━━━━━━━━━━━━━━` +
                                 `🚀 <b>TASK STARTED NOW!</b>\n\n` +
-                                `📌 <b>${task.title}</b>\n\n` +
+                                `📌 <b>Title: ${task.title}</b>\n\n` +
                                 `Time to work! ⏰`, 
                                 { parse_mode: 'HTML' }
                             );
@@ -248,6 +249,7 @@ function scheduleTask(task) {
                 try {
                     await bot.telegram.sendMessage(userId, 
                         `🔔 <b>REMINDER (${count + 1}/${maxNotifications})</b>\n\n` +
+                        `━━━━━━━━━━━━━━━━━━━━` +
                         `📌 <b>${task.title}</b>\n` +
                         `⏳ Starts in: <b>${minutesLeft} minute${minutesLeft !== 1 ? 's' : ''}</b>\n` +
                         `⏰ Start Time: ${formatTime(startTime)}\n` +
@@ -348,11 +350,11 @@ async function sendHourlySummary(userId) {
         }).sort({ nextOccurrence: 1 }).toArray();
         
         let summaryText = `
-📊 <b>HOURLY SUMMARY</b>
+📊 <b>HALF HOURLY SUMMARY</b>
 ⏰ ${getCurrentIST()} | 📅 ${formatDate(new Date())}
 ━━━━━━━━━━━━━━━━━━━━
 
-✅ <b>COMPLETED TODAY:</b> ${completedTasks.length} tasks`;
+✅ <b>COMPLETED TODAY:</b> (${completedTasks.length} tasks)`;
         
         if (completedTasks.length > 0) {
             completedTasks.forEach((task, index) => {
@@ -362,7 +364,7 @@ async function sendHourlySummary(userId) {
             summaryText += `\n📭 No tasks completed yet today`;
         }
         
-        summaryText += `\n\n⏳ <b>PENDING TODAY:</b> ${pendingTasks.length} tasks`;
+        summaryText += `\n\n⏳ <b>PENDING TODAY:</b> (${pendingTasks.length} tasks)`;
         
         if (pendingTasks.length > 0) {
             pendingTasks.forEach((task, index) => {
@@ -395,7 +397,7 @@ function scheduleHourlySummary() {
     
     // Schedule to run every 30 minutes
     hourlySummaryJob = schedule.scheduleJob('*/30 * * * *', async () => {
-        console.log(`⏰ Sending hourly summaries...`);
+        console.log(`⏰ Sending half hourly summaries...`);
         try {
             // Get all unique users
             const users = await db.collection('tasks').distinct('userId');
@@ -407,7 +409,7 @@ function scheduleHourlySummary() {
         }
     });
     
-    console.log('✅ Hourly summary scheduler started');
+    console.log('✅ Half Hourly summary scheduler started');
 }
 
 // ==========================================
@@ -417,19 +419,14 @@ function scheduleHourlySummary() {
 bot.command('start', async (ctx) => {
     ctx.session = {}; 
     const text = `
-┌──────────────────────────┐
-│     📋 TASK MANAGER      │
-│         🤖 BOT           │
-├──────────────────────────┤
-│ ⏰ Current Time: ${getCurrentIST()}  │
-│ 📅 Today: ${formatDate(new Date())} │
-└──────────────────────────┘
+┌───────────────────────
+│ 📋 TASK MANAGER BOT        
+├───────────────────────
+│ ⏰ Current Time: ${getCurrentIST()}  
+│ 📅 Today: ${formatDate(new Date())} 
+└───────────────────────
 
-🌟 <b>Welcome to your Personal Task Manager!</b>
-
-Manage your tasks, set reminders, take notes, and stay organized. Get notified 10 minutes before each task starts!
-
-<b>Quick Actions:</b>`;
+🌟 <b>Welcome to Task Manager!</b>`;
 
     const keyboard = Markup.inlineKeyboard([
         [
@@ -459,13 +456,12 @@ bot.action('main_menu', async (ctx) => {
 
 async function showMainMenu(ctx) {
     const text = `
-┌──────────────────────────┐
-│     📋 TASK MANAGER      │
-│         🤖 BOT           │
-├──────────────────────────┤
-│ ⏰ Current Time: ${getCurrentIST()}  │
-│ 📅 Today: ${formatDate(new Date())} │
-└──────────────────────────┘
+┌───────────────────────
+│  📋 TASK MANAGER BOT        
+├───────────────────────
+│ ⏰ Current Time: ${getCurrentIST()}  
+│ 📅 Today: ${formatDate(new Date())} 
+└───────────────────────
 
 🌟 <b>Select an option:</b>`;
 
@@ -564,7 +560,7 @@ bot.action('add_task', async (ctx) => {
         createdAt: new Date()
     };
     
-    const text = `🎯 <b>CREATE NEW TASK</b>\n\n━━━━━━━━━━━━━━━━━━━━\nEnter the <b>Title</b> of your task:\n\n📝 <i>Example: "Morning Yoga Session"</i>`;
+    const text = `🎯 <b>CREATE NEW TASK</b>\n━━━━━━━━━━━━━━━━━━━━\nEnter the <b>Title</b> of your task:` ;
     const keyboard = Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', 'main_menu')]]);
     
     await safeEdit(ctx, text, keyboard);
@@ -578,7 +574,7 @@ bot.action('add_note', async (ctx) => {
         createdAt: new Date()
     };
     
-    const text = `📝 <b>CREATE NEW NOTE</b>\n\n━━━━━━━━━━━━━━━━━━━━\nEnter the <b>Title</b> for your note:\n\n📝 <i>Example: "Meeting Points"</i>`;
+    const text = `📝 <b>CREATE NEW NOTE</b>\n━━━━━━━━━━━━━━━━━━━━\nEnter the <b>Title</b> for your note:`;
     const keyboard = Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', 'main_menu')]]);
     
     await safeEdit(ctx, text, keyboard);
@@ -601,30 +597,28 @@ bot.on('text', async (ctx) => {
         ctx.session.task.title = text;
         ctx.session.step = 'task_desc';
         await ctx.reply(
-            `📄 <b>ENTER DESCRIPTION</b>\n\n` +
+            `📄 <b>ENTER DESCRIPTION</b>\n` +
             `━━━━━━━━━━━━━━━━━━━━\n` +
-            `Describe your task (Max 100 words):\n\n` +
-            `📝 <i>Example: "Complete 30 minutes of yoga with 10 minutes of meditation"</i>`,
+            `📝 <i>Describe your task (Max 100 words):</i>`,
             { parse_mode: 'HTML' }
         );
     }
     else if (step === 'task_desc') {
-        if (text.split(/\s+/).length > 100) return ctx.reply('❌ Too long! Keep it under 100 words.');
+        if (text.split(/\s+/).length > 100) return ctx.reply('❌ Too long! under 100 words.');
         ctx.session.task.description = text;
         ctx.session.step = 'task_date';
         await ctx.reply(
-            `📅 <b>SELECT DATE</b>\n\n` +
+            `📅 <b>SELECT DATE</b>\n` +
             `━━━━━━━━━━━━━━━━━━━━\n` +
-            `Enter the date (DD-MM-YYYY):\n\n` +
-            `📆 Today: ${formatDate(new Date())}\n` +
-            `📝 <i>Format: DD-MM-YYYY (Example: 15-02-2024)</i>`,
+            `📝 <i>Enter the date (DD-MM-YYYY):\n` +
+            `📆 Today: ${formatDate(new Date())}\n`,
             { parse_mode: 'HTML' }
         );
     }
     else if (step === 'task_date') {
         // Validate date format DD-MM-YYYY
         if (!/^(0[1-9]|[12][0-9]|3[01])-(0[1-9]|1[0-2])-\d{4}$/.test(text)) {
-            return ctx.reply('❌ Invalid date format. Use DD-MM-YYYY (e.g., 15-02-2024)');
+            return ctx.reply('❌ Invalid date format. Use DD-MM-YYYY');
         }
         
         const [day, month, year] = text.split('-').map(Number);
@@ -640,7 +634,7 @@ bot.on('text', async (ctx) => {
         const nowIST = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
         date.setHours(0, 0, 0, 0);
         if (date < new Date(nowIST.getFullYear(), nowIST.getMonth(), nowIST.getDate())) {
-            return ctx.reply('❌ Date cannot be in the past. Please select today or a future date.');
+            return ctx.reply('❌ Date cannot be in the past.\nPlease select today or a future date.');
         }
         
         ctx.session.task.dateStr = text;
@@ -650,17 +644,16 @@ bot.on('text', async (ctx) => {
         ctx.session.step = 'task_start';
         
         await ctx.reply(
-            `⏰ <b>SELECT START TIME</b>\n\n` +
+            `⏰ <b>SELECT START TIME</b>\n` +
             `━━━━━━━━━━━━━━━━━━━━\n` +
             `Enter start time in 24-hour format (HH:MM):\n\n` +
-            `🕒 Current Time: ${getCurrentIST()}\n` +
-            `📝 <i>Example: 14:30 for 2:30 PM</i>`,
+            `🕒 Current Time: ${getCurrentIST()}\n`,
             { parse_mode: 'HTML' }
         );
     }
     else if (step === 'task_start') {
         if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(text)) {
-            return ctx.reply('❌ Invalid format. Use HH:MM (24-hour). Example: 14:30');
+            return ctx.reply('❌ Invalid format. Use HH:MM (24-hour).');
         }
         
         const [h, m] = text.split(':').map(Number);
@@ -689,17 +682,15 @@ bot.on('text', async (ctx) => {
         ctx.session.step = 'task_end';
         
         await ctx.reply(
-            `🏁 <b>SELECT END TIME</b>\n\n` +
+            `🏁 <b>SELECT END TIME</b>\n` +
             `━━━━━━━━━━━━━━━━━━━━\n` +
-            `Enter end time in 24-hour format (HH:MM):\n\n` +
-            `⏰ Start Time: ${text}\n` +
-            `📝 <i>End time must be after start time</i>`,
+            `Enter end time in 24-hour format (HH:MM):`,
             { parse_mode: 'HTML' }
         );
     }
     else if (step === 'task_end') {
         if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(text)) {
-            return ctx.reply('❌ Invalid format. Use HH:MM (24-hour). Example: 15:30');
+            return ctx.reply('❌ Invalid format. Use HH:MM (24-hour).');
         }
         
         const [sh, sm] = ctx.session.task.startTimeStr.split(':').map(Number);
@@ -720,7 +711,7 @@ bot.on('text', async (ctx) => {
         const dayName = getDayName(startDate);
         
         await ctx.reply(
-            `🔄 <b>REPEAT OPTIONS</b>\n\n` +
+            `🔄 <b>REPEAT OPTIONS</b>\n` +
             `━━━━━━━━━━━━━━━━━━━━\n` +
             `How should this task repeat?\n\n` +
             `📅 Task Date: ${formatDate(startDate)} (${dayName})\n` +
@@ -730,8 +721,8 @@ bot.on('text', async (ctx) => {
                 parse_mode: 'HTML',
                 ...Markup.inlineKeyboard([
                     [Markup.button.callback('❌ No Repeat', 'repeat_none')],
-                    [Markup.button.callback('📅 Repeat Daily', 'repeat_daily')],
-                    [Markup.button.callback(`📅 Repeat Weekly (${dayName})`, 'repeat_weekly')],
+                    [Markup.button.callback('📅 Daily', 'repeat_daily')],
+                    [Markup.button.callback(`📆 Weekly on ${dayName}`, 'repeat_weekly')],
                     [Markup.button.callback('🔙 Cancel', 'main_menu')]
                 ])
             }
@@ -753,10 +744,9 @@ bot.on('text', async (ctx) => {
         ctx.session.note.title = text;
         ctx.session.step = 'note_content';
         await ctx.reply(
-            `📝 <b>ENTER NOTE CONTENT</b>\n\n` +
+            `📝 <b>ENTER NOTE CONTENT</b>\n` +
             `━━━━━━━━━━━━━━━━━━━━\n` +
-            `Enter your note content (Max 400 words):\n\n` +
-            `📝 <i>You can add detailed information here...</i>`,
+            `📝 <i>Enter your note content (Max 400 words):</i>`,
             { parse_mode: 'HTML' }
         );
     }
@@ -774,9 +764,9 @@ bot.on('text', async (ctx) => {
             delete ctx.session.note;
             
             await ctx.reply(
-                `✅ <b>NOTE SAVED SUCCESSFULLY!</b>\n\n` +
+                `✅ <b>NOTE SAVED SUCCESSFULLY!</b>\n` +
                 `━━━━━━━━━━━━━━━━━━━━\n` +
-                `📌 <b>${ctx.session.note.title}</b>\n\n` +
+                `📌 <b>${ctx.session.note.title}</b>\n` +
                 `${formatBlockquote(text)}\n\n` +
                 `📅 Saved on: ${formatDateTime(new Date())}`,
                 { parse_mode: 'HTML' }
@@ -873,9 +863,9 @@ bot.on('text', async (ctx) => {
             
             const updatedNote = await db.collection('notes').findOne({ noteId: noteId });
             await ctx.reply(
-                `✅ <b>NOTE TITLE UPDATED!</b>\n\n` +
+                `✅ <b>NOTE TITLE UPDATED!</b>\n` +
                 `━━━━━━━━━━━━━━━━━━━━\n` +
-                `📌 <b>${updatedNote.title}</b>\n\n` +
+                `📌 <b>${updatedNote.title}</b>\n` +
                 `${formatBlockquote(updatedNote.content)}\n\n` +
                 `📅 Updated: ${formatDateTime(new Date())}`,
                 { parse_mode: 'HTML' }
@@ -903,9 +893,9 @@ bot.on('text', async (ctx) => {
             
             const updatedNote = await db.collection('notes').findOne({ noteId: noteId });
             await ctx.reply(
-                `✅ <b>NOTE CONTENT UPDATED!</b>\n\n` +
+                `✅ <b>NOTE CONTENT UPDATED!</b>\n` +
                 `━━━━━━━━━━━━━━━━━━━━\n` +
-                `📌 <b>${updatedNote.title}</b>\n\n` +
+                `📌 <b>${updatedNote.title}</b>\n` +
                 `${formatBlockquote(updatedNote.content)}\n\n` +
                 `📅 Updated: ${formatDateTime(new Date())}`,
                 { parse_mode: 'HTML' }
@@ -932,10 +922,9 @@ bot.action('repeat_daily', async (ctx) => {
     ctx.session.task.repeat = 'daily';
     ctx.session.step = 'task_repeat_count';
     await ctx.reply(
-        `🔢 <b>DAILY REPEAT</b>\n\n` +
+        `🔢 <b>DAILY REPEAT</b>\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
-        `How many times should this task repeat?\n\n` +
-        `📝 <i>Enter a number (e.g., 10 for 10 days):</i>`,
+        `📝 <i>How many times should this task repeat?<i>`,
         { parse_mode: 'HTML' }
     );
 });
@@ -944,10 +933,9 @@ bot.action('repeat_weekly', async (ctx) => {
     ctx.session.task.repeat = 'weekly';
     ctx.session.step = 'task_repeat_count';
     await ctx.reply(
-        `🔢 <b>WEEKLY REPEAT</b>\n\n` +
+        `🔢 <b>WEEKLY REPEAT</b>\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
-        `How many times should this task repeat?\n\n` +
-        `📝 <i>Enter a number (e.g., 5 for 5 weeks):</i>`,
+        `📝 <i>How many times should this task repeat?<i>`,
         { parse_mode: 'HTML' }
     );
 });
@@ -970,12 +958,9 @@ async function saveTask(ctx) {
         delete ctx.session.task;
         const msg = `
 ✅ <b>TASK CREATED SUCCESSFULLY!</b>
-
 ━━━━━━━━━━━━━━━━━━━━
-📌 <b>${task.title}</b>
-
+📌Title: <b>${task.title}</b>
 ${formatBlockquote(task.description)}
-
 📅 <b>Date:</b> ${formatDate(task.startDate)}
 ⏰ <b>Time:</b> ${task.startTimeStr} - ${formatTime(task.endDate)}
 🔄 <b>Repeat:</b> ${task.repeat} (${task.repeatCount || 0} times)
@@ -1014,13 +999,10 @@ async function showTaskDetail(ctx, taskId) {
 
     const text = `
 📌 <b>TASK DETAILS</b>
-
 ━━━━━━━━━━━━━━━━━━━━
 🆔 <b>Task ID:</b> <code>${task.taskId}</code>
 📛 <b>Title:</b> ${task.title}
-
 ${formatBlockquote(task.description)}
-
 📅 <b>Next Occurrence:</b> ${formatDateTime(task.nextOccurrence)}
 ⏰ <b>Time:</b> ${formatTime(task.startDate)} - ${formatTime(task.endDate)}
 🔄 <b>Repeat:</b> ${task.repeat === 'none' ? 'No Repeat' : task.repeat} 
@@ -1031,10 +1013,10 @@ ${formatBlockquote(task.description)}
 ━━━━━━━━━━━━━━━━━━━━`;
 
     const buttons = [
-        [Markup.button.callback('✅ Mark as Complete', `complete_${taskId}`)],
         [
-            Markup.button.callback('✏️ Edit', `edit_menu_${taskId}`), 
-            Markup.button.callback('🗑️ Delete', `delete_task_${taskId}`)
+            Markup.button.callback('✅Done', `complete_${taskId}`),
+            Markup.button.callback('✏️', `edit_menu_${taskId}`),
+            Markup.button.callback('🗑️Delete', `delete_task_${taskId}`)
         ],
         [
             Markup.button.callback('📋 View Today\'s Tasks', 'view_today_tasks')
@@ -1218,7 +1200,7 @@ bot.action(/^view_history_dates_(\d+)$/, async (ctx) => {
         { $limit: 5 }
     ]).toArray();
 
-    const text = `📜 <b>COMPLETED TASKS HISTORY</b>\n\n━━━━━━━━━━━━━━━━━━━━\nSelect a date to view:`;
+    const text = `📜 <b>COMPLETED TASKS HISTORY</b>\n━━━━━━━━━━━━━━━━━━━━\nSelect a date to view:`;
     
     const buttons = dates.map(d => {
         const dateStr = `${d._id.year}-${String(d._id.month).padStart(2, '0')}-${String(d._id.day).padStart(2, '0')}`;
@@ -1249,7 +1231,7 @@ bot.action(/^hist_list_([\d-]+)_(\d+)$/, async (ctx) => {
     }).sort({ completedAt: -1 }).skip((page - 1) * 5).limit(5).toArray();
 
     const date = new Date(year, month - 1, day);
-    const text = `📅 <b>COMPLETED ON ${formatDate(date).toUpperCase()}</b>\n\n━━━━━━━━━━━━━━━━━━━━\nSelect a task to view details:`;
+    const text = `📅 <b>COMPLETED ON ${formatDate(date).toUpperCase()}</b>\n━━━━━━━━━━━━━━━━━━━━\nSelect a task to view details:`;
     
     const buttons = tasks.map(t => [
         Markup.button.callback(`✅ ${t.title} (${formatTime(t.completedAt)})`, `hist_det_${t._id}`)
@@ -1268,12 +1250,9 @@ bot.action(/^hist_det_(.+)$/, async (ctx) => {
 
     const text = `
 📜 <b>HISTORY DETAIL</b>
-
 ━━━━━━━━━━━━━━━━━━━━
 📌 <b>${task.title}</b>
-
 ${formatBlockquote(task.description)}
-
 ✅ <b>Completed At:</b> ${formatDateTime(task.completedAt)}
 ⏰ <b>Original Time:</b> ${formatTime(task.startDate)} - ${formatTime(task.endDate)}
 🔄 <b>Repeat Type:</b> ${task.repeat === 'none' ? 'No Repeat' : task.repeat}
@@ -1300,7 +1279,7 @@ bot.action(/^view_notes_(\d+)$/, async (ctx) => {
         .limit(5)
         .toArray();
 
-    const text = `🗒️ <b>YOUR NOTES</b>\n\n━━━━━━━━━━━━━━━━━━━━\nSelect a note to view:`;
+    const text = `🗒️ <b>YOUR NOTES</b>\n━━━━━━━━━━━━━━━━━━━━\nSelect a note to view:`;
     
     const buttons = notes.map(n => [
         Markup.button.callback(`📄 ${n.title}`, `note_det_${n.noteId}`)
@@ -1317,12 +1296,9 @@ bot.action(/^note_det_(.+)$/, async (ctx) => {
 
     const text = `
 📝 <b>NOTE DETAILS</b>
-
 ━━━━━━━━━━━━━━━━━━━━
 📌 <b>${note.title}</b>
-
 ${formatBlockquote(note.content)}
-
 📅 <b>Created:</b> ${formatDateTime(note.createdAt)}
 ${note.updatedAt ? `✏️ <b>Updated:</b> ${formatDateTime(note.updatedAt)}` : ''}
 ━━━━━━━━━━━━━━━━━━━━`;
@@ -1357,7 +1333,7 @@ bot.action(/^edit_note_title_(.+)$/, async (ctx) => {
     ctx.session.step = 'edit_note_title';
     
     await ctx.reply(
-        `✏️ <b>EDIT NOTE TITLE</b>\n\n` +
+        `✏️ <b>EDIT NOTE TITLE</b>\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
         `Enter new title for your note:`,
         Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `note_det_${noteId}`)]])
@@ -1370,7 +1346,7 @@ bot.action(/^edit_note_content_(.+)$/, async (ctx) => {
     ctx.session.step = 'edit_note_content';
     
     await ctx.reply(
-        `✏️ <b>EDIT NOTE CONTENT</b>\n\n` +
+        `✏️ <b>EDIT NOTE CONTENT</b>\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
         `Enter new content for your note (Max 400 words):`,
         Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `note_det_${noteId}`)]])
@@ -1382,13 +1358,13 @@ bot.action(/^edit_note_content_(.+)$/, async (ctx) => {
 // ==========================================
 
 bot.action('download_menu', async (ctx) => {
-    const text = `📥 <b>DOWNLOAD YOUR DATA</b>\n\n━━━━━━━━━━━━━━━━━━━━\nSelect what you want to download:\n\n📁 <i>Files will be sent as JSON documents</i>`;
+    const text = `📥 <b>DOWNLOAD YOUR DATA</b>\n━━━━━━━━━━━━━━━━━━━━\n📁 <i>Files will be sent as JSON documents</i>`;
     
     const keyboard = Markup.inlineKeyboard([
         [Markup.button.callback('📋 Active Tasks', 'download_tasks')],
         [Markup.button.callback('📜 History', 'download_history')],
         [Markup.button.callback('🗒️ Notes', 'download_notes')],
-        [Markup.button.callback('📦 All Data (3 files)', 'download_all')],
+        [Markup.button.callback('📦 All Data', 'download_all')],
         [Markup.button.callback('🔙 Back', 'main_menu')]
     ]);
     
@@ -1463,7 +1439,7 @@ bot.action('download_all', async (ctx) => {
 // ==========================================
 
 bot.action('delete_menu', async (ctx) => {
-    const text = `🗑️ <b>DELETE DATA</b>\n\n━━━━━━━━━━━━━━━━━━━━\n⚠️ <b>WARNING: This action cannot be undone!</b>\n\nSelect what you want to delete:`;
+    const text = `🗑️ <b>DELETE DATA</b>\n━━━━━━━━━━━━━━━━━━━━\n⚠️ <i>Select what you want to delete:</i>`;
     
     const keyboard = Markup.inlineKeyboard([
         [Markup.button.callback('📋 Delete All Tasks', 'delete_tasks_confirm')],
@@ -1478,7 +1454,7 @@ bot.action('delete_menu', async (ctx) => {
 
 // DELETE TASKS CONFIRMATION
 bot.action('delete_tasks_confirm', async (ctx) => {
-    const text = `⚠️ <b>CONFIRM DELETION</b>\n\n━━━━━━━━━━━━━━━━━━━━\nAre you sure you want to delete ALL tasks?\n\n📋 This will delete all your active tasks\n🔔 All notifications will be cancelled\n❌ This action cannot be undone!\n\n━━━━━━━━━━━━━━━━━━━━`;
+    const text = `⚠️ <b>CONFIRM DELETION</b>\n━━━━━━━━━━━━━━━━━━━━\nAre you sure you want to delete ALL tasks?\n\n📋 This will delete all your active tasks\n🔔 All notifications will be cancelled\n❌ This action cannot be undone!\n━━━━━━━━━━━━━━━━━━━━`;
     
     const keyboard = Markup.inlineKeyboard([
         [Markup.button.callback('✅ YES, DELETE ALL TASKS', 'delete_tasks_final')],
@@ -1511,7 +1487,7 @@ bot.action('delete_tasks_final', async (ctx) => {
         await ctx.answerCbQuery(`✅ Deleted ${result.deletedCount} tasks`);
         
         // Show success message
-        const successText = `✅ <b>DELETION COMPLETE</b>\n\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Deleted ${result.deletedCount} tasks\n📁 Backup file has been sent\n━━━━━━━━━━━━━━━━━━━━`;
+        const successText = `✅ <b>DELETION COMPLETED</b>\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Deleted ${result.deletedCount} tasks\n📁 Backup file has been sent\n━━━━━━━━━━━━━━━━━━━━`;
         
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback('🔙 Back to Main Menu', 'main_menu')]
@@ -1527,7 +1503,7 @@ bot.action('delete_tasks_final', async (ctx) => {
 
 // DELETE HISTORY CONFIRMATION
 bot.action('delete_history_confirm', async (ctx) => {
-    const text = `⚠️ <b>CONFIRM DELETION</b>\n\n━━━━━━━━━━━━━━━━━━━━\nAre you sure you want to delete ALL history?\n\n📜 This will delete all your completed task history\n📊 All statistics will be lost\n❌ This action cannot be undone!\n\n━━━━━━━━━━━━━━━━━━━━`;
+    const text = `⚠️ <b>CONFIRM DELETION</b>\n━━━━━━━━━━━━━━━━━━━━\nAre you sure you want to delete ALL history?\n\n📜 This will delete all your completed task history\n📊 All statistics will be lost\n❌ This action cannot be undone!\n━━━━━━━━━━━━━━━━━━━━`;
     
     const keyboard = Markup.inlineKeyboard([
         [Markup.button.callback('✅ YES, DELETE ALL HISTORY', 'delete_history_final')],
@@ -1558,7 +1534,7 @@ bot.action('delete_history_final', async (ctx) => {
         await ctx.answerCbQuery(`✅ Deleted ${result.deletedCount} history items`);
         
         // Show success message
-        const successText = `✅ <b>DELETION COMPLETE</b>\n\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Deleted ${result.deletedCount} history items\n📁 Backup file has been sent\n━━━━━━━━━━━━━━━━━━━━`;
+        const successText = `✅ <b>DELETION COMPLETED</b>\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Deleted ${result.deletedCount} history items\n📁 Backup file has been sent\n━━━━━━━━━━━━━━━━━━━━`;
         
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback('🔙 Back to Main Menu', 'main_menu')]
@@ -1574,7 +1550,7 @@ bot.action('delete_history_final', async (ctx) => {
 
 // DELETE NOTES CONFIRMATION
 bot.action('delete_notes_confirm', async (ctx) => {
-    const text = `⚠️ <b>CONFIRM DELETION</b>\n\n━━━━━━━━━━━━━━━━━━━━\nAre you sure you want to delete ALL notes?\n\n🗒️ This will delete all your saved notes\n📝 All your personal notes will be lost\n❌ This action cannot be undone!\n\n━━━━━━━━━━━━━━━━━━━━`;
+    const text = `⚠️ <b>CONFIRM DELETION</b>\n━━━━━━━━━━━━━━━━━━━━\nAre you sure you want to delete ALL notes?\n\n🗒️ This will delete all your saved notes\n📝 All your personal notes will be lost\n❌ This action cannot be undone!\n━━━━━━━━━━━━━━━━━━━━`;
     
     const keyboard = Markup.inlineKeyboard([
         [Markup.button.callback('✅ YES, DELETE ALL NOTES', 'delete_notes_final')],
@@ -1605,7 +1581,7 @@ bot.action('delete_notes_final', async (ctx) => {
         await ctx.answerCbQuery(`✅ Deleted ${result.deletedCount} notes`);
         
         // Show success message
-        const successText = `✅ <b>DELETION COMPLETE</b>\n\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Deleted ${result.deletedCount} notes\n📁 Backup file has been sent\n━━━━━━━━━━━━━━━━━━━━`;
+        const successText = `✅ <b>DELETION COMPLETED</b>\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Deleted ${result.deletedCount} notes\n📁 Backup file has been sent\n━━━━━━━━━━━━━━━━━━━━`;
         
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback('🔙 Back to Main Menu', 'main_menu')]
@@ -1621,7 +1597,7 @@ bot.action('delete_notes_final', async (ctx) => {
 
 // DELETE ALL CONFIRMATION
 bot.action('delete_all_confirm', async (ctx) => {
-    const text = `⚠️ <b>FINAL WARNING</b>\n\n━━━━━━━━━━━━━━━━━━━━\nAre you sure you want to delete ALL data?\n\n📋 All active tasks\n📜 All completed history\n🗒️ All saved notes\n\n🔔 All notifications will be cancelled\n📊 All statistics will be lost\n❌ This action cannot be undone!\n\n━━━━━━━━━━━━━━━━━━━━`;
+    const text = `⚠️ <b>FINAL WARNING</b>\n━━━━━━━━━━━━━━━━━━━━\nAre you sure you want to delete ALL data?\n\n📋 All active tasks\n📜 All completed history\n🗒️ All saved notes\n\n🔔 All notifications will be cancelled\n📊 All statistics will be lost\n❌ This action cannot be undone!\n━━━━━━━━━━━━━━━━━━━━`;
     
     const keyboard = Markup.inlineKeyboard([
         [Markup.button.callback('🔥 YES, DELETE EVERYTHING', 'delete_all_final')],
@@ -1681,7 +1657,7 @@ bot.action('delete_all_final', async (ctx) => {
         await ctx.answerCbQuery(`✅ Deleted ${totalDeleted} items total`);
         
         // Show success message
-        const successText = `✅ <b>COMPLETE DELETION</b>\n\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Deleted ${totalDeleted} items total\n📁 3 backup files have been sent\n🔔 All notifications cancelled\n━━━━━━━━━━━━━━━━━━━━`;
+        const successText = `✅ <b>COMPLETE DELETION</b>\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Deleted ${totalDeleted} items total\n📁 3 backup files have been sent\n🔔 All notifications cancelled\n━━━━━━━━━━━━━━━━━━━━`;
         
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback('🔙 Back to Main Menu', 'main_menu')]
