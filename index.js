@@ -4,11 +4,11 @@ const schedule = require('node-schedule');
 require('dotenv').config();
 
 // Initialize bot
-const BOT_TOKEN = process.env.BOT_TOKEN || 'your_bot_token_here';
+const BOT_TOKEN = process.env.BOT_TOKEN || '8365287371:AAHBks0ToDhlNOU1LPvWlY7PW59qAtKcwG8';
 const bot = new Telegraf(BOT_TOKEN);
 
 // MongoDB connection
-const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/task_manager_bot';
+const mongoUri = process.env.MONGODB_URI || 'mongodb+srv://sandip:9E9AISFqTfU3VI5i@cluster0.p8irtov.mongodb.net/two_telegram_bot';
 let db, client;
 let isDbConnected = false;
 
@@ -35,11 +35,18 @@ async function connectDB() {
 // Initialize session
 bot.use(session());
 
+// Admin configuration
+const ADMIN_IDS = [8469993808];
+
+// Check if user is admin
+function isAdmin(userId) {
+    return ADMIN_IDS.includes(Number(userId));
+}
+
 // Helper function to safely send messages
 async function safeSendMessage(ctx, text, options = {}) {
     try {
         return await ctx.reply(text, { 
-            parse_mode: 'HTML',
             ...options 
         });
     } catch (error) {
@@ -52,12 +59,11 @@ async function safeSendMessage(ctx, text, options = {}) {
 async function safeEditMessage(ctx, text, options = {}) {
     try {
         return await ctx.editMessageText(text, { 
-            parse_mode: 'HTML',
             ...options 
         });
     } catch (error) {
         console.error('Error editing message:', error.message);
-        return await ctx.editMessageText(text, options);
+        return await ctx.editMessageText(text);
     }
 }
 
@@ -128,19 +134,25 @@ async function saveNote(noteData) {
     }
 }
 
-async function getTasks(userId, page = 1, limit = 10, filter = {}) {
+async function getPaginatedTasks(userId, page = 1, limit = 10) {
     try {
         const skip = (page - 1) * limit;
-        const query = { userId: userId, status: { $ne: 'deleted' }, ...filter };
         
         const tasks = await db.collection('tasks')
-            .find(query)
+            .find({ 
+                userId: userId, 
+                status: { $ne: 'deleted' }
+            })
             .sort({ startDate: 1 })
             .skip(skip)
             .limit(limit)
             .toArray();
         
-        const totalTasks = await db.collection('tasks').countDocuments(query);
+        const totalTasks = await db.collection('tasks').countDocuments({ 
+            userId: userId, 
+            status: { $ne: 'deleted' }
+        });
+        
         const totalPages = Math.ceil(totalTasks / limit);
         
         return {
@@ -152,7 +164,7 @@ async function getTasks(userId, page = 1, limit = 10, filter = {}) {
             hasPrev: page > 1
         };
     } catch (error) {
-        console.error('Error getting tasks:', error);
+        console.error('Error getting paginated tasks:', error);
         return { tasks: [], page: 1, totalPages: 0, totalTasks: 0, hasNext: false, hasPrev: false };
     }
 }
@@ -192,7 +204,7 @@ async function deleteTask(taskId) {
     }
 }
 
-async function getNotes(userId, page = 1, limit = 10) {
+async function getPaginatedNotes(userId, page = 1, limit = 10) {
     try {
         const skip = (page - 1) * limit;
         
@@ -215,7 +227,7 @@ async function getNotes(userId, page = 1, limit = 10) {
             hasPrev: page > 1
         };
     } catch (error) {
-        console.error('Error getting notes:', error);
+        console.error('Error getting paginated notes:', error);
         return { notes: [], page: 1, totalPages: 0, totalNotes: 0, hasNext: false, hasPrev: false };
     }
 }
@@ -229,58 +241,102 @@ async function getNoteById(noteId) {
     }
 }
 
-async function getHistoryDates(userId, page = 1, limit = 10) {
+async function getPaginatedHistoryDates(userId, page = 1, limit = 10) {
     try {
         const skip = (page - 1) * limit;
         
-        // Get unique completion dates
-        const dates = await db.collection('tasks').aggregate([
-            { $match: { userId: userId, status: 'completed' } },
-            { $group: { 
-                _id: { 
-                    year: { $year: "$completedAt" },
-                    month: { $month: "$completedAt" },
-                    day: { $dayOfMonth: "$completedAt" }
-                },
-                date: { $first: "$completedAt" },
-                count: { $sum: 1 }
-            }},
-            { $sort: { date: -1 } },
+        // Get distinct completion dates
+        const pipeline = [
+            { 
+                $match: { 
+                    userId: userId, 
+                    status: 'completed',
+                    completedAt: { $exists: true, $ne: null }
+                } 
+            },
+            {
+                $project: {
+                    date: {
+                        $dateToString: {
+                            format: "%Y-%m-%d",
+                            date: "$completedAt"
+                        }
+                    }
+                }
+            },
+            { $group: { _id: "$date" } },
+            { $sort: { _id: -1 } },
             { $skip: skip },
             { $limit: limit }
-        ]).toArray();
+        ];
         
-        const totalDates = await db.collection('tasks').distinct('completedAt', { 
-            userId: userId, 
-            status: 'completed' 
-        });
+        const dates = await db.collection('tasks').aggregate(pipeline).toArray();
         
-        const totalPages = Math.ceil(totalDates.length / limit);
-        
-        return {
-            dates: dates.map(d => ({
-                date: d.date,
-                count: d.count,
-                displayDate: new Date(d.date).toLocaleDateString('en-US', {
+        // Get count for each date
+        const datesWithCount = [];
+        for (const dateObj of dates) {
+            const date = new Date(dateObj._id);
+            const nextDay = new Date(date);
+            nextDay.setDate(nextDay.getDate() + 1);
+            
+            const count = await db.collection('tasks').countDocuments({
+                userId: userId,
+                status: 'completed',
+                completedAt: { $gte: date, $lt: nextDay }
+            });
+            
+            datesWithCount.push({
+                date: date,
+                count: count,
+                displayDate: date.toLocaleDateString('en-IN', {
                     weekday: 'long',
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric'
                 })
-            })),
+            });
+        }
+        
+        // Get total unique dates count
+        const totalDatesResult = await db.collection('tasks').aggregate([
+            { 
+                $match: { 
+                    userId: userId, 
+                    status: 'completed',
+                    completedAt: { $exists: true, $ne: null }
+                } 
+            },
+            {
+                $group: {
+                    _id: {
+                        $dateToString: {
+                            format: "%Y-%m-%d",
+                            date: "$completedAt"
+                        }
+                    }
+                }
+            },
+            { $count: "total" }
+        ]).toArray();
+        
+        const totalDates = totalDatesResult.length > 0 ? totalDatesResult[0].total : 0;
+        const totalPages = Math.ceil(totalDates / limit);
+        
+        return {
+            dates: datesWithCount,
             page,
             totalPages,
-            totalDates: totalDates.length,
+            totalDates,
             hasNext: page < totalPages,
             hasPrev: page > 1
         };
     } catch (error) {
-        console.error('Error getting history dates:', error);
+        console.error('Error getting paginated history dates:', error);
         return { dates: [], page: 1, totalPages: 0, totalDates: 0, hasNext: false, hasPrev: false };
     }
 }
 
-async function getTasksByDate(userId, date, page = 1, limit = 10) {
+async function getPaginatedTasksByDate(userId, date, page = 1, limit = 10) {
     try {
         const startOfDay = new Date(date);
         startOfDay.setHours(0, 0, 0, 0);
@@ -317,7 +373,7 @@ async function getTasksByDate(userId, date, page = 1, limit = 10) {
             hasPrev: page > 1
         };
     } catch (error) {
-        console.error('Error getting tasks by date:', error);
+        console.error('Error getting paginated tasks by date:', error);
         return { tasks: [], page: 1, totalPages: 0, totalTasks: 0, hasNext: false, hasPrev: false };
     }
 }
@@ -343,13 +399,17 @@ function scheduleTaskNotifications(task) {
         const notificationStartTime = new Date(startTime);
         notificationStartTime.setMinutes(notificationStartTime.getMinutes() - 10);
         
-        const job = schedule.scheduleJob(notificationStartTime, async function() {
-            await executeTaskNotifications(task);
-        });
-        
-        scheduledJobs.set(`${userId}_${taskId}`, job);
-        
-        console.log(`✅ Scheduled notifications for task ${taskId} at ${notificationStartTime}`);
+        // Only schedule if notification time is in the future
+        if (notificationStartTime > new Date()) {
+            const job = schedule.scheduleJob(notificationStartTime, async function() {
+                await executeTaskNotifications(task);
+            });
+            
+            scheduledJobs.set(`${userId}_${taskId}`, job);
+            console.log(`✅ Scheduled notifications for task ${taskId} at ${notificationStartTime}`);
+        } else {
+            console.log(`⚠️ Cannot schedule notifications for past task ${taskId}`);
+        }
     } catch (error) {
         console.error('Error scheduling task notifications:', error);
     }
@@ -363,7 +423,28 @@ async function executeTaskNotifications(task) {
         let count = 0;
         const totalMessages = 10;
         
-        // Create interval for notifications
+        // Send first notification immediately
+        count++;
+        const now = new Date();
+        const timeLeft = Math.max(0, Math.floor((startTime - now) / 1000));
+        const minutesLeft = Math.floor(timeLeft / 60);
+        const secondsLeft = timeLeft % 60;
+        
+        const istTime = now.toLocaleTimeString('en-IN', { 
+            timeZone: 'Asia/Kolkata',
+            hour12: false 
+        });
+        
+        const firstMessage = `🔔 Task Reminder 1/${totalMessages}\n\n` +
+                           `Task: ${task.title}\n` +
+                           `Starts at: ${new Date(task.startDate).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })} IST\n` +
+                           `Time left: ${minutesLeft}m ${secondsLeft}s\n` +
+                           `Current time: ${istTime} IST\n\n` +
+                           `Notifications will continue every minute.`;
+        
+        await bot.telegram.sendMessage(userId, firstMessage);
+        
+        // Create interval for remaining notifications
         const intervalId = setInterval(async () => {
             try {
                 count++;
@@ -373,11 +454,17 @@ async function executeTaskNotifications(task) {
                 const minutesLeft = Math.floor(timeLeft / 60);
                 const secondsLeft = timeLeft % 60;
                 
+                // Convert to IST
+                const istTime = now.toLocaleTimeString('en-IN', { 
+                    timeZone: 'Asia/Kolkata',
+                    hour12: false 
+                });
+                
                 const message = `🔔 Task Reminder ${count}/${totalMessages}\n\n` +
                                `Task: ${task.title}\n` +
-                               `Starts at: ${new Date(task.startDate).toLocaleTimeString()}\n` +
+                               `Starts at: ${new Date(task.startDate).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })} IST\n` +
                                `Time left: ${minutesLeft}m ${secondsLeft}s\n` +
-                               `Current time: ${now.toLocaleTimeString()}`;
+                               `Current time: ${istTime} IST`;
                 
                 await bot.telegram.sendMessage(userId, message);
                 
@@ -390,27 +477,17 @@ async function executeTaskNotifications(task) {
                     } else {
                         await bot.telegram.sendMessage(userId, `✅ Task "${task.title}" notifications completed!`);
                     }
+                    
+                    // Remove interval from scheduled jobs
+                    scheduledJobs.delete(`${userId}_${taskId}_interval`);
                 }
             } catch (error) {
                 console.error('Error in task notification interval:', error);
             }
         }, 60 * 1000); // Every minute
         
-        // Send first notification immediately
-        count++;
-        const now = new Date();
-        const timeLeft = Math.max(0, Math.floor((startTime - now) / 1000));
-        const minutesLeft = Math.floor(timeLeft / 60);
-        const secondsLeft = timeLeft % 60;
-        
-        const firstMessage = `🔔 Task Reminder 1/${totalMessages}\n\n` +
-                           `Task: ${task.title}\n` +
-                           `Starts at: ${new Date(task.startDate).toLocaleTimeString()}\n` +
-                           `Time left: ${minutesLeft}m ${secondsLeft}s\n` +
-                           `Current time: ${now.toLocaleTimeString()}\n\n` +
-                           `Notifications will continue every minute.`;
-        
-        await bot.telegram.sendMessage(userId, firstMessage);
+        // Store interval ID for cleanup
+        scheduledJobs.set(`${userId}_${taskId}_interval`, intervalId);
         
     } catch (error) {
         console.error('Error executing task notifications:', error);
@@ -463,13 +540,28 @@ bot.command('start', async (ctx) => {
     }
 });
 
+// Back to menu action
+bot.action('back_to_menu', async (ctx) => {
+    try {
+        await bot.command('start')(ctx);
+    } catch (error) {
+        console.error('Back to menu error:', error);
+        await ctx.answerCbQuery('❌ An error occurred.');
+    }
+});
+
 // ==========================================
 // ADD TASKS FLOW
 // ==========================================
 
 bot.action('add_tasks', async (ctx) => {
     try {
+        if (!isAdmin(ctx.from.id)) {
+            return await ctx.answerCbQuery('❌ You are not authorized.');
+        }
+        
         // Initialize task data in session
+        ctx.session = ctx.session || {};
         ctx.session.taskData = {
             step: 'title',
             taskId: generateTaskId(),
@@ -479,7 +571,10 @@ bot.action('add_tasks', async (ctx) => {
         };
         
         await ctx.editMessageText('✏️ *Add New Task*\n\nEnter the title of your task (e.g., "Workout Session"):\n\nType "cancel" to cancel.', {
-            parse_mode: 'Markdown'
+            parse_mode: 'Markdown',
+            reply_markup: Markup.inlineKeyboard([
+                [Markup.button.callback('🔙 Back to Menu', 'back_to_menu')]
+            ])
         });
     } catch (error) {
         console.error('Add tasks error:', error);
@@ -487,14 +582,19 @@ bot.action('add_tasks', async (ctx) => {
     }
 });
 
-// Handle task creation steps
+// Handle text messages for task creation
 bot.on('text', async (ctx) => {
     try {
         const messageText = ctx.message.text;
         const userId = ctx.from.id;
         
+        // Initialize session if not exists
+        if (!ctx.session) {
+            ctx.session = {};
+        }
+        
         // Check if we're in task creation flow
-        if (ctx.session?.taskData) {
+        if (ctx.session.taskData) {
             const taskData = ctx.session.taskData;
             
             if (messageText.toLowerCase() === 'cancel') {
@@ -512,7 +612,11 @@ bot.on('text', async (ctx) => {
                     }
                     taskData.title = messageText;
                     taskData.step = 'description';
-                    await safeSendMessage(ctx, '📝 Enter task description (max 100 words):\n\nType "skip" to leave description empty.');
+                    await safeSendMessage(ctx, '📝 Enter task description (max 100 words):\n\nType "skip" to leave description empty.', {
+                        reply_markup: Markup.inlineKeyboard([
+                            [Markup.button.callback('🔙 Back to Menu', 'back_to_menu')]
+                        ])
+                    });
                     break;
                     
                 case 'description':
@@ -526,7 +630,11 @@ bot.on('text', async (ctx) => {
                         taskData.description = '';
                     }
                     taskData.step = 'start_time';
-                    await safeSendMessage(ctx, '⏰ Enter start time in HH:MM format (24-hour):\n\nExample: 14:30 for 2:30 PM');
+                    await safeSendMessage(ctx, '⏰ Enter start time in HH:MM format (24-hour, IST):\n\nExample: 14:30 for 2:30 PM', {
+                        reply_markup: Markup.inlineKeyboard([
+                            [Markup.button.callback('🔙 Back to Menu', 'back_to_menu')]
+                        ])
+                    });
                     break;
                     
                 case 'start_time':
@@ -537,11 +645,13 @@ bot.on('text', async (ctx) => {
                     }
                     
                     const [startHours, startMinutes] = messageText.split(':').map(Number);
+                    
+                    // Create start date (today)
                     const now = new Date();
                     const startDate = new Date(now);
                     startDate.setHours(startHours, startMinutes, 0, 0);
                     
-                    // If start time is in the past, schedule for tomorrow
+                    // If time has passed today, schedule for tomorrow
                     if (startDate <= now) {
                         startDate.setDate(startDate.getDate() + 1);
                     }
@@ -549,7 +659,11 @@ bot.on('text', async (ctx) => {
                     taskData.startDate = startDate;
                     taskData.startTime = messageText;
                     taskData.step = 'end_time';
-                    await safeSendMessage(ctx, '⏰ Enter end time in HH:MM format (must be after start time):\n\nExample: 15:30 for 3:30 PM');
+                    await safeSendMessage(ctx, '⏰ Enter end time in HH:MM format (must be after start time):\n\nExample: 15:30 for 3:30 PM', {
+                        reply_markup: Markup.inlineKeyboard([
+                            [Markup.button.callback('🔙 Back to Menu', 'back_to_menu')]
+                        ])
+                    });
                     break;
                     
                 case 'end_time':
@@ -561,12 +675,22 @@ bot.on('text', async (ctx) => {
                     
                     const [endHours, endMinutes] = messageText.split(':').map(Number);
                     
-                    // Validate end time is after start time
+                    // Create end date (same day as start date)
                     const endDate = new Date(taskData.startDate);
                     endDate.setHours(endHours, endMinutes, 0, 0);
                     
+                    // Validate end time is after start time
                     if (endDate <= taskData.startDate) {
                         await safeSendMessage(ctx, '❌ End time must be after start time. Please enter a later time:');
+                        return;
+                    }
+                    
+                    // Check if end time is within same day (before 23:59)
+                    const maxEndTime = new Date(taskData.startDate);
+                    maxEndTime.setHours(23, 59, 0, 0);
+                    
+                    if (endDate > maxEndTime) {
+                        await safeSendMessage(ctx, '❌ End time cannot exceed 23:59. Please enter a time within the same day:');
                         return;
                     }
                     
@@ -581,11 +705,44 @@ bot.on('text', async (ctx) => {
                         ],
                         [
                             Markup.button.callback('❌ None', 'repeat_none'),
-                            Markup.button.callback('↩️ Back', 'task_back')
+                            Markup.button.callback('🔙 Back to Menu', 'back_to_menu')
                         ]
                     ]);
                     
                     await safeSendMessage(ctx, '🔄 Select repeat type:\n\n• Daily: Task repeats every day\n• Weekly: Task repeats every week on same day\n• None: Task doesn\'t repeat', keyboard);
+                    break;
+                    
+                case 'repeat_end_date':
+                    if (messageText.toLowerCase() === 'none') {
+                        taskData.repeatEndDate = null;
+                    } else {
+                        const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+                        const match = messageText.match(dateRegex);
+                        
+                        if (!match) {
+                            await safeSendMessage(ctx, '❌ Invalid date format. Please use DD/MM/YYYY.\n\nExample: 12/03/2026\n\nType "none" for no end date.');
+                            return;
+                        }
+                        
+                        const [_, day, month, year] = match;
+                        const repeatEndDate = new Date(year, month - 1, day);
+                        
+                        if (isNaN(repeatEndDate.getTime())) {
+                            await safeSendMessage(ctx, '❌ Invalid date. Please enter a valid date.');
+                            return;
+                        }
+                        
+                        // Ensure end date is after start date
+                        if (repeatEndDate < taskData.startDate) {
+                            await safeSendMessage(ctx, '❌ Repeat end date must be after task start date. Please enter a later date:');
+                            return;
+                        }
+                        
+                        taskData.repeatEndDate = repeatEndDate;
+                    }
+                    
+                    // Save the task
+                    await saveAndScheduleTask(ctx);
                     break;
                     
                 default:
@@ -597,7 +754,7 @@ bot.on('text', async (ctx) => {
         }
         
         // Check if we're in note creation flow
-        if (ctx.session?.noteData) {
+        if (ctx.session.noteData) {
             const noteData = ctx.session.noteData;
             
             if (messageText.toLowerCase() === 'cancel') {
@@ -615,7 +772,11 @@ bot.on('text', async (ctx) => {
                     }
                     noteData.title = messageText;
                     noteData.step = 'content';
-                    await safeSendMessage(ctx, '📝 Enter note content (max 400 words):\n\nType "skip" to leave empty.');
+                    await safeSendMessage(ctx, '📝 Enter note content (max 400 words):\n\nType "skip" to leave empty.', {
+                        reply_markup: Markup.inlineKeyboard([
+                            [Markup.button.callback('🔙 Back to Menu', 'back_to_menu')]
+                        ])
+                    });
                     break;
                     
                 case 'content':
@@ -675,7 +836,10 @@ bot.action('repeat_daily', async (ctx) => {
         ctx.session.taskData.step = 'repeat_end_date';
         
         await ctx.editMessageText('📅 Enter end date for daily repetition (DD/MM/YYYY):\n\nExample: 12/03/2026\n\nType "none" for no end date.', {
-            parse_mode: 'Markdown'
+            parse_mode: 'Markdown',
+            reply_markup: Markup.inlineKeyboard([
+                [Markup.button.callback('🔙 Back to Menu', 'back_to_menu')]
+            ])
         });
         
         await ctx.answerCbQuery('✅ Set to repeat daily');
@@ -695,7 +859,10 @@ bot.action('repeat_weekly', async (ctx) => {
         ctx.session.taskData.step = 'repeat_end_date';
         
         await ctx.editMessageText('📅 Enter end date for weekly repetition (DD/MM/YYYY):\n\nExample: 12/03/2026\n\nType "none" for no end date.', {
-            parse_mode: 'Markdown'
+            parse_mode: 'Markdown',
+            reply_markup: Markup.inlineKeyboard([
+                [Markup.button.callback('🔙 Back to Menu', 'back_to_menu')]
+            ])
         });
         
         await ctx.answerCbQuery('✅ Set to repeat weekly');
@@ -721,78 +888,6 @@ bot.action('repeat_none', async (ctx) => {
     } catch (error) {
         console.error('Repeat none error:', error);
         await ctx.answerCbQuery('❌ An error occurred.');
-    }
-});
-
-bot.action('task_back', async (ctx) => {
-    try {
-        if (!ctx.session?.taskData) {
-            return await ctx.answerCbQuery('❌ Session expired.');
-        }
-        
-        // Go back one step
-        switch (ctx.session.taskData.step) {
-            case 'repeat_type':
-                ctx.session.taskData.step = 'end_time';
-                await ctx.editMessageText('⏰ Enter end time in HH:MM format (must be after start time):\n\nExample: 15:30 for 3:30 PM');
-                break;
-            default:
-                delete ctx.session.taskData;
-                await ctx.editMessageText('❌ Task creation cancelled.');
-                await bot.command('start')(ctx);
-        }
-        
-        await ctx.answerCbQuery('↩️ Back');
-    } catch (error) {
-        console.error('Task back error:', error);
-        await ctx.answerCbQuery('❌ An error occurred.');
-    }
-});
-
-// Handle date input for task creation
-bot.on('text', async (ctx) => {
-    try {
-        // Check for repeat end date input
-        if (ctx.session?.taskData && ctx.session.taskData.step === 'repeat_end_date') {
-            const messageText = ctx.message.text;
-            
-            if (messageText.toLowerCase() === 'cancel') {
-                delete ctx.session.taskData;
-                await safeSendMessage(ctx, '❌ Task creation cancelled.');
-                await bot.command('start')(ctx);
-                return;
-            }
-            
-            if (messageText.toLowerCase() !== 'none') {
-                const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
-                const match = messageText.match(dateRegex);
-                
-                if (!match) {
-                    await safeSendMessage(ctx, '❌ Invalid date format. Please use DD/MM/YYYY.\n\nExample: 12/03/2026');
-                    return;
-                }
-                
-                const [_, day, month, year] = match;
-                const repeatEndDate = new Date(year, month - 1, day);
-                
-                if (isNaN(repeatEndDate.getTime())) {
-                    await safeSendMessage(ctx, '❌ Invalid date. Please enter a valid date.');
-                    return;
-                }
-                
-                ctx.session.taskData.repeatEndDate = repeatEndDate;
-            } else {
-                ctx.session.taskData.repeatEndDate = null;
-            }
-            
-            // Save the task
-            await saveAndScheduleTask(ctx);
-            return;
-        }
-        
-    } catch (error) {
-        console.error('Date input error:', error);
-        await safeSendMessage(ctx, '❌ An error occurred.');
     }
 });
 
@@ -824,34 +919,59 @@ async function saveAndScheduleTask(ctx) {
             // Schedule notifications
             scheduleTaskNotifications(taskToSave);
             
+            // Format dates for display
+            const startDateIST = new Date(taskData.startDate);
+            const startTimeStr = startDateIST.toLocaleTimeString('en-IN', { 
+                timeZone: 'Asia/Kolkata',
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            
+            const endDateIST = new Date(taskData.endDate);
+            const endTimeStr = endDateIST.toLocaleTimeString('en-IN', { 
+                timeZone: 'Asia/Kolkata',
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            
             let message = `✅ Task saved successfully!\n\n` +
                          `📌 ID: ${taskData.taskId}\n` +
                          `📝 Title: ${taskData.title}\n` +
-                         `⏰ Start: ${new Date(taskData.startDate).toLocaleTimeString()}\n` +
-                         `⏰ End: ${new Date(taskData.endDate).toLocaleTimeString()}\n` +
+                         `⏰ Start: ${startTimeStr} IST\n` +
+                         `⏰ End: ${endTimeStr} IST\n` +
                          `🔄 Repeat: ${taskData.repeatType === 'none' ? 'No repetition' : taskData.repeatType}\n\n`;
             
             if (taskData.repeatEndDate) {
-                message += `📅 Repeat until: ${taskData.repeatEndDate.toLocaleDateString()}\n\n`;
+                message += `📅 Repeat until: ${taskData.repeatEndDate.toLocaleDateString('en-IN')}\n\n`;
             }
             
             message += `🔔 Notifications will start 10 minutes before task start time.`;
             
-            await safeSendMessage(ctx, message);
+            await ctx.reply(message, {
+                reply_markup: Markup.inlineKeyboard([
+                    [Markup.button.callback('🔙 Back to Menu', 'back_to_menu')]
+                ])
+            });
             
             // Clear session
             delete ctx.session.taskData;
             
-            // Return to main menu
-            setTimeout(async () => {
-                await bot.command('start')(ctx);
-            }, 2000);
         } else {
-            await safeSendMessage(ctx, '❌ Failed to save task. Please try again.');
+            await ctx.reply('❌ Failed to save task. Please try again.', {
+                reply_markup: Markup.inlineKeyboard([
+                    [Markup.button.callback('🔙 Back to Menu', 'back_to_menu')]
+                ])
+            });
         }
     } catch (error) {
         console.error('Save task error:', error);
-        await safeSendMessage(ctx, '❌ Failed to save task.');
+        await ctx.reply('❌ Failed to save task.', {
+            reply_markup: Markup.inlineKeyboard([
+                [Markup.button.callback('🔙 Back to Menu', 'back_to_menu')]
+            ])
+        });
     }
 }
 
@@ -861,7 +981,12 @@ async function saveAndScheduleTask(ctx) {
 
 bot.action('add_notes', async (ctx) => {
     try {
+        if (!isAdmin(ctx.from.id)) {
+            return await ctx.answerCbQuery('❌ You are not authorized.');
+        }
+        
         // Initialize note data in session
+        ctx.session = ctx.session || {};
         ctx.session.noteData = {
             step: 'title',
             noteId: generateNoteId(),
@@ -869,7 +994,10 @@ bot.action('add_notes', async (ctx) => {
         };
         
         await ctx.editMessageText('✏️ *Add New Note*\n\nEnter the title of your note:\n\nType "cancel" to cancel.', {
-            parse_mode: 'Markdown'
+            parse_mode: 'Markdown',
+            reply_markup: Markup.inlineKeyboard([
+                [Markup.button.callback('🔙 Back to Menu', 'back_to_menu')]
+            ])
         });
     } catch (error) {
         console.error('Add notes error:', error);
@@ -878,64 +1006,100 @@ bot.action('add_notes', async (ctx) => {
 });
 
 // ==========================================
-// VIEW TASKS
+// VIEW TASKS WITH PAGINATION
 // ==========================================
 
 bot.action(/^view_tasks_(\d+)$/, async (ctx) => {
     try {
+        if (!isAdmin(ctx.from.id)) {
+            return await ctx.answerCbQuery('❌ You are not authorized.');
+        }
+        
         const page = parseInt(ctx.match[1]);
-        const userId = ctx.from.id;
-        
-        const tasksData = await getTasks(userId, page);
-        
-        if (tasksData.tasks.length === 0) {
-            await ctx.editMessageText('📭 No tasks found.\n\nUse "Add Tasks" to create new tasks.', {
-                parse_mode: 'Markdown',
-                reply_markup: Markup.inlineKeyboard([
-                    [Markup.button.callback('➕ Add Tasks', 'add_tasks')],
-                    [Markup.button.callback('↩️ Back to Menu', 'back_to_menu')]
-                ])
-            });
-            return;
-        }
-        
-        let message = `📋 *Your Tasks (Page ${page}/${tasksData.totalPages})*\n\n`;
-        
-        tasksData.tasks.forEach((task, index) => {
-            const taskIndex = (page - 1) * 10 + index + 1;
-            const startTime = new Date(task.startDate).toLocaleTimeString();
-            message += `${taskIndex}. ${task.title}\n   ⏰ ${startTime} | 📌 ${task.taskId}\n\n`;
-        });
-        
-        message += `Total: ${tasksData.totalTasks} tasks`;
-        
-        const keyboard = [];
-        
-        // Add task buttons (10 per page)
-        tasksData.tasks.forEach((task) => {
-            keyboard.push([Markup.button.callback(`📌 ${task.taskId} - ${task.title.substring(0, 20)}`, `task_detail_${task.taskId}`)]);
-        });
-        
-        // Add navigation buttons
-        const navButtons = [];
-        if (tasksData.hasPrev) {
-            navButtons.push(Markup.button.callback('◀️ Previous', `view_tasks_${page - 1}`));
-        }
-        navButtons.push(Markup.button.callback('🏠 Menu', 'back_to_menu'));
-        if (tasksData.hasNext) {
-            navButtons.push(Markup.button.callback('Next ▶️', `view_tasks_${page + 1}`));
-        }
-        keyboard.push(navButtons);
-        
-        await ctx.editMessageText(message, {
-            parse_mode: 'Markdown',
-            reply_markup: Markup.inlineKeyboard(keyboard)
-        });
+        await showTasksPage(ctx, page);
         
     } catch (error) {
         console.error('View tasks error:', error);
         await ctx.answerCbQuery('❌ An error occurred.');
     }
+});
+
+async function showTasksPage(ctx, page) {
+    try {
+        const userId = ctx.from.id;
+        const tasksData = await getPaginatedTasks(userId, page, 10);
+        const tasks = tasksData.tasks;
+        
+        if (tasks.length === 0) {
+            await safeEditMessage(ctx, '📭 No tasks found.\n\nUse "Add Tasks" to create new tasks.', {
+                parse_mode: 'Markdown',
+                reply_markup: Markup.inlineKeyboard([
+                    [Markup.button.callback('➕ Add Tasks', 'add_tasks')],
+                    [Markup.button.callback('🔙 Back to Menu', 'back_to_menu')]
+                ])
+            });
+            return;
+        }
+        
+        let tasksText = `📋 *Your Tasks (Page ${page}/${tasksData.totalPages})*\n\n`;
+        
+        // Create keyboard with tasks (10 per page)
+        const keyboard = [];
+        
+        // Group tasks 1 per row (as requested)
+        tasks.forEach((task, index) => {
+            const taskNum = (page - 1) * 10 + index + 1;
+            const startDate = new Date(task.startDate);
+            const startTimeStr = startDate.toLocaleTimeString('en-IN', { 
+                timeZone: 'Asia/Kolkata',
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            
+            tasksText += `${taskNum}. ${task.title}\n   ⏰ ${startTimeStr} IST | 📌 ${task.taskId}\n\n`;
+            
+            const buttonText = `📌 ${task.taskId} - ${task.title.substring(0, 20)}${task.title.length > 20 ? '...' : ''}`;
+            keyboard.push([Markup.button.callback(buttonText, `task_detail_${task.taskId}`)]);
+        });
+        
+        tasksText += `Total: ${tasksData.totalTasks} tasks`;
+        
+        // Navigation buttons at the end
+        const navRow = [];
+        if (tasksData.hasPrev) {
+            navRow.push(Markup.button.callback('◀️ Previous', `view_tasks_${page - 1}`));
+        }
+        navRow.push(Markup.button.callback(`📄 ${page}/${tasksData.totalPages}`, 'no_action'));
+        if (tasksData.hasNext) {
+            navRow.push(Markup.button.callback('Next ▶️', `view_tasks_${page + 1}`));
+        }
+        
+        if (navRow.length > 0) {
+            keyboard.push(navRow);
+        }
+        
+        // Back button
+        keyboard.push([Markup.button.callback('🔙 Back to Menu', 'back_to_menu')]);
+        
+        await safeEditMessage(ctx, tasksText, {
+            parse_mode: 'Markdown',
+            reply_markup: Markup.inlineKeyboard(keyboard)
+        });
+        
+    } catch (error) {
+        console.error('Show tasks page error:', error);
+        await safeEditMessage(ctx, '❌ Failed to load tasks.', {
+            reply_markup: Markup.inlineKeyboard([
+                [Markup.button.callback('🔙 Back to Menu', 'back_to_menu')]
+            ])
+        });
+    }
+}
+
+// No action callback
+bot.action('no_action', async (ctx) => {
+    await ctx.answerCbQuery();
 });
 
 // Task detail view
@@ -948,22 +1112,52 @@ bot.action(/^task_detail_(.+)$/, async (ctx) => {
             return await ctx.answerCbQuery('❌ Task not found.');
         }
         
+        // Format dates
+        const startDate = new Date(task.startDate);
+        const startTimeStr = startDate.toLocaleTimeString('en-IN', { 
+            timeZone: 'Asia/Kolkata',
+            hour12: false,
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        
+        const endDate = new Date(task.endDate);
+        const endTimeStr = endDate.toLocaleTimeString('en-IN', { 
+            timeZone: 'Asia/Kolkata',
+            hour12: false,
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        
+        const createdAt = new Date(task.createdAt);
+        const createdAtStr = createdAt.toLocaleString('en-IN', { 
+            timeZone: 'Asia/Kolkata',
+            dateStyle: 'medium',
+            timeStyle: 'short'
+        });
+        
         let message = `📋 *Task Details*\n\n` +
                      `📌 ID: ${task.taskId}\n` +
                      `📝 Title: ${task.title}\n` +
                      `📄 Description: ${task.description || 'No description'}\n` +
-                     `⏰ Start Time: ${new Date(task.startDate).toLocaleTimeString()}\n` +
-                     `⏰ End Time: ${new Date(task.endDate).toLocaleTimeString()}\n` +
+                     `⏰ Start Time: ${startTimeStr} IST\n` +
+                     `⏰ End Time: ${endTimeStr} IST\n` +
                      `🔄 Repeat: ${task.repeatType === 'none' ? 'No repetition' : task.repeatType}\n` +
-                     `📅 Created: ${new Date(task.createdAt).toLocaleString()}\n` +
+                     `📅 Created: ${createdAtStr}\n` +
                      `📊 Status: ${task.status === 'completed' ? '✅ Completed' : '⏳ Pending'}`;
         
         if (task.repeatEndDate) {
-            message += `\n📅 Repeat until: ${new Date(task.repeatEndDate).toLocaleDateString()}`;
+            message += `\n📅 Repeat until: ${new Date(task.repeatEndDate).toLocaleDateString('en-IN')}`;
         }
         
         if (task.completedAt) {
-            message += `\n✅ Completed at: ${new Date(task.completedAt).toLocaleString()}`;
+            const completedDate = new Date(task.completedAt);
+            const completedStr = completedDate.toLocaleString('en-IN', { 
+                timeZone: 'Asia/Kolkata',
+                dateStyle: 'medium',
+                timeStyle: 'short'
+            });
+            message += `\n✅ Completed at: ${completedStr}`;
         }
         
         const keyboard = Markup.inlineKeyboard([
@@ -973,11 +1167,12 @@ bot.action(/^task_detail_(.+)$/, async (ctx) => {
             ],
             [
                 Markup.button.callback('🗑️ Delete', `delete_task_${taskId}`),
-                Markup.button.callback('↩️ Back', `view_tasks_1`)
-            ]
+                Markup.button.callback('↩️ Back to Tasks', 'view_tasks_1')
+            ],
+            [Markup.button.callback('🔙 Back to Menu', 'back_to_menu')]
         ]);
         
-        await ctx.editMessageText(message, {
+        await safeEditMessage(ctx, message, {
             parse_mode: 'Markdown',
             reply_markup: keyboard
         });
@@ -1012,6 +1207,13 @@ bot.action(/^complete_task_(.+)$/, async (ctx) => {
                 scheduledJobs.delete(`${ctx.from.id}_${taskId}`);
             }
             
+            // Cancel interval if exists
+            if (scheduledJobs.has(`${ctx.from.id}_${taskId}_interval`)) {
+                const interval = scheduledJobs.get(`${ctx.from.id}_${taskId}_interval`);
+                if (interval) clearInterval(interval);
+                scheduledJobs.delete(`${ctx.from.id}_${taskId}_interval`);
+            }
+            
             await ctx.answerCbQuery('✅ Task marked as complete!');
             
             // Refresh task detail view
@@ -1040,6 +1242,13 @@ bot.action(/^delete_task_(.+)$/, async (ctx) => {
                 scheduledJobs.delete(`${ctx.from.id}_${taskId}`);
             }
             
+            // Cancel interval if exists
+            if (scheduledJobs.has(`${ctx.from.id}_${taskId}_interval`)) {
+                const interval = scheduledJobs.get(`${ctx.from.id}_${taskId}_interval`);
+                if (interval) clearInterval(interval);
+                scheduledJobs.delete(`${ctx.from.id}_${taskId}_interval`);
+            }
+            
             await ctx.answerCbQuery('✅ Task deleted!');
             
             // Go back to tasks list
@@ -1053,35 +1262,15 @@ bot.action(/^delete_task_(.+)$/, async (ctx) => {
     }
 });
 
-// Edit task
+// Edit task (placeholder - you can expand this)
 bot.action(/^edit_task_(.+)$/, async (ctx) => {
     try {
         const taskId = ctx.match[1];
-        const task = await getTaskById(taskId);
         
-        if (!task) {
-            return await ctx.answerCbQuery('❌ Task not found.');
-        }
+        await ctx.answerCbQuery('⚠️ Edit feature coming soon!');
         
-        const keyboard = Markup.inlineKeyboard([
-            [
-                Markup.button.callback('📝 Title', `edit_task_title_${taskId}`),
-                Markup.button.callback('📄 Description', `edit_task_desc_${taskId}`)
-            ],
-            [
-                Markup.button.callback('⏰ Start Time', `edit_task_start_${taskId}`),
-                Markup.button.callback('⏰ End Time', `edit_task_end_${taskId}`)
-            ],
-            [
-                Markup.button.callback('🔄 Repeat', `edit_task_repeat_${taskId}`),
-                Markup.button.callback('↩️ Back', `task_detail_${taskId}`)
-            ]
-        ]);
-        
-        await ctx.editMessageText('✏️ *Edit Task*\n\nSelect what you want to edit:', {
-            parse_mode: 'Markdown',
-            reply_markup: keyboard
-        });
+        // For now, go back to task detail
+        await bot.action(`task_detail_${taskId}`)(ctx);
         
     } catch (error) {
         console.error('Edit task error:', error);
@@ -1090,65 +1279,89 @@ bot.action(/^edit_task_(.+)$/, async (ctx) => {
 });
 
 // ==========================================
-// VIEW HISTORY
+// VIEW HISTORY WITH PAGINATION
 // ==========================================
 
 bot.action(/^view_history_(\d+)$/, async (ctx) => {
     try {
+        if (!isAdmin(ctx.from.id)) {
+            return await ctx.answerCbQuery('❌ You are not authorized.');
+        }
+        
         const page = parseInt(ctx.match[1]);
-        const userId = ctx.from.id;
-        
-        const historyData = await getHistoryDates(userId, page);
-        
-        if (historyData.dates.length === 0) {
-            await ctx.editMessageText('📭 No history found.\n\nComplete some tasks to see history here.', {
-                parse_mode: 'Markdown',
-                reply_markup: Markup.inlineKeyboard([
-                    [Markup.button.callback('📋 View Tasks', 'view_tasks_1')],
-                    [Markup.button.callback('↩️ Back to Menu', 'back_to_menu')]
-                ])
-            });
-            return;
-        }
-        
-        let message = `📜 *Task History (Page ${page}/${historyData.totalPages})*\n\n`;
-        
-        historyData.dates.forEach((date, index) => {
-            const dateIndex = (page - 1) * 10 + index + 1;
-            message += `${dateIndex}. ${date.displayDate}\n   ✅ ${date.count} tasks completed\n\n`;
-        });
-        
-        message += `Total: ${historyData.totalDates} days with completed tasks`;
-        
-        const keyboard = [];
-        
-        // Add date buttons
-        historyData.dates.forEach((date) => {
-            const dateStr = date.date.toISOString().split('T')[0];
-            keyboard.push([Markup.button.callback(`📅 ${date.displayDate} (${date.count} tasks)`, `history_date_${dateStr}_1`)]);
-        });
-        
-        // Add navigation buttons
-        const navButtons = [];
-        if (historyData.hasPrev) {
-            navButtons.push(Markup.button.callback('◀️ Previous', `view_history_${page - 1}`));
-        }
-        navButtons.push(Markup.button.callback('🏠 Menu', 'back_to_menu'));
-        if (historyData.hasNext) {
-            navButtons.push(Markup.button.callback('Next ▶️', `view_history_${page + 1}`));
-        }
-        keyboard.push(navButtons);
-        
-        await ctx.editMessageText(message, {
-            parse_mode: 'Markdown',
-            reply_markup: Markup.inlineKeyboard(keyboard)
-        });
+        await showHistoryPage(ctx, page);
         
     } catch (error) {
         console.error('View history error:', error);
         await ctx.answerCbQuery('❌ An error occurred.');
     }
 });
+
+async function showHistoryPage(ctx, page) {
+    try {
+        const userId = ctx.from.id;
+        const historyData = await getPaginatedHistoryDates(userId, page, 10);
+        const dates = historyData.dates;
+        
+        if (dates.length === 0) {
+            await safeEditMessage(ctx, '📭 No history found.\n\nComplete some tasks to see history here.', {
+                parse_mode: 'Markdown',
+                reply_markup: Markup.inlineKeyboard([
+                    [Markup.button.callback('📋 View Tasks', 'view_tasks_1')],
+                    [Markup.button.callback('🔙 Back to Menu', 'back_to_menu')]
+                ])
+            });
+            return;
+        }
+        
+        let historyText = `📜 *Task History (Page ${page}/${historyData.totalPages})*\n\n`;
+        
+        // Create keyboard with dates (10 per page)
+        const keyboard = [];
+        
+        // Group dates 1 per row
+        dates.forEach((date, index) => {
+            const dateNum = (page - 1) * 10 + index + 1;
+            historyText += `${dateNum}. ${date.displayDate}\n   ✅ ${date.count} tasks completed\n\n`;
+            
+            const dateStr = date.date.toISOString().split('T')[0];
+            const buttonText = `📅 ${date.displayDate.substring(0, 30)} (${date.count} tasks)`;
+            keyboard.push([Markup.button.callback(buttonText, `history_date_${dateStr}_1`)]);
+        });
+        
+        historyText += `Total: ${historyData.totalDates} days with completed tasks`;
+        
+        // Navigation buttons at the end
+        const navRow = [];
+        if (historyData.hasPrev) {
+            navRow.push(Markup.button.callback('◀️ Previous', `view_history_${page - 1}`));
+        }
+        navRow.push(Markup.button.callback(`📄 ${page}/${historyData.totalPages}`, 'no_action'));
+        if (historyData.hasNext) {
+            navRow.push(Markup.button.callback('Next ▶️', `view_history_${page + 1}`));
+        }
+        
+        if (navRow.length > 0) {
+            keyboard.push(navRow);
+        }
+        
+        // Back button
+        keyboard.push([Markup.button.callback('🔙 Back to Menu', 'back_to_menu')]);
+        
+        await safeEditMessage(ctx, historyText, {
+            parse_mode: 'Markdown',
+            reply_markup: Markup.inlineKeyboard(keyboard)
+        });
+        
+    } catch (error) {
+        console.error('Show history page error:', error);
+        await safeEditMessage(ctx, '❌ Failed to load history.', {
+            reply_markup: Markup.inlineKeyboard([
+                [Markup.button.callback('🔙 Back to Menu', 'back_to_menu')]
+            ])
+        });
+    }
+}
 
 // View tasks for specific date
 bot.action(/^history_date_(.+)_(\d+)$/, async (ctx) => {
@@ -1158,19 +1371,21 @@ bot.action(/^history_date_(.+)_(\d+)$/, async (ctx) => {
         const userId = ctx.from.id;
         const date = new Date(dateStr);
         
-        const tasksData = await getTasksByDate(userId, date, page);
+        const tasksData = await getPaginatedTasksByDate(userId, date, page, 10);
+        const tasks = tasksData.tasks;
         
-        if (tasksData.tasks.length === 0) {
-            await ctx.editMessageText(`📭 No tasks found for ${date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}.`, {
+        if (tasks.length === 0) {
+            await safeEditMessage(ctx, `📭 No tasks found for ${date.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}.`, {
                 parse_mode: 'Markdown',
                 reply_markup: Markup.inlineKeyboard([
-                    [Markup.button.callback('↩️ Back to History', 'view_history_1')]
+                    [Markup.button.callback('↩️ Back to History', 'view_history_1')],
+                    [Markup.button.callback('🔙 Back to Menu', 'back_to_menu')]
                 ])
             });
             return;
         }
         
-        const displayDate = date.toLocaleDateString('en-US', {
+        const displayDate = date.toLocaleDateString('en-IN', {
             weekday: 'long',
             year: 'numeric',
             month: 'long',
@@ -1179,30 +1394,45 @@ bot.action(/^history_date_(.+)_(\d+)$/, async (ctx) => {
         
         let message = `📅 *Tasks Completed on ${displayDate}*\nPage ${page}/${tasksData.totalPages}\n\n`;
         
-        tasksData.tasks.forEach((task, index) => {
-            const taskIndex = (page - 1) * 10 + index + 1;
-            message += `${taskIndex}. ${task.title}\n   ✅ ${new Date(task.completedAt).toLocaleTimeString()} | 📌 ${task.taskId}\n\n`;
-        });
-        
+        // Create keyboard with tasks (10 per page)
         const keyboard = [];
         
-        // Add task buttons
-        tasksData.tasks.forEach((task) => {
-            keyboard.push([Markup.button.callback(`📌 ${task.taskId} - ${task.title.substring(0, 20)}`, `task_detail_${task.taskId}`)]);
+        // Group tasks 1 per row
+        tasks.forEach((task, index) => {
+            const taskNum = (page - 1) * 10 + index + 1;
+            const completedAt = new Date(task.completedAt);
+            const completedTimeStr = completedAt.toLocaleTimeString('en-IN', { 
+                timeZone: 'Asia/Kolkata',
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            
+            message += `${taskNum}. ${task.title}\n   ✅ ${completedTimeStr} IST | 📌 ${task.taskId}\n\n`;
+            
+            const buttonText = `📌 ${task.taskId} - ${task.title.substring(0, 20)}${task.title.length > 20 ? '...' : ''}`;
+            keyboard.push([Markup.button.callback(buttonText, `task_detail_${task.taskId}`)]);
         });
         
-        // Add navigation buttons
-        const navButtons = [];
+        // Navigation buttons at the end
+        const navRow = [];
         if (tasksData.hasPrev) {
-            navButtons.push(Markup.button.callback('◀️ Previous', `history_date_${dateStr}_${page - 1}`));
+            navRow.push(Markup.button.callback('◀️ Previous', `history_date_${dateStr}_${page - 1}`));
         }
-        navButtons.push(Markup.button.callback('📜 Back to History', 'view_history_1'));
+        navRow.push(Markup.button.callback(`📄 ${page}/${tasksData.totalPages}`, 'no_action'));
         if (tasksData.hasNext) {
-            navButtons.push(Markup.button.callback('Next ▶️', `history_date_${dateStr}_${page + 1}`));
+            navRow.push(Markup.button.callback('Next ▶️', `history_date_${dateStr}_${page + 1}`));
         }
-        keyboard.push(navButtons);
         
-        await ctx.editMessageText(message, {
+        if (navRow.length > 0) {
+            keyboard.push(navRow);
+        }
+        
+        // Back buttons
+        keyboard.push([Markup.button.callback('📜 Back to History', 'view_history_1')]);
+        keyboard.push([Markup.button.callback('🔙 Back to Menu', 'back_to_menu')]);
+        
+        await safeEditMessage(ctx, message, {
             parse_mode: 'Markdown',
             reply_markup: Markup.inlineKeyboard(keyboard)
         });
@@ -1214,64 +1444,91 @@ bot.action(/^history_date_(.+)_(\d+)$/, async (ctx) => {
 });
 
 // ==========================================
-// VIEW NOTES
+// VIEW NOTES WITH PAGINATION
 // ==========================================
 
 bot.action(/^view_notes_(\d+)$/, async (ctx) => {
     try {
+        if (!isAdmin(ctx.from.id)) {
+            return await ctx.answerCbQuery('❌ You are not authorized.');
+        }
+        
         const page = parseInt(ctx.match[1]);
-        const userId = ctx.from.id;
-        
-        const notesData = await getNotes(userId, page);
-        
-        if (notesData.notes.length === 0) {
-            await ctx.editMessageText('📭 No notes found.\n\nUse "Add Notes" to create new notes.', {
-                parse_mode: 'Markdown',
-                reply_markup: Markup.inlineKeyboard([
-                    [Markup.button.callback('📝 Add Notes', 'add_notes')],
-                    [Markup.button.callback('↩️ Back to Menu', 'back_to_menu')]
-                ])
-            });
-            return;
-        }
-        
-        let message = `🗒️ *Your Notes (Page ${page}/${notesData.totalPages})*\n\n`;
-        
-        notesData.notes.forEach((note, index) => {
-            const noteIndex = (page - 1) * 10 + index + 1;
-            message += `${noteIndex}. ${note.title}\n   📌 ${note.noteId} | 📅 ${new Date(note.createdAt).toLocaleDateString()}\n\n`;
-        });
-        
-        message += `Total: ${notesData.totalNotes} notes`;
-        
-        const keyboard = [];
-        
-        // Add note buttons
-        notesData.notes.forEach((note) => {
-            keyboard.push([Markup.button.callback(`📌 ${note.noteId} - ${note.title.substring(0, 20)}`, `note_detail_${note.noteId}`)]);
-        });
-        
-        // Add navigation buttons
-        const navButtons = [];
-        if (notesData.hasPrev) {
-            navButtons.push(Markup.button.callback('◀️ Previous', `view_notes_${page - 1}`));
-        }
-        navButtons.push(Markup.button.callback('🏠 Menu', 'back_to_menu'));
-        if (notesData.hasNext) {
-            navButtons.push(Markup.button.callback('Next ▶️', `view_notes_${page + 1}`));
-        }
-        keyboard.push(navButtons);
-        
-        await ctx.editMessageText(message, {
-            parse_mode: 'Markdown',
-            reply_markup: Markup.inlineKeyboard(keyboard)
-        });
+        await showNotesPage(ctx, page);
         
     } catch (error) {
         console.error('View notes error:', error);
         await ctx.answerCbQuery('❌ An error occurred.');
     }
 });
+
+async function showNotesPage(ctx, page) {
+    try {
+        const userId = ctx.from.id;
+        const notesData = await getPaginatedNotes(userId, page, 10);
+        const notes = notesData.notes;
+        
+        if (notes.length === 0) {
+            await safeEditMessage(ctx, '📭 No notes found.\n\nUse "Add Notes" to create new notes.', {
+                parse_mode: 'Markdown',
+                reply_markup: Markup.inlineKeyboard([
+                    [Markup.button.callback('📝 Add Notes', 'add_notes')],
+                    [Markup.button.callback('🔙 Back to Menu', 'back_to_menu')]
+                ])
+            });
+            return;
+        }
+        
+        let notesText = `🗒️ *Your Notes (Page ${page}/${notesData.totalPages})*\n\n`;
+        
+        // Create keyboard with notes (10 per page)
+        const keyboard = [];
+        
+        // Group notes 1 per row
+        notes.forEach((note, index) => {
+            const noteNum = (page - 1) * 10 + index + 1;
+            const createdDate = new Date(note.createdAt);
+            const dateStr = createdDate.toLocaleDateString('en-IN');
+            
+            notesText += `${noteNum}. ${note.title}\n   📌 ${note.noteId} | 📅 ${dateStr}\n\n`;
+            
+            const buttonText = `📌 ${note.noteId} - ${note.title.substring(0, 20)}${note.title.length > 20 ? '...' : ''}`;
+            keyboard.push([Markup.button.callback(buttonText, `note_detail_${note.noteId}`)]);
+        });
+        
+        notesText += `Total: ${notesData.totalNotes} notes`;
+        
+        // Navigation buttons at the end
+        const navRow = [];
+        if (notesData.hasPrev) {
+            navRow.push(Markup.button.callback('◀️ Previous', `view_notes_${page - 1}`));
+        }
+        navRow.push(Markup.button.callback(`📄 ${page}/${notesData.totalPages}`, 'no_action'));
+        if (notesData.hasNext) {
+            navRow.push(Markup.button.callback('Next ▶️', `view_notes_${page + 1}`));
+        }
+        
+        if (navRow.length > 0) {
+            keyboard.push(navRow);
+        }
+        
+        // Back button
+        keyboard.push([Markup.button.callback('🔙 Back to Menu', 'back_to_menu')]);
+        
+        await safeEditMessage(ctx, notesText, {
+            parse_mode: 'Markdown',
+            reply_markup: Markup.inlineKeyboard(keyboard)
+        });
+        
+    } catch (error) {
+        console.error('Show notes page error:', error);
+        await safeEditMessage(ctx, '❌ Failed to load notes.', {
+            reply_markup: Markup.inlineKeyboard([
+                [Markup.button.callback('🔙 Back to Menu', 'back_to_menu')]
+            ])
+        });
+    }
+}
 
 // Note detail view
 bot.action(/^note_detail_(.+)$/, async (ctx) => {
@@ -1283,18 +1540,33 @@ bot.action(/^note_detail_(.+)$/, async (ctx) => {
             return await ctx.answerCbQuery('❌ Note not found.');
         }
         
+        const createdAt = new Date(note.createdAt);
+        const createdAtStr = createdAt.toLocaleString('en-IN', { 
+            timeZone: 'Asia/Kolkata',
+            dateStyle: 'medium',
+            timeStyle: 'short'
+        });
+        
+        const updatedAt = new Date(note.updatedAt);
+        const updatedAtStr = updatedAt.toLocaleString('en-IN', { 
+            timeZone: 'Asia/Kolkata',
+            dateStyle: 'medium',
+            timeStyle: 'short'
+        });
+        
         let message = `🗒️ *Note Details*\n\n` +
                      `📌 ID: ${note.noteId}\n` +
                      `📝 Title: ${note.title}\n` +
                      `📄 Content:\n${note.content || 'No content'}\n\n` +
-                     `📅 Created: ${new Date(note.createdAt).toLocaleString()}\n` +
-                     `📅 Updated: ${new Date(note.updatedAt).toLocaleString()}`;
+                     `📅 Created: ${createdAtStr}\n` +
+                     `📅 Updated: ${updatedAtStr}`;
         
         const keyboard = Markup.inlineKeyboard([
-            [Markup.button.callback('↩️ Back to Notes', 'view_notes_1')]
+            [Markup.button.callback('↩️ Back to Notes', 'view_notes_1')],
+            [Markup.button.callback('🔙 Back to Menu', 'back_to_menu')]
         ]);
         
-        await ctx.editMessageText(message, {
+        await safeEditMessage(ctx, message, {
             parse_mode: 'Markdown',
             reply_markup: keyboard
         });
@@ -1311,6 +1583,10 @@ bot.action(/^note_detail_(.+)$/, async (ctx) => {
 
 bot.action('download_data', async (ctx) => {
     try {
+        if (!isAdmin(ctx.from.id)) {
+            return await ctx.answerCbQuery('❌ You are not authorized.');
+        }
+        
         const userId = ctx.from.id;
         
         // Get all data
@@ -1330,11 +1606,11 @@ bot.action('download_data', async (ctx) => {
             ],
             [
                 Markup.button.callback('📦 All Data', 'download_all'),
-                Markup.button.callback('↩️ Back', 'back_to_menu')
+                Markup.button.callback('🔙 Back to Menu', 'back_to_menu')
             ]
         ]);
         
-        await ctx.editMessageText(message, {
+        await safeEditMessage(ctx, message, {
             parse_mode: 'Markdown',
             reply_markup: keyboard
         });
@@ -1353,21 +1629,13 @@ bot.action('download_tasks', async (ctx) => {
         // Convert to JSON string
         const tasksJson = JSON.stringify(tasks, null, 2);
         
-        // Send as file if too long, otherwise as message
-        if (tasksJson.length > 4000) {
-            await ctx.replyWithDocument({
-                source: Buffer.from(tasksJson),
-                filename: 'tasks.json'
-            });
-            await ctx.answerCbQuery('✅ Tasks data sent as file!');
-        } else {
-            await ctx.editMessageText(`📋 *Your Tasks Data*\n\n\`\`\`json\n${tasksJson}\n\`\`\``, {
-                parse_mode: 'Markdown',
-                reply_markup: Markup.inlineKeyboard([
-                    [Markup.button.callback('↩️ Back to Downloads', 'download_data')]
-                ])
-            });
-        }
+        // Send as file
+        await ctx.replyWithDocument({
+            source: Buffer.from(tasksJson),
+            filename: `tasks_${userId}_${Date.now()}.json`
+        });
+        
+        await ctx.answerCbQuery('✅ Tasks data sent as file!');
         
     } catch (error) {
         console.error('Download tasks error:', error);
@@ -1383,21 +1651,13 @@ bot.action('download_notes', async (ctx) => {
         // Convert to JSON string
         const notesJson = JSON.stringify(notes, null, 2);
         
-        // Send as file if too long, otherwise as message
-        if (notesJson.length > 4000) {
-            await ctx.replyWithDocument({
-                source: Buffer.from(notesJson),
-                filename: 'notes.json'
-            });
-            await ctx.answerCbQuery('✅ Notes data sent as file!');
-        } else {
-            await ctx.editMessageText(`🗒️ *Your Notes Data*\n\n\`\`\`json\n${notesJson}\n\`\`\``, {
-                parse_mode: 'Markdown',
-                reply_markup: Markup.inlineKeyboard([
-                    [Markup.button.callback('↩️ Back to Downloads', 'download_data')]
-                ])
-            });
-        }
+        // Send as file
+        await ctx.replyWithDocument({
+            source: Buffer.from(notesJson),
+            filename: `notes_${userId}_${Date.now()}.json`
+        });
+        
+        await ctx.answerCbQuery('✅ Notes data sent as file!');
         
     } catch (error) {
         console.error('Download notes error:', error);
@@ -1417,7 +1677,7 @@ bot.action('download_all', async (ctx) => {
         const allData = {
             tasks: tasks,
             notes: notes,
-            exportDate: new Date().toISOString(),
+            exportedAt: new Date().toISOString(),
             userId: userId
         };
         
@@ -1427,14 +1687,14 @@ bot.action('download_all', async (ctx) => {
         // Send as file
         await ctx.replyWithDocument({
             source: Buffer.from(allDataJson),
-            filename: 'all_data.json'
+            filename: `all_data_${userId}_${Date.now()}.json`
         });
         
         await ctx.answerCbQuery('✅ All data sent as file!');
         
     } catch (error) {
         console.error('Download all error:', error);
-        await ctx.answerCbQuery('❌ Failed to download all data.');
+        await ctx.answerCbQuery('❌ Failed to download data.');
     }
 });
 
@@ -1444,6 +1704,10 @@ bot.action('download_all', async (ctx) => {
 
 bot.action('delete_data', async (ctx) => {
     try {
+        if (!isAdmin(ctx.from.id)) {
+            return await ctx.answerCbQuery('❌ You are not authorized.');
+        }
+        
         const keyboard = Markup.inlineKeyboard([
             [
                 Markup.button.callback('✅ YES, DELETE ALL', 'confirm_delete_all'),
@@ -1451,7 +1715,7 @@ bot.action('delete_data', async (ctx) => {
             ]
         ]);
         
-        await ctx.editMessageText('🚨 *DELETE ALL DATA*\n\n⚠️ **WARNING: This action cannot be undone!**\n\nThis will delete:\n• All your tasks\n• All your notes\n• All your history\n\nAre you absolutely sure?', {
+        await safeEditMessage(ctx, '🚨 *DELETE ALL DATA*\n\n⚠️ **WARNING: This action cannot be undone!**\n\nThis will delete:\n• All your tasks\n• All your notes\n• All your history\n\nAre you absolutely sure?', {
             parse_mode: 'Markdown',
             reply_markup: keyboard
         });
@@ -1466,10 +1730,17 @@ bot.action('confirm_delete_all', async (ctx) => {
     try {
         const userId = ctx.from.id;
         
-        // Cancel all scheduled jobs
+        // Cancel all scheduled jobs for this user
         for (const [key, job] of scheduledJobs) {
             if (key.startsWith(`${userId}_`)) {
-                if (job) job.cancel();
+                if (job) {
+                    if (typeof job.cancel === 'function') {
+                        job.cancel();
+                    } else if (typeof clearInterval === 'function') {
+                        clearInterval(job);
+                    }
+                }
+                scheduledJobs.delete(key);
             }
         }
         
@@ -1477,7 +1748,7 @@ bot.action('confirm_delete_all', async (ctx) => {
         const tasksResult = await db.collection('tasks').deleteMany({ userId: userId });
         const notesResult = await db.collection('notes').deleteMany({ userId: userId });
         
-        await ctx.editMessageText(`✅ *All data deleted successfully!*\n\n🗑️ Deleted:\n• ${tasksResult.deletedCount} tasks\n• ${notesResult.deletedCount} notes\n\nYour data has been permanently removed.`, {
+        await safeEditMessage(ctx, `✅ *All data deleted successfully!*\n\n🗑️ Deleted:\n• ${tasksResult.deletedCount} tasks\n• ${notesResult.deletedCount} notes\n\nYour data has been permanently removed.`, {
             parse_mode: 'Markdown',
             reply_markup: Markup.inlineKeyboard([
                 [Markup.button.callback('🏠 Back to Menu', 'back_to_menu')]
@@ -1493,17 +1764,8 @@ bot.action('confirm_delete_all', async (ctx) => {
 });
 
 // ==========================================
-// HELPER ACTIONS
+// HELP
 // ==========================================
-
-bot.action('back_to_menu', async (ctx) => {
-    try {
-        await bot.command('start')(ctx);
-    } catch (error) {
-        console.error('Back to menu error:', error);
-        await ctx.answerCbQuery('❌ An error occurred.');
-    }
-});
 
 bot.action('help', async (ctx) => {
     try {
@@ -1527,7 +1789,7 @@ bot.action('help', async (ctx) => {
                           `• Delete all data (with confirmation)\n\n` +
                           `*Tips:*\n` +
                           `• Use 24-hour format for times\n` +
-                          `• Tasks automatically adjust if time is in the past\n` +
+                          `• Tasks automatically adjust for IST timezone\n` +
                           `• Notifications start 10 minutes before task start\n` +
                           `• Repeating tasks auto-create for next day/week`;
         
@@ -1535,7 +1797,7 @@ bot.action('help', async (ctx) => {
             [Markup.button.callback('🏠 Back to Menu', 'back_to_menu')]
         ]);
         
-        await ctx.editMessageText(helpMessage, {
+        await safeEditMessage(ctx, helpMessage, {
             parse_mode: 'Markdown',
             reply_markup: keyboard
         });
@@ -1555,7 +1817,11 @@ bot.catch((error, ctx) => {
     
     try {
         if (ctx.message) {
-            ctx.reply('❌ An error occurred. Please try again.');
+            ctx.reply('❌ An error occurred. Please try again.', {
+                reply_markup: Markup.inlineKeyboard([
+                    [Markup.button.callback('🔙 Back to Menu', 'back_to_menu')]
+                ])
+            });
         }
     } catch (e) {
         console.error('Error in error handler:', e);
@@ -1611,13 +1877,37 @@ async function startBot() {
         });
         console.log('🤖 Bot is running...');
         
+        // Send startup message to admin
+        try {
+            const now = new Date();
+            const istTime = now.toLocaleTimeString('en-IN', { 
+                timeZone: 'Asia/Kolkata',
+                hour12: false 
+            });
+            
+            await bot.telegram.sendMessage(ADMIN_IDS[0], 
+                `🤖 Task Manager Bot started successfully!\n` +
+                `Time: ${istTime} IST\n` +
+                `Task scheduler is ready.`
+            );
+            console.log('✅ Startup message sent to admin');
+        } catch (error) {
+            console.log('⚠️ Could not send startup message:', error.message);
+        }
+        
         // Graceful shutdown
         process.once('SIGINT', () => {
             console.log('🛑 SIGINT received, shutting down gracefully...');
             
             // Cancel all scheduled jobs
             for (const [key, job] of scheduledJobs) {
-                if (job) job.cancel();
+                if (job) {
+                    if (typeof job.cancel === 'function') {
+                        job.cancel();
+                    } else if (typeof clearInterval === 'function') {
+                        clearInterval(job);
+                    }
+                }
             }
             
             bot.stop('SIGINT');
@@ -1630,7 +1920,13 @@ async function startBot() {
             
             // Cancel all scheduled jobs
             for (const [key, job] of scheduledJobs) {
-                if (job) job.cancel();
+                if (job) {
+                    if (typeof job.cancel === 'function') {
+                        job.cancel();
+                    } else if (typeof clearInterval === 'function') {
+                        clearInterval(job);
+                    }
+                }
             }
             
             bot.stop('SIGTERM');
