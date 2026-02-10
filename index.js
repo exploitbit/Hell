@@ -20,40 +20,46 @@ const client = new MongoClient(MONGODB_URI, {
 let db;
 // Map to store active jobs: key = taskId, value = { startJob, interval }
 const activeSchedules = new Map();
+// For hourly summary job
+let hourlySummaryJob = null;
 
 // Initialize Session
 bot.use(session());
 
 // ==========================================
-// 🛠️ UTILITY FUNCTIONS
+// 🛠️ UTILITY FUNCTIONS - FIXED FOR IST TIMEZONE
 // ==========================================
 
 function generateId(length = 10) {
     return Math.random().toString(36).substring(2, 2 + length).toUpperCase();
 }
 
-// Get Current IST Time String
+// Get Current IST Time String (corrected)
 function getCurrentIST() {
-    return new Date().toLocaleTimeString('en-IN', {
-        timeZone: 'Asia/Kolkata',
-        hour: '2-digit', minute: '2-digit', hour12: false
+    const now = new Date();
+    // Convert to IST (UTC+5:30)
+    const istTime = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
+    return istTime.toLocaleTimeString('en-IN', {
+        hour: '2-digit', 
+        minute: '2-digit', 
+        hour12: false
     });
 }
 
 // Get current date in IST (YYYY-MM-DD)
 function getCurrentISTDate() {
     const now = new Date();
-    return now.toLocaleDateString('en-IN', {
-        timeZone: 'Asia/Kolkata',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit'
-    }).split('/').reverse().join('-');
+    const istTime = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
+    const year = istTime.getUTCFullYear();
+    const month = String(istTime.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(istTime.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 }
 
+// Convert date to IST string
 function formatDate(date) {
-    return new Date(date).toLocaleDateString('en-IN', {
-        timeZone: 'Asia/Kolkata',
+    const istDate = new Date(date.getTime() + (5.5 * 60 * 60 * 1000));
+    return istDate.toLocaleDateString('en-IN', {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
@@ -61,9 +67,10 @@ function formatDate(date) {
     });
 }
 
+// Convert time to IST string
 function formatTime(date) {
-    return new Date(date).toLocaleTimeString('en-IN', {
-        timeZone: 'Asia/Kolkata',
+    const istDate = new Date(date.getTime() + (5.5 * 60 * 60 * 1000));
+    return istDate.toLocaleTimeString('en-IN', {
         hour: '2-digit',
         minute: '2-digit',
         hour12: false
@@ -75,16 +82,24 @@ function formatDateTime(date) {
 }
 
 function getDayName(date) {
-    return new Date(date).toLocaleDateString('en-IN', {
-        weekday: 'long',
-        timeZone: 'Asia/Kolkata'
+    const istDate = new Date(date.getTime() + (5.5 * 60 * 60 * 1000));
+    return istDate.toLocaleDateString('en-IN', {
+        weekday: 'long'
     });
+}
+
+// Create IST Date from string inputs (corrected)
+function createISTDate(year, month, day, hour = 0, minute = 0) {
+    // Create date in local timezone as IST
+    const date = new Date(year, month - 1, day, hour, minute, 0);
+    // Subtract 5.5 hours to store as UTC (since IST is UTC+5:30)
+    return new Date(date.getTime() - (5.5 * 60 * 60 * 1000));
 }
 
 // Check if two dates are the same day (in IST)
 function isSameDay(date1, date2) {
-    const d1 = new Date(date1);
-    const d2 = new Date(date2);
+    const d1 = new Date(date1.getTime() + (5.5 * 60 * 60 * 1000));
+    const d2 = new Date(date2.getTime() + (5.5 * 60 * 60 * 1000));
     d1.setHours(0, 0, 0, 0);
     d2.setHours(0, 0, 0, 0);
     
@@ -93,9 +108,19 @@ function isSameDay(date1, date2) {
 
 // Get today's date at 00:00:00 in IST
 function getTodayIST() {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return today;
+    const now = new Date();
+    const istTime = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
+    istTime.setHours(0, 0, 0, 0);
+    // Convert back to UTC for storage
+    return new Date(istTime.getTime() - (5.5 * 60 * 60 * 1000));
+}
+
+// Get tomorrow's date at 00:00:00 in IST
+function getTomorrowIST() {
+    const today = getTodayIST();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow;
 }
 
 // SIMPLIFIED safeEdit function
@@ -154,7 +179,7 @@ async function connectDB() {
 }
 
 // ==========================================
-// ⏰ FIXED SCHEDULER LOGIC
+// ⏰ FIXED SCHEDULER LOGIC (IST COMPATIBLE)
 // ==========================================
 
 function scheduleTask(task) {
@@ -225,8 +250,8 @@ function scheduleTask(task) {
                         `🔔 <b>REMINDER (${count + 1}/${maxNotifications})</b>\n\n` +
                         `📌 <b>${task.title}</b>\n` +
                         `⏳ Starts in: <b>${minutesLeft} minute${minutesLeft !== 1 ? 's' : ''}</b>\n` +
-                        `⏰ Start Time: ${formatTime(task.startDate)}\n` +
-                        `📅 Date: ${formatDate(task.startDate)}\n` +
+                        `⏰ Start Time: ${formatTime(startTime)}\n` +
+                        `📅 Date: ${formatDate(startTime)}\n` +
                         `━━━━━━━━━━━━━━━━━━━━`, 
                         { parse_mode: 'HTML' }
                     );
@@ -281,8 +306,6 @@ function cancelTaskSchedule(taskId) {
 
 async function rescheduleAllPending() {
     try {
-        const today = getTodayIST();
-        
         const tasks = await db.collection('tasks').find({ 
             status: 'pending',
             startDate: { $gt: new Date() }
@@ -294,6 +317,97 @@ async function rescheduleAllPending() {
     } catch (error) {
         console.error('❌ Error rescheduling tasks:', error);
     }
+}
+
+// ==========================================
+// ⏰ HOURLY SUMMARY SCHEDULER
+// ==========================================
+
+async function sendHourlySummary(userId) {
+    try {
+        const todayIST = getTodayIST();
+        const tomorrowIST = getTomorrowIST();
+        
+        // Get completed tasks today
+        const completedTasks = await db.collection('history').find({
+            userId: userId,
+            completedAt: {
+                $gte: todayIST,
+                $lt: tomorrowIST
+            }
+        }).sort({ completedAt: 1 }).toArray();
+        
+        // Get pending tasks for today
+        const pendingTasks = await db.collection('tasks').find({
+            userId: userId,
+            status: 'pending',
+            nextOccurrence: {
+                $gte: todayIST,
+                $lt: tomorrowIST
+            }
+        }).sort({ nextOccurrence: 1 }).toArray();
+        
+        let summaryText = `
+📊 <b>HOURLY SUMMARY</b>
+⏰ ${getCurrentIST()} | 📅 ${formatDate(new Date())}
+━━━━━━━━━━━━━━━━━━━━
+
+✅ <b>COMPLETED TODAY:</b> ${completedTasks.length} tasks`;
+        
+        if (completedTasks.length > 0) {
+            completedTasks.forEach((task, index) => {
+                summaryText += `\n${index + 1}) ${task.title} - ${formatTime(task.completedAt)}`;
+            });
+        } else {
+            summaryText += `\n📭 No tasks completed yet today`;
+        }
+        
+        summaryText += `\n\n⏳ <b>PENDING TODAY:</b> ${pendingTasks.length} tasks`;
+        
+        if (pendingTasks.length > 0) {
+            pendingTasks.forEach((task, index) => {
+                summaryText += `\n${index + 1}) ${task.title} - ${formatTime(task.nextOccurrence)}`;
+            });
+        } else {
+            summaryText += `\n📭 No pending tasks for today`;
+        }
+        
+        summaryText += `\n\n━━━━━━━━━━━━━━━━━━━━\n⏰ Next update in 30 minutes`;
+        
+        try {
+            await bot.telegram.sendMessage(userId, summaryText, { parse_mode: 'HTML' });
+        } catch (e) {
+            if (e.code !== 403) { // Not "bot blocked by user"
+                console.error('Error sending hourly summary:', e);
+            }
+        }
+        
+    } catch (error) {
+        console.error('Error generating hourly summary:', error);
+    }
+}
+
+function scheduleHourlySummary() {
+    // Cancel existing job if any
+    if (hourlySummaryJob) {
+        hourlySummaryJob.cancel();
+    }
+    
+    // Schedule to run every 30 minutes
+    hourlySummaryJob = schedule.scheduleJob('*/30 * * * *', async () => {
+        console.log(`⏰ Sending hourly summaries...`);
+        try {
+            // Get all unique users
+            const users = await db.collection('tasks').distinct('userId');
+            for (const userId of users) {
+                await sendHourlySummary(userId);
+            }
+        } catch (error) {
+            console.error('Error sending hourly summaries:', error);
+        }
+    });
+    
+    console.log('✅ Hourly summary scheduler started');
 }
 
 // ==========================================
@@ -320,7 +434,7 @@ Manage your tasks, set reminders, take notes, and stay organized. Get notified 1
     const keyboard = Markup.inlineKeyboard([
         [
             Markup.button.callback('📋 View Today\'s Tasks', 'view_today_tasks'),
-            Markup.button.callback('📅 View Next Tasks', 'view_next_tasks')
+            Markup.button.callback('📅 View All Tasks', 'view_all_tasks')
         ],
         [
             Markup.button.callback('➕ Add Task', 'add_task'),
@@ -339,6 +453,11 @@ Manage your tasks, set reminders, take notes, and stay organized. Get notified 1
     await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard.reply_markup });
 });
 
+// MAIN MENU ACTION
+bot.action('main_menu', async (ctx) => {
+    await showMainMenu(ctx);
+});
+
 async function showMainMenu(ctx) {
     const text = `
 ┌──────────────────────────┐
@@ -354,7 +473,7 @@ async function showMainMenu(ctx) {
     const keyboard = Markup.inlineKeyboard([
         [
             Markup.button.callback('📋 View Today\'s Tasks', 'view_today_tasks'),
-            Markup.button.callback('📅 View Next Tasks', 'view_next_tasks')
+            Markup.button.callback('📅 View All Tasks', 'view_all_tasks')
         ],
         [
             Markup.button.callback('➕ Add Task', 'add_task'),
@@ -374,15 +493,14 @@ async function showMainMenu(ctx) {
 }
 
 // ==========================================
-// 📅 TASK VIEWS
+// 📅 TASK VIEWS - FIXED
 // ==========================================
 
 // View Today's Tasks (Pending only, nextOccurrence is today)
 bot.action('view_today_tasks', async (ctx) => {
     const userId = ctx.from.id;
     const today = getTodayIST();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrow = getTomorrowIST();
     
     const tasks = await db.collection('tasks')
         .find({ 
@@ -429,43 +547,41 @@ Select a task to view details:`;
 
     buttons.push([
         Markup.button.callback('➕ Add Task', 'add_task'),
-        Markup.button.callback('📅 View Next Tasks', 'view_next_tasks')
+        Markup.button.callback('📅 View All Tasks', 'view_all_tasks')
     ]);
-    buttons.push([Markup.button.callback('🏠 Main Menu', 'main_menu')]);
+    buttons.push([Markup.button.callback('🔙 Back', 'main_menu')]);
 
     await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
 });
 
-// View Next Tasks (All pending tasks including completed but repeating ones)
-bot.action('view_next_tasks', async (ctx) => {
+// View All Tasks (All pending tasks)
+bot.action('view_all_tasks', async (ctx) => {
     const userId = ctx.from.id;
     const today = getTodayIST();
     
     const tasks = await db.collection('tasks')
         .find({ 
             userId: userId,
-            status: 'pending',
-            nextOccurrence: { $gte: today }
+            status: 'pending'
         })
         .sort({ nextOccurrence: 1 })
         .toArray();
 
     let text = `
-📅 <b>UPCOMING TASKS</b>
+📅 <b>ALL PENDING TASKS</b>
 
 ━━━━━━━━━━━━━━━━━━━━
 📊 Total: ${tasks.length} task${tasks.length !== 1 ? 's' : ''}
-📈 Includes completed tasks that repeat
 ━━━━━━━━━━━━━━━━━━━━
 
 Select a task to view details:`;
 
     if (tasks.length === 0) {
         text = `
-📅 <b>UPCOMING TASKS</b>
+📅 <b>ALL PENDING TASKS</b>
 
 ━━━━━━━━━━━━━━━━━━━━
-📭 <i>No upcoming tasks found!</i>
+📭 <i>No pending tasks found!</i>
 <i>Use "Add Task" to create new tasks.</i>
 ━━━━━━━━━━━━━━━━━━━━`;
     }
@@ -477,7 +593,7 @@ Select a task to view details:`;
         buttons.push([
             Markup.button.callback(
                 `${datePrefix} - ${t.title}`, 
-                `task_det_${t.taskId}`
+                `task_det_next_${t.taskId}` // Different action for next occurrence view
             )
         ]);
     });
@@ -486,16 +602,9 @@ Select a task to view details:`;
         Markup.button.callback('📋 View Today\'s Tasks', 'view_today_tasks'),
         Markup.button.callback('➕ Add Task', 'add_task')
     ]);
-    buttons.push([Markup.button.callback('🏠 Main Menu', 'main_menu')]);
+    buttons.push([Markup.button.callback('🔙 Back', 'main_menu')]);
 
     await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
-});
-
-// View All Tasks (for the old view_tasks button - shows today's tasks)
-bot.action(/^view_tasks_(\d+)$/, async (ctx) => {
-    // Redirect to today's tasks view
-    await ctx.answerCbQuery('Redirecting to Today\'s Tasks...');
-    await showMainMenu(ctx);
 });
 
 // ==========================================
@@ -532,7 +641,7 @@ bot.action('add_note', async (ctx) => {
 });
 
 // ==========================================
-// 📨 TEXT INPUT HANDLER (FIXED NOTE EDITING)
+// 📨 TEXT INPUT HANDLER (FIXED NOTE EDITING & TIMEZONE)
 // ==========================================
 
 bot.on('text', async (ctx) => {
@@ -582,10 +691,11 @@ bot.on('text', async (ctx) => {
             return ctx.reply('❌ Invalid date. Please check the day, month, and year.');
         }
         
-        // Check if date is in the past
-        const today = getTodayIST();
+        // Check if date is in the past (in IST)
+        const now = new Date();
+        const nowIST = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
         date.setHours(0, 0, 0, 0);
-        if (date < today) {
+        if (date < new Date(nowIST.getFullYear(), nowIST.getMonth(), nowIST.getDate())) {
             return ctx.reply('❌ Date cannot be in the past. Please select today or a future date.');
         }
         
@@ -612,16 +722,19 @@ bot.on('text', async (ctx) => {
         const [h, m] = text.split(':').map(Number);
         const { year, month, day } = ctx.session.task;
         
-        // Create date in local timezone (will be treated as IST)
-        const startDate = new Date(year, month - 1, day, h, m, 0);
+        // Create IST date using corrected function
+        const startDate = createISTDate(year, month, day, h, m);
         
-        // Check if time is in the past for today's date
+        // Check if time is in the past for today's date (IST comparison)
         const now = new Date();
-        if (isSameDay(startDate, now)) {
-            const currentTime = now.getHours() * 60 + now.getMinutes();
-            const startTime = h * 60 + m;
+        const nowIST = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
+        const startDateIST = new Date(startDate.getTime() + (5.5 * 60 * 60 * 1000));
+        
+        if (isSameDay(startDateIST, nowIST)) {
+            const currentTimeIST = nowIST.getHours() * 60 + nowIST.getMinutes();
+            const startTimeIST = startDateIST.getHours() * 60 + startDateIST.getMinutes();
             
-            if (startTime <= currentTime) {
+            if (startTimeIST <= currentTimeIST) {
                 return ctx.reply('❌ Start time is in the past. Please enter a future time.');
             }
         }
@@ -649,9 +762,9 @@ bot.on('text', async (ctx) => {
         const [eh, em] = text.split(':').map(Number);
         const { year, month, day } = ctx.session.task;
         
-        // Create dates
-        const startDate = new Date(year, month - 1, day, sh, sm, 0);
-        const endDate = new Date(year, month - 1, day, eh, em, 0);
+        // Create IST dates using corrected function
+        const startDate = createISTDate(year, month, day, sh, sm);
+        const endDate = createISTDate(year, month, day, eh, em);
         
         if (endDate <= startDate) {
             return ctx.reply('❌ End time must be after Start time.');
@@ -752,16 +865,22 @@ bot.on('text', async (ctx) => {
              
             const task = await db.collection('tasks').findOne({ taskId });
             const dateObj = new Date(field === 'start' ? task.startDate : task.endDate);
+            
+            // Convert to IST to get current date components
+            const dateObjIST = new Date(dateObj.getTime() + (5.5 * 60 * 60 * 1000));
+            const year = dateObjIST.getUTCFullYear();
+            const month = dateObjIST.getUTCMonth() + 1;
+            const day = dateObjIST.getUTCDate();
             const [h, m] = text.split(':').map(Number);
             
-            // Update only hours and minutes
-            dateObj.setHours(h, m, 0, 0);
+            // Create new IST date
+            const newDate = createISTDate(year, month, day, h, m);
              
-            updates[field === 'start' ? 'startDate' : 'endDate'] = dateObj;
+            updates[field === 'start' ? 'startDate' : 'endDate'] = newDate;
             
             // If updating start time, also update nextOccurrence
             if (field === 'start') {
-                updates.nextOccurrence = dateObj;
+                updates.nextOccurrence = newDate;
             }
         }
 
@@ -797,14 +916,16 @@ bot.on('text', async (ctx) => {
         if (text.length === 0) return ctx.reply('❌ Title cannot be empty.');
         
         try {
+            const noteId = ctx.session.editNoteId;
             await db.collection('notes').updateOne(
-                { noteId: ctx.session.editNoteId }, 
+                { noteId: noteId }, 
                 { $set: { title: text, updatedAt: new Date() } }
             );
             ctx.session.step = null;
+            delete ctx.session.editNoteId;
             
             // Show updated note
-            const updatedNote = await db.collection('notes').findOne({ noteId: ctx.session.editNoteId });
+            const updatedNote = await db.collection('notes').findOne({ noteId: noteId });
             await ctx.reply(
                 `✅ <b>NOTE TITLE UPDATED!</b>\n\n` +
                 `━━━━━━━━━━━━━━━━━━━━\n` +
@@ -825,14 +946,16 @@ bot.on('text', async (ctx) => {
         }
         
         try {
+            const noteId = ctx.session.editNoteId;
             await db.collection('notes').updateOne(
-                { noteId: ctx.session.editNoteId }, 
+                { noteId: noteId }, 
                 { $set: { content: text, updatedAt: new Date() } }
             );
             ctx.session.step = null;
+            delete ctx.session.editNoteId;
             
             // Show updated note
-            const updatedNote = await db.collection('notes').findOne({ noteId: ctx.session.editNoteId });
+            const updatedNote = await db.collection('notes').findOne({ noteId: noteId });
             await ctx.reply(
                 `✅ <b>NOTE CONTENT UPDATED!</b>\n\n` +
                 `━━━━━━━━━━━━━━━━━━━━\n` +
@@ -907,7 +1030,7 @@ async function saveTask(ctx) {
 ${formatBlockquote(task.description)}
 
 📅 <b>Date:</b> ${formatDate(task.startDate)}
-⏰ <b>Time:</b> ${formatTime(task.startDate)} - ${formatTime(task.endDate)}
+⏰ <b>Time:</b> ${task.startTimeStr} - ${formatTime(task.endDate)}
 🔄 <b>Repeat:</b> ${task.repeat} (${task.repeatCount || 0} times)
 📊 <b>Status:</b> ⏳ Pending
 
@@ -916,8 +1039,8 @@ ${formatBlockquote(task.description)}
                 
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback('📋 View Today\'s Tasks', 'view_today_tasks')],
-            [Markup.button.callback('📅 View Next Tasks', 'view_next_tasks')],
-            [Markup.button.callback('🏠 Main Menu', 'main_menu')]
+            [Markup.button.callback('📅 View All Tasks', 'view_all_tasks')],
+            [Markup.button.callback('🔙 Back', 'main_menu')]
         ]);
         
         await safeEdit(ctx, msg, keyboard);
@@ -927,18 +1050,23 @@ ${formatBlockquote(task.description)}
     }
 }
 
-// --- TASK DETAILS ---
+// --- TASK DETAILS (from Today's Tasks) ---
 bot.action(/^task_det_(.+)$/, async (ctx) => {
-    await showTaskDetail(ctx, ctx.match[1]);
+    await showTaskDetail(ctx, ctx.match[1], false);
 });
 
-async function showTaskDetail(ctx, taskId) {
+// --- TASK DETAILS (from All Tasks) - WITHOUT COMPLETE BUTTON ---
+bot.action(/^task_det_next_(.+)$/, async (ctx) => {
+    await showTaskDetail(ctx, ctx.match[1], true);
+});
+
+async function showTaskDetail(ctx, taskId, fromNextView = false) {
     const task = await db.collection('tasks').findOne({ taskId });
     if (!task) {
         const text = '❌ <b>TASK NOT FOUND</b>\n\nThis task may have been completed or deleted.';
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback('📋 View Today\'s Tasks', 'view_today_tasks')],
-            [Markup.button.callback('🏠 Main Menu', 'main_menu')]
+            [Markup.button.callback('🔙 Back', fromNextView ? 'view_all_tasks' : 'view_today_tasks')]
         ]);
         return safeEdit(ctx, text, keyboard);
     }
@@ -961,18 +1089,24 @@ ${formatBlockquote(task.description)}
 📝 <b>Created:</b> ${formatDateTime(task.createdAt)}
 ━━━━━━━━━━━━━━━━━━━━`;
 
-    const buttons = [
-        [Markup.button.callback('✅ Mark as Complete', `complete_${taskId}`)],
-        [
-            Markup.button.callback('✏️ Edit', `edit_menu_${taskId}`), 
-            Markup.button.callback('🗑️ Delete', `delete_task_${taskId}`)
-        ],
-        [
-            Markup.button.callback('📋 View Today\'s Tasks', 'view_today_tasks'),
-            Markup.button.callback('📅 View Next Tasks', 'view_next_tasks')
-        ],
-        [Markup.button.callback('🏠 Main Menu', 'main_menu')]
-    ];
+    const buttons = [];
+    
+    // Only show Complete button if NOT from "All Tasks" view
+    if (!fromNextView) {
+        buttons.push([Markup.button.callback('✅ Mark as Complete', `complete_${taskId}`)]);
+    }
+    
+    buttons.push([
+        Markup.button.callback('✏️ Edit', `edit_menu_${taskId}`), 
+        Markup.button.callback('🗑️ Delete', `delete_task_${taskId}`)
+    ]);
+    
+    buttons.push([
+        Markup.button.callback('📋 View Today\'s Tasks', 'view_today_tasks'),
+        Markup.button.callback('📅 View All Tasks', 'view_all_tasks')
+    ]);
+    
+    buttons.push([Markup.button.callback('🔙 Back', fromNextView ? 'view_all_tasks' : 'view_today_tasks')]);
     
     await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
 }
@@ -1110,7 +1244,7 @@ bot.action(/^set_rep_(.+)_(.+)$/, async (ctx) => {
     
     await db.collection('tasks').updateOne({ taskId }, { $set: updates });
     await ctx.answerCbQuery(`✅ Updated to ${mode}`);
-    await showTaskDetail(ctx, taskId);
+    await showTaskDetail(ctx, taskId, false);
 });
 
 // --- DELETE TASK ---
@@ -1138,21 +1272,27 @@ bot.action(/^view_history_dates_(\d+)$/, async (ctx) => {
     const dates = await db.collection('history').aggregate([
         { $match: { userId } },
         { $group: { 
-            _id: { $dateToString: { format: "%Y-%m-%d", date: "$completedAt", timezone: "Asia/Kolkata" } },
+            _id: { 
+                year: { $year: "$completedAt" },
+                month: { $month: "$completedAt" },
+                day: { $dayOfMonth: "$completedAt" }
+            },
             count: { $sum: 1 }
         }},
-        { $sort: { _id: -1 } },
+        { $sort: { "_id.year": -1, "_id.month": -1, "_id.day": -1 } },
         { $skip: (page - 1) * 5 },
         { $limit: 5 }
     ]).toArray();
 
     const text = `📜 <b>COMPLETED TASKS HISTORY</b>\n\n━━━━━━━━━━━━━━━━━━━━\nSelect a date to view:`;
     
-    const buttons = dates.map(d => [
-        Markup.button.callback(`📅 ${formatDate(new Date(d._id))} (${d.count})`, `hist_list_${d._id}_1`)
-    ]);
+    const buttons = dates.map(d => {
+        const dateStr = `${d._id.year}-${String(d._id.month).padStart(2, '0')}-${String(d._id.day).padStart(2, '0')}`;
+        const date = new Date(d._id.year, d._id.month - 1, d._id.day);
+        return [Markup.button.callback(`📅 ${formatDate(date)} (${d.count})`, `hist_list_${dateStr}_1`)];
+    });
     
-    buttons.push([Markup.button.callback('🏠 Main Menu', 'main_menu')]);
+    buttons.push([Markup.button.callback('🔙 Back', 'main_menu')]);
     
     await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
 });
@@ -1162,14 +1302,19 @@ bot.action(/^hist_list_([\d-]+)_(\d+)$/, async (ctx) => {
     const page = parseInt(ctx.match[2]);
     const userId = ctx.from.id;
 
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const startDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
+    const endDate = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
+
     const tasks = await db.collection('history').find({
         userId: userId,
-        $expr: {
-            $eq: [{ $dateToString: { format: "%Y-%m-%d", date: "$completedAt", timezone: "Asia/Kolkata" } }, dateStr]
+        completedAt: {
+            $gte: startDate,
+            $lt: endDate
         }
     }).sort({ completedAt: -1 }).skip((page - 1) * 5).limit(5).toArray();
 
-    const date = new Date(dateStr);
+    const date = new Date(year, month - 1, day);
     const text = `📅 <b>COMPLETED ON ${formatDate(date).toUpperCase()}</b>\n\n━━━━━━━━━━━━━━━━━━━━\nSelect a task to view details:`;
     
     const buttons = tasks.map(t => [
@@ -1227,7 +1372,7 @@ bot.action(/^view_notes_(\d+)$/, async (ctx) => {
         Markup.button.callback(`📄 ${n.title}`, `note_det_${n.noteId}`)
     ]);
     
-    buttons.push([Markup.button.callback('🏠 Main Menu', 'main_menu')]);
+    buttons.push([Markup.button.callback('🔙 Back', 'main_menu')]);
     
     await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
 });
@@ -1276,8 +1421,8 @@ bot.action(/^edit_note_(.+)$/, async (ctx) => {
     const text = `✏️ <b>EDIT NOTE</b>\n\n━━━━━━━━━━━━━━━━━━━━\nSelect what you want to edit:`;
     const keyboard = Markup.inlineKeyboard([
         [
-            Markup.button.callback('📝 Title', 'edit_note_title_action'), 
-            Markup.button.callback('📄 Content', 'edit_note_content_action')
+            Markup.button.callback('📝 Title', `edit_note_title_action`), 
+            Markup.button.callback('📄 Content', `edit_note_content_action`)
         ],
         [Markup.button.callback('🔙 Back', `note_det_${ctx.match[1]}`)]
     ]);
@@ -1324,7 +1469,7 @@ bot.action('download_menu', async (ctx) => {
         [Markup.button.callback('📜 History', 'download_history')],
         [Markup.button.callback('🗒️ Notes', 'download_notes')],
         [Markup.button.callback('📦 All Data (3 files)', 'download_all')],
-        [Markup.button.callback('🏠 Main Menu', 'main_menu')]
+        [Markup.button.callback('🔙 Back', 'main_menu')]
     ]);
     
     await safeEdit(ctx, text, keyboard);
@@ -1405,7 +1550,7 @@ bot.action('delete_menu', async (ctx) => {
         [Markup.button.callback('📜 Delete All History', 'delete_history_confirm')],
         [Markup.button.callback('🗒️ Delete All Notes', 'delete_notes_confirm')],
         [Markup.button.callback('🔥 Delete EVERYTHING', 'delete_all_confirm')],
-        [Markup.button.callback('🏠 Main Menu', 'main_menu')]
+        [Markup.button.callback('🔙 Back', 'main_menu')]
     ]);
     
     await safeEdit(ctx, text, keyboard);
@@ -1449,7 +1594,7 @@ bot.action('delete_tasks_final', async (ctx) => {
         const successText = `✅ <b>DELETION COMPLETE</b>\n\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Deleted ${result.deletedCount} tasks\n📁 Backup file has been sent\n━━━━━━━━━━━━━━━━━━━━`;
         
         const keyboard = Markup.inlineKeyboard([
-            [Markup.button.callback('🏠 Main Menu', 'main_menu')]
+            [Markup.button.callback('🔙 Back to Main Menu', 'main_menu')]
         ]);
         
         await safeEdit(ctx, successText, keyboard);
@@ -1496,7 +1641,7 @@ bot.action('delete_history_final', async (ctx) => {
         const successText = `✅ <b>DELETION COMPLETE</b>\n\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Deleted ${result.deletedCount} history items\n📁 Backup file has been sent\n━━━━━━━━━━━━━━━━━━━━`;
         
         const keyboard = Markup.inlineKeyboard([
-            [Markup.button.callback('🏠 Main Menu', 'main_menu')]
+            [Markup.button.callback('🔙 Back to Main Menu', 'main_menu')]
         ]);
         
         await safeEdit(ctx, successText, keyboard);
@@ -1543,7 +1688,7 @@ bot.action('delete_notes_final', async (ctx) => {
         const successText = `✅ <b>DELETION COMPLETE</b>\n\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Deleted ${result.deletedCount} notes\n📁 Backup file has been sent\n━━━━━━━━━━━━━━━━━━━━`;
         
         const keyboard = Markup.inlineKeyboard([
-            [Markup.button.callback('🏠 Main Menu', 'main_menu')]
+            [Markup.button.callback('🔙 Back to Main Menu', 'main_menu')]
         ]);
         
         await safeEdit(ctx, successText, keyboard);
@@ -1619,7 +1764,7 @@ bot.action('delete_all_final', async (ctx) => {
         const successText = `✅ <b>COMPLETE DELETION</b>\n\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Deleted ${totalDeleted} items total\n📁 3 backup files have been sent\n🔔 All notifications cancelled\n━━━━━━━━━━━━━━━━━━━━`;
         
         const keyboard = Markup.inlineKeyboard([
-            [Markup.button.callback('🏠 Main Menu', 'main_menu')]
+            [Markup.button.callback('🔙 Back to Main Menu', 'main_menu')]
         ]);
         
         await safeEdit(ctx, successText, keyboard);
@@ -1638,10 +1783,26 @@ async function start() {
     try {
         if (await connectDB()) {
             await rescheduleAllPending();
+            
+            // Start hourly summary scheduler
+            scheduleHourlySummary();
+            
             await bot.launch();
             console.log('🤖 Bot Started Successfully!');
             console.log(`⏰ Current IST Time: ${getCurrentIST()}`);
             console.log(`📊 Currently tracking ${activeSchedules.size} tasks`);
+            
+            // Send initial hourly summary to all users
+            setTimeout(async () => {
+                try {
+                    const users = await db.collection('tasks').distinct('userId');
+                    for (const userId of users) {
+                        await sendHourlySummary(userId);
+                    }
+                } catch (error) {
+                    console.error('Error sending initial summary:', error);
+                }
+            }, 5000);
             
             // Set up keep-alive for Railway
             const PORT = process.env.PORT || 3000;
@@ -1676,6 +1837,11 @@ process.once('SIGINT', () => {
         if (schedule.interval) clearInterval(schedule.interval);
     }
     
+    // Cancel hourly summary job
+    if (hourlySummaryJob) {
+        hourlySummaryJob.cancel();
+    }
+    
     bot.stop('SIGINT');
     if (client) client.close();
     console.log('👋 Bot stopped gracefully');
@@ -1689,6 +1855,11 @@ process.once('SIGTERM', () => {
     for (const [taskId, schedule] of activeSchedules) {
         if (schedule.startJob) schedule.startJob.cancel();
         if (schedule.interval) clearInterval(schedule.interval);
+    }
+    
+    // Cancel hourly summary job
+    if (hourlySummaryJob) {
+        hourlySummaryJob.cancel();
     }
     
     bot.stop('SIGTERM');
