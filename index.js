@@ -167,9 +167,11 @@ async function connectDB() {
         await db.collection('tasks').createIndex({ userId: 1, status: 1 });
         await db.collection('tasks').createIndex({ taskId: 1 }, { unique: true });
         await db.collection('tasks').createIndex({ userId: 1, nextOccurrence: 1 });
+        await db.collection('tasks').createIndex({ userId: 1, orderIndex: 1 });
         await db.collection('history').createIndex({ userId: 1, completedAt: -1 });
         await db.collection('notes').createIndex({ userId: 1 });
         await db.collection('notes').createIndex({ noteId: 1 }, { unique: true });
+        await db.collection('notes').createIndex({ userId: 1, orderIndex: 1 });
         
         return true;
     } catch (error) {
@@ -338,7 +340,7 @@ async function sendHourlySummary(userId) {
             }
         }).sort({ completedAt: 1 }).toArray();
         
-        // Get pending tasks for today
+        // Get pending tasks for today (sorted by orderIndex, then nextOccurrence)
         const pendingTasks = await db.collection('tasks').find({
             userId: userId,
             status: 'pending',
@@ -346,7 +348,7 @@ async function sendHourlySummary(userId) {
                 $gte: todayIST,
                 $lt: tomorrowIST
             }
-        }).sort({ nextOccurrence: 1 }).toArray();
+        }).sort({ orderIndex: 1, nextOccurrence: 1 }).toArray();
         
         let summaryText = `
 🕰️ <b>𝗛𝗔𝗟𝗙 𝗛𝗢𝗨𝗥𝗟𝗬 𝗦𝗨𝗠𝗠𝗔𝗥𝗬</b>
@@ -411,7 +413,7 @@ function scheduleHourlySummary() {
 }
 
 // ==========================================
-// 📱 MAIN MENU & START
+// 📱 MAIN MENU & START (WITH REORDER BUTTONS)
 // ==========================================
 
 bot.command('start', async (ctx) => {
@@ -436,6 +438,10 @@ bot.command('start', async (ctx) => {
         [
             Markup.button.callback('📜 History', 'view_history_dates_1'),
             Markup.button.callback('🗒️ Notes', 'view_notes_1')
+        ],
+        [
+            Markup.button.callback('🔄 Reorder Tasks', 'reorder_tasks_menu'),
+            Markup.button.callback('🔄 Reorder Notes', 'reorder_notes_menu')
         ],
         [
             Markup.button.callback('📥 Download', 'download_menu'),
@@ -474,6 +480,10 @@ async function showMainMenu(ctx) {
             Markup.button.callback('🗒️ Notes', 'view_notes_1')
         ],
         [
+            Markup.button.callback('🔄 Reorder Tasks', 'reorder_tasks_menu'),
+            Markup.button.callback('🔄 Reorder Notes', 'reorder_notes_menu')
+        ],
+        [
             Markup.button.callback('📥 Download', 'download_menu'),
             Markup.button.callback('🗑️ Delete', 'delete_menu')
         ]
@@ -483,7 +493,7 @@ async function showMainMenu(ctx) {
 }
 
 // ==========================================
-// 📅 TASK VIEWS - FIXED
+// 📅 TASK VIEWS - FIXED (SHOW ONLY TITLE)
 // ==========================================
 
 // View Today's Tasks (Pending only, nextOccurrence is today)
@@ -492,6 +502,7 @@ bot.action('view_today_tasks', async (ctx) => {
     const today = getTodayIST();
     const tomorrow = getTomorrowIST();
     
+    // Get tasks sorted by orderIndex (priority), then by time
     const tasks = await db.collection('tasks')
         .find({ 
             userId: userId,
@@ -501,7 +512,7 @@ bot.action('view_today_tasks', async (ctx) => {
                 $lt: tomorrow
             }
         })
-        .sort({ nextOccurrence: 1 })
+        .sort({ orderIndex: 1, nextOccurrence: 1 })
         .toArray();
 
     let text = `
@@ -525,10 +536,11 @@ Select a task to view details:`;
     }
 
     const buttons = [];
-    tasks.forEach(t => {
+    tasks.forEach((t, index) => {
+        // Show only task title in button
         buttons.push([
             Markup.button.callback(
-                `⏰ ${formatTime(t.nextOccurrence)} ‧ ${t.title}`, 
+                `${index + 1}. ${t.title}`, 
                 `task_det_${t.taskId}`
             )
         ]);
@@ -760,6 +772,15 @@ bot.on('text', async (ctx) => {
         ctx.session.note.createdAt = new Date();
         
         try {
+            // Get current highest orderIndex for notes
+            const highestNote = await db.collection('notes').findOne(
+                { userId: ctx.from.id },
+                { sort: { orderIndex: -1 } }
+            );
+            const nextOrderIndex = highestNote ? highestNote.orderIndex + 1 : 0;
+            
+            ctx.session.note.orderIndex = nextOrderIndex;
+            
             // Save note data to variables before clearing session
             const noteTitle = ctx.session.note.title;
             const noteContent = ctx.session.note.content;
@@ -1064,9 +1085,17 @@ bot.action('repeat_weekly', async (ctx) => {
 async function saveTask(ctx) {
     const task = ctx.session.task;
     
+    // Get current highest orderIndex for tasks
+    const highestTask = await db.collection('tasks').findOne(
+        { userId: task.userId },
+        { sort: { orderIndex: -1 } }
+    );
+    const nextOrderIndex = highestTask ? highestTask.orderIndex + 1 : 0;
+    
     // Ensure required fields
     task.status = 'pending';
     task.createdAt = new Date();
+    task.orderIndex = nextOrderIndex; // Add order index
     if (!task.nextOccurrence) {
         task.nextOccurrence = task.startDate;
     }
@@ -1130,6 +1159,7 @@ ${formatBlockquote(task.description)}
 ⏰ <b>Time:</b> ${formatTime(task.startDate)} - ${formatTime(task.endDate)}
 🔄 <b>Repeat:</b> ${task.repeat === 'none' ? 'No Repeat' : task.repeat} 
 🔢 <b>Remaining Repeats:</b> ${task.repeatCount || 0}
+🏷️ <b>Priority Order:</b> ${task.orderIndex + 1}
 📊 <b>Status:</b> ${task.status === 'pending' ? '⏳ Pending' : '✅ Completed'}
 
 📝 <b>Created:</b> ${formatDateTime(task.createdAt)}
@@ -1380,6 +1410,574 @@ bot.action(/^delete_task_(.+)$/, async (ctx) => {
 });
 
 // ==========================================
+// 🔄 REORDER TASKS SYSTEM
+// ==========================================
+
+bot.action('reorder_tasks_menu', async (ctx) => {
+    const userId = ctx.from.id;
+    
+    try {
+        // Get today's tasks for reordering
+        const today = getTodayIST();
+        const tomorrow = getTomorrowIST();
+        
+        const tasks = await db.collection('tasks')
+            .find({ 
+                userId: userId,
+                status: 'pending',
+                nextOccurrence: { 
+                    $gte: today,
+                    $lt: tomorrow
+                }
+            })
+            .sort({ orderIndex: 1, nextOccurrence: 1 })
+            .toArray();
+
+        if (tasks.length === 0) {
+            await ctx.answerCbQuery('📭 No tasks to reorder for today');
+            return;
+        }
+
+        if (tasks.length === 1) {
+            await ctx.answerCbQuery('❌ Need at least 2 tasks to reorder');
+            return;
+        }
+        
+        let text = '<b>🔼🔽 Reorder Today\'s Tasks</b>\n\n';
+        text += 'Select a task to move:\n\n';
+        
+        const keyboard = [];
+        
+        tasks.forEach((task, index) => {
+            keyboard.push([{ 
+                text: `${index + 1}. ${task.title}`, 
+                callback_data: `reorder_task_select_${task.taskId}` 
+            }]);
+        });
+        
+        keyboard.push([{ text: '🔙 Back to Main Menu', callback_data: 'main_menu' }]);
+        
+        await safeEdit(ctx, text, {
+            reply_markup: { inline_keyboard: keyboard }
+        });
+    } catch (error) {
+        console.error('Reorder tasks menu error:', error);
+        await ctx.answerCbQuery('❌ An error occurred.');
+    }
+});
+
+bot.action(/^reorder_task_select_(.+)$/, async (ctx) => {
+    try {
+        const taskId = ctx.match[1];
+        const userId = ctx.from.id;
+        
+        // Get all tasks for today
+        const today = getTodayIST();
+        const tomorrow = getTomorrowIST();
+        
+        const tasks = await db.collection('tasks')
+            .find({ 
+                userId: userId,
+                status: 'pending',
+                nextOccurrence: { 
+                    $gte: today,
+                    $lt: tomorrow
+                }
+            })
+            .sort({ orderIndex: 1, nextOccurrence: 1 })
+            .toArray();
+        
+        const selectedIndex = tasks.findIndex(t => t.taskId === taskId);
+        
+        if (selectedIndex === -1) {
+            await ctx.answerCbQuery('❌ Task not found');
+            return;
+        }
+        
+        // Store selected task info in session
+        ctx.session.reorderTask = {
+            selectedTaskId: taskId,
+            selectedIndex: selectedIndex,
+            tasks: tasks
+        };
+        
+        // Display current order with selected task highlighted
+        let text = '<b>🔼🔽 Reorder Today\'s Tasks</b>\n\n';
+        text += 'Current order (selected task is highlighted):\n\n';
+        
+        tasks.forEach((task, index) => {
+            if (index === selectedIndex) {
+                text += `<blockquote>${index + 1}. ${task.title}</blockquote>\n`;
+            } else {
+                text += `${index + 1}. ${task.title}\n`;
+            }
+        });
+        
+        const keyboard = [];
+        
+        // Show move buttons only if applicable
+        if (selectedIndex > 0) {
+            keyboard.push([{ text: '🔼 Move Up', callback_data: 'reorder_task_up' }]);
+        }
+        
+        if (selectedIndex < tasks.length - 1) {
+            if (selectedIndex > 0) {
+                // If both buttons exist, put them in same row
+                keyboard[keyboard.length - 1].push({ text: '🔽 Move Down', callback_data: 'reorder_task_down' });
+            } else {
+                keyboard.push([{ text: '🔽 Move Down', callback_data: 'reorder_task_down' }]);
+            }
+        }
+        
+        keyboard.push([{ text: '✅ Save Order', callback_data: 'reorder_task_save' }, { text: '🔙 Back', callback_data: 'reorder_tasks_menu' }]);
+        
+        await safeEdit(ctx, text, {
+            reply_markup: { inline_keyboard: keyboard },
+            parse_mode: 'HTML'
+        });
+        
+    } catch (error) {
+        console.error('Select task for reorder error:', error);
+        await ctx.answerCbQuery('❌ Error');
+    }
+});
+
+bot.action('reorder_task_up', async (ctx) => {
+    try {
+        if (!ctx.session.reorderTask) {
+            await ctx.answerCbQuery('❌ Session expired');
+            return;
+        }
+        
+        const selectedIndex = ctx.session.reorderTask.selectedIndex;
+        const tasks = [...ctx.session.reorderTask.tasks];
+        
+        if (selectedIndex <= 0) {
+            await ctx.answerCbQuery('❌ Already at top');
+            return;
+        }
+        
+        // Swap with previous task
+        const temp = tasks[selectedIndex];
+        tasks[selectedIndex] = tasks[selectedIndex - 1];
+        tasks[selectedIndex - 1] = temp;
+        
+        // Update selected index
+        ctx.session.reorderTask.selectedIndex = selectedIndex - 1;
+        ctx.session.reorderTask.tasks = tasks;
+        
+        // Redisplay with new order
+        let text = '<b>🔼🔽 Reorder Today\'s Tasks</b>\n\n';
+        text += 'Current order (selected task is highlighted):\n\n';
+        
+        tasks.forEach((task, index) => {
+            if (index === ctx.session.reorderTask.selectedIndex) {
+                text += `<blockquote>${index + 1}. ${task.title}</blockquote>\n`;
+            } else {
+                text += `${index + 1}. ${task.title}\n`;
+            }
+        });
+        
+        const keyboard = [];
+        const newIndex = ctx.session.reorderTask.selectedIndex;
+        
+        if (newIndex > 0) {
+            keyboard.push([{ text: '🔼 Move Up', callback_data: 'reorder_task_up' }]);
+        }
+        
+        if (newIndex < tasks.length - 1) {
+            if (newIndex > 0) {
+                keyboard[keyboard.length - 1].push({ text: '🔽 Move Down', callback_data: 'reorder_task_down' });
+            } else {
+                keyboard.push([{ text: '🔽 Move Down', callback_data: 'reorder_task_down' }]);
+            }
+        }
+        
+        keyboard.push([{ text: '✅ Save Order', callback_data: 'reorder_task_save' }, { text: '🔙 Back', callback_data: 'reorder_tasks_menu' }]);
+        
+        await safeEdit(ctx, text, {
+            reply_markup: { inline_keyboard: keyboard },
+            parse_mode: 'HTML'
+        });
+        
+        await ctx.answerCbQuery('✅ Moved up');
+        
+    } catch (error) {
+        console.error('Move task up error:', error);
+        await ctx.answerCbQuery('❌ Error');
+    }
+});
+
+bot.action('reorder_task_down', async (ctx) => {
+    try {
+        if (!ctx.session.reorderTask) {
+            await ctx.answerCbQuery('❌ Session expired');
+            return;
+        }
+        
+        const selectedIndex = ctx.session.reorderTask.selectedIndex;
+        const tasks = [...ctx.session.reorderTask.tasks];
+        
+        if (selectedIndex >= tasks.length - 1) {
+            await ctx.answerCbQuery('❌ Already at bottom');
+            return;
+        }
+        
+        // Swap with next task
+        const temp = tasks[selectedIndex];
+        tasks[selectedIndex] = tasks[selectedIndex + 1];
+        tasks[selectedIndex + 1] = temp;
+        
+        // Update selected index
+        ctx.session.reorderTask.selectedIndex = selectedIndex + 1;
+        ctx.session.reorderTask.tasks = tasks;
+        
+        // Redisplay with new order
+        let text = '<b>🔼🔽 Reorder Today\'s Tasks</b>\n\n';
+        text += 'Current order (selected task is highlighted):\n\n';
+        
+        tasks.forEach((task, index) => {
+            if (index === ctx.session.reorderTask.selectedIndex) {
+                text += `<blockquote>${index + 1}. ${task.title}</blockquote>\n`;
+            } else {
+                text += `${index + 1}. ${task.title}\n`;
+            }
+        });
+        
+        const keyboard = [];
+        const newIndex = ctx.session.reorderTask.selectedIndex;
+        
+        if (newIndex > 0) {
+            keyboard.push([{ text: '🔼 Move Up', callback_data: 'reorder_task_up' }]);
+        }
+        
+        if (newIndex < tasks.length - 1) {
+            if (newIndex > 0) {
+                keyboard[keyboard.length - 1].push({ text: '🔽 Move Down', callback_data: 'reorder_task_down' });
+            } else {
+                keyboard.push([{ text: '🔽 Move Down', callback_data: 'reorder_task_down' }]);
+            }
+        }
+        
+        keyboard.push([{ text: '✅ Save Order', callback_data: 'reorder_task_save' }, { text: '🔙 Back', callback_data: 'reorder_tasks_menu' }]);
+        
+        await safeEdit(ctx, text, {
+            reply_markup: { inline_keyboard: keyboard },
+            parse_mode: 'HTML'
+        });
+        
+        await ctx.answerCbQuery('✅ Moved down');
+        
+    } catch (error) {
+        console.error('Move task down error:', error);
+        await ctx.answerCbQuery('❌ Error');
+    }
+});
+
+bot.action('reorder_task_save', async (ctx) => {
+    try {
+        if (!ctx.session.reorderTask) {
+            await ctx.answerCbQuery('❌ Session expired');
+            return;
+        }
+        
+        const tasks = ctx.session.reorderTask.tasks;
+        const userId = ctx.from.id;
+        
+        // Update orderIndex for all tasks
+        for (let i = 0; i < tasks.length; i++) {
+            await db.collection('tasks').updateOne(
+                { taskId: tasks[i].taskId, userId: userId },
+                { $set: { orderIndex: i } }
+            );
+        }
+        
+        // Clear session
+        delete ctx.session.reorderTask;
+        
+        await ctx.answerCbQuery('✅ Task order saved!');
+        await showMainMenu(ctx);
+        
+    } catch (error) {
+        console.error('Save task order error:', error);
+        await ctx.answerCbQuery('❌ Failed to save order');
+    }
+});
+
+// ==========================================
+// 🔄 REORDER NOTES SYSTEM
+// ==========================================
+
+bot.action('reorder_notes_menu', async (ctx) => {
+    const userId = ctx.from.id;
+    
+    try {
+        const notes = await db.collection('notes')
+            .find({ userId: userId })
+            .sort({ orderIndex: 1, createdAt: -1 })
+            .toArray();
+
+        if (notes.length === 0) {
+            await ctx.answerCbQuery('📭 No notes to reorder');
+            return;
+        }
+
+        if (notes.length === 1) {
+            await ctx.answerCbQuery('❌ Need at least 2 notes to reorder');
+            return;
+        }
+        
+        let text = '<b>🔼🔽 Reorder Notes</b>\n\n';
+        text += 'Select a note to move:\n\n';
+        
+        const keyboard = [];
+        
+        notes.forEach((note, index) => {
+            keyboard.push([{ 
+                text: `${index + 1}. ${note.title}`, 
+                callback_data: `reorder_note_select_${note.noteId}` 
+            }]);
+        });
+        
+        keyboard.push([{ text: '🔙 Back to Main Menu', callback_data: 'main_menu' }]);
+        
+        await safeEdit(ctx, text, {
+            reply_markup: { inline_keyboard: keyboard }
+        });
+    } catch (error) {
+        console.error('Reorder notes menu error:', error);
+        await ctx.answerCbQuery('❌ An error occurred.');
+    }
+});
+
+bot.action(/^reorder_note_select_(.+)$/, async (ctx) => {
+    try {
+        const noteId = ctx.match[1];
+        const userId = ctx.from.id;
+        
+        const notes = await db.collection('notes')
+            .find({ userId: userId })
+            .sort({ orderIndex: 1, createdAt: -1 })
+            .toArray();
+        
+        const selectedIndex = notes.findIndex(n => n.noteId === noteId);
+        
+        if (selectedIndex === -1) {
+            await ctx.answerCbQuery('❌ Note not found');
+            return;
+        }
+        
+        // Store selected note info in session
+        ctx.session.reorderNote = {
+            selectedNoteId: noteId,
+            selectedIndex: selectedIndex,
+            notes: notes
+        };
+        
+        // Display current order with selected note highlighted
+        let text = '<b>🔼🔽 Reorder Notes</b>\n\n';
+        text += 'Current order (selected note is highlighted):\n\n';
+        
+        notes.forEach((note, index) => {
+            if (index === selectedIndex) {
+                text += `<blockquote>${index + 1}. ${note.title}</blockquote>\n`;
+            } else {
+                text += `${index + 1}. ${note.title}\n`;
+            }
+        });
+        
+        const keyboard = [];
+        
+        // Show move buttons only if applicable
+        if (selectedIndex > 0) {
+            keyboard.push([{ text: '🔼 Move Up', callback_data: 'reorder_note_up' }]);
+        }
+        
+        if (selectedIndex < notes.length - 1) {
+            if (selectedIndex > 0) {
+                // If both buttons exist, put them in same row
+                keyboard[keyboard.length - 1].push({ text: '🔽 Move Down', callback_data: 'reorder_note_down' });
+            } else {
+                keyboard.push([{ text: '🔽 Move Down', callback_data: 'reorder_note_down' }]);
+            }
+        }
+        
+        keyboard.push([{ text: '✅ Save Order', callback_data: 'reorder_note_save' }, { text: '🔙 Back', callback_data: 'reorder_notes_menu' }]);
+        
+        await safeEdit(ctx, text, {
+            reply_markup: { inline_keyboard: keyboard },
+            parse_mode: 'HTML'
+        });
+        
+    } catch (error) {
+        console.error('Select note for reorder error:', error);
+        await ctx.answerCbQuery('❌ Error');
+    }
+});
+
+bot.action('reorder_note_up', async (ctx) => {
+    try {
+        if (!ctx.session.reorderNote) {
+            await ctx.answerCbQuery('❌ Session expired');
+            return;
+        }
+        
+        const selectedIndex = ctx.session.reorderNote.selectedIndex;
+        const notes = [...ctx.session.reorderNote.notes];
+        
+        if (selectedIndex <= 0) {
+            await ctx.answerCbQuery('❌ Already at top');
+            return;
+        }
+        
+        // Swap with previous note
+        const temp = notes[selectedIndex];
+        notes[selectedIndex] = notes[selectedIndex - 1];
+        notes[selectedIndex - 1] = temp;
+        
+        // Update selected index
+        ctx.session.reorderNote.selectedIndex = selectedIndex - 1;
+        ctx.session.reorderNote.notes = notes;
+        
+        // Redisplay with new order
+        let text = '<b>🔼🔽 Reorder Notes</b>\n\n';
+        text += 'Current order (selected note is highlighted):\n\n';
+        
+        notes.forEach((note, index) => {
+            if (index === ctx.session.reorderNote.selectedIndex) {
+                text += `<blockquote>${index + 1}. ${note.title}</blockquote>\n`;
+            } else {
+                text += `${index + 1}. ${note.title}\n`;
+            }
+        });
+        
+        const keyboard = [];
+        const newIndex = ctx.session.reorderNote.selectedIndex;
+        
+        if (newIndex > 0) {
+            keyboard.push([{ text: '🔼 Move Up', callback_data: 'reorder_note_up' }]);
+        }
+        
+        if (newIndex < notes.length - 1) {
+            if (newIndex > 0) {
+                keyboard[keyboard.length - 1].push({ text: '🔽 Move Down', callback_data: 'reorder_note_down' });
+            } else {
+                keyboard.push([{ text: '🔽 Move Down', callback_data: 'reorder_note_down' }]);
+            }
+        }
+        
+        keyboard.push([{ text: '✅ Save Order', callback_data: 'reorder_note_save' }, { text: '🔙 Back', callback_data: 'reorder_notes_menu' }]);
+        
+        await safeEdit(ctx, text, {
+            reply_markup: { inline_keyboard: keyboard },
+            parse_mode: 'HTML'
+        });
+        
+        await ctx.answerCbQuery('✅ Moved up');
+        
+    } catch (error) {
+        console.error('Move note up error:', error);
+        await ctx.answerCbQuery('❌ Error');
+    }
+});
+
+bot.action('reorder_note_down', async (ctx) => {
+    try {
+        if (!ctx.session.reorderNote) {
+            await ctx.answerCbQuery('❌ Session expired');
+            return;
+        }
+        
+        const selectedIndex = ctx.session.reorderNote.selectedIndex;
+        const notes = [...ctx.session.reorderNote.notes];
+        
+        if (selectedIndex >= notes.length - 1) {
+            await ctx.answerCbQuery('❌ Already at bottom');
+            return;
+        }
+        
+        // Swap with next note
+        const temp = notes[selectedIndex];
+        notes[selectedIndex] = notes[selectedIndex + 1];
+        notes[selectedIndex + 1] = temp;
+        
+        // Update selected index
+        ctx.session.reorderNote.selectedIndex = selectedIndex + 1;
+        ctx.session.reorderNote.notes = notes;
+        
+        // Redisplay with new order
+        let text = '<b>🔼🔽 Reorder Notes</b>\n\n';
+        text += 'Current order (selected note is highlighted):\n\n';
+        
+        notes.forEach((note, index) => {
+            if (index === ctx.session.reorderNote.selectedIndex) {
+                text += `<blockquote>${index + 1}. ${note.title}</blockquote>\n`;
+            } else {
+                text += `${index + 1}. ${note.title}\n`;
+            }
+        });
+        
+        const keyboard = [];
+        const newIndex = ctx.session.reorderNote.selectedIndex;
+        
+        if (newIndex > 0) {
+            keyboard.push([{ text: '🔼 Move Up', callback_data: 'reorder_note_up' }]);
+        }
+        
+        if (newIndex < notes.length - 1) {
+            if (newIndex > 0) {
+                keyboard[keyboard.length - 1].push({ text: '🔽 Move Down', callback_data: 'reorder_note_down' });
+            } else {
+                keyboard.push([{ text: '🔽 Move Down', callback_data: 'reorder_note_down' }]);
+            }
+        }
+        
+        keyboard.push([{ text: '✅ Save Order', callback_data: 'reorder_note_save' }, { text: '🔙 Back', callback_data: 'reorder_notes_menu' }]);
+        
+        await safeEdit(ctx, text, {
+            reply_markup: { inline_keyboard: keyboard },
+            parse_mode: 'HTML'
+        });
+        
+        await ctx.answerCbQuery('✅ Moved down');
+        
+    } catch (error) {
+        console.error('Move note down error:', error);
+        await ctx.answerCbQuery('❌ Error');
+    }
+});
+
+bot.action('reorder_note_save', async (ctx) => {
+    try {
+        if (!ctx.session.reorderNote) {
+            await ctx.answerCbQuery('❌ Session expired');
+            return;
+        }
+        
+        const notes = ctx.session.reorderNote.notes;
+        const userId = ctx.from.id;
+        
+        // Update orderIndex for all notes
+        for (let i = 0; i < notes.length; i++) {
+            await db.collection('notes').updateOne(
+                { noteId: notes[i].noteId, userId: userId },
+                { $set: { orderIndex: i } }
+            );
+        }
+        
+        // Clear session
+        delete ctx.session.reorderNote;
+        
+        await ctx.answerCbQuery('✅ Note order saved!');
+        await showMainMenu(ctx);
+        
+    } catch (error) {
+        console.error('Save note order error:', error);
+        await ctx.answerCbQuery('❌ Failed to save order');
+    }
+});
+
+// ==========================================
 // 📜 VIEW HISTORY
 // ==========================================
 
@@ -1468,7 +2066,7 @@ ${formatBlockquote(task.description)}
 });
 
 // ==========================================
-// 🗒️ VIEW NOTES (COMPLETELY REWRITTEN EDITING)
+// 🗒️ VIEW NOTES
 // ==========================================
 
 bot.action(/^view_notes_(\d+)$/, async (ctx) => {
@@ -1476,7 +2074,7 @@ bot.action(/^view_notes_(\d+)$/, async (ctx) => {
     const userId = ctx.from.id;
     
     const notes = await db.collection('notes').find({ userId })
-        .sort({ createdAt: -1 })
+        .sort({ orderIndex: 1, createdAt: -1 })
         .skip((page - 1) * 5)
         .limit(5)
         .toArray();
@@ -1503,6 +2101,7 @@ bot.action(/^note_det_(.+)$/, async (ctx) => {
 ${formatBlockquote(note.content)}
 📅 <b>Created:</b> ${formatDateTime(note.createdAt)}
 ${note.updatedAt ? `✏️ <b>Updated:</b> ${formatDateTime(note.updatedAt)}` : ''}
+🏷️ <b>Order:</b> ${note.orderIndex + 1}
 ━━━━━━━━━━━━━━━━━━━━`;
     
     const buttons = [
@@ -1528,33 +2127,6 @@ bot.action(/^delete_note_(.+)$/, async (ctx) => {
         console.error('Error deleting note:', error);
         await ctx.answerCbQuery('❌ Error deleting note');
     }
-});
-
-// NEW SIMPLIFIED NOTE EDITING SYSTEM
-bot.action(/^edit_note_title_(.+)$/, async (ctx) => {
-    const noteId = ctx.match[1];
-    ctx.session.editNoteId = noteId;
-    ctx.session.step = 'edit_note_title';
-    
-    await ctx.reply(
-        `✏️ <b>𝗘𝗗𝗜𝗧 𝗡𝗢𝗧𝗘 𝗧𝗜𝗧𝗟𝗘</b>\n` +
-        `━━━━━━━━━━━━━━━━━━━━\n` +
-        `Enter new title for your note:`,
-        Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `note_det_${noteId}`)]])
-    );
-});
-
-bot.action(/^edit_note_content_(.+)$/, async (ctx) => {
-    const noteId = ctx.match[1];
-    ctx.session.editNoteId = noteId;
-    ctx.session.step = 'edit_note_content';
-    
-    await ctx.reply(
-        `✏️ <b>𝗘𝗗𝗜𝗧 𝗡𝗢𝗧𝗘 𝗖𝗢𝗡𝗧𝗘𝗡𝗧</b>\n` +
-        `━━━━━━━━━━━━━━━━━━━━\n` +
-        `Enter new content for your note (Max 400 words):`,
-        Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `note_det_${noteId}`)]])
-    );
 });
 
 // ==========================================
@@ -1639,7 +2211,7 @@ bot.action('download_all', async (ctx) => {
 });
 
 // ==========================================
-// 🗑️ DELETE DATA MENU (COMPLETELY FIXED)
+// 🗑️ DELETE DATA MENU (FIXED)
 // ==========================================
 
 bot.action('delete_menu', async (ctx) => {
@@ -1661,7 +2233,6 @@ bot.action('delete_menu', async (ctx) => {
     }
 });
 
-// DELETE TASKS CONFIRMATION
 bot.action('delete_tasks_confirm', async (ctx) => {
     try {
         const userId = ctx.from.id;
@@ -1681,7 +2252,6 @@ bot.action('delete_tasks_confirm', async (ctx) => {
     }
 });
 
-// DELETE TASKS FINAL
 bot.action('delete_tasks_final', async (ctx) => {
     try {
         await ctx.answerCbQuery('⏳ Processing...');
@@ -1724,7 +2294,6 @@ bot.action('delete_tasks_final', async (ctx) => {
     }
 });
 
-// DELETE HISTORY CONFIRMATION
 bot.action('delete_history_confirm', async (ctx) => {
     try {
         const userId = ctx.from.id;
@@ -1744,7 +2313,6 @@ bot.action('delete_history_confirm', async (ctx) => {
     }
 });
 
-// DELETE HISTORY FINAL
 bot.action('delete_history_final', async (ctx) => {
     try {
         await ctx.answerCbQuery('⏳ Processing...');
@@ -1784,7 +2352,6 @@ bot.action('delete_history_final', async (ctx) => {
     }
 });
 
-// DELETE NOTES CONFIRMATION
 bot.action('delete_notes_confirm', async (ctx) => {
     try {
         const userId = ctx.from.id;
@@ -1804,7 +2371,6 @@ bot.action('delete_notes_confirm', async (ctx) => {
     }
 });
 
-// DELETE NOTES FINAL
 bot.action('delete_notes_final', async (ctx) => {
     try {
         await ctx.answerCbQuery('⏳ Processing...');
@@ -1844,7 +2410,6 @@ bot.action('delete_notes_final', async (ctx) => {
     }
 });
 
-// DELETE ALL CONFIRMATION
 bot.action('delete_all_confirm', async (ctx) => {
     try {
         const userId = ctx.from.id;
@@ -1867,7 +2432,6 @@ bot.action('delete_all_confirm', async (ctx) => {
     }
 });
 
-// DELETE ALL FINAL
 bot.action('delete_all_final', async (ctx) => {
     try {
         await ctx.answerCbQuery('⏳ Processing...');
