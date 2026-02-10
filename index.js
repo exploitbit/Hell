@@ -626,6 +626,7 @@ bot.action('add_note', async (ctx) => {
     await safeEdit(ctx, text, keyboard);
 });
 
+
 // ==========================================
 // 📨 TEXT INPUT HANDLER (FIXED TIMEZONE)
 // ==========================================
@@ -839,7 +840,10 @@ bot.on('text', async (ctx) => {
                 `📅 Saved on: ${formatDateTime(new Date())}`,
                 { parse_mode: 'HTML' }
             );
+            
+            // ADDED: Return to main menu after success
             await showMainMenu(ctx);
+            
         } catch (error) {
             console.error('Error saving note:', error);
             await ctx.reply('❌ Failed to save note. Please try again.');
@@ -1040,10 +1044,14 @@ bot.on('text', async (ctx) => {
                 { $set: { title: text, updatedAt: new Date() } }
             );
             
+            // Store the updated note before clearing session
+            const updatedNote = await db.collection('notes').findOne({ noteId: noteId });
+            
+            // Clear session BEFORE sending reply
             ctx.session.step = null;
             delete ctx.session.editNoteId;
             
-            const updatedNote = await db.collection('notes').findOne({ noteId: noteId });
+            // Send success message
             await ctx.reply(
                 `✅ <b>𝗡𝗢𝗧𝗘 𝗧𝗜𝗧𝗟𝗘 𝗨𝗣𝗗𝗔𝗧𝗘𝗗!</b>\n` +
                 `━━━━━━━━━━━━━━━━━━━━\n` +
@@ -1058,6 +1066,9 @@ bot.on('text', async (ctx) => {
             
         } catch (error) {
             console.error('Error updating note title:', error);
+            // Clear session even on error
+            ctx.session.step = null;
+            delete ctx.session.editNoteId;
             await ctx.reply('❌ Failed to update title.');
         }
     }
@@ -1073,10 +1084,14 @@ bot.on('text', async (ctx) => {
                 { $set: { content: text, updatedAt: new Date() } }
             );
             
+            // Store the updated note before clearing session
+            const updatedNote = await db.collection('notes').findOne({ noteId: noteId });
+            
+            // Clear session BEFORE sending reply
             ctx.session.step = null;
             delete ctx.session.editNoteId;
             
-            const updatedNote = await db.collection('notes').findOne({ noteId: noteId });
+            // Send success message
             await ctx.reply(
                 `✅ <b>𝗡𝗢𝗧𝗘 𝗖𝗢𝗡𝗧𝗘𝗡𝗧 𝗨𝗣𝗗𝗔𝗧𝗘𝗗!</b>\n` +
                 `━━━━━━━━━━━━━━━━━━━━\n` +
@@ -1091,10 +1106,15 @@ bot.on('text', async (ctx) => {
             
         } catch (error) {
             console.error('Error updating note content:', error);
+            // Clear session even on error
+            ctx.session.step = null;
+            delete ctx.session.editNoteId;
             await ctx.reply('❌ Failed to update content.');
         }
     }
 });
+
+
 
 // ==========================================
 // 🕹️ BUTTON ACTIONS
@@ -2168,6 +2188,7 @@ ${formatBlockquote(task.description)}
     await safeEdit(ctx, text, keyboard);
 });
 
+
 // ==========================================
 // 🗒️ VIEW NOTES - WITH PAGINATION
 // ==========================================
@@ -2222,8 +2243,19 @@ bot.action(/^view_notes_(\d+)$/, async (ctx) => {
 });
 
 bot.action(/^note_det_(.+)$/, async (ctx) => {
-    const note = await db.collection('notes').findOne({ noteId: ctx.match[1] });
-    if (!note) return ctx.answerCbQuery('Note not found');
+    await showNoteDetail(ctx, ctx.match[1]);
+});
+
+async function showNoteDetail(ctx, noteId) {
+    const note = await db.collection('notes').findOne({ noteId });
+    if (!note) {
+        const text = '❌ <b>𝗡𝗢𝗧𝗘 𝗡𝗢𝗧 𝗙𝗢𝗨𝗡𝗗</b>\n\nThis note may have been deleted.';
+        const keyboard = Markup.inlineKeyboard([
+            [Markup.button.callback('🗒️ Notes', 'view_notes_1'),
+            Markup.button.callback('🔙 Back', 'main_menu')]
+        ]);
+        return safeEdit(ctx, text, keyboard);
+    }
 
     const text = `
 📝 <b>𝗡𝗢𝗧𝗘 𝗗𝗘𝗧𝗔𝗜𝗟𝗦</b>
@@ -2247,8 +2279,7 @@ ${note.updatedAt ? `✏️ <b>Updated:</b> ${formatDateTime(note.updatedAt)}` : 
     ];
 
     await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
-});
-
+}
 // ==========================================
 // ✏️ EDIT NOTE HANDLERS (FIXED)
 // ==========================================
