@@ -1411,7 +1411,7 @@ bot.action(/^delete_task_(.+)$/, async (ctx) => {
 
 
 // ==========================================
-// 🔄 REORDER TASKS SYSTEM (SHOWS ALL TASKS)
+// 🔄 REORDER TASKS SYSTEM (SHOWS ALL TASKS, NO DATES)
 // ==========================================
 
 bot.action('reorder_tasks_menu', async (ctx) => {
@@ -1443,9 +1443,9 @@ bot.action('reorder_tasks_menu', async (ctx) => {
         const keyboard = [];
         
         tasks.forEach((task, index) => {
-            const dateStr = formatDate(task.nextOccurrence);
+            // Show only task title (no date)
             keyboard.push([{ 
-                text: `${index + 1}. ${task.title} (${dateStr})`, 
+                text: `${index + 1}. ${task.title}`, 
                 callback_data: `reorder_task_select_${task.taskId}` 
             }]);
         });
@@ -1494,11 +1494,11 @@ bot.action(/^reorder_task_select_(.+)$/, async (ctx) => {
         text += 'Current order (selected task is highlighted):\n\n';
         
         tasks.forEach((task, index) => {
-            const dateStr = formatDate(task.nextOccurrence);
+            // Show only task title (no date)
             if (index === selectedIndex) {
-                text += `<blockquote>${index + 1}. ${task.title} (${dateStr})</blockquote>\n`;
+                text += `<blockquote>${index + 1}. ${task.title}</blockquote>\n`;
             } else {
-                text += `${index + 1}. ${task.title} (${dateStr})\n`;
+                text += `${index + 1}. ${task.title}\n`;
             }
         });
         
@@ -1531,7 +1531,6 @@ bot.action(/^reorder_task_select_(.+)$/, async (ctx) => {
     }
 });
 
-// ... (keep the rest of the reorder functions as they are - reorder_task_up, reorder_task_down, reorder_task_save remain the same)
 bot.action('reorder_task_up', async (ctx) => {
     try {
         if (!ctx.session.reorderTask) {
@@ -1557,10 +1556,11 @@ bot.action('reorder_task_up', async (ctx) => {
         ctx.session.reorderTask.tasks = tasks;
         
         // Redisplay with new order
-        let text = '<b>🔼🔽 Reorder Today\'s Tasks</b>\n\n';
+        let text = '<b>🔼🔽 Reorder ALL Tasks</b>\n\n';
         text += 'Current order (selected task is highlighted):\n\n';
         
         tasks.forEach((task, index) => {
+            // Show only task title (no date)
             if (index === ctx.session.reorderTask.selectedIndex) {
                 text += `<blockquote>${index + 1}. ${task.title}</blockquote>\n`;
             } else {
@@ -1623,10 +1623,11 @@ bot.action('reorder_task_down', async (ctx) => {
         ctx.session.reorderTask.tasks = tasks;
         
         // Redisplay with new order
-        let text = '<b>🔼🔽 Reorder Today\'s Tasks</b>\n\n';
+        let text = '<b>🔼🔽 Reorder ALL Tasks</b>\n\n';
         text += 'Current order (selected task is highlighted):\n\n';
         
         tasks.forEach((task, index) => {
+            // Show only task title (no date)
             if (index === ctx.session.reorderTask.selectedIndex) {
                 text += `<blockquote>${index + 1}. ${task.title}</blockquote>\n`;
             } else {
