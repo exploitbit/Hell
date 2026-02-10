@@ -1369,10 +1369,12 @@ bot.action('download_all', async (ctx) => {
 });
 
 // ==========================================
+// ==========================================
 // 🗑️ DELETE DATA MENU (FIXED)
 // ==========================================
 
 bot.action('delete_menu', async (ctx) => {
+    // 1. Show the options menu
     await safeEdit(ctx, 
         `🗑️ <b>DELETE DATA</b>\n\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
@@ -1388,17 +1390,15 @@ bot.action('delete_menu', async (ctx) => {
     );
 });
 
+// --- DELETE TASKS ---
 bot.action('delete_tasks_confirm', async (ctx) => {
     await safeEdit(ctx, 
         `⚠️ <b>CONFIRM DELETION</b>\n\n` +
-        `━━━━━━━━━━━━━━━━━━━━\n` +
-        `Are you sure you want to delete ALL tasks?\n\n` +
-        `📋 This will delete all your active tasks\n` +
-        `🔔 All notifications will be cancelled\n` +
-        `❌ This action cannot be undone!\n\n` +
-        `━━━━━━━━━━━━━━━━━━━━`,
+        `Are you sure you want to delete ALL active tasks?\n` +
+        `🔔 All scheduled notifications will be cancelled.\n` +
+        `❌ This action cannot be undone!`,
         Markup.inlineKeyboard([
-            [Markup.button.callback('✅ YES, DELETE ALL TASKS', 'delete_tasks_final')],
+            [Markup.button.callback('✅ YES, DELETE TASKS', 'delete_tasks_final')],
             [Markup.button.callback('🔙 Cancel', 'delete_menu')]
         ])
     );
@@ -1406,13 +1406,12 @@ bot.action('delete_tasks_confirm', async (ctx) => {
 
 bot.action('delete_tasks_final', async (ctx) => {
     const userId = ctx.from.id;
-    
     try {
-        // Get all tasks to cancel schedules
+        // 1. Get tasks to stop their schedulers first
         const tasks = await db.collection('tasks').find({ userId }).toArray();
         tasks.forEach(t => cancelTaskSchedule(t.taskId));
         
-        // Delete from database
+        // 2. Delete from DB
         const result = await db.collection('tasks').deleteMany({ userId });
         
         await ctx.answerCbQuery(`✅ Deleted ${result.deletedCount} tasks`);
@@ -1423,17 +1422,14 @@ bot.action('delete_tasks_final', async (ctx) => {
     }
 });
 
+// --- DELETE HISTORY ---
 bot.action('delete_history_confirm', async (ctx) => {
     await safeEdit(ctx, 
         `⚠️ <b>CONFIRM DELETION</b>\n\n` +
-        `━━━━━━━━━━━━━━━━━━━━\n` +
-        `Are you sure you want to delete ALL history?\n\n` +
-        `📜 This will delete all your completed task history\n` +
-        `📊 All statistics will be lost\n` +
-        `❌ This action cannot be undone!\n\n` +
-        `━━━━━━━━━━━━━━━━━━━━`,
+        `Are you sure you want to delete ALL history?\n` +
+        `❌ This action cannot be undone!`,
         Markup.inlineKeyboard([
-            [Markup.button.callback('✅ YES, DELETE ALL HISTORY', 'delete_history_final')],
+            [Markup.button.callback('✅ YES, DELETE HISTORY', 'delete_history_final')],
             [Markup.button.callback('🔙 Cancel', 'delete_menu')]
         ])
     );
@@ -1451,17 +1447,14 @@ bot.action('delete_history_final', async (ctx) => {
     }
 });
 
+// --- DELETE NOTES ---
 bot.action('delete_notes_confirm', async (ctx) => {
     await safeEdit(ctx, 
         `⚠️ <b>CONFIRM DELETION</b>\n\n` +
-        `━━━━━━━━━━━━━━━━━━━━\n` +
-        `Are you sure you want to delete ALL notes?\n\n` +
-        `🗒️ This will delete all your saved notes\n` +
-        `📝 All your personal notes will be lost\n` +
-        `❌ This action cannot be undone!\n\n` +
-        `━━━━━━━━━━━━━━━━━━━━`,
+        `Are you sure you want to delete ALL notes?\n` +
+        `❌ This action cannot be undone!`,
         Markup.inlineKeyboard([
-            [Markup.button.callback('✅ YES, DELETE ALL NOTES', 'delete_notes_final')],
+            [Markup.button.callback('✅ YES, DELETE NOTES', 'delete_notes_final')],
             [Markup.button.callback('🔙 Cancel', 'delete_menu')]
         ])
     );
@@ -1479,18 +1472,13 @@ bot.action('delete_notes_final', async (ctx) => {
     }
 });
 
+// --- DELETE ALL ---
 bot.action('delete_all_confirm', async (ctx) => {
     await safeEdit(ctx, 
         `⚠️ <b>FINAL WARNING</b>\n\n` +
-        `━━━━━━━━━━━━━━━━━━━━\n` +
-        `Are you sure you want to delete ALL data?\n\n` +
-        `📋 All active tasks\n` +
-        `📜 All completed history\n` +
-        `🗒️ All saved notes\n\n` +
-        `🔔 All notifications will be cancelled\n` +
-        `📊 All statistics will be lost\n` +
-        `❌ This action cannot be undone!\n\n` +
-        `━━━━━━━━━━━━━━━━━━━━`,
+        `Are you sure you want to delete <b>EVERYTHING</b>?\n\n` +
+        `• All active tasks\n• All history\n• All notes\n\n` +
+        `❌ <b>THIS CANNOT BE UNDONE!</b>`,
         Markup.inlineKeyboard([
             [Markup.button.callback('🔥 YES, DELETE EVERYTHING', 'delete_all_final')],
             [Markup.button.callback('🔙 Cancel', 'delete_menu')]
@@ -1500,40 +1488,19 @@ bot.action('delete_all_confirm', async (ctx) => {
 
 bot.action('delete_all_final', async (ctx) => {
     const userId = ctx.from.id;
-    
     try {
         // 1. Stop all schedulers
         const tasks = await db.collection('tasks').find({ userId }).toArray();
         tasks.forEach(t => cancelTaskSchedule(t.taskId));
         
         // 2. Delete everything
-        const tasksResult = await db.collection('tasks').deleteMany({ userId });
-        const historyResult = await db.collection('history').deleteMany({ userId });
-        const notesResult = await db.collection('notes').deleteMany({ userId });
+        const tRes = await db.collection('tasks').deleteMany({ userId });
+        const hRes = await db.collection('history').deleteMany({ userId });
+        const nRes = await db.collection('notes').deleteMany({ userId });
         
-        const totalDeleted = tasksResult.deletedCount + historyResult.deletedCount + notesResult.deletedCount;
+        const total = tRes.deletedCount + hRes.deletedCount + nRes.deletedCount;
         
-        // 3. Send backup files before confirming deletion
-        if (tasksResult.deletedCount > 0) {
-            const tasksBuff = Buffer.from(JSON.stringify(tasks, null, 2));
-            await ctx.replyWithDocument({ source: tasksBuff, filename: 'backup_tasks_deleted.json' });
-        }
-        
-        // For history and notes, we need to fetch them before deletion
-        const history = await db.collection('history').find({ userId }).toArray();
-        const notes = await db.collection('notes').find({ userId }).toArray();
-        
-        if (history.length > 0) {
-            const histBuff = Buffer.from(JSON.stringify(history, null, 2));
-            await ctx.replyWithDocument({ source: histBuff, filename: 'backup_history_deleted.json' });
-        }
-        
-        if (notes.length > 0) {
-            const notesBuff = Buffer.from(JSON.stringify(notes, null, 2));
-            await ctx.replyWithDocument({ source: notesBuff, filename: 'backup_notes_deleted.json' });
-        }
-        
-        await ctx.answerCbQuery(`✅ Deleted ${totalDeleted} items total`);
+        await ctx.answerCbQuery(`✅ Completely wiped ${total} items.`);
         await showMainMenu(ctx);
     } catch (error) {
         console.error('Error deleting all data:', error);
