@@ -739,44 +739,50 @@ bot.on('text', async (ctx) => {
     }
 
     // --- NOTE FLOW ---
-    else if (step === 'note_title') {
-        if (text.length === 0) return ctx.reply('❌ Title cannot be empty.');
-        ctx.session.note.title = text;
-        ctx.session.step = 'note_content';
+else if (step === 'note_title') {
+    if (text.length === 0) return ctx.reply('❌ Title cannot be empty.');
+    ctx.session.note.title = text;
+    ctx.session.step = 'note_content';
+    await ctx.reply(
+        `📝 <b>ENTER NOTE CONTENT</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `📝 <i>Enter your note content (Max 400 words):</i>`,
+        { parse_mode: 'HTML' }
+    );
+}
+else if (step === 'note_content') {
+    if (text.split(/\s+/).length > 400) {
+        return ctx.reply('❌ Too long! Keep it under 400 words.');
+    }
+    
+    ctx.session.note.content = text;
+    ctx.session.note.createdAt = new Date();
+    
+    try {
+        // Save the note title to a variable before deleting from session
+        const noteTitle = ctx.session.note.title;
+        const noteContent = ctx.session.note.content;
+        
+        await db.collection('notes').insertOne(ctx.session.note);
+        
+        // Clear session data AFTER saving
+        ctx.session.step = null;
+        delete ctx.session.note;
+        
         await ctx.reply(
-            `📝 <b>ENTER NOTE CONTENT</b>\n` +
+            `✅ <b>NOTE SAVED SUCCESSFULLY!</b>\n` +
             `━━━━━━━━━━━━━━━━━━━━\n` +
-            `📝 <i>Enter your note content (Max 400 words):</i>`,
+            `📌 <b>${noteTitle}</b>\n` +
+            `${formatBlockquote(noteContent)}\n\n` +
+            `📅 Saved on: ${formatDateTime(new Date())}`,
             { parse_mode: 'HTML' }
         );
+        await showMainMenu(ctx);
+    } catch (error) {
+        console.error('Error saving note:', error);
+        await ctx.reply('❌ Failed to save note. Please try again.');
     }
-    else if (step === 'note_content') {
-        if (text.split(/\s+/).length > 400) {
-            return ctx.reply('❌ Too long! Keep it under 400 words.');
-        }
-        
-        ctx.session.note.content = text;
-        ctx.session.note.createdAt = new Date();
-        
-        try {
-            await db.collection('notes').insertOne(ctx.session.note);
-            ctx.session.step = null;
-            delete ctx.session.note;
-            
-            await ctx.reply(
-                `✅ <b>NOTE SAVED SUCCESSFULLY!</b>\n` +
-                `━━━━━━━━━━━━━━━━━━━━\n` +
-                `📌 <b>${ctx.session.note.title}</b>\n` +
-                `${formatBlockquote(text)}\n\n` +
-                `📅 Saved on: ${formatDateTime(new Date())}`,
-                { parse_mode: 'HTML' }
-            );
-            await showMainMenu(ctx);
-        } catch (error) {
-            console.error('Error saving note:', error);
-            await ctx.reply('❌ Failed to save note. Please try again.');
-        }
-    }
+}
 
     // --- EDIT TASK FLOW ---
     else if (step && step.startsWith('edit_task_')) {
@@ -1015,7 +1021,7 @@ ${formatBlockquote(task.description)}
     const buttons = [
         [
             Markup.button.callback('✅Done', `complete_${taskId}`),
-            Markup.button.callback('✏️', `edit_menu_${taskId}`),
+            Markup.button.callback('✏️Edit', `edit_menu_${taskId}`),
             Markup.button.callback('🗑️Delete', `delete_task_${taskId}`)
         ],
         [
