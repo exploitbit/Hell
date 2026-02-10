@@ -250,8 +250,8 @@ function scheduleTask(task) {
                 try {
                     await bot.telegram.sendMessage(userId, 
                         `🔔 <b>𝗥𝗘𝗠𝗜𝗡𝗗𝗘𝗥 (${count + 1}/${maxNotifications})</b>\n` +
-                        `━━━━━━━━━━━━━━━━━━━━` +
-                        `📌 <b>${task.title}</b>\n` +
+                        `━━━━━━━━━━━━━━━━━━━━\n` +
+                        `🛡️<b>${task.title}</b>\n` +
                         `⏳ Starts in: <b>${minutesLeft} minute${minutesLeft !== 1 ? 's' : ''}</b>\n` +
                         `⏰ Start Time: ${formatTime(startTime)}\n` +
                         `📅 Date: ${formatDate(startTime)}\n` +
@@ -1409,32 +1409,26 @@ bot.action(/^delete_task_(.+)$/, async (ctx) => {
     }
 });
 
+
 // ==========================================
-// 🔄 REORDER TASKS SYSTEM
+// 🔄 REORDER TASKS SYSTEM (SHOWS ALL TASKS)
 // ==========================================
 
 bot.action('reorder_tasks_menu', async (ctx) => {
     const userId = ctx.from.id;
     
     try {
-        // Get today's tasks for reordering
-        const today = getTodayIST();
-        const tomorrow = getTomorrowIST();
-        
+        // Get ALL pending tasks (not just today's)
         const tasks = await db.collection('tasks')
             .find({ 
                 userId: userId,
-                status: 'pending',
-                nextOccurrence: { 
-                    $gte: today,
-                    $lt: tomorrow
-                }
+                status: 'pending'
             })
             .sort({ orderIndex: 1, nextOccurrence: 1 })
             .toArray();
 
         if (tasks.length === 0) {
-            await ctx.answerCbQuery('📭 No tasks to reorder for today');
+            await ctx.answerCbQuery('📭 No tasks to reorder');
             return;
         }
 
@@ -1443,14 +1437,15 @@ bot.action('reorder_tasks_menu', async (ctx) => {
             return;
         }
         
-        let text = '<b>🔼🔽 Reorder Today\'s Tasks</b>\n\n';
+        let text = '<b>🔼🔽 Reorder ALL Tasks</b>\n\n';
         text += 'Select a task to move:\n\n';
         
         const keyboard = [];
         
         tasks.forEach((task, index) => {
+            const dateStr = formatDate(task.nextOccurrence);
             keyboard.push([{ 
-                text: `${index + 1}. ${task.title}`, 
+                text: `${index + 1}. ${task.title} (${dateStr})`, 
                 callback_data: `reorder_task_select_${task.taskId}` 
             }]);
         });
@@ -1471,18 +1466,11 @@ bot.action(/^reorder_task_select_(.+)$/, async (ctx) => {
         const taskId = ctx.match[1];
         const userId = ctx.from.id;
         
-        // Get all tasks for today
-        const today = getTodayIST();
-        const tomorrow = getTomorrowIST();
-        
+        // Get ALL tasks for reordering
         const tasks = await db.collection('tasks')
             .find({ 
                 userId: userId,
-                status: 'pending',
-                nextOccurrence: { 
-                    $gte: today,
-                    $lt: tomorrow
-                }
+                status: 'pending'
             })
             .sort({ orderIndex: 1, nextOccurrence: 1 })
             .toArray();
@@ -1502,14 +1490,15 @@ bot.action(/^reorder_task_select_(.+)$/, async (ctx) => {
         };
         
         // Display current order with selected task highlighted
-        let text = '<b>🔼🔽 Reorder Today\'s Tasks</b>\n\n';
+        let text = '<b>🔼🔽 Reorder ALL Tasks</b>\n\n';
         text += 'Current order (selected task is highlighted):\n\n';
         
         tasks.forEach((task, index) => {
+            const dateStr = formatDate(task.nextOccurrence);
             if (index === selectedIndex) {
-                text += `<blockquote>${index + 1}. ${task.title}</blockquote>\n`;
+                text += `<blockquote>${index + 1}. ${task.title} (${dateStr})</blockquote>\n`;
             } else {
-                text += `${index + 1}. ${task.title}\n`;
+                text += `${index + 1}. ${task.title} (${dateStr})\n`;
             }
         });
         
@@ -1542,6 +1531,7 @@ bot.action(/^reorder_task_select_(.+)$/, async (ctx) => {
     }
 });
 
+// ... (keep the rest of the reorder functions as they are - reorder_task_up, reorder_task_down, reorder_task_save remain the same)
 bot.action('reorder_task_up', async (ctx) => {
     try {
         if (!ctx.session.reorderTask) {
