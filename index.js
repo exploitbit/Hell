@@ -1,5 +1,5 @@
 const { Telegraf, session, Markup } = require('telegraf');
-const { MongoClient, ObjectId } = require('mongodb');
+const { MongoClient } = require('mongodb');
 const schedule = require('node-schedule');
 require('dotenv').config();
 
@@ -63,9 +63,6 @@ function generateTaskId() {
 function generateNoteId() {
     return Math.random().toString(36).substring(2, 7).toUpperCase();
 }
-
-// Days of week
-const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 // Store scheduled jobs
 const scheduledJobs = new Map();
@@ -230,44 +227,88 @@ async function getHistoryDates(userId, page = 1, limit = 10) {
     try {
         const skip = (page - 1) * limit;
         
-        // Get unique completion dates
-        const dates = await db.collection('tasks').aggregate([
-            { $match: { userId: userId, status: 'completed' } },
-            { $group: { 
-                _id: { 
-                    year: { $year: "$completedAt" },
-                    month: { $month: "$completedAt" },
-                    day: { $dayOfMonth: "$completedAt" }
-                },
-                date: { $first: "$completedAt" },
-                count: { $sum: 1 }
-            }},
-            { $sort: { date: -1 } },
+        // Get distinct completion dates
+        const pipeline = [
+            { 
+                $match: { 
+                    userId: userId, 
+                    status: 'completed',
+                    completedAt: { $exists: true }
+                } 
+            },
+            {
+                $project: {
+                    date: {
+                        $dateToString: {
+                            format: "%Y-%m-%d",
+                            date: "$completedAt"
+                        }
+                    }
+                }
+            },
+            { $group: { _id: "$date" } },
+            { $sort: { _id: -1 } },
             { $skip: skip },
             { $limit: limit }
-        ]).toArray();
+        ];
         
-        const totalDates = await db.collection('tasks').distinct('completedAt', { 
-            userId: userId, 
-            status: 'completed' 
-        });
+        const dates = await db.collection('tasks').aggregate(pipeline).toArray();
         
-        const totalPages = Math.ceil(totalDates.length / limit);
-        
-        return {
-            dates: dates.map(d => ({
-                date: d.date,
-                count: d.count,
-                displayDate: new Date(d.date).toLocaleDateString('en-IN', {
+        // Get count for each date
+        const datesWithCount = [];
+        for (const dateObj of dates) {
+            const date = new Date(dateObj._id);
+            const nextDay = new Date(date);
+            nextDay.setDate(nextDay.getDate() + 1);
+            
+            const count = await db.collection('tasks').countDocuments({
+                userId: userId,
+                status: 'completed',
+                completedAt: { $gte: date, $lt: nextDay }
+            });
+            
+            datesWithCount.push({
+                date: date,
+                count: count,
+                displayDate: date.toLocaleDateString('en-IN', {
                     weekday: 'long',
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric'
                 })
-            })),
+            });
+        }
+        
+        // Get total unique dates count
+        const totalDatesResult = await db.collection('tasks').aggregate([
+            { 
+                $match: { 
+                    userId: userId, 
+                    status: 'completed',
+                    completedAt: { $exists: true }
+                } 
+            },
+            {
+                $group: {
+                    _id: {
+                        $dateToString: {
+                            format: "%Y-%m-%d",
+                            date: "$completedAt"
+                        }
+                    }
+                }
+            },
+            { $count: "total" }
+        ]).toArray();
+        
+        const totalDates = totalDatesResult.length > 0 ? totalDatesResult[0].total : 0;
+        const totalPages = Math.ceil(totalDates / limit);
+        
+        return {
+            dates: datesWithCount,
             page,
             totalPages,
-            totalDates: totalDates.length,
+            totalDates,
             hasNext: page < totalPages,
             hasPrev: page > 1
         };
@@ -340,13 +381,17 @@ function scheduleTaskNotifications(task) {
         const notificationStartTime = new Date(startTime);
         notificationStartTime.setMinutes(notificationStartTime.getMinutes() - 10);
         
-        const job = schedule.scheduleJob(notificationStartTime, async function() {
-            await executeTaskNotifications(task);
-        });
-        
-        scheduledJobs.set(`${userId}_${taskId}`, job);
-        
-        console.log(`✅ Scheduled notifications for task ${taskId} at ${notificationStartTime}`);
+        // Only schedule if notification time is in the future
+        if (notificationStartTime > new Date()) {
+            const job = schedule.scheduleJob(notificationStartTime, async function() {
+                await executeTaskNotifications(task);
+            });
+            
+            scheduledJobs.set(`${userId}_${taskId}`, job);
+            console.log(`✅ Scheduled notifications for task ${taskId} at ${notificationStartTime}`);
+        } else {
+            console.log(`⚠️ Cannot schedule notifications for past task ${taskId}`);
+        }
     } catch (error) {
         console.error('Error scheduling task notifications:', error);
     }
@@ -398,6 +443,9 @@ async function executeTaskNotifications(task) {
                 console.error('Error in task notification interval:', error);
             }
         }, 60 * 1000); // Every minute
+        
+        // Store interval ID for cleanup
+        scheduledJobs.set(`${userId}_${taskId}_interval`, intervalId);
         
         // Send first notification immediately
         count++;
@@ -482,6 +530,7 @@ bot.action('add_tasks', async (ctx) => {
         }
         
         // Initialize task data in session
+        ctx.session = ctx.session || {};
         ctx.session.taskData = {
             step: 'title',
             taskId: generateTaskId(),
@@ -499,14 +548,19 @@ bot.action('add_tasks', async (ctx) => {
     }
 });
 
-// Handle task creation steps
+// Handle text messages for task creation
 bot.on('text', async (ctx) => {
     try {
         const messageText = ctx.message.text;
         const userId = ctx.from.id;
         
+        // Initialize session if not exists
+        if (!ctx.session) {
+            ctx.session = {};
+        }
+        
         // Check if we're in task creation flow
-        if (ctx.session?.taskData) {
+        if (ctx.session.taskData) {
             const taskData = ctx.session.taskData;
             
             if (messageText.toLowerCase() === 'cancel') {
@@ -549,15 +603,13 @@ bot.on('text', async (ctx) => {
                     }
                     
                     const [startHours, startMinutes] = messageText.split(':').map(Number);
+                    
+                    // Create start date (today)
                     const now = new Date();
                     const startDate = new Date(now);
                     startDate.setHours(startHours, startMinutes, 0, 0);
                     
-                    // Adjust for IST (UTC+5:30)
-                    startDate.setHours(startDate.getHours() - 5);
-                    startDate.setMinutes(startDate.getMinutes() - 30);
-                    
-                    // If start time is in the past, schedule for tomorrow
+                    // If time has passed today, schedule for tomorrow
                     if (startDate <= now) {
                         startDate.setDate(startDate.getDate() + 1);
                     }
@@ -577,12 +629,22 @@ bot.on('text', async (ctx) => {
                     
                     const [endHours, endMinutes] = messageText.split(':').map(Number);
                     
-                    // Validate end time is after start time
+                    // Create end date (same day as start date)
                     const endDate = new Date(taskData.startDate);
-                    endDate.setHours(endHours - 5, endMinutes - 30, 0, 0);
+                    endDate.setHours(endHours, endMinutes, 0, 0);
                     
+                    // Validate end time is after start time
                     if (endDate <= taskData.startDate) {
                         await safeSendMessage(ctx, '❌ End time must be after start time. Please enter a later time:');
+                        return;
+                    }
+                    
+                    // Check if end time is within same day (before 23:59)
+                    const maxEndTime = new Date(taskData.startDate);
+                    maxEndTime.setHours(23, 59, 0, 0);
+                    
+                    if (endDate > maxEndTime) {
+                        await safeSendMessage(ctx, '❌ End time cannot exceed 23:59. Please enter a time within the same day:');
                         return;
                     }
                     
@@ -604,6 +666,39 @@ bot.on('text', async (ctx) => {
                     await safeSendMessage(ctx, '🔄 Select repeat type:\n\n• Daily: Task repeats every day\n• Weekly: Task repeats every week on same day\n• None: Task doesn\'t repeat', keyboard);
                     break;
                     
+                case 'repeat_end_date':
+                    if (messageText.toLowerCase() === 'none') {
+                        taskData.repeatEndDate = null;
+                    } else {
+                        const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+                        const match = messageText.match(dateRegex);
+                        
+                        if (!match) {
+                            await safeSendMessage(ctx, '❌ Invalid date format. Please use DD/MM/YYYY.\n\nExample: 12/03/2026\n\nType "none" for no end date.');
+                            return;
+                        }
+                        
+                        const [_, day, month, year] = match;
+                        const repeatEndDate = new Date(year, month - 1, day);
+                        
+                        if (isNaN(repeatEndDate.getTime())) {
+                            await safeSendMessage(ctx, '❌ Invalid date. Please enter a valid date.');
+                            return;
+                        }
+                        
+                        // Ensure end date is after start date
+                        if (repeatEndDate < taskData.startDate) {
+                            await safeSendMessage(ctx, '❌ Repeat end date must be after task start date. Please enter a later date:');
+                            return;
+                        }
+                        
+                        taskData.repeatEndDate = repeatEndDate;
+                    }
+                    
+                    // Save the task
+                    await saveAndScheduleTask(ctx);
+                    break;
+                    
                 default:
                     delete ctx.session.taskData;
                     await safeSendMessage(ctx, '❌ Invalid step. Task creation cancelled.');
@@ -613,7 +708,7 @@ bot.on('text', async (ctx) => {
         }
         
         // Check if we're in note creation flow
-        if (ctx.session?.noteData) {
+        if (ctx.session.noteData) {
             const noteData = ctx.session.noteData;
             
             if (messageText.toLowerCase() === 'cancel') {
@@ -765,53 +860,6 @@ bot.action('task_back', async (ctx) => {
     }
 });
 
-// Handle date input for task creation
-bot.on('text', async (ctx) => {
-    try {
-        // Check for repeat end date input
-        if (ctx.session?.taskData && ctx.session.taskData.step === 'repeat_end_date') {
-            const messageText = ctx.message.text;
-            
-            if (messageText.toLowerCase() === 'cancel') {
-                delete ctx.session.taskData;
-                await safeSendMessage(ctx, '❌ Task creation cancelled.');
-                await bot.command('start')(ctx);
-                return;
-            }
-            
-            if (messageText.toLowerCase() !== 'none') {
-                const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
-                const match = messageText.match(dateRegex);
-                
-                if (!match) {
-                    await safeSendMessage(ctx, '❌ Invalid date format. Please use DD/MM/YYYY.\n\nExample: 12/03/2026');
-                    return;
-                }
-                
-                const [_, day, month, year] = match;
-                const repeatEndDate = new Date(year, month - 1, day);
-                
-                if (isNaN(repeatEndDate.getTime())) {
-                    await safeSendMessage(ctx, '❌ Invalid date. Please enter a valid date.');
-                    return;
-                }
-                
-                ctx.session.taskData.repeatEndDate = repeatEndDate;
-            } else {
-                ctx.session.taskData.repeatEndDate = null;
-            }
-            
-            // Save the task
-            await saveAndScheduleTask(ctx);
-            return;
-        }
-        
-    } catch (error) {
-        console.error('Date input error:', error);
-        await safeSendMessage(ctx, '❌ An error occurred.');
-    }
-});
-
 async function saveAndScheduleTask(ctx) {
     try {
         const taskData = ctx.session.taskData;
@@ -842,18 +890,26 @@ async function saveAndScheduleTask(ctx) {
             
             // Format dates for display
             const startDateIST = new Date(taskData.startDate);
-            startDateIST.setHours(startDateIST.getHours() + 5);
-            startDateIST.setMinutes(startDateIST.getMinutes() + 30);
+            const startTimeStr = startDateIST.toLocaleTimeString('en-IN', { 
+                timeZone: 'Asia/Kolkata',
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit'
+            });
             
             const endDateIST = new Date(taskData.endDate);
-            endDateIST.setHours(endDateIST.getHours() + 5);
-            endDateIST.setMinutes(endDateIST.getMinutes() + 30);
+            const endTimeStr = endDateIST.toLocaleTimeString('en-IN', { 
+                timeZone: 'Asia/Kolkata',
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit'
+            });
             
             let message = `✅ Task saved successfully!\n\n` +
                          `📌 ID: ${taskData.taskId}\n` +
                          `📝 Title: ${taskData.title}\n` +
-                         `⏰ Start: ${startDateIST.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })} IST\n` +
-                         `⏰ End: ${endDateIST.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })} IST\n` +
+                         `⏰ Start: ${startTimeStr} IST\n` +
+                         `⏰ End: ${endTimeStr} IST\n` +
                          `🔄 Repeat: ${taskData.repeatType === 'none' ? 'No repetition' : taskData.repeatType}\n\n`;
             
             if (taskData.repeatEndDate) {
@@ -862,7 +918,7 @@ async function saveAndScheduleTask(ctx) {
             
             message += `🔔 Notifications will start 10 minutes before task start time.`;
             
-            await safeSendMessage(ctx, message);
+            await ctx.reply(message);
             
             // Clear session
             delete ctx.session.taskData;
@@ -872,11 +928,11 @@ async function saveAndScheduleTask(ctx) {
                 await bot.command('start')(ctx);
             }, 2000);
         } else {
-            await safeSendMessage(ctx, '❌ Failed to save task. Please try again.');
+            await ctx.reply('❌ Failed to save task. Please try again.');
         }
     } catch (error) {
         console.error('Save task error:', error);
-        await safeSendMessage(ctx, '❌ Failed to save task.');
+        await ctx.reply('❌ Failed to save task.');
     }
 }
 
@@ -891,6 +947,7 @@ bot.action('add_notes', async (ctx) => {
         }
         
         // Initialize note data in session
+        ctx.session = ctx.session || {};
         ctx.session.noteData = {
             step: 'title',
             noteId: generateNoteId(),
@@ -936,8 +993,14 @@ bot.action(/^view_tasks_(\d+)$/, async (ctx) => {
         
         tasksData.tasks.forEach((task, index) => {
             const taskIndex = (page - 1) * 10 + index + 1;
-            const startTime = new Date(task.startDate).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' });
-            message += `${taskIndex}. ${task.title}\n   ⏰ ${startTime} IST | 📌 ${task.taskId}\n\n`;
+            const startDate = new Date(task.startDate);
+            const startTimeStr = startDate.toLocaleTimeString('en-IN', { 
+                timeZone: 'Asia/Kolkata',
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            message += `${taskIndex}. ${task.title}\n   ⏰ ${startTimeStr} IST | 📌 ${task.taskId}\n\n`;
         });
         
         message += `Total: ${tasksData.totalTasks} tasks`;
@@ -946,7 +1009,8 @@ bot.action(/^view_tasks_(\d+)$/, async (ctx) => {
         
         // Add task buttons (10 per page)
         tasksData.tasks.forEach((task) => {
-            keyboard.push([Markup.button.callback(`📌 ${task.taskId} - ${task.title.substring(0, 20)}`, `task_detail_${task.taskId}`)]);
+            const buttonText = `📌 ${task.taskId} - ${task.title.substring(0, 20)}${task.title.length > 20 ? '...' : ''}`;
+            keyboard.push([Markup.button.callback(buttonText, `task_detail_${task.taskId}`)]);
         });
         
         // Add navigation buttons
@@ -983,25 +1047,36 @@ bot.action(/^task_detail_(.+)$/, async (ctx) => {
         
         // Format dates
         const startDate = new Date(task.startDate);
-        startDate.setHours(startDate.getHours() + 5);
-        startDate.setMinutes(startDate.getMinutes() + 30);
+        const startTimeStr = startDate.toLocaleTimeString('en-IN', { 
+            timeZone: 'Asia/Kolkata',
+            hour12: false,
+            hour: '2-digit',
+            minute: '2-digit'
+        });
         
         const endDate = new Date(task.endDate);
-        endDate.setHours(endDate.getHours() + 5);
-        endDate.setMinutes(endDate.getMinutes() + 30);
+        const endTimeStr = endDate.toLocaleTimeString('en-IN', { 
+            timeZone: 'Asia/Kolkata',
+            hour12: false,
+            hour: '2-digit',
+            minute: '2-digit'
+        });
         
         const createdAt = new Date(task.createdAt);
-        createdAt.setHours(createdAt.getHours() + 5);
-        createdAt.setMinutes(createdAt.getMinutes() + 30);
+        const createdAtStr = createdAt.toLocaleString('en-IN', { 
+            timeZone: 'Asia/Kolkata',
+            dateStyle: 'medium',
+            timeStyle: 'short'
+        });
         
         let message = `📋 *Task Details*\n\n` +
                      `📌 ID: ${task.taskId}\n` +
                      `📝 Title: ${task.title}\n` +
                      `📄 Description: ${task.description || 'No description'}\n` +
-                     `⏰ Start Time: ${startDate.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })} IST\n` +
-                     `⏰ End Time: ${endDate.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })} IST\n` +
+                     `⏰ Start Time: ${startTimeStr} IST\n` +
+                     `⏰ End Time: ${endTimeStr} IST\n` +
                      `🔄 Repeat: ${task.repeatType === 'none' ? 'No repetition' : task.repeatType}\n` +
-                     `📅 Created: ${createdAt.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}\n` +
+                     `📅 Created: ${createdAtStr}\n` +
                      `📊 Status: ${task.status === 'completed' ? '✅ Completed' : '⏳ Pending'}`;
         
         if (task.repeatEndDate) {
@@ -1010,9 +1085,12 @@ bot.action(/^task_detail_(.+)$/, async (ctx) => {
         
         if (task.completedAt) {
             const completedDate = new Date(task.completedAt);
-            completedDate.setHours(completedDate.getHours() + 5);
-            completedDate.setMinutes(completedDate.getMinutes() + 30);
-            message += `\n✅ Completed at: ${completedDate.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`;
+            const completedStr = completedDate.toLocaleString('en-IN', { 
+                timeZone: 'Asia/Kolkata',
+                dateStyle: 'medium',
+                timeStyle: 'short'
+            });
+            message += `\n✅ Completed at: ${completedStr}`;
         }
         
         const keyboard = Markup.inlineKeyboard([
@@ -1061,6 +1139,13 @@ bot.action(/^complete_task_(.+)$/, async (ctx) => {
                 scheduledJobs.delete(`${ctx.from.id}_${taskId}`);
             }
             
+            // Cancel interval if exists
+            if (scheduledJobs.has(`${ctx.from.id}_${taskId}_interval`)) {
+                const interval = scheduledJobs.get(`${ctx.from.id}_${taskId}_interval`);
+                if (interval) clearInterval(interval);
+                scheduledJobs.delete(`${ctx.from.id}_${taskId}_interval`);
+            }
+            
             await ctx.answerCbQuery('✅ Task marked as complete!');
             
             // Refresh task detail view
@@ -1089,6 +1174,13 @@ bot.action(/^delete_task_(.+)$/, async (ctx) => {
                 scheduledJobs.delete(`${ctx.from.id}_${taskId}`);
             }
             
+            // Cancel interval if exists
+            if (scheduledJobs.has(`${ctx.from.id}_${taskId}_interval`)) {
+                const interval = scheduledJobs.get(`${ctx.from.id}_${taskId}_interval`);
+                if (interval) clearInterval(interval);
+                scheduledJobs.delete(`${ctx.from.id}_${taskId}_interval`);
+            }
+            
             await ctx.answerCbQuery('✅ Task deleted!');
             
             // Go back to tasks list
@@ -1098,42 +1190,6 @@ bot.action(/^delete_task_(.+)$/, async (ctx) => {
         }
     } catch (error) {
         console.error('Delete task error:', error);
-        await ctx.answerCbQuery('❌ An error occurred.');
-    }
-});
-
-// Edit task
-bot.action(/^edit_task_(.+)$/, async (ctx) => {
-    try {
-        const taskId = ctx.match[1];
-        const task = await getTaskById(taskId);
-        
-        if (!task) {
-            return await ctx.answerCbQuery('❌ Task not found.');
-        }
-        
-        const keyboard = Markup.inlineKeyboard([
-            [
-                Markup.button.callback('📝 Title', `edit_task_title_${taskId}`),
-                Markup.button.callback('📄 Description', `edit_task_desc_${taskId}`)
-            ],
-            [
-                Markup.button.callback('⏰ Start Time', `edit_task_start_${taskId}`),
-                Markup.button.callback('⏰ End Time', `edit_task_end_${taskId}`)
-            ],
-            [
-                Markup.button.callback('🔄 Repeat', `edit_task_repeat_${taskId}`),
-                Markup.button.callback('↩️ Back', `task_detail_${taskId}`)
-            ]
-        ]);
-        
-        await ctx.editMessageText('✏️ *Edit Task*\n\nSelect what you want to edit:', {
-            parse_mode: 'Markdown',
-            reply_markup: keyboard
-        });
-        
-    } catch (error) {
-        console.error('Edit task error:', error);
         await ctx.answerCbQuery('❌ An error occurred.');
     }
 });
@@ -1178,7 +1234,8 @@ bot.action(/^view_history_(\d+)$/, async (ctx) => {
         // Add date buttons
         historyData.dates.forEach((date) => {
             const dateStr = date.date.toISOString().split('T')[0];
-            keyboard.push([Markup.button.callback(`📅 ${date.displayDate} (${date.count} tasks)`, `history_date_${dateStr}_1`)]);
+            const buttonText = `📅 ${date.displayDate.substring(0, 30)} (${date.count} tasks)`;
+            keyboard.push([Markup.button.callback(buttonText, `history_date_${dateStr}_1`)]);
         });
         
         // Add navigation buttons
@@ -1235,17 +1292,22 @@ bot.action(/^history_date_(.+)_(\d+)$/, async (ctx) => {
         tasksData.tasks.forEach((task, index) => {
             const taskIndex = (page - 1) * 10 + index + 1;
             const completedAt = new Date(task.completedAt);
-            completedAt.setHours(completedAt.getHours() + 5);
-            completedAt.setMinutes(completedAt.getMinutes() + 30);
+            const completedTimeStr = completedAt.toLocaleTimeString('en-IN', { 
+                timeZone: 'Asia/Kolkata',
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit'
+            });
             
-            message += `${taskIndex}. ${task.title}\n   ✅ ${completedAt.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })} IST | 📌 ${task.taskId}\n\n`;
+            message += `${taskIndex}. ${task.title}\n   ✅ ${completedTimeStr} IST | 📌 ${task.taskId}\n\n`;
         });
         
         const keyboard = [];
         
         // Add task buttons
         tasksData.tasks.forEach((task) => {
-            keyboard.push([Markup.button.callback(`📌 ${task.taskId} - ${task.title.substring(0, 20)}`, `task_detail_${task.taskId}`)]);
+            const buttonText = `📌 ${task.taskId} - ${task.title.substring(0, 20)}${task.title.length > 20 ? '...' : ''}`;
+            keyboard.push([Markup.button.callback(buttonText, `task_detail_${task.taskId}`)]);
         });
         
         // Add navigation buttons
@@ -1301,10 +1363,9 @@ bot.action(/^view_notes_(\d+)$/, async (ctx) => {
         notesData.notes.forEach((note, index) => {
             const noteIndex = (page - 1) * 10 + index + 1;
             const createdDate = new Date(note.createdAt);
-            createdDate.setHours(createdDate.getHours() + 5);
-            createdDate.setMinutes(createdDate.getMinutes() + 30);
+            const dateStr = createdDate.toLocaleDateString('en-IN');
             
-            message += `${noteIndex}. ${note.title}\n   📌 ${note.noteId} | 📅 ${createdDate.toLocaleDateString('en-IN')}\n\n`;
+            message += `${noteIndex}. ${note.title}\n   📌 ${note.noteId} | 📅 ${dateStr}\n\n`;
         });
         
         message += `Total: ${notesData.totalNotes} notes`;
@@ -1313,7 +1374,8 @@ bot.action(/^view_notes_(\d+)$/, async (ctx) => {
         
         // Add note buttons
         notesData.notes.forEach((note) => {
-            keyboard.push([Markup.button.callback(`📌 ${note.noteId} - ${note.title.substring(0, 20)}`, `note_detail_${note.noteId}`)]);
+            const buttonText = `📌 ${note.noteId} - ${note.title.substring(0, 20)}${note.title.length > 20 ? '...' : ''}`;
+            keyboard.push([Markup.button.callback(buttonText, `note_detail_${note.noteId}`)]);
         });
         
         // Add navigation buttons
@@ -1349,19 +1411,25 @@ bot.action(/^note_detail_(.+)$/, async (ctx) => {
         }
         
         const createdAt = new Date(note.createdAt);
-        createdAt.setHours(createdAt.getHours() + 5);
-        createdAt.setMinutes(createdAt.getMinutes() + 30);
+        const createdAtStr = createdAt.toLocaleString('en-IN', { 
+            timeZone: 'Asia/Kolkata',
+            dateStyle: 'medium',
+            timeStyle: 'short'
+        });
         
         const updatedAt = new Date(note.updatedAt);
-        updatedAt.setHours(updatedAt.getHours() + 5);
-        updatedAt.setMinutes(updatedAt.getMinutes() + 30);
+        const updatedAtStr = updatedAt.toLocaleString('en-IN', { 
+            timeZone: 'Asia/Kolkata',
+            dateStyle: 'medium',
+            timeStyle: 'short'
+        });
         
         let message = `🗒️ *Note Details*\n\n` +
                      `📌 ID: ${note.noteId}\n` +
                      `📝 Title: ${note.title}\n` +
                      `📄 Content:\n${note.content || 'No content'}\n\n` +
-                     `📅 Created: ${createdAt.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}\n` +
-                     `📅 Updated: ${updatedAt.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`;
+                     `📅 Created: ${createdAtStr}\n` +
+                     `📅 Updated: ${updatedAtStr}`;
         
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback('↩️ Back to Notes', 'view_notes_1')]
@@ -1430,21 +1498,13 @@ bot.action('download_tasks', async (ctx) => {
         // Convert to JSON string
         const tasksJson = JSON.stringify(tasks, null, 2);
         
-        // Send as file if too long, otherwise as message
-        if (tasksJson.length > 4000) {
-            await ctx.replyWithDocument({
-                source: Buffer.from(tasksJson),
-                filename: 'tasks.json'
-            });
-            await ctx.answerCbQuery('✅ Tasks data sent as file!');
-        } else {
-            await ctx.editMessageText(`📋 *Your Tasks Data*\n\n\`\`\`json\n${tasksJson}\n\`\`\``, {
-                parse_mode: 'Markdown',
-                reply_markup: Markup.inlineKeyboard([
-                    [Markup.button.callback('↩️ Back to Downloads', 'download_data')]
-                ])
-            });
-        }
+        // Send as file
+        await ctx.replyWithDocument({
+            source: Buffer.from(tasksJson),
+            filename: `tasks_${userId}_${Date.now()}.json`
+        });
+        
+        await ctx.answerCbQuery('✅ Tasks data sent as file!');
         
     } catch (error) {
         console.error('Download tasks error:', error);
@@ -1460,25 +1520,50 @@ bot.action('download_notes', async (ctx) => {
         // Convert to JSON string
         const notesJson = JSON.stringify(notes, null, 2);
         
-        // Send as file if too long, otherwise as message
-        if (notesJson.length > 4000) {
-            await ctx.replyWithDocument({
-                source: Buffer.from(notesJson),
-                filename: 'notes.json'
-            });
-            await ctx.answerCbQuery('✅ Notes data sent as file!');
-        } else {
-            await ctx.editMessageText(`🗒️ *Your Notes Data*\n\n\`\`\`json\n${notesJson}\n\`\`\``, {
-                parse_mode: 'Markdown',
-                reply_markup: Markup.inlineKeyboard([
-                    [Markup.button.callback('↩️ Back to Downloads', 'download_data')]
-                ])
-            });
-        }
+        // Send as file
+        await ctx.replyWithDocument({
+            source: Buffer.from(notesJson),
+            filename: `notes_${userId}_${Date.now()}.json`
+        });
+        
+        await ctx.answerCbQuery('✅ Notes data sent as file!');
         
     } catch (error) {
         console.error('Download notes error:', error);
         await ctx.answerCbQuery('❌ Failed to download notes.');
+    }
+});
+
+bot.action('download_all', async (ctx) => {
+    try {
+        const userId = ctx.from.id;
+        
+        // Get all data
+        const tasks = await db.collection('tasks').find({ userId: userId }).toArray();
+        const notes = await db.collection('notes').find({ userId: userId }).toArray();
+        
+        // Create combined data object
+        const allData = {
+            tasks: tasks,
+            notes: notes,
+            exportedAt: new Date().toISOString(),
+            userId: userId
+        };
+        
+        // Convert to JSON string
+        const allDataJson = JSON.stringify(allData, null, 2);
+        
+        // Send as file
+        await ctx.replyWithDocument({
+            source: Buffer.from(allDataJson),
+            filename: `all_data_${userId}_${Date.now()}.json`
+        });
+        
+        await ctx.answerCbQuery('✅ All data sent as file!');
+        
+    } catch (error) {
+        console.error('Download all error:', error);
+        await ctx.answerCbQuery('❌ Failed to download data.');
     }
 });
 
@@ -1514,10 +1599,17 @@ bot.action('confirm_delete_all', async (ctx) => {
     try {
         const userId = ctx.from.id;
         
-        // Cancel all scheduled jobs
+        // Cancel all scheduled jobs for this user
         for (const [key, job] of scheduledJobs) {
             if (key.startsWith(`${userId}_`)) {
-                if (job) job.cancel();
+                if (job) {
+                    if (typeof job.cancel === 'function') {
+                        job.cancel();
+                    } else if (typeof clearInterval === 'function') {
+                        clearInterval(job);
+                    }
+                }
+                scheduledJobs.delete(key);
             }
         }
         
@@ -1683,7 +1775,13 @@ async function startBot() {
             
             // Cancel all scheduled jobs
             for (const [key, job] of scheduledJobs) {
-                if (job) job.cancel();
+                if (job) {
+                    if (typeof job.cancel === 'function') {
+                        job.cancel();
+                    } else if (typeof clearInterval === 'function') {
+                        clearInterval(job);
+                    }
+                }
             }
             
             bot.stop('SIGINT');
@@ -1696,7 +1794,13 @@ async function startBot() {
             
             // Cancel all scheduled jobs
             for (const [key, job] of scheduledJobs) {
-                if (job) job.cancel();
+                if (job) {
+                    if (typeof job.cancel === 'function') {
+                        job.cancel();
+                    } else if (typeof clearInterval === 'function') {
+                        clearInterval(job);
+                    }
+                }
             }
             
             bot.stop('SIGTERM');
