@@ -433,8 +433,7 @@ Manage your tasks, set reminders, take notes, and stay organized. Get notified 1
 
     const keyboard = Markup.inlineKeyboard([
         [
-            Markup.button.callback('📋 View Today\'s Tasks', 'view_today_tasks'),
-            Markup.button.callback('📅 View All Tasks', 'view_all_tasks')
+            Markup.button.callback('📋 View Today\'s Tasks', 'view_today_tasks')
         ],
         [
             Markup.button.callback('➕ Add Task', 'add_task'),
@@ -472,8 +471,7 @@ async function showMainMenu(ctx) {
 
     const keyboard = Markup.inlineKeyboard([
         [
-            Markup.button.callback('📋 View Today\'s Tasks', 'view_today_tasks'),
-            Markup.button.callback('📅 View All Tasks', 'view_all_tasks')
+            Markup.button.callback('📋 View Today\'s Tasks', 'view_today_tasks')
         ],
         [
             Markup.button.callback('➕ Add Task', 'add_task'),
@@ -546,60 +544,6 @@ Select a task to view details:`;
     });
 
     buttons.push([
-        Markup.button.callback('➕ Add Task', 'add_task'),
-        Markup.button.callback('📅 View All Tasks', 'view_all_tasks')
-    ]);
-    buttons.push([Markup.button.callback('🔙 Back', 'main_menu')]);
-
-    await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
-});
-
-// View All Tasks (All pending tasks)
-bot.action('view_all_tasks', async (ctx) => {
-    const userId = ctx.from.id;
-    const today = getTodayIST();
-    
-    const tasks = await db.collection('tasks')
-        .find({ 
-            userId: userId,
-            status: 'pending'
-        })
-        .sort({ nextOccurrence: 1 })
-        .toArray();
-
-    let text = `
-📅 <b>ALL PENDING TASKS</b>
-
-━━━━━━━━━━━━━━━━━━━━
-📊 Total: ${tasks.length} task${tasks.length !== 1 ? 's' : ''}
-━━━━━━━━━━━━━━━━━━━━
-
-Select a task to view details:`;
-
-    if (tasks.length === 0) {
-        text = `
-📅 <b>ALL PENDING TASKS</b>
-
-━━━━━━━━━━━━━━━━━━━━
-📭 <i>No pending tasks found!</i>
-<i>Use "Add Task" to create new tasks.</i>
-━━━━━━━━━━━━━━━━━━━━`;
-    }
-
-    const buttons = [];
-    tasks.forEach(t => {
-        const isToday = isSameDay(t.nextOccurrence, today);
-        const datePrefix = isToday ? '⏰ TODAY' : `📅 ${formatDate(t.nextOccurrence)}`;
-        buttons.push([
-            Markup.button.callback(
-                `${datePrefix} - ${t.title}`, 
-                `task_det_next_${t.taskId}` // Different action for next occurrence view
-            )
-        ]);
-    });
-
-    buttons.push([
-        Markup.button.callback('📋 View Today\'s Tasks', 'view_today_tasks'),
         Markup.button.callback('➕ Add Task', 'add_task')
     ]);
     buttons.push([Markup.button.callback('🔙 Back', 'main_menu')]);
@@ -641,7 +585,7 @@ bot.action('add_note', async (ctx) => {
 });
 
 // ==========================================
-// 📨 TEXT INPUT HANDLER (FIXED NOTE EDITING & TIMEZONE)
+// 📨 TEXT INPUT HANDLER (FIXED TIMEZONE)
 // ==========================================
 
 bot.on('text', async (ctx) => {
@@ -827,6 +771,7 @@ bot.on('text', async (ctx) => {
         try {
             await db.collection('notes').insertOne(ctx.session.note);
             ctx.session.step = null;
+            delete ctx.session.note;
             
             await ctx.reply(
                 `✅ <b>NOTE SAVED SUCCESSFULLY!</b>\n\n` +
@@ -903,6 +848,7 @@ bot.on('text', async (ctx) => {
             }
 
             ctx.session.step = null;
+            delete ctx.session.editTaskId;
             await ctx.reply(`✅ <b>${field.toUpperCase()} UPDATED SUCCESSFULLY!</b>`, { parse_mode: 'HTML' });
             await showTaskDetail(ctx, taskId);
         } catch (error) {
@@ -911,7 +857,7 @@ bot.on('text', async (ctx) => {
         }
     }
     
-    // --- EDIT NOTE FLOW (FIXED) ---
+    // --- NEW EDIT NOTE FLOW ---
     else if (step === 'edit_note_title') {
         if (text.length === 0) return ctx.reply('❌ Title cannot be empty.');
         
@@ -921,10 +867,10 @@ bot.on('text', async (ctx) => {
                 { noteId: noteId }, 
                 { $set: { title: text, updatedAt: new Date() } }
             );
+            
             ctx.session.step = null;
             delete ctx.session.editNoteId;
             
-            // Show updated note
             const updatedNote = await db.collection('notes').findOne({ noteId: noteId });
             await ctx.reply(
                 `✅ <b>NOTE TITLE UPDATED!</b>\n\n` +
@@ -951,10 +897,10 @@ bot.on('text', async (ctx) => {
                 { noteId: noteId }, 
                 { $set: { content: text, updatedAt: new Date() } }
             );
+            
             ctx.session.step = null;
             delete ctx.session.editNoteId;
             
-            // Show updated note
             const updatedNote = await db.collection('notes').findOne({ noteId: noteId });
             await ctx.reply(
                 `✅ <b>NOTE CONTENT UPDATED!</b>\n\n` +
@@ -1021,6 +967,7 @@ async function saveTask(ctx) {
         scheduleTask(task);
         
         ctx.session.step = null;
+        delete ctx.session.task;
         const msg = `
 ✅ <b>TASK CREATED SUCCESSFULLY!</b>
 
@@ -1039,7 +986,6 @@ ${formatBlockquote(task.description)}
                 
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback('📋 View Today\'s Tasks', 'view_today_tasks')],
-            [Markup.button.callback('📅 View All Tasks', 'view_all_tasks')],
             [Markup.button.callback('🔙 Back', 'main_menu')]
         ]);
         
@@ -1050,23 +996,18 @@ ${formatBlockquote(task.description)}
     }
 }
 
-// --- TASK DETAILS (from Today's Tasks) ---
+// --- TASK DETAILS ---
 bot.action(/^task_det_(.+)$/, async (ctx) => {
-    await showTaskDetail(ctx, ctx.match[1], false);
+    await showTaskDetail(ctx, ctx.match[1]);
 });
 
-// --- TASK DETAILS (from All Tasks) - WITHOUT COMPLETE BUTTON ---
-bot.action(/^task_det_next_(.+)$/, async (ctx) => {
-    await showTaskDetail(ctx, ctx.match[1], true);
-});
-
-async function showTaskDetail(ctx, taskId, fromNextView = false) {
+async function showTaskDetail(ctx, taskId) {
     const task = await db.collection('tasks').findOne({ taskId });
     if (!task) {
         const text = '❌ <b>TASK NOT FOUND</b>\n\nThis task may have been completed or deleted.';
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback('📋 View Today\'s Tasks', 'view_today_tasks')],
-            [Markup.button.callback('🔙 Back', fromNextView ? 'view_all_tasks' : 'view_today_tasks')]
+            [Markup.button.callback('🔙 Back', 'main_menu')]
         ]);
         return safeEdit(ctx, text, keyboard);
     }
@@ -1089,24 +1030,17 @@ ${formatBlockquote(task.description)}
 📝 <b>Created:</b> ${formatDateTime(task.createdAt)}
 ━━━━━━━━━━━━━━━━━━━━`;
 
-    const buttons = [];
-    
-    // Only show Complete button if NOT from "All Tasks" view
-    if (!fromNextView) {
-        buttons.push([Markup.button.callback('✅ Mark as Complete', `complete_${taskId}`)]);
-    }
-    
-    buttons.push([
-        Markup.button.callback('✏️ Edit', `edit_menu_${taskId}`), 
-        Markup.button.callback('🗑️ Delete', `delete_task_${taskId}`)
-    ]);
-    
-    buttons.push([
-        Markup.button.callback('📋 View Today\'s Tasks', 'view_today_tasks'),
-        Markup.button.callback('📅 View All Tasks', 'view_all_tasks')
-    ]);
-    
-    buttons.push([Markup.button.callback('🔙 Back', fromNextView ? 'view_all_tasks' : 'view_today_tasks')]);
+    const buttons = [
+        [Markup.button.callback('✅ Mark as Complete', `complete_${taskId}`)],
+        [
+            Markup.button.callback('✏️ Edit', `edit_menu_${taskId}`), 
+            Markup.button.callback('🗑️ Delete', `delete_task_${taskId}`)
+        ],
+        [
+            Markup.button.callback('📋 View Today\'s Tasks', 'view_today_tasks')
+        ],
+        [Markup.button.callback('🔙 Back', 'view_today_tasks')]
+    ];
     
     await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
 }
@@ -1244,7 +1178,7 @@ bot.action(/^set_rep_(.+)_(.+)$/, async (ctx) => {
     
     await db.collection('tasks').updateOne({ taskId }, { $set: updates });
     await ctx.answerCbQuery(`✅ Updated to ${mode}`);
-    await showTaskDetail(ctx, taskId, false);
+    await showTaskDetail(ctx, taskId);
 });
 
 // --- DELETE TASK ---
@@ -1353,7 +1287,7 @@ ${formatBlockquote(task.description)}
 });
 
 // ==========================================
-// 🗒️ VIEW NOTES (WITH FIXED EDITING)
+// 🗒️ VIEW NOTES (COMPLETELY REWRITTEN EDITING)
 // ==========================================
 
 bot.action(/^view_notes_(\d+)$/, async (ctx) => {
@@ -1395,9 +1329,10 @@ ${note.updatedAt ? `✏️ <b>Updated:</b> ${formatDateTime(note.updatedAt)}` : 
     
     const buttons = [
         [
-            Markup.button.callback('✏️ Edit', `edit_note_${note.noteId}`), 
-            Markup.button.callback('🗑️ Delete', `delete_note_${note.noteId}`)
+            Markup.button.callback('✏️ Edit Title', `edit_note_title_${note.noteId}`), 
+            Markup.button.callback('✏️ Edit Content', `edit_note_content_${note.noteId}`)
         ],
+        [Markup.button.callback('🗑️ Delete', `delete_note_${note.noteId}`)],
         [Markup.button.callback('🔙 Back to Notes', 'view_notes_1')]
     ];
 
@@ -1415,45 +1350,30 @@ bot.action(/^delete_note_(.+)$/, async (ctx) => {
     }
 });
 
-// EDIT NOTE - FIXED
-bot.action(/^edit_note_(.+)$/, async (ctx) => {
-    ctx.session.editNoteId = ctx.match[1];
-    const text = `✏️ <b>EDIT NOTE</b>\n\n━━━━━━━━━━━━━━━━━━━━\nSelect what you want to edit:`;
-    const keyboard = Markup.inlineKeyboard([
-        [
-            Markup.button.callback('📝 Title', `edit_note_title_action`), 
-            Markup.button.callback('📄 Content', `edit_note_content_action`)
-        ],
-        [Markup.button.callback('🔙 Back', `note_det_${ctx.match[1]}`)]
-    ]);
-    
-    await safeEdit(ctx, text, keyboard);
-});
-
-// FIXED: Separate actions for note editing
-bot.action('edit_note_title_action', async (ctx) => {
-    if (!ctx.session.editNoteId) {
-        return ctx.answerCbQuery('❌ No note selected for editing');
-    }
+// NEW SIMPLIFIED NOTE EDITING SYSTEM
+bot.action(/^edit_note_title_(.+)$/, async (ctx) => {
+    const noteId = ctx.match[1];
+    ctx.session.editNoteId = noteId;
     ctx.session.step = 'edit_note_title';
+    
     await ctx.reply(
         `✏️ <b>EDIT NOTE TITLE</b>\n\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
-        `Enter new title:`,
-        Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `note_det_${ctx.session.editNoteId}`)]])
+        `Enter new title for your note:`,
+        Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `note_det_${noteId}`)]])
     );
 });
 
-bot.action('edit_note_content_action', async (ctx) => {
-    if (!ctx.session.editNoteId) {
-        return ctx.answerCbQuery('❌ No note selected for editing');
-    }
+bot.action(/^edit_note_content_(.+)$/, async (ctx) => {
+    const noteId = ctx.match[1];
+    ctx.session.editNoteId = noteId;
     ctx.session.step = 'edit_note_content';
+    
     await ctx.reply(
         `✏️ <b>EDIT NOTE CONTENT</b>\n\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
-        `Enter new content (Max 400 words):`,
-        Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `note_det_${ctx.session.editNoteId}`)]])
+        `Enter new content for your note (Max 400 words):`,
+        Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `note_det_${noteId}`)]])
     );
 });
 
