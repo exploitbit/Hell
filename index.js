@@ -1,5 +1,3 @@
-
-
 const { Telegraf, session, Markup } = require('telegraf');
 const { MongoClient, ObjectId } = require('mongodb');
 const schedule = require('node-schedule');
@@ -431,7 +429,7 @@ bot.command('start', async (ctx) => {
 
     const keyboard = Markup.inlineKeyboard([
         [
-            Markup.button.callback('📋 Today\'s Tasks', 'view_today_tasks')
+            Markup.button.callback('📋 Today\'s Tasks', 'view_today_tasks_1')
         ],
         [
             Markup.button.callback('➕ Add Task', 'add_task'),
@@ -471,7 +469,7 @@ async function showMainMenu(ctx) {
 
     const keyboard = Markup.inlineKeyboard([
         [
-            Markup.button.callback('📋 Today\'s Tasks', 'view_today_tasks')
+            Markup.button.callback('📋 Today\'s Tasks', 'view_today_tasks_1')
         ],
         [
             Markup.button.callback('➕ Add Task', 'add_task'),
@@ -495,14 +493,31 @@ async function showMainMenu(ctx) {
 }
 
 // ==========================================
-// 📅 TASK VIEWS - FIXED (SHOW ONLY TITLE)
+// 📅 TASK VIEWS - WITH PAGINATION (10 PER PAGE)
 // ==========================================
 
-// View Today's Tasks (Pending only, nextOccurrence is today)
-bot.action('view_today_tasks', async (ctx) => {
+// View Today's Tasks with Pagination
+bot.action(/^view_today_tasks_(\d+)$/, async (ctx) => {
+    const page = parseInt(ctx.match[1]);
     const userId = ctx.from.id;
     const today = getTodayIST();
     const tomorrow = getTomorrowIST();
+    
+    // Items per page
+    const perPage = 10;
+    const skip = (page - 1) * perPage;
+    
+    // Get total count
+    const totalTasks = await db.collection('tasks').countDocuments({ 
+        userId: userId,
+        status: 'pending',
+        nextOccurrence: { 
+            $gte: today,
+            $lt: tomorrow
+        }
+    });
+    
+    const totalPages = Math.ceil(totalTasks / perPage);
     
     // Get tasks sorted by orderIndex (priority), then by time
     const tasks = await db.collection('tasks')
@@ -515,6 +530,8 @@ bot.action('view_today_tasks', async (ctx) => {
             }
         })
         .sort({ orderIndex: 1, nextOccurrence: 1 })
+        .skip(skip)
+        .limit(perPage)
         .toArray();
 
     let text = `
@@ -522,7 +539,8 @@ bot.action('view_today_tasks', async (ctx) => {
 
 ━━━━━━━━━━━━━━━━━━━━
 📅 Date: ${formatDate(today)}
-📊 Total: ${tasks.length} task${tasks.length !== 1 ? 's' : ''}
+📊 Total: ${totalTasks} task${totalTasks !== 1 ? 's' : ''}
+📄 Page: ${page}/${totalPages}
 ━━━━━━━━━━━━━━━━━━━━
 
 Select a task to view details:`;
@@ -538,19 +556,39 @@ Select a task to view details:`;
     }
 
     const buttons = [];
+    
+    // Add task buttons (10 per page)
     tasks.forEach((t, index) => {
-        // Show only task title in button
+        const taskNum = skip + index + 1;
         buttons.push([
             Markup.button.callback(
-                `${index + 1}. ${t.title}`, 
+                `${taskNum}. ${t.title}`, 
                 `task_det_${t.taskId}`
             )
         ]);
     });
 
+    // Add pagination buttons if needed
+    if (totalPages > 1) {
+        const paginationRow = [];
+        
+        if (page > 1) {
+            paginationRow.push(Markup.button.callback('◀️ Previous', `view_today_tasks_${page - 1}`));
+        }
+        
+        paginationRow.push(Markup.button.callback(`📄 ${page}/${totalPages}`, 'no_action'));
+        
+        if (page < totalPages) {
+            paginationRow.push(Markup.button.callback('Next ▶️', `view_today_tasks_${page + 1}`));
+        }
+        
+        buttons.push(paginationRow);
+    }
+
     buttons.push([
         Markup.button.callback('➕ Add Task', 'add_task'),
-        Markup.button.callback('🔙 Back', 'main_menu')]);
+        Markup.button.callback('🔙 Back', 'main_menu')
+    ]);
 
     await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
 });
@@ -1129,7 +1167,7 @@ ${formatBlockquote(task.description)}
                 
         const keyboard = Markup.inlineKeyboard([
             [
-                Markup.button.callback('📋 Today\'s Tasks', 'view_today_tasks'),
+                Markup.button.callback('📋 Today\'s Tasks', 'view_today_tasks_1'),
                 Markup.button.callback('🔙 Back', 'main_menu')
             ]
         ]);
@@ -1151,7 +1189,7 @@ async function showTaskDetail(ctx, taskId) {
     if (!task) {
         const text = '❌ <b>𝗧𝗔𝗦𝗞 𝗡𝗢𝗧 𝗙𝗢𝗨𝗡𝗗</b>\n\nThis task may have been completed or deleted.';
         const keyboard = Markup.inlineKeyboard([
-            [Markup.button.callback('📋 Today\'s Tasks', 'view_today_tasks'),
+            [Markup.button.callback('📋 Today\'s Tasks', 'view_today_tasks_1'),
             Markup.button.callback('🔙 Back', 'main_menu')]
         ]);
         return safeEdit(ctx, text, keyboard);
@@ -1180,8 +1218,8 @@ ${formatBlockquote(task.description)}
             Markup.button.callback('🗑️Delete', `delete_task_${taskId}`)
         ],
         [
-            Markup.button.callback('📋 Today\'s Tasks', 'view_today_tasks'),
-            Markup.button.callback('🔙 Back', 'view_today_tasks')
+            Markup.button.callback('📋 Today\'s Tasks', 'view_today_tasks_1'),
+            Markup.button.callback('🔙 Back', 'view_today_tasks_1')
         ]
     ];
     
@@ -1977,13 +2015,18 @@ bot.action('reorder_note_save', async (ctx) => {
 });
 
 // ==========================================
-// 📜 VIEW HISTORY
+// 📜 VIEW HISTORY - WITH PAGINATION
 // ==========================================
 
 bot.action(/^view_history_dates_(\d+)$/, async (ctx) => {
     const page = parseInt(ctx.match[1]);
     const userId = ctx.from.id;
     
+    // Items per page
+    const perPage = 10;
+    const skip = (page - 1) * perPage;
+    
+    // Get total count of distinct dates
     const dates = await db.collection('history').aggregate([
         { $match: { userId } },
         { $group: { 
@@ -1992,20 +2035,46 @@ bot.action(/^view_history_dates_(\d+)$/, async (ctx) => {
                 month: { $month: "$completedAt" },
                 day: { $dayOfMonth: "$completedAt" }
             },
-            count: { $sum: 1 }
+            count: { $sum: 1 },
+            date: { $first: "$completedAt" }
         }},
         { $sort: { "_id.year": -1, "_id.month": -1, "_id.day": -1 } },
-        { $skip: (page - 1) * 5 },
-        { $limit: 5 }
+        { 
+            $facet: {
+                metadata: [{ $count: "total" }],
+                data: [{ $skip: skip }, { $limit: perPage }]
+            }
+        }
     ]).toArray();
 
-    const text = `📜 <b>𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘𝗗 𝗧𝗔𝗦𝗞𝗦 𝗛𝗜𝗦𝗧𝗢𝗥𝗬</b>\n━━━━━━━━━━━━━━━━━━━━\nSelect a date to view:`;
+    const totalDates = dates[0]?.metadata[0]?.total || 0;
+    const dateList = dates[0]?.data || [];
+    const totalPages = Math.ceil(totalDates / perPage);
+
+    const text = `📜 <b>𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘𝗗 𝗧𝗔𝗦𝗞𝗦 𝗛𝗜𝗦𝗧𝗢𝗥𝗬</b>\n━━━━━━━━━━━━━━━━━━━━\n📊 Total: ${totalDates} date${totalDates !== 1 ? 's' : ''}\n📄 Page: ${page}/${totalPages}\n━━━━━━━━━━━━━━━━━━━━\nSelect a date to view:`;
     
-    const buttons = dates.map(d => {
+    const buttons = dateList.map(d => {
         const dateStr = `${d._id.year}-${String(d._id.month).padStart(2, '0')}-${String(d._id.day).padStart(2, '0')}`;
         const date = new Date(d._id.year, d._id.month - 1, d._id.day);
         return [Markup.button.callback(`📅 ${formatDate(date)} (${d.count})`, `hist_list_${dateStr}_1`)];
     });
+    
+    // Add pagination buttons if needed
+    if (totalPages > 1) {
+        const paginationRow = [];
+        
+        if (page > 1) {
+            paginationRow.push(Markup.button.callback('◀️ Previous', `view_history_dates_${page - 1}`));
+        }
+        
+        paginationRow.push(Markup.button.callback(`📄 ${page}/${totalPages}`, 'no_action'));
+        
+        if (page < totalPages) {
+            paginationRow.push(Markup.button.callback('Next ▶️', `view_history_dates_${page + 1}`));
+        }
+        
+        buttons.push(paginationRow);
+    }
     
     buttons.push([Markup.button.callback('🔙 Back', 'main_menu')]);
     
@@ -2021,20 +2090,55 @@ bot.action(/^hist_list_([\d-]+)_(\d+)$/, async (ctx) => {
     const startDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
     const endDate = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
 
+    // Items per page
+    const perPage = 10;
+    const skip = (page - 1) * perPage;
+    
+    // Get total count
+    const totalTasks = await db.collection('history').countDocuments({
+        userId: userId,
+        completedAt: {
+            $gte: startDate,
+            $lt: endDate
+        }
+    });
+    
+    const totalPages = Math.ceil(totalTasks / perPage);
+
     const tasks = await db.collection('history').find({
         userId: userId,
         completedAt: {
             $gte: startDate,
             $lt: endDate
         }
-    }).sort({ completedAt: -1 }).skip((page - 1) * 5).limit(5).toArray();
+    }).sort({ completedAt: -1 }).skip(skip).limit(perPage).toArray();
 
     const date = new Date(year, month - 1, day);
-    const text = `📅 <b>𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘𝗗 𝗢𝗡 ${formatDate(date).toUpperCase()}</b>\n\n━━━━━━━━━━━━━━━━━━━━\nSelect a task to view details:`;
+    const text = `📅 <b>𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘𝗗 𝗢𝗡 ${formatDate(date).toUpperCase()}</b>\n━━━━━━━━━━━━━━━━━━━━\n📊 Total: ${totalTasks} task${totalTasks !== 1 ? 's' : ''}\n📄 Page: ${page}/${totalPages}\n━━━━━━━━━━━━━━━━━━━━\nSelect a task to view details:`;
     
-    const buttons = tasks.map(t => [
-        Markup.button.callback(`✅ ${t.title} (${formatTime(t.completedAt)})`, `hist_det_${t._id}`)
-    ]);
+    const buttons = tasks.map((t, index) => {
+        const taskNum = skip + index + 1;
+        return [
+            Markup.button.callback(`✅ ${taskNum}. ${t.title} (${formatTime(t.completedAt)})`, `hist_det_${t._id}`)
+        ];
+    });
+    
+    // Add pagination buttons if needed
+    if (totalPages > 1) {
+        const paginationRow = [];
+        
+        if (page > 1) {
+            paginationRow.push(Markup.button.callback('◀️ Previous', `hist_list_${dateStr}_${page - 1}`));
+        }
+        
+        paginationRow.push(Markup.button.callback(`📄 ${page}/${totalPages}`, 'no_action'));
+        
+        if (page < totalPages) {
+            paginationRow.push(Markup.button.callback('Next ▶️', `hist_list_${dateStr}_${page + 1}`));
+        }
+        
+        buttons.push(paginationRow);
+    }
     
     buttons.push([Markup.button.callback('🔙 Back to Dates', 'view_history_dates_1')]);
     
@@ -2065,24 +2169,52 @@ ${formatBlockquote(task.description)}
 });
 
 // ==========================================
-// 🗒️ VIEW NOTES
+// 🗒️ VIEW NOTES - WITH PAGINATION
 // ==========================================
 
 bot.action(/^view_notes_(\d+)$/, async (ctx) => {
     const page = parseInt(ctx.match[1]);
     const userId = ctx.from.id;
     
+    // Items per page
+    const perPage = 10;
+    const skip = (page - 1) * perPage;
+    
+    // Get total count
+    const totalNotes = await db.collection('notes').countDocuments({ userId });
+    const totalPages = Math.ceil(totalNotes / perPage);
+    
     const notes = await db.collection('notes').find({ userId })
         .sort({ orderIndex: 1, createdAt: -1 })
-        .skip((page - 1) * 5)
-        .limit(5)
+        .skip(skip)
+        .limit(perPage)
         .toArray();
 
-    const text = `🗒️ <b>𝗬𝗢𝗨𝗥 𝗡𝗢𝗧𝗘𝗦</b>\n━━━━━━━━━━━━━━━━━━━━\nSelect a note to view:`;
+    const text = `🗒️ <b>𝗬𝗢𝗨𝗥 𝗡𝗢𝗧𝗘𝗦</b>\n━━━━━━━━━━━━━━━━━━━━\n📊 Total: ${totalNotes} note${totalNotes !== 1 ? 's' : ''}\n📄 Page: ${page}/${totalPages}\n━━━━━━━━━━━━━━━━━━━━\nSelect a note to view:`;
     
-    const buttons = notes.map(n => [
-        Markup.button.callback(`📄 ${n.title}`, `note_det_${n.noteId}`)
-    ]);
+    const buttons = notes.map((n, index) => {
+        const noteNum = skip + index + 1;
+        return [
+            Markup.button.callback(`📄 ${noteNum}. ${n.title}`, `note_det_${n.noteId}`)
+        ];
+    });
+    
+    // Add pagination buttons if needed
+    if (totalPages > 1) {
+        const paginationRow = [];
+        
+        if (page > 1) {
+            paginationRow.push(Markup.button.callback('◀️ Previous', `view_notes_${page - 1}`));
+        }
+        
+        paginationRow.push(Markup.button.callback(`📄 ${page}/${totalPages}`, 'no_action'));
+        
+        if (page < totalPages) {
+            paginationRow.push(Markup.button.callback('Next ▶️', `view_notes_${page + 1}`));
+        }
+        
+        buttons.push(paginationRow);
+    }
     
     buttons.push([Markup.button.callback('🔙 Back', 'main_menu')]);
     
@@ -2117,6 +2249,58 @@ ${note.updatedAt ? `✏️ <b>Updated:</b> ${formatDateTime(note.updatedAt)}` : 
     await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
 });
 
+// ==========================================
+// ✏️ EDIT NOTE HANDLERS (FIXED)
+// ==========================================
+
+bot.action(/^edit_note_title_(.+)$/, async (ctx) => {
+    const noteId = ctx.match[1];
+    
+    // Check if note exists
+    const note = await db.collection('notes').findOne({ noteId });
+    if (!note) {
+        await ctx.answerCbQuery('❌ Note not found');
+        return;
+    }
+    
+    ctx.session.editNoteId = noteId;
+    ctx.session.step = 'edit_note_title';
+    
+    await ctx.reply(
+        `✏️ <b>𝗘𝗗𝗜𝗧 𝗡𝗢𝗧𝗘 𝗧𝗜𝗧𝗟𝗘</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `Enter new title:`,
+        { 
+            parse_mode: 'HTML',
+            ...Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `note_det_${noteId}`)]])
+        }
+    );
+});
+
+bot.action(/^edit_note_content_(.+)$/, async (ctx) => {
+    const noteId = ctx.match[1];
+    
+    // Check if note exists
+    const note = await db.collection('notes').findOne({ noteId });
+    if (!note) {
+        await ctx.answerCbQuery('❌ Note not found');
+        return;
+    }
+    
+    ctx.session.editNoteId = noteId;
+    ctx.session.step = 'edit_note_content';
+    
+    await ctx.reply(
+        `✏️ <b>𝗘𝗗𝗜𝗧 𝗡𝗢𝗧𝗘 𝗖𝗢𝗡𝗧𝗘𝗡𝗧</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `Enter new content (Max 400 words):`,
+        { 
+            parse_mode: 'HTML',
+            ...Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `note_det_${noteId}`)]])
+        }
+    );
+});
+
 bot.action(/^delete_note_(.+)$/, async (ctx) => {
     try {
         await db.collection('notes').deleteOne({ noteId: ctx.match[1] });
@@ -2127,7 +2311,6 @@ bot.action(/^delete_note_(.+)$/, async (ctx) => {
         await ctx.answerCbQuery('❌ Error deleting note');
     }
 });
-
 
 // ==========================================
 // 📥 DOWNLOAD DATA MENU (FIXED FILE SENDING)
