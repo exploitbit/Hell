@@ -22,6 +22,8 @@ let db;
 const activeSchedules = new Map();
 // For hourly summary job
 let hourlySummaryJob = null;
+// For auto-complete job at 23:59
+let autoCompleteJob = null;
 
 // Initialize Session
 bot.use(session());
@@ -165,6 +167,13 @@ async function safeEdit(ctx, text, keyboard = null) {
 function formatBlockquote(text) {
     if (!text || text.trim() === '') return '';
     return `<blockquote>${text}</blockquote>`;
+}
+
+// Calculate subtask completion percentage
+function calculateSubtaskProgress(subtasks) {
+    if (!subtasks || subtasks.length === 0) return 0;
+    const completed = subtasks.filter(s => s.completed).length;
+    return Math.round((completed / subtasks.length) * 100);
 }
 
 // ==========================================
@@ -336,6 +345,123 @@ async function rescheduleAllPending() {
     } catch (error) {
         console.error('❌ Error rescheduling tasks:', error);
     }
+}
+
+// ==========================================
+// ⏰ AUTO-COMPLETE PENDING TASKS AT 23:59 IST
+// ==========================================
+
+async function autoCompletePendingTasks() {
+    console.log(`⏰ Running auto-complete for pending tasks at 23:59 IST...`);
+    
+    try {
+        const today = getTodayIST();
+        const tomorrow = getTomorrowIST();
+        
+        // Find all pending tasks scheduled for today
+        const pendingTasks = await db.collection('tasks').find({
+            status: 'pending',
+            nextOccurrence: {
+                $gte: today,
+                $lt: tomorrow
+            }
+        }).toArray();
+        
+        console.log(`📋 Found ${pendingTasks.length} pending tasks to auto-complete`);
+        
+        for (const task of pendingTasks) {
+            await autoCompleteTask(task);
+        }
+        
+        console.log(`✅ Auto-completed ${pendingTasks.length} tasks`);
+    } catch (error) {
+        console.error('❌ Error in auto-complete:', error);
+    }
+}
+
+async function autoCompleteTask(task) {
+    try {
+        const taskId = task.taskId;
+        
+        // Get current IST date and time for completedAt
+        const completedAtIST = getCurrentISTDateTime();
+        const completedDateIST = getISTDateForHistory(completedAtIST);
+        
+        // Create history entry
+        const historyItem = {
+            ...task,
+            _id: undefined,
+            completedAt: completedAtIST,
+            completedDate: completedDateIST,
+            originalTaskId: task.taskId,
+            status: 'completed',
+            completedFromDate: task.nextOccurrence,
+            autoCompleted: true // Mark as auto-completed
+        };
+        
+        await db.collection('history').insertOne(historyItem);
+        
+        // Stop notifications
+        cancelTaskSchedule(taskId);
+        
+        // Handle repetition
+        if (task.repeat !== 'none' && task.repeatCount > 0) {
+            const nextOccurrence = new Date(task.nextOccurrence);
+            const daysToAdd = task.repeat === 'weekly' ? 7 : 1;
+            nextOccurrence.setDate(nextOccurrence.getDate() + daysToAdd);
+            
+            await db.collection('tasks').updateOne({ taskId }, {
+                $set: {
+                    nextOccurrence: nextOccurrence,
+                    repeatCount: task.repeatCount - 1,
+                    startDate: nextOccurrence,
+                    endDate: new Date(nextOccurrence.getTime() + 
+                        (task.endDate.getTime() - task.startDate.getTime()))
+                }
+            });
+            
+            const updatedTask = await db.collection('tasks').findOne({ taskId });
+            if (updatedTask.nextOccurrence > new Date()) {
+                scheduleTask(updatedTask);
+            }
+        } else {
+            // Not repeating -> delete from active tasks
+            await db.collection('tasks').deleteOne({ taskId });
+        }
+        
+        // Notify user
+        try {
+            await bot.telegram.sendMessage(task.userId,
+                `⏰ <b>𝗔𝗨𝗧𝗢-𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘𝗗 𝗧𝗔𝗦𝗞</b>\n` +
+                `━━━━━━━━━━━━━━━━━━━━\n` +
+                `📌 <b>${task.title}</b>\n` +
+                `✅ Automatically completed at 23:59\n` +
+                `📅 ${formatDate(completedAtIST)}\n` +
+                `━━━━━━━━━━━━━━━━━━━━`,
+                { parse_mode: 'HTML' }
+            );
+        } catch (e) {
+            console.error('Error sending auto-complete notification:', e);
+        }
+        
+    } catch (error) {
+        console.error(`Error auto-completing task ${task.taskId}:`, error);
+    }
+}
+
+function scheduleAutoComplete() {
+    // Cancel existing job if any
+    if (autoCompleteJob) {
+        autoCompleteJob.cancel();
+    }
+    
+    // Schedule at 23:59 IST daily
+    // Convert to UTC: 23:59 IST = 18:29 UTC
+    autoCompleteJob = schedule.scheduleJob('29 18 * * *', async () => {
+        await autoCompletePendingTasks();
+    });
+    
+    console.log('✅ Auto-complete scheduler started (23:59 IST daily)');
 }
 
 // ==========================================
@@ -576,9 +702,17 @@ Select a task to view details:`;
     // Add task buttons (10 per page)
     tasks.forEach((t, index) => {
         const taskNum = skip + index + 1;
+        let taskTitle = t.title;
+        
+        // Add progress indicator if task has subtasks
+        if (t.subtasks && t.subtasks.length > 0) {
+            const progress = calculateSubtaskProgress(t.subtasks);
+            taskTitle += ` [${progress}%]`;
+        }
+        
         buttons.push([
             Markup.button.callback(
-                `${taskNum}. ${t.title}`, 
+                `${taskNum}. ${taskTitle}`, 
                 `task_det_${t.taskId}`
             )
         ]);
@@ -619,7 +753,8 @@ bot.action('add_task', async (ctx) => {
         taskId: generateId(10), 
         userId: ctx.from.id,
         status: 'pending',
-        createdAt: new Date()
+        createdAt: new Date(),
+        subtasks: [] // Initialize empty subtasks array
     };
     
     const text = `🎯 <b>𝗖𝗥𝗘𝗔𝗧𝗘 𝗡𝗘𝗪 𝗧𝗔𝗦𝗞</b>\n━━━━━━━━━━━━━━━━━━━━\nEnter the <b>Title</b> of your task:`;
@@ -862,6 +997,103 @@ bot.on('text', async (ctx) => {
         } catch (error) {
             console.error('Error saving note:', error);
             await ctx.reply('❌ Failed to save note. Please try again.');
+        }
+    }
+
+    // --- SUBTASK ADDITION FLOW ---
+    else if (step === 'add_subtasks') {
+        const taskId = ctx.session.addSubtasksTaskId;
+        
+        // Get current task
+        const task = await db.collection('tasks').findOne({ taskId });
+        if (!task) {
+            ctx.session.step = null;
+            delete ctx.session.addSubtasksTaskId;
+            return ctx.reply('❌ Task not found.');
+        }
+        
+        const currentSubtasks = task.subtasks || [];
+        const availableSlots = 10 - currentSubtasks.length;
+        
+        if (availableSlots <= 0) {
+            ctx.session.step = null;
+            delete ctx.session.addSubtasksTaskId;
+            return ctx.reply('❌ Maximum subtasks limit (10) reached for this task.');
+        }
+        
+        // Split input by new lines and filter empty lines
+        const lines = text.split('\n')
+            .map(line => line.trim())
+            .filter(line => line.length > 0);
+        
+        if (lines.length === 0) {
+            return ctx.reply('❌ Please enter at least one subtask title.');
+        }
+        
+        if (lines.length > availableSlots) {
+            return ctx.reply(`❌ You can only add ${availableSlots} more subtask${availableSlots !== 1 ? 's' : ''}. Please enter ${availableSlots} or fewer.`);
+        }
+        
+        // Create new subtasks
+        const newSubtasks = lines.map(title => ({
+            id: generateId(8),
+            title: title,
+            completed: false,
+            createdAt: new Date()
+        }));
+        
+        // Update task with new subtasks
+        await db.collection('tasks').updateOne(
+            { taskId },
+            { 
+                $push: { 
+                    subtasks: { 
+                        $each: newSubtasks 
+                    } 
+                } 
+            }
+        );
+        
+        // Clear session
+        ctx.session.step = null;
+        delete ctx.session.addSubtasksTaskId;
+        
+        await ctx.reply(
+            `✅ <b>𝗦𝗨𝗕𝗧𝗔𝗦𝗞𝗦 𝗔𝗗𝗗𝗘𝗗</b>\n` +
+            `━━━━━━━━━━━━━━━━━━━━\n` +
+            `📌 <b>${task.title}</b>\n` +
+            `➕ Added ${newSubtasks.length} new subtask${newSubtasks.length !== 1 ? 's' : ''}\n` +
+            `📊 Now has ${currentSubtasks.length + newSubtasks.length}/10 subtasks\n` +
+            `━━━━━━━━━━━━━━━━━━━━`,
+            { parse_mode: 'HTML' }
+        );
+        
+        // Return to task detail
+        await showTaskDetail(ctx, taskId);
+    }
+
+    // --- EDIT SUBTASK FLOW ---
+    else if (step === 'edit_subtask_title') {
+        const { taskId, subtaskId } = ctx.session.editSubtask;
+        
+        if (text.length === 0) return ctx.reply('❌ Title cannot be empty.');
+        
+        try {
+            // Update subtask title
+            await db.collection('tasks').updateOne(
+                { taskId, "subtasks.id": subtaskId },
+                { $set: { "subtasks.$.title": text } }
+            );
+            
+            // Clear session
+            ctx.session.step = null;
+            delete ctx.session.editSubtask;
+            
+            await ctx.reply(`✅ <b>𝗦𝗨𝗕𝗧𝗔𝗦𝗞 𝗨𝗣𝗗𝗔𝗧𝗘𝗗!</b>`, { parse_mode: 'HTML' });
+            await showTaskDetail(ctx, taskId);
+        } catch (error) {
+            console.error('Error editing subtask:', error);
+            await ctx.reply('❌ Failed to update subtask.');
         }
     }
 
@@ -1233,6 +1465,7 @@ async function saveTask(ctx) {
     task.status = 'pending';
     task.createdAt = new Date();
     task.orderIndex = nextOrderIndex; // Add order index
+    task.subtasks = task.subtasks || []; // Ensure subtasks array exists
     if (!task.nextOccurrence) {
         task.nextOccurrence = task.startDate;
     }
@@ -1270,7 +1503,7 @@ ${formatBlockquote(task.description)}
     }
 }
 
-// --- TASK DETAILS ---
+// --- TASK DETAILS (WITH SUBTASKS) ---
 bot.action(/^task_det_(.+)$/, async (ctx) => {
     await showTaskDetail(ctx, ctx.match[1]);
 });
@@ -1286,7 +1519,13 @@ async function showTaskDetail(ctx, taskId) {
         return safeEdit(ctx, text, keyboard);
     }
 
-    const text = `
+    // Calculate subtask progress
+    const subtasks = task.subtasks || [];
+    const progress = calculateSubtaskProgress(subtasks);
+    const completedSubtasks = subtasks.filter(s => s.completed).length;
+    const totalSubtasks = subtasks.length;
+    
+    let text = `
 📌 <b>𝗧𝗔𝗦𝗞 𝗗𝗘𝗧𝗔𝗜𝗟𝗦</b>
 ━━━━━━━━━━━━━━━━━━━━
 🆔 <b>Task ID:</b> <code>${task.taskId}</code>
@@ -1298,37 +1537,223 @@ ${formatBlockquote(task.description)}
 🔢 <b>Remaining Repeats:</b> ${task.repeatCount || 0}
 🏷️ <b>Priority Order:</b> ${task.orderIndex + 1}
 📊 <b>Status:</b> ${task.status === 'pending' ? '⏳ Pending' : '✅ Completed'}
+`;
 
-📝 <b>Created:</b> ${formatDateTime(task.createdAt)}
-━━━━━━━━━━━━━━━━━━━━`;
+    // Add subtask progress bar
+    if (totalSubtasks > 0) {
+        const barLength = 10;
+        const filledBars = Math.round((progress / 100) * barLength);
+        const emptyBars = barLength - filledBars;
+        const progressBar = '█'.repeat(filledBars) + '░'.repeat(emptyBars);
+        
+        text += `
+📋 <b>𝗦𝗨𝗕𝗧𝗔𝗦𝗞𝗦:</b> ${completedSubtasks}/${totalSubtasks}
+${progressBar} ${progress}%
+━━━━━━━━━━━━━━━━━━━━
+`;
+    } else {
+        text += `\n📋 <b>𝗦𝗨𝗕𝗧𝗔𝗦𝗞𝗦:</b> No subtasks yet\n━━━━━━━━━━━━━━━━━━━━\n`;
+    }
 
-    const buttons = [
-        [
-            Markup.button.callback('✅Done', `complete_${taskId}`),
-            Markup.button.callback('✏️Edit', `edit_menu_${taskId}`), 
-            Markup.button.callback('🗑️Delete', `delete_task_${taskId}`)
-        ],
-        [
-            Markup.button.callback('📋 Today\'s Tasks', 'view_today_tasks_1'),
-            Markup.button.callback('🔙 Back', 'view_today_tasks_1')
-        ]
-    ];
+    // Add subtask buttons
+    const buttons = [];
     
+    // Add each subtask as a button
+    subtasks.forEach((subtask, index) => {
+        const status = subtask.completed ? '✅' : '⭕';
+        const buttonRow = [
+            Markup.button.callback(
+                `${status} ${index + 1}. ${subtask.title}`, 
+                `subtask_det_${taskId}_${subtask.id}`
+            )
+        ];
+        buttons.push(buttonRow);
+    });
+    
+    // Add action buttons row
+    const actionRow = [];
+    
+    // Add subtask button if less than 10
+    if (totalSubtasks < 10) {
+        actionRow.push(Markup.button.callback('➕ Add Subtask', `add_subtask_${taskId}`));
+    }
+    
+    actionRow.push(Markup.button.callback('✏️ Edit Task', `edit_menu_${taskId}`));
+    actionRow.push(Markup.button.callback('🗑️ Delete', `delete_task_${taskId}`));
+    
+    if (actionRow.length > 0) {
+        buttons.push(actionRow);
+    }
+    
+    // Navigation buttons
+    buttons.push([
+        Markup.button.callback('✅ Complete Task', `complete_${taskId}`),
+        Markup.button.callback('📋 Today\'s Tasks', 'view_today_tasks_1')
+    ]);
+    
+    buttons.push([
+        Markup.button.callback('🔙 Back', 'view_today_tasks_1')
+    ]);
+
     await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
 }
 
-// --- COMPLETE TASK (with next occurrence logic) - FIXED IST DATE ---
+// --- SUBTASK DETAILS ---
+bot.action(/^subtask_det_(.+)_(.+)$/, async (ctx) => {
+    const taskId = ctx.match[1];
+    const subtaskId = ctx.match[2];
+    
+    const task = await db.collection('tasks').findOne({ taskId });
+    if (!task) {
+        await ctx.answerCbQuery('❌ Task not found');
+        return;
+    }
+    
+    const subtask = (task.subtasks || []).find(s => s.id === subtaskId);
+    if (!subtask) {
+        await ctx.answerCbQuery('❌ Subtask not found');
+        return;
+    }
+    
+    const status = subtask.completed ? '✅ Completed' : '⭕ Pending';
+    const text = `
+📋 <b>𝗦𝗨𝗕𝗧𝗔𝗦𝗞 𝗗𝗘𝗧𝗔𝗜𝗟𝗦</b>
+━━━━━━━━━━━━━━━━━━━━
+📌 <b>Task:</b> ${task.title}
+🔖 <b>Subtask:</b> ${subtask.title}
+📊 <b>Status:</b> ${status}
+🆔 <b>ID:</b> <code>${subtask.id}</code>
+📅 <b>Created:</b> ${formatDateTime(subtask.createdAt)}
+━━━━━━━━━━━━━━━━━━━━`;
+
+    const buttons = [];
+    
+    if (!subtask.completed) {
+        buttons.push([Markup.button.callback('✅ Mark Complete', `subtask_complete_${taskId}_${subtaskId}`)]);
+    }
+    
+    buttons.push([
+        Markup.button.callback('✏️ Edit', `subtask_edit_${taskId}_${subtaskId}`),
+        Markup.button.callback('🗑️ Delete', `subtask_delete_${taskId}_${subtaskId}`)
+    ]);
+    
+    buttons.push([Markup.button.callback('🔙 Back to Task', `task_det_${taskId}`)]);
+    
+    await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
+});
+
+// --- SUBTASK COMPLETE ---
+bot.action(/^subtask_complete_(.+)_(.+)$/, async (ctx) => {
+    const taskId = ctx.match[1];
+    const subtaskId = ctx.match[2];
+    
+    try {
+        // Mark subtask as completed
+        await db.collection('tasks').updateOne(
+            { taskId, "subtasks.id": subtaskId },
+            { $set: { "subtasks.$.completed": true } }
+        );
+        
+        await ctx.answerCbQuery('✅ Subtask completed!');
+        await showTaskDetail(ctx, taskId);
+    } catch (error) {
+        console.error('Error completing subtask:', error);
+        await ctx.answerCbQuery('❌ Error completing subtask');
+    }
+});
+
+// --- SUBTASK EDIT ---
+bot.action(/^subtask_edit_(.+)_(.+)$/, async (ctx) => {
+    const taskId = ctx.match[1];
+    const subtaskId = ctx.match[2];
+    
+    ctx.session.step = 'edit_subtask_title';
+    ctx.session.editSubtask = { taskId, subtaskId };
+    
+    await ctx.reply(
+        `✏️ <b>𝗘𝗗𝗜𝗧 𝗦𝗨𝗕𝗧𝗔𝗦𝗞 𝗧𝗜𝗧𝗟𝗘</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `Enter new title for the subtask:`,
+        Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `task_det_${taskId}`)]])
+    );
+});
+
+// --- SUBTASK DELETE ---
+bot.action(/^subtask_delete_(.+)_(.+)$/, async (ctx) => {
+    const taskId = ctx.match[1];
+    const subtaskId = ctx.match[2];
+    
+    try {
+        // Remove subtask from array
+        await db.collection('tasks').updateOne(
+            { taskId },
+            { $pull: { subtasks: { id: subtaskId } } }
+        );
+        
+        await ctx.answerCbQuery('🗑️ Subtask deleted');
+        await showTaskDetail(ctx, taskId);
+    } catch (error) {
+        console.error('Error deleting subtask:', error);
+        await ctx.answerCbQuery('❌ Error deleting subtask');
+    }
+});
+
+// --- ADD SUBTASK ---
+bot.action(/^add_subtask_(.+)$/, async (ctx) => {
+    const taskId = ctx.match[1];
+    
+    const task = await db.collection('tasks').findOne({ taskId });
+    if (!task) {
+        await ctx.answerCbQuery('❌ Task not found');
+        return;
+    }
+    
+    const currentSubtasks = task.subtasks || [];
+    const availableSlots = 10 - currentSubtasks.length;
+    
+    if (availableSlots <= 0) {
+        await ctx.answerCbQuery('❌ Maximum subtasks limit (10) reached');
+        return;
+    }
+    
+    ctx.session.step = 'add_subtasks';
+    ctx.session.addSubtasksTaskId = taskId;
+    
+    await ctx.reply(
+        `➕ <b>𝗔𝗗𝗗 𝗦𝗨𝗕𝗧𝗔𝗦𝗞𝗦</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `📌 <b>${task.title}</b>\n` +
+        `📊 Current: ${currentSubtasks.length}/10 subtasks\n` +
+        `➕ Available: ${availableSlots} more\n\n` +
+        `<i>Enter subtask titles (one per line):</i>\n` +
+        `<code>S1\nS2\nS3</code>`,
+        { 
+            parse_mode: 'HTML',
+            ...Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `task_det_${taskId}`)]])
+        }
+    );
+});
+
+// --- COMPLETE TASK (with subtask verification) ---
 bot.action(/^complete_(.+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     const task = await db.collection('tasks').findOne({ taskId });
     if (!task) return ctx.answerCbQuery('Task not found');
+
+    // Check if all subtasks are completed
+    const subtasks = task.subtasks || [];
+    const incompleteSubtasks = subtasks.filter(s => !s.completed);
+    
+    if (incompleteSubtasks.length > 0) {
+        return ctx.answerCbQuery(`❌ Complete all ${incompleteSubtasks.length} pending subtasks first!`);
+    }
 
     // Get current IST date and time for completedAt
     const completedAtIST = getCurrentISTDateTime();
     // Also store a date-only version for grouping
     const completedDateIST = getISTDateForHistory(completedAtIST);
     
-    // 1. Create History Copy
+    // 1. Create History Copy with subtasks
     const historyItem = {
         ...task,
         _id: undefined,
@@ -1336,7 +1761,8 @@ bot.action(/^complete_(.+)$/, async (ctx) => {
         completedDate: completedDateIST, // Store date-only for grouping
         originalTaskId: task.taskId,
         status: 'completed',
-        completedFromDate: task.nextOccurrence
+        completedFromDate: task.nextOccurrence,
+        subtasks: task.subtasks // Include subtasks in history
     };
     
     try {
@@ -1353,14 +1779,21 @@ bot.action(/^complete_(.+)$/, async (ctx) => {
             const daysToAdd = task.repeat === 'weekly' ? 7 : 1;
             nextOccurrence.setDate(nextOccurrence.getDate() + daysToAdd);
             
-            // Update the task with next occurrence
+            // Reset subtasks for next occurrence (all incomplete)
+            const resetSubtasks = (task.subtasks || []).map(s => ({
+                ...s,
+                completed: false
+            }));
+            
+            // Update the task with next occurrence and reset subtasks
             await db.collection('tasks').updateOne({ taskId }, {
                 $set: {
                     nextOccurrence: nextOccurrence,
                     repeatCount: task.repeatCount - 1,
                     startDate: nextOccurrence,
                     endDate: new Date(nextOccurrence.getTime() + 
-                        (task.endDate.getTime() - task.startDate.getTime()))
+                        (task.endDate.getTime() - task.startDate.getTime())),
+                    subtasks: resetSubtasks
                 }
             });
             
@@ -1410,7 +1843,7 @@ bot.action(/^edit_menu_(.+)$/, async (ctx) => {
     await safeEdit(ctx, text, keyboard);
 });
 
-// Direct edit action handlers (NEW APPROACH)
+// Direct edit action handlers
 bot.action(/^edit_task_title_(.+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     ctx.session.editTaskId = taskId;
@@ -1508,7 +1941,7 @@ bot.action(/^edit_rep_(.+)$/, async (ctx) => {
     const keyboard = Markup.inlineKeyboard([
         [Markup.button.callback('❌ No Repeat', `set_rep_${taskId}_none`)],
         [Markup.button.callback('📅 Daily', `set_rep_${taskId}_daily`)],
-        [Markup.button.callback('📅 Weekly on ${dayName}', `set_rep_${taskId}_weekly`)],
+        [Markup.button.callback('📅 Weekly', `set_rep_${taskId}_weekly`)],
         [Markup.button.callback('🔙 Back', `edit_menu_${taskId}`)]
     ]);
     
@@ -2127,7 +2560,7 @@ bot.action('reorder_note_save', async (ctx) => {
 });
 
 // ==========================================
-// 📜 VIEW HISTORY - WITH PAGINATION (FIXED IST DATE GROUPING)
+// 📜 VIEW HISTORY - WITH PAGINATION AND SUBTASKS
 // ==========================================
 
 bot.action(/^view_history_dates_(\d+)$/, async (ctx) => {
@@ -2238,8 +2671,16 @@ bot.action(/^hist_list_([\d-]+)_(\d+)$/, async (ctx) => {
     
     const buttons = tasks.map((t, index) => {
         const taskNum = skip + index + 1;
+        let taskTitle = t.title;
+        
+        // Add subtask indicator to history list
+        if (t.subtasks && t.subtasks.length > 0) {
+            const completed = t.subtasks.filter(s => s.completed).length;
+            taskTitle += ` [${completed}/${t.subtasks.length}]`;
+        }
+        
         return [
-            Markup.button.callback(`✅ ${taskNum}. ${t.title} (${formatTime(t.completedAt)})`, `hist_det_${t._id}`)
+            Markup.button.callback(`✅ ${taskNum}. ${taskTitle} (${formatTime(t.completedAt)})`, `hist_det_${t._id}`)
         ];
     });
     
@@ -2271,15 +2712,27 @@ bot.action(/^hist_det_(.+)$/, async (ctx) => {
 
     if (!task) return ctx.answerCbQuery('Task not found');
 
-    const text = `
+    let text = `
 📜 <b>𝗛𝗜𝗦𝗧𝗢𝗥𝗬 𝗗𝗘𝗧𝗔𝗜𝗟</b>
 ━━━━━━━━━━━━━━━━━━━━
 📌 <b>${task.title}</b>
 ${formatBlockquote(task.description)}
 ✅ <b>Completed At:</b> ${formatDateTime(task.completedAt)}
+${task.autoCompleted ? '🤖 <b>Auto-completed at 23:59</b>\n' : ''}
 ⏰ <b>Original Time:</b> ${formatTime(task.startDate)} - ${formatTime(task.endDate)}
 🔄 <b>Repeat Type:</b> ${task.repeat === 'none' ? 'No Repeat' : task.repeat}
-━━━━━━━━━━━━━━━━━━━━`;
+━━━━━━━━━━━━━━━━━━━━
+`;
+
+    // Show subtasks if they exist
+    if (task.subtasks && task.subtasks.length > 0) {
+        text += `📋 <b>𝗦𝗨𝗕𝗧𝗔𝗦𝗞𝗦:</b>\n`;
+        task.subtasks.forEach((subtask, index) => {
+            const status = subtask.completed ? '✅' : '❌';
+            text += `${status} ${index + 1}. ${subtask.title}\n`;
+        });
+        text += `━━━━━━━━━━━━━━━━━━━━\n`;
+    }
 
     const keyboard = Markup.inlineKeyboard([
         [Markup.button.callback('🔙 Back to History', 'view_history_dates_1')]
@@ -2649,6 +3102,7 @@ bot.action('download_all', async (ctx) => {
         await ctx.reply('❌ Failed to send files. Please try again.');
     }
 });
+
 // ==========================================
 // 🗑️ DELETE DATA MENU (FIXED)
 // ==========================================
@@ -2932,6 +3386,11 @@ bot.action('delete_all_final', async (ctx) => {
     }
 });
 
+// Dummy action for pagination
+bot.action('no_action', async (ctx) => {
+    await ctx.answerCbQuery();
+});
+
 // ==========================================
 // 🚀 BOOTSTRAP
 // ==========================================
@@ -2943,6 +3402,9 @@ async function start() {
             
             // Start hourly summary scheduler
             scheduleHourlySummary();
+            
+            // Start auto-complete scheduler
+            scheduleAutoComplete();
             
             await bot.launch();
             console.log('🤖 Bot Started Successfully!');
@@ -2999,6 +3461,11 @@ process.once('SIGINT', () => {
         hourlySummaryJob.cancel();
     }
     
+    // Cancel auto-complete job
+    if (autoCompleteJob) {
+        autoCompleteJob.cancel();
+    }
+    
     bot.stop('SIGINT');
     if (client) client.close();
     console.log('👋 Bot stopped gracefully');
@@ -3017,6 +3484,11 @@ process.once('SIGTERM', () => {
     // Cancel hourly summary job
     if (hourlySummaryJob) {
         hourlySummaryJob.cancel();
+    }
+    
+    // Cancel auto-complete job
+    if (autoCompleteJob) {
+        autoCompleteJob.cancel();
     }
     
     bot.stop('SIGTERM');
