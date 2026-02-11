@@ -1570,32 +1570,30 @@ ${progressBar} ${progress}%
         buttons.push(buttonRow);
     });
     
-    // Add action buttons row
+    // Action buttons row - ALL IN ONE ROW
     const actionRow = [];
     
-    // Add subtask button if less than 10
+    // Add subtask button (+) if less than 10
     if (totalSubtasks < 10) {
         actionRow.push(Markup.button.callback('➕', `add_subtask_${taskId}`));
     }
     
+    // Always show these action buttons
     actionRow.push(Markup.button.callback('✏️', `edit_menu_${taskId}`));
     actionRow.push(Markup.button.callback('🗑️', `delete_task_${taskId}`));
-    acrionRow.push(Markup.button.callback('✅', `complete_${taskId}`));
-
-    if (actionRow.length > 0) {
-        buttons.push(actionRow);
-    }
+    actionRow.push(Markup.button.callback('✅', `complete_${taskId}`));
     
-    // Navigation buttons
+    // Add the action row to buttons
+    buttons.push(actionRow);
+    
+    // Navigation buttons row
     buttons.push([
-        
         Markup.button.callback('📋 Tasks', 'view_today_tasks_1'),
         Markup.button.callback('🔙 Back', 'view_today_tasks_1')
     ]);
 
     await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
 }
-
 // --- SUBTASK DETAILS ---
 bot.action(/^subtask_det_(.+)_(.+)$/, async (ctx) => {
     const taskId = ctx.match[1];
