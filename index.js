@@ -1580,18 +1580,16 @@ ${progressBar} ${progress}%
     
     actionRow.push(Markup.button.callback('✏️', `edit_menu_${taskId}`));
     actionRow.push(Markup.button.callback('🗑️', `delete_task_${taskId}`));
-    
+    acrionRow.push(Markup.button.callback('✅', `complete_${taskId}`));
+
     if (actionRow.length > 0) {
         buttons.push(actionRow);
     }
     
     // Navigation buttons
     buttons.push([
-        Markup.button.callback('✅ Tick', `complete_${taskId}`),
-        Markup.button.callback('📋 Tasks', 'view_today_tasks_1')
-    ]);
-    
-    buttons.push([
+        
+        Markup.button.callback('📋 Tasks', 'view_today_tasks_1'),
         Markup.button.callback('🔙 Back', 'view_today_tasks_1')
     ]);
 
