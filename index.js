@@ -275,7 +275,7 @@ function scheduleTask(task) {
                 try {
                     await bot.telegram.sendMessage(userId, 
                         `🔔 <b>𝗥𝗘𝗠𝗜𝗡𝗗𝗘𝗥 (${count + 1}/${maxNotifications})</b>\n` +
-                        `━━━━━━━━━━━━━━━━━━━━` +
+                        `━━━━━━━━━━━━━━━━━━━━\n` +
                         `📌 <b>${task.title}</b>\n` +
                         `⏳ Starts in: <b>${minutesLeft} minute${minutesLeft !== 1 ? 's' : ''}</b>\n` +
                         `⏰ Start Time: ${formatTime(startTime)}\n` +
@@ -723,7 +723,7 @@ Select a task to view details:`;
         const paginationRow = [];
         
         if (page > 1) {
-            paginationRow.push(Markup.button.callback('◀️ Previous', `view_today_tasks_${page - 1}`));
+            paginationRow.push(Markup.button.callback('◀️ Back', `view_today_tasks_${page - 1}`));
         }
         
         paginationRow.push(Markup.button.callback(`📄 ${page}/${totalPages}`, 'no_action'));
@@ -1575,11 +1575,11 @@ ${progressBar} ${progress}%
     
     // Add subtask button if less than 10
     if (totalSubtasks < 10) {
-        actionRow.push(Markup.button.callback('➕ Add Subtask', `add_subtask_${taskId}`));
+        actionRow.push(Markup.button.callback('➕', `add_subtask_${taskId}`));
     }
     
-    actionRow.push(Markup.button.callback('✏️ Edit Task', `edit_menu_${taskId}`));
-    actionRow.push(Markup.button.callback('🗑️ Delete', `delete_task_${taskId}`));
+    actionRow.push(Markup.button.callback('✏️', `edit_menu_${taskId}`));
+    actionRow.push(Markup.button.callback('🗑️', `delete_task_${taskId}`));
     
     if (actionRow.length > 0) {
         buttons.push(actionRow);
@@ -1587,8 +1587,8 @@ ${progressBar} ${progress}%
     
     // Navigation buttons
     buttons.push([
-        Markup.button.callback('✅ Complete Task', `complete_${taskId}`),
-        Markup.button.callback('📋 Today\'s Tasks', 'view_today_tasks_1')
+        Markup.button.callback('✅ Tick', `complete_${taskId}`),
+        Markup.button.callback('📋 Tasks', 'view_today_tasks_1')
     ]);
     
     buttons.push([
@@ -1629,13 +1629,19 @@ bot.action(/^subtask_det_(.+)_(.+)$/, async (ctx) => {
     const buttons = [];
     
     if (!subtask.completed) {
-        buttons.push([Markup.button.callback('✅ Mark Complete', `subtask_complete_${taskId}_${subtaskId}`)]);
+        // If not completed: show Complete + Edit + Delete in one row
+        buttons.push([
+            Markup.button.callback('✅', `subtask_complete_${taskId}_${subtaskId}`),
+            Markup.button.callback('✏️', `subtask_edit_${taskId}_${subtaskId}`),
+            Markup.button.callback('🗑️', `subtask_delete_${taskId}_${subtaskId}`)
+        ]);
+    } else {
+        // If completed: show only Edit + Delete in one row
+        buttons.push([
+            Markup.button.callback('✏️ Edit', `subtask_edit_${taskId}_${subtaskId}`),
+            Markup.button.callback('🗑️ Delete', `subtask_delete_${taskId}_${subtaskId}`)
+        ]);
     }
-    
-    buttons.push([
-        Markup.button.callback('✏️ Edit', `subtask_edit_${taskId}_${subtaskId}`),
-        Markup.button.callback('🗑️ Delete', `subtask_delete_${taskId}_${subtaskId}`)
-    ]);
     
     buttons.push([Markup.button.callback('🔙 Back to Task', `task_det_${taskId}`)]);
     
@@ -1725,8 +1731,7 @@ bot.action(/^add_subtask_(.+)$/, async (ctx) => {
         `📌 <b>${task.title}</b>\n` +
         `📊 Current: ${currentSubtasks.length}/10 subtasks\n` +
         `➕ Available: ${availableSlots} more\n\n` +
-        `<i>Enter subtask titles (one per line):</i>\n` +
-        `<code>S1\nS2\nS3</code>`,
+        `<i>Enter subtask titles (one per line):</i>\n`,
         { 
             parse_mode: 'HTML',
             ...Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `task_det_${taskId}`)]])
