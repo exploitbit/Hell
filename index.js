@@ -448,7 +448,7 @@ function writeMainEJS() {
             color: var(--text-secondary-light);
             padding: 4px 6px;
             background: var(--hover-light);
-            border-radius: 0 10px 10px 0;
+            border-radius: 10px 10px 10px 10px;
             border-left: 3px solid var(--accent-light);
             word-break: break-word;
             white-space: pre-wrap;
@@ -703,7 +703,7 @@ function writeMainEJS() {
             color: var(--text-secondary-light);
             padding: 4px 6px;
             background: var(--card-bg-light);
-            border-radius: 0 8px 8px 0;
+            border-radius: 8px 8px 8px 8px;
             border-left: 2px solid var(--accent-light);
             word-break: break-word;
             white-space: pre-wrap;
@@ -773,7 +773,7 @@ function writeMainEJS() {
             color: var(--text-secondary-light);
             padding: 4px 6px;
             background: var(--hover-light);
-            border-radius: 0 10px 10px 0;
+            border-radius: 10px 10px 10px 10px;
             border-left: 3px solid var(--accent-light);
             word-break: break-word;
             white-space: pre-wrap;
@@ -911,7 +911,7 @@ function writeMainEJS() {
             color: var(--text-secondary-light);
             padding: 4px 6px;
             background: var(--card-bg-light);
-            border-radius: 0 8px 8px 0;
+            border-radius: 8px 8px 8px 8px;
             border-left: 2px solid var(--success-light);
             word-break: break-word;
             white-space: pre-wrap;
