@@ -3328,7 +3328,7 @@ bot.command('start', async (ctx) => {
             Markup.button.callback('📥 Download', 'download_menu'),
             Markup.button.callback('🗑️ Delete', 'delete_menu')
         ],
-        [Markup.button.url('🌐 Open Web App', WEB_APP_URL)]
+        [Markup.button.webApp('🌐 Open Web App', WEB_APP_URL)]
     ]);
 
     await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard.reply_markup });
@@ -3367,7 +3367,7 @@ async function showMainMenu(ctx) {
             Markup.button.callback('📥 Download', 'download_menu'),
             Markup.button.callback('🗑️ Delete', 'delete_menu')
         ],
-        [Markup.button.url('🌐 Open Web App', WEB_APP_URL)]
+        [Markup.button.webApp('🌐 Open Web App', WEB_APP_URL)]
     ]);
 
     await safeEdit(ctx, text, keyboard);
