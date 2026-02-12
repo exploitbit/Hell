@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Task Manager - Notes</title>
+    <title>Global Task Manager - Notes</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
@@ -192,6 +192,24 @@
             color: var(--dark);
         }
         
+        .global-badge {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .info-message {
+            background-color: rgba(67, 97, 238, 0.1);
+            border-left: 4px solid var(--primary);
+            padding: 12px;
+            margin-bottom: 16px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+        }
+        
         .notes-container {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -246,6 +264,16 @@
             font-size: 0.75rem;
             color: var(--gray);
             font-weight: 500;
+        }
+        
+        .utc-badge {
+            background-color: rgba(67, 97, 238, 0.1);
+            color: var(--primary);
+            padding: 2px 4px;
+            border-radius: 4px;
+            font-size: 0.6rem;
+            font-weight: 600;
+            margin-left: 4px;
         }
         
         .note-content {
@@ -516,15 +544,19 @@
     </button>
 
     <div class="main-content">
+        <div class="info-message">
+            <i class="fas fa-globe"></i> <strong>Global Mode</strong> - Everyone sees the same notes
+        </div>
+        
         <div class="content-header">
-            <h1 class="page-title">My Notes</h1>
+            <h1 class="page-title">Global Notes</h1>
         </div>
 
         <div class="notes-container">
             <% if (notes.length === 0) { %>
                 <div class="empty-state">
                     <i class="fas fa-wand-magic-sparkles"></i>
-                    <p>No notes yet. Click the + button to add your first note!</p>
+                    <p>No notes yet. Click the + button to add your first global note!</p>
                 </div>
             <% } else { %>
                 <% notes.forEach(function(note) { %>
@@ -535,13 +567,12 @@
                                     <h3 class="note-title"><%= note.title %></h3>
                                     <div class="note-date">
                                         <i class="fas fa-clock"></i>
-                                        <%= note.updatedAtIST || note.createdAtIST %>
+                                        <%= note.updatedAtUTC || note.createdAtUTC %> UTC
                                     </div>
                                 </div>
                             </summary>
                             <div class="note-content">
                                 <% if (note.description) { %>
-                                    <!-- FIXED: Preserve line breaks -->
                                     <div class="note-description"><%- note.description.replace(/\n/g, '<br>') %></div>
                                 <% } else { %>
                                     <div class="note-description" style="color: var(--gray); font-style: italic;">Empty note</div>
@@ -550,11 +581,10 @@
                                     <div class="note-meta">
                                         <span class="note-date-badge">
                                             <i class="fas fa-calendar"></i>
-                                            Created: <%= note.createdAtIST %>
+                                            Created: <%= note.createdAtUTC %> UTC
                                         </span>
                                     </div>
                                     <div class="note-actions">
-                                        <!-- FIXED: Move up/down buttons -->
                                         <form method="POST" action="/api/notes/<%= note.noteId %>/move" style="display:inline;">
                                             <input type="hidden" name="direction" value="up">
                                             <button type="submit" class="note-move-btn" title="Move Up">
@@ -567,11 +597,10 @@
                                                 <i class="fas fa-arrow-down"></i>
                                             </button>
                                         </form>
-                                        <!-- FIXED: Escape quotes for JavaScript -->
                                         <button class="note-action-btn" onclick='openEditNoteModal("<%= note.noteId %>", <%= JSON.stringify(note.title) %>, <%= JSON.stringify(note.description || "") %>)' title="Edit Note">
                                             <i class="fas fa-edit"></i>
                                         </button>
-                                        <form method="POST" action="/api/notes/<%= note.noteId %>/delete" style="display:inline;" onsubmit="return confirm('Delete this note?')">
+                                        <form method="POST" action="/api/notes/<%= note.noteId %>/delete" style="display:inline;" onsubmit="return confirm('Delete this global note? Everyone will lose it!')">
                                             <button type="submit" class="note-action-btn delete" title="Delete Note">
                                                 <i class="fas fa-trash"></i>
                                             </button>
@@ -586,22 +615,23 @@
         </div>
     </div>
 
-    <!-- Add Note Modal -->
+    <!-- Add Note Modal - BOT STYLE -->
     <div class="modal" id="addNoteModal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2 class="modal-title">Add New Note</h2>
+                <h2 class="modal-title">Add New Global Note</h2>
                 <button type="button" class="close-modal" onclick="closeAddNoteModal()">&times;</button>
             </div>
             <div class="modal-body">
                 <form method="POST" action="/api/notes">
                     <div class="form-group">
-                        <label class="form-label">Title *</label>
+                        <label class="form-label">Title * (Max 200 chars)</label>
                         <input type="text" class="form-input" name="title" required placeholder="Enter note title" maxlength="200">
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Content</label>
-                        <textarea class="form-textarea" name="description" placeholder="Write your note here..."></textarea>
+                        <label class="form-label">Content (Max 400 words)</label>
+                        <textarea class="form-textarea" name="description" placeholder="Enter note content, or '-' for none"></textarea>
+                        <small style="color: var(--gray); font-size: 0.75rem;">Enter '-' if no content</small>
                     </div>
                     <div class="form-actions">
                         <button type="button" class="btn btn-secondary" onclick="closeAddNoteModal()">Cancel</button>
@@ -616,18 +646,19 @@
     <div class="modal" id="editNoteModal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2 class="modal-title">Edit Note</h2>
+                <h2 class="modal-title">Edit Global Note</h2>
                 <button type="button" class="close-modal" onclick="closeEditNoteModal()">&times;</button>
             </div>
             <div class="modal-body">
                 <form method="POST" action="" id="editNoteForm">
                     <div class="form-group">
-                        <label class="form-label">Title *</label>
+                        <label class="form-label">Title * (Max 200 chars)</label>
                         <input type="text" class="form-input" name="title" id="editNoteTitle" required maxlength="200">
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Content</label>
-                        <textarea class="form-textarea" name="description" id="editNoteDescription"></textarea>
+                        <label class="form-label">Content (Max 400 words)</label>
+                        <textarea class="form-textarea" name="description" id="editNoteDescription" placeholder="Enter '-' for empty"></textarea>
+                        <small style="color: var(--gray); font-size: 0.75rem;">Enter '-' if no content</small>
                     </div>
                     <div class="form-actions">
                         <button type="button" class="btn btn-secondary" onclick="closeEditNoteModal()">Cancel</button>
@@ -648,7 +679,6 @@
             document.getElementById('addNoteModal').querySelector('form').reset();
         }
 
-        // FIXED: Proper escaping for quotes
         function openEditNoteModal(noteId, title, description) {
             document.getElementById('editNoteForm').action = `/api/notes/${noteId}/update`;
             document.getElementById('editNoteTitle').value = title;
@@ -661,7 +691,6 @@
             document.getElementById('editNoteForm').reset();
         }
 
-        // Close modals when clicking outside
         window.addEventListener('click', function(event) {
             const modals = document.querySelectorAll('.modal');
             modals.forEach(modal => {
