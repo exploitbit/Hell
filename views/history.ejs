@@ -160,6 +160,10 @@
             margin-bottom: 15px;
         }
         
+        .history-date-details {
+            border-radius: var(--border-radius);
+        }
+        
         .history-date-summary {
             padding: 12px 16px;
             background-color: var(--blue-bg);
@@ -184,7 +188,7 @@
         }
         
         .history-date-content {
-            padding: 10px 0 0 15px;
+            padding: 15px 0 0 0;
         }
         
         .history-items-container {
@@ -231,7 +235,7 @@
         .history-card-title {
             font-weight: 600;
             color: var(--dark);
-            font-size: 0.8rem;
+            font-size: 0.9rem;
             display: flex;
             align-items: center;
             gap: 8px;
@@ -294,6 +298,12 @@
             border-top: 1px solid rgba(0,0,0,0.1);
         }
         
+        @media (prefers-color-scheme: dark) {
+            .history-subitems {
+                border-top-color: rgba(255,255,255,0.1);
+            }
+        }
+        
         .history-stage-item {
             font-size: 0.8rem;
             color: var(--gray);
@@ -304,9 +314,6 @@
         }
         
         @media (prefers-color-scheme: dark) {
-            .history-subitems {
-                border-top-color: rgba(255,255,255,0.1);
-            }
             .history-stage-item {
                 background: rgba(255,255,255,0.05);
             }
@@ -323,6 +330,7 @@
             font-weight: 600;
             color: var(--dark);
             flex: 1;
+            font-size: 0.85rem;
         }
         
         .history-stage-description {
@@ -379,9 +387,13 @@
                 <p>No completed tasks yet. Complete some tasks to see them here!</p>
             </div>
         <% } else { %>
-            <% Object.keys(groupedHistory).sort().reverse().forEach(function(date) { %>
+            <% 
+                // FIXED: Sort dates in reverse chronological order
+                const sortedDates = Object.keys(groupedHistory).sort().reverse(); 
+            %>
+            <% sortedDates.forEach(function(date, index) { %>
                 <div class="history-date-group">
-                    <details class="history-date-details" <%= Object.keys(groupedHistory).indexOf(date) === 0 ? 'open' : '' %>>
+                    <details class="history-date-details" <%= index === 0 ? 'open' : '' %>>
                         <summary class="history-date-summary">
                             <i class="fas fa-calendar"></i>
                             <%= date %>
@@ -399,7 +411,7 @@
                                                 <%= task.title %>
                                             </div>
                                             <div class="history-card-time">
-                                                <%= task.completedTimeIST %>
+                                                <i class="fas fa-clock"></i> <%= task.completedTimeIST %>
                                             </div>
                                         </div>
                                         
@@ -408,16 +420,19 @@
                                         <% } %>
                                         
                                         <div class="history-card-meta">
+                                            <!-- FIXED: Repeat badge -->
                                             <% if (task.repeat && task.repeat !== 'none') { %>
                                                 <span class="history-meta-item">
                                                     <i class="fas fa-repeat"></i> <%= task.repeat === 'daily' ? 'Daily' : 'Weekly' %>
+                                                    <% if (task.repeatCount) { %>(<%= task.repeatCount %>)<% } %>
                                                 </span>
                                             <% } %>
-                                            <% if (task.duration) { %>
-                                                <span class="history-meta-item">
-                                                    <i class="fas fa-hourglass-half"></i> <%= task.durationFormatted || task.duration + ' min' %>
-                                                </span>
-                                            <% } %>
+                                            <!-- FIXED: Duration -->
+                                            <span class="history-meta-item">
+                                                <i class="fas fa-hourglass-half"></i> 
+                                                <%= task.durationFormatted || (task.endDate && task.startDate ? Math.round((new Date(task.endDate) - new Date(task.startDate)) / 60000) + ' min' : '30 min') %>
+                                            </span>
+                                            <!-- FIXED: Auto-completed badge -->
                                             <% if (task.autoCompleted) { %>
                                                 <span class="history-meta-item">
                                                     <i class="fas fa-robot"></i> Auto
@@ -425,13 +440,20 @@
                                             <% } %>
                                         </div>
                                         
+                                        <!-- FIXED: Subtask display -->
                                         <% if (task.subtasks && task.subtasks.length > 0) { %>
                                             <div class="history-subitems">
+                                                <div style="font-size: 0.8rem; font-weight: 600; margin-bottom: 8px; color: var(--dark);">
+                                                    <i class="fas fa-tasks"></i> Subtasks (<%= task.subtasks.filter(s => s.completed).length %>/<%= task.subtasks.length %>)
+                                                </div>
                                                 <% task.subtasks.forEach(function(subtask) { %>
                                                     <div class="history-stage-item">
                                                         <div class="history-stage-header">
-                                                            <span class="history-stage-title">
-                                                                <%= subtask.completed ? '✅' : '❌' %> <%= subtask.title %>
+                                                            <span style="<%= subtask.completed ? 'color: var(--success);' : 'color: var(--gray);' %>">
+                                                                <%= subtask.completed ? '✅' : '⭕' %>
+                                                            </span>
+                                                            <span class="history-stage-title <%= subtask.completed ? '' : '' %>">
+                                                                <%= subtask.title %>
                                                             </span>
                                                         </div>
                                                         <% if (subtask.description) { %>
