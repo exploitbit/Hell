@@ -13,37 +13,34 @@ const BOT_TOKEN = '8388773187:AAGeJLg_0U2qj9sg9awJ9aQVdF9klxEiRw4';
 const MONGODB_URI = 'mongodb+srv://sandip:9E9AISFqTfU3VI5i@cluster0.p8irtov.mongodb.net/telegram_bot';
 const PORT = process.env.PORT || 8080;
 const WEB_APP_URL = 'https://task-manager-bot.up.railway.app';
-const CHAT_ID = 8469993808; // Your specific user ID - now only sends to you
+const CHAT_ID = 8469993808;
 
-// Initialize Express app
 const app = express();
 
 // ==========================================
-// 🎨 EXPRESS CONFIGURATION - FIXED
+// 🎨 EXPRESS CONFIGURATION
 // ==========================================
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ✅ Set up EJS view engine
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-// ✅ Create directories if they don't exist
 const viewsDir = path.join(__dirname, 'views');
 const publicDir = path.join(__dirname, 'public');
 
 if (!fs.existsSync(viewsDir)) {
     fs.mkdirSync(viewsDir, { recursive: true });
-    console.log('📁 Created views directory');
 }
 
 if (!fs.existsSync(publicDir)) {
     fs.mkdirSync(publicDir, { recursive: true });
-    console.log('📁 Created public directory');
 }
 
-// ✅ Write the main EJS template file
+// ==========================================
+// 🎨 EJS TEMPLATE - FIXED WITH ALL IMPROVEMENTS
+// ==========================================
 function writeMainEJS() {
     const mainEJS = `<!DOCTYPE html>
 <html lang="en">
@@ -67,8 +64,6 @@ function writeMainEJS() {
             --danger-light: #dc2626;
             --hover-light: #f1f5f9;
             --progress-bg-light: #e2e8f0;
-            --toast-bg-light: #1e293b;
-            --toast-text-light: #ffffff;
             
             --bg-dark: #0f172a;
             --card-bg-dark: #1e293b;
@@ -82,8 +77,6 @@ function writeMainEJS() {
             --danger-dark: #f87171;
             --hover-dark: #2d3b4f;
             --progress-bg-dark: #334155;
-            --toast-bg-dark: #0f172a;
-            --toast-text-dark: #f8fafc;
         }
 
         * {
@@ -187,10 +180,6 @@ function writeMainEJS() {
             }
         }
 
-        .nav-btn i {
-            font-size: 0.9rem;
-        }
-
         .time-badge {
             display: flex;
             align-items: center;
@@ -221,18 +210,11 @@ function writeMainEJS() {
             font-size: 1.5rem;
             font-weight: 700;
             margin-bottom: 16px;
-            color: var(--text-primary-light);
-        }
-
-        @media (prefers-color-scheme: dark) {
-            .page-title {
-                color: var(--text-primary-dark);
-            }
         }
 
         .tasks-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
             gap: 16px;
             margin-top: 16px;
         }
@@ -273,9 +255,14 @@ function writeMainEJS() {
             font-size: 1.1rem;
             font-weight: 700;
             color: var(--text-primary-light);
-            margin-bottom: 2px;
+            margin-bottom: 4px;
             line-height: 1.3;
             word-break: break-word;
+            cursor: pointer;
+        }
+
+        .task-title.no-description {
+            cursor: default;
         }
 
         @media (prefers-color-scheme: dark) {
@@ -293,7 +280,7 @@ function writeMainEJS() {
             display: flex;
             align-items: center;
             gap: 8px;
-            padding: 4px 0;
+            padding: 2px 0;
             color: var(--text-primary-light);
             font-weight: 500;
         }
@@ -314,11 +301,12 @@ function writeMainEJS() {
             display: none;
         }
 
-        .task-time {
+        .task-time-container {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-top: 4px;
+            width: 100%;
+            margin-top: 6px;
             font-size: 0.8rem;
         }
 
@@ -392,14 +380,16 @@ function writeMainEJS() {
         .task-description {
             font-size: 0.85rem;
             color: var(--text-secondary-light);
-            margin: 8px 0;
-            padding: 10px;
+            margin: 4px 0 0 0;
+            padding: 8px 12px;
             background: var(--hover-light);
-            border-radius: 0 12px 12px 0;
+            border-radius: 0 10px 10px 0;
             border-left: 3px solid var(--accent-light);
             word-break: break-word;
             white-space: pre-wrap;
             width: 100%;
+            box-sizing: border-box;
+            line-height: 1.4;
         }
 
         @media (prefers-color-scheme: dark) {
@@ -465,6 +455,7 @@ function writeMainEJS() {
             background: var(--hover-light);
             border-radius: 10px;
             margin-bottom: 6px;
+            width: 100%;
         }
 
         @media (prefers-color-scheme: dark) {
@@ -498,6 +489,7 @@ function writeMainEJS() {
         .subtask-details {
             flex: 1;
             min-width: 0;
+            width: 100%;
         }
 
         .subtask-title {
@@ -506,6 +498,7 @@ function writeMainEJS() {
             margin-bottom: 2px;
             font-size: 0.85rem;
             word-break: break-word;
+            cursor: pointer;
         }
 
         .subtask-title.completed {
@@ -513,17 +506,23 @@ function writeMainEJS() {
             color: var(--text-secondary-light);
         }
 
+        .subtask-title.no-description {
+            cursor: default;
+        }
+
         details.subtask-details .subtask-desc {
             font-size: 0.8rem;
             color: var(--text-secondary-light);
             margin-top: 6px;
-            padding: 8px;
+            padding: 8px 12px;
             background: var(--card-bg-light);
             border-radius: 0 8px 8px 0;
             border-left: 2px solid var(--accent-light);
             word-break: break-word;
             white-space: pre-wrap;
             width: 100%;
+            box-sizing: border-box;
+            line-height: 1.4;
         }
 
         @media (prefers-color-scheme: dark) {
@@ -602,6 +601,11 @@ function writeMainEJS() {
             color: var(--text-primary-light);
             word-break: break-word;
             flex: 1;
+            cursor: pointer;
+        }
+
+        .note-title.no-description {
+            cursor: default;
         }
 
         @media (prefers-color-scheme: dark) {
@@ -639,15 +643,16 @@ function writeMainEJS() {
         .note-content {
             font-size: 0.85rem;
             color: var(--text-secondary-light);
-            line-height: 1.5;
-            margin: 8px 0;
-            padding: 12px;
+            line-height: 1.4;
+            margin: 4px 0 0 0;
+            padding: 8px 12px;
             background: var(--hover-light);
-            border-radius: 0 12px 12px 0;
+            border-radius: 0 10px 10px 0;
             border-left: 3px solid var(--accent-light);
             word-break: break-word;
             white-space: pre-wrap;
             width: 100%;
+            box-sizing: border-box;
         }
 
         @media (prefers-color-scheme: dark) {
@@ -711,6 +716,7 @@ function writeMainEJS() {
             padding: 12px;
             border-left: 3px solid var(--success-light);
             word-break: break-word;
+            width: 100%;
         }
 
         @media (prefers-color-scheme: dark) {
@@ -735,6 +741,10 @@ function writeMainEJS() {
             flex: 1;
         }
 
+        .history-task-title.no-description {
+            cursor: default;
+        }
+
         @media (prefers-color-scheme: dark) {
             .history-task-title {
                 color: var(--text-primary-dark);
@@ -753,6 +763,7 @@ function writeMainEJS() {
             padding: 6px 6px 6px 20px;
             border-left: 2px solid var(--border-light);
             margin: 6px 0;
+            width: 100%;
         }
 
         @media (prefers-color-scheme: dark) {
@@ -832,6 +843,12 @@ function writeMainEJS() {
             background: var(--bg-light);
             color: var(--text-primary-light);
             font-size: 0.9rem;
+            font-family: 'Inter', sans-serif;
+            resize: vertical;
+        }
+
+        textarea.form-control {
+            min-height: 80px;
         }
 
         @media (prefers-color-scheme: dark) {
@@ -883,8 +900,8 @@ function writeMainEJS() {
         }
 
         .toast {
-            background: var(--toast-bg-light);
-            color: var(--toast-text-light);
+            background: #1e293b;
+            color: white;
             padding: 10px 20px;
             border-radius: 100px;
             margin-bottom: 10px;
@@ -898,8 +915,7 @@ function writeMainEJS() {
 
         @media (prefers-color-scheme: dark) {
             .toast {
-                background: var(--toast-bg-dark);
-                color: var(--toast-text-dark);
+                background: #0f172a;
             }
         }
 
@@ -978,11 +994,6 @@ function writeMainEJS() {
             .history-tasks-grid {
                 grid-template-columns: 1fr;
             }
-            
-            .task-time {
-                flex-direction: column;
-                align-items: flex-start;
-            }
         }
 
         .word-break {
@@ -995,6 +1006,10 @@ function writeMainEJS() {
             align-items: center;
             gap: 12px;
             flex-wrap: wrap;
+        }
+
+        .w-100 {
+            width: 100%;
         }
     </style>
 </head>
@@ -1049,7 +1064,7 @@ function writeMainEJS() {
                 </div>
                 <div class="form-group" style="margin-bottom: 12px;">
                     <label style="font-size: 0.85rem; font-weight: 600;">Description</label>
-                    <textarea class="form-control" name="description" rows="2"></textarea>
+                    <textarea class="form-control" name="description" rows="3" placeholder="Enter description (supports line breaks)"></textarea>
                 </div>
                 <div class="form-group" style="margin-bottom: 12px;">
                     <label style="font-size: 0.85rem; font-weight: 600;">Start Date</label>
@@ -1100,7 +1115,7 @@ function writeMainEJS() {
                 </div>
                 <div class="form-group" style="margin-bottom: 12px;">
                     <label style="font-size: 0.85rem; font-weight: 600;">Description</label>
-                    <textarea class="form-control" name="description" id="editDescription" rows="2"></textarea>
+                    <textarea class="form-control" name="description" id="editDescription" rows="3" placeholder="Enter description (supports line breaks)"></textarea>
                 </div>
                 <div class="form-group" style="margin-bottom: 12px;">
                     <label style="font-size: 0.85rem; font-weight: 600;">Start Date</label>
@@ -1151,7 +1166,7 @@ function writeMainEJS() {
                 </div>
                 <div class="form-group" style="margin-bottom: 12px;">
                     <label style="font-size: 0.85rem; font-weight: 600;">Description</label>
-                    <textarea class="form-control" name="description" rows="2"></textarea>
+                    <textarea class="form-control" name="description" rows="3" placeholder="Enter description (supports line breaks)"></textarea>
                 </div>
                 <div style="display: flex; gap: 12px; margin-top: 16px;">
                     <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('addSubtaskModal')">Cancel</button>
@@ -1177,7 +1192,7 @@ function writeMainEJS() {
                 </div>
                 <div class="form-group" style="margin-bottom: 12px;">
                     <label style="font-size: 0.85rem; font-weight: 600;">Description</label>
-                    <textarea class="form-control" name="description" id="editSubtaskDescription" rows="2"></textarea>
+                    <textarea class="form-control" name="description" id="editSubtaskDescription" rows="3" placeholder="Enter description (supports line breaks)"></textarea>
                 </div>
                 <div style="display: flex; gap: 12px; margin-top: 16px;">
                     <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('editSubtaskModal')">Cancel</button>
@@ -1201,7 +1216,7 @@ function writeMainEJS() {
                 </div>
                 <div class="form-group" style="margin-bottom: 12px;">
                     <label style="font-size: 0.85rem; font-weight: 600;">Content</label>
-                    <textarea class="form-control" name="description" rows="3"></textarea>
+                    <textarea class="form-control" name="description" rows="4" placeholder="Enter note content (supports line breaks)"></textarea>
                 </div>
                 <div style="display: flex; gap: 12px; margin-top: 16px;">
                     <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('addNoteModal')">Cancel</button>
@@ -1226,7 +1241,7 @@ function writeMainEJS() {
                 </div>
                 <div class="form-group" style="margin-bottom: 12px;">
                     <label style="font-size: 0.85rem; font-weight: 600;">Content</label>
-                    <textarea class="form-control" name="description" id="editNoteDescription" rows="3"></textarea>
+                    <textarea class="form-control" name="description" id="editNoteDescription" rows="4" placeholder="Enter note content (supports line breaks)"></textarea>
                 </div>
                 <div style="display: flex; gap: 12px; margin-top: 16px;">
                     <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('editNoteModal')">Cancel</button>
@@ -1244,28 +1259,25 @@ function writeMainEJS() {
         tg.ready();
         tg.expand();
 
-        function openWebApp() {
-            window.location.href = 'https://task-manager-bot.up.railway.app' + window.location.pathname;
-        }
-
         // ==========================================
         // TOAST NOTIFICATION SYSTEM
         // ==========================================
         function showToast(message, type = 'success') {
             const container = document.getElementById('toastContainer');
             const toast = document.createElement('div');
-            toast.className = 'toast ' + type;
+            toast.className = 'toast';
+            if (type === 'error') toast.style.background = '#dc2626';
+            else if (type === 'warning') toast.style.background = '#d97706';
             
-            let icon = '';
-            if (type === 'success') icon = 'fa-check-circle';
-            else if (type === 'error') icon = 'fa-exclamation-circle';
-            else icon = 'fa-info-circle';
+            let icon = type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle';
             
             toast.innerHTML = '<i class="fas ' + icon + '"></i><span>' + message + '</span>';
             container.appendChild(toast);
             
             setTimeout(() => {
-                toast.style.animation = 'slideOutRight 0.3s ease';
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100%)';
+                toast.style.transition = 'all 0.3s ease';
                 setTimeout(() => toast.remove(), 300);
             }, 3000);
         }
@@ -1312,9 +1324,7 @@ function writeMainEJS() {
         }
 
         function updateActiveNav() {
-            document.querySelectorAll('.nav-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll('.nav-btn').forEach(btn => {
                 if (btn.innerText.toLowerCase().includes(currentPage)) {
                     btn.classList.add('active');
@@ -1338,6 +1348,33 @@ function writeMainEJS() {
             }
         }
 
+        // ==========================================
+        // CONDITIONAL RENDERING HELPERS
+        // ==========================================
+        function hasContent(text) {
+            return text && text.trim().length > 0;
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+        }
+
+        function preserveLineBreaks(text) {
+            if (!text) return '';
+            return escapeHtml(text).replace(/\\n/g, '<br>');
+        }
+
+        // ==========================================
+        // RENDER TASKS PAGE
+        // ==========================================
         function renderTasksPage() {
             let html = \`
                 <h1 class="page-title">Today's Tasks</h1>
@@ -1354,6 +1391,7 @@ function writeMainEJS() {
                 \`;
             } else {
                 tasksData.forEach(task => {
+                    const hasDescription = hasContent(task.description);
                     const progress = task.subtaskProgress || 0;
                     const circleCircumference = 2 * Math.PI * 16;
                     const circleOffset = circleCircumference - (progress / 100) * circleCircumference;
@@ -1364,17 +1402,21 @@ function writeMainEJS() {
                         <div class="task-card">
                             <div class="task-header">
                                 <div class="task-title-section">
-                                    <details class="task-details">
-                                        <summary>
-                                            <span class="task-title">\${escapeHtml(task.title)}</span>
-                                        </summary>
-                                        <div class="task-description">
-                                            \${task.description ? escapeHtml(task.description).replace(/\\n/g, '<br>') : ''}
-                                        </div>
-                                    </details>
-                                    <div class="task-time">
+                                    \${hasDescription ? \`
+                                        <details class="task-details">
+                                            <summary>
+                                                <span class="task-title">\${escapeHtml(task.title)}</span>
+                                            </summary>
+                                            <div class="task-description">
+                                                \${preserveLineBreaks(task.description)}
+                                            </div>
+                                        </details>
+                                    \` : \`
+                                        <span class="task-title no-description">\${escapeHtml(task.title)}</span>
+                                    \`}
+                                    <div class="task-time-container">
                                         <span class="date-chip">
-                                            <i class="fas fa-calendar"></i> \${task.dateUTC}
+                                            <i class="fas fa-calendar-alt"></i> \${task.dateUTC}
                                         </span>
                                         <span class="time-chip">
                                             <i class="fas fa-clock"></i> \${task.startTimeUTC}-\${task.endTimeUTC}
@@ -1382,9 +1424,11 @@ function writeMainEJS() {
                                     </div>
                                 </div>
                                 <div class="task-actions">
-                                    <button class="action-btn" onclick="openAddSubtaskModal('\${task.taskId}')" title="Add Subtask">
-                                        <i class="fas fa-plus"></i>
-                                    </button>
+                                    \${totalSubtasks < 10 ? \`
+                                        <button class="action-btn" onclick="openAddSubtaskModal('\${task.taskId}')" title="Add Subtask">
+                                            <i class="fas fa-plus"></i>
+                                        </button>
+                                    \` : ''}
                                     <button class="action-btn" onclick="openEditTaskModal('\${task.taskId}')" title="Edit Task">
                                         <i class="fas fa-pencil-alt"></i>
                                     </button>
@@ -1398,7 +1442,7 @@ function writeMainEJS() {
                             </div>
 
                             \${totalSubtasks > 0 ? \`
-                                <details class="task-subtasks" onclick="event.stopPropagation()">
+                                <details class="task-subtasks">
                                     <summary class="flex-row" style="cursor: pointer;">
                                         <div class="progress-ring-small">
                                             <svg width="40" height="40">
@@ -1412,7 +1456,7 @@ function writeMainEJS() {
                                             \${completedSubtasks}/\${totalSubtasks} subtasks
                                         </span>
                                     </summary>
-                                    <div class="subtasks-container">
+                                    <div class="subtasks-container w-100">
                                         \${task.subtasks.sort((a, b) => {
                                             if (a.completed === b.completed) return 0;
                                             return a.completed ? 1 : -1;
@@ -1422,16 +1466,22 @@ function writeMainEJS() {
                                                     \${subtask.completed ? '<i class="fas fa-check"></i>' : ''}
                                                 </div>
                                                 <div class="subtask-details">
-                                                    <details class="subtask-details">
-                                                        <summary>
-                                                            <span class="subtask-title \${subtask.completed ? 'completed' : ''}">
-                                                                \${escapeHtml(subtask.title)}
-                                                            </span>
-                                                        </summary>
-                                                        <div class="subtask-desc">
-                                                            \${subtask.description ? escapeHtml(subtask.description).replace(/\\n/g, '<br>') : ''}
-                                                        </div>
-                                                    </details>
+                                                    \${hasContent(subtask.description) ? \`
+                                                        <details class="subtask-details">
+                                                            <summary>
+                                                                <span class="subtask-title \${subtask.completed ? 'completed' : ''}">
+                                                                    \${escapeHtml(subtask.title)}
+                                                                </span>
+                                                            </summary>
+                                                            <div class="subtask-desc">
+                                                                \${preserveLineBreaks(subtask.description)}
+                                                            </div>
+                                                        </details>
+                                                    \` : \`
+                                                        <span class="subtask-title \${subtask.completed ? 'completed' : ''} \${!hasContent(subtask.description) ? 'no-description' : ''}">
+                                                            \${escapeHtml(subtask.title)}
+                                                        </span>
+                                                    \`}
                                                 </div>
                                                 <div class="subtask-actions">
                                                     <button class="subtask-btn" onclick="editSubtask('\${task.taskId}', '\${subtask.id}', '\${escapeHtml(subtask.title)}', '\${escapeHtml(subtask.description || '')}')">
@@ -1446,7 +1496,7 @@ function writeMainEJS() {
                                     </div>
                                 </details>
                             \` : \`
-                                <div class="flex-row">
+                                <div class="flex-row" style="margin-top: 8px;">
                                     <span style="font-size: 0.8rem; color: var(--text-secondary-light);">
                                         <i class="fas fa-tasks"></i> No subtasks
                                     </span>
@@ -1475,10 +1525,13 @@ function writeMainEJS() {
             return html;
         }
 
+        // ==========================================
+        // RENDER NOTES PAGE
+        // ==========================================
         function renderNotesPage() {
             let html = \`
                 <h1 class="page-title">Notes</h1>
-                <div class="notes-grid">
+                <div class="tasks-grid">
             \`;
 
             if (!notesData || notesData.length === 0) {
@@ -1490,11 +1543,24 @@ function writeMainEJS() {
                     </div>
                 \`;
             } else {
-                notesData.forEach((note, index) => {
+                notesData.forEach(note => {
+                    const hasDescription = hasContent(note.description);
+                    
                     html += \`
                         <div class="note-card">
                             <div class="note-header">
-                                <span class="note-title">\${escapeHtml(note.title)}</span>
+                                \${hasDescription ? \`
+                                    <details class="note-details">
+                                        <summary>
+                                            <span class="note-title">\${escapeHtml(note.title)}</span>
+                                        </summary>
+                                        <div class="note-content">
+                                            \${preserveLineBreaks(note.description)}
+                                        </div>
+                                    </details>
+                                \` : \`
+                                    <span class="note-title no-description">\${escapeHtml(note.title)}</span>
+                                \`}
                                 <div style="display: flex; gap: 4px;">
                                     <button class="action-btn" onclick="moveNote('\${note.noteId}', 'up')" title="Move Up">
                                         <i class="fas fa-arrow-up"></i>
@@ -1510,14 +1576,6 @@ function writeMainEJS() {
                                     </button>
                                 </div>
                             </div>
-                            \${note.description ? \`
-                                <details class="note-details">
-                                    <summary><i class="fas fa-chevron-right"></i> View Content</summary>
-                                    <div class="note-content">
-                                        \${escapeHtml(note.description).replace(/\\n/g, '<br>')}
-                                    </div>
-                                </details>
-                            \` : ''}
                             <div class="note-meta">
                                 <span><i class="fas fa-clock"></i> \${note.createdAtUTC}</span>
                                 \${note.updatedAtUTC !== note.createdAtUTC ? \`
@@ -1533,6 +1591,9 @@ function writeMainEJS() {
             return html;
         }
 
+        // ==========================================
+        // RENDER HISTORY PAGE
+        // ==========================================
         function renderHistoryPage() {
             let html = \`
                 <h1 class="page-title">Task History</h1>
@@ -1580,17 +1641,23 @@ function writeMainEJS() {
                     \`;
 
                     tasks.forEach(task => {
+                        const hasDescription = hasContent(task.description);
+                        
                         html += \`
                             <div class="history-task-card">
                                 <div class="history-task-header">
-                                    <details style="flex: 1;">
-                                        <summary class="history-task-title">
-                                            \${escapeHtml(task.title)}
-                                        </summary>
-                                        <div style="font-size: 0.8rem; color: var(--text-secondary-light); margin-top: 8px; padding: 8px; background: var(--card-bg-light); border-radius: 0 8px 8px 0; border-left: 2px solid var(--success-light); width: 100%;">
-                                            \${task.description ? escapeHtml(task.description).replace(/\\n/g, '<br>') : ''}
-                                        </div>
-                                    </details>
+                                    \${hasDescription ? \`
+                                        <details style="flex: 1;">
+                                            <summary class="history-task-title">
+                                                \${escapeHtml(task.title)}
+                                            </summary>
+                                            <div style="font-size: 0.8rem; color: var(--text-secondary-light); margin-top: 4px; padding: 8px 12px; background: var(--card-bg-light); border-radius: 0 8px 8px 0; border-left: 2px solid var(--success-light); width: 100%; box-sizing: border-box; white-space: pre-wrap; line-height: 1.4;">
+                                                \${preserveLineBreaks(task.description)}
+                                            </div>
+                                        </details>
+                                    \` : \`
+                                        <span class="history-task-title no-description">\${escapeHtml(task.title)}</span>
+                                    \`}
                                     <span class="history-task-time">
                                         <i class="fas fa-check-circle" style="color: var(--success-light);"></i> \${task.completedTimeUTC}
                                     </span>
@@ -1607,11 +1674,6 @@ function writeMainEJS() {
                                             <i class="fas fa-repeat"></i> \${task.repeat === 'daily' ? 'Daily' : 'Weekly'}
                                         </span>
                                     \` : ''}
-                                    \${task.repeatCount > 0 ? \`
-                                        <span class="badge">
-                                            <i class="fas fa-hashtag"></i> \${task.repeatCount} left
-                                        </span>
-                                    \` : ''}
                                 </div>
                                 \${task.subtasks && task.subtasks.length > 0 ? \`
                                     <details style="margin-top: 8px;">
@@ -1621,18 +1683,24 @@ function writeMainEJS() {
                                         <div style="margin-top: 8px;">
                                             \${task.subtasks.map(subtask => \`
                                                 <div class="history-subtask">
-                                                    <div style="display: flex; align-items: center; gap: 6px;">
+                                                    <div style="display: flex; align-items: flex-start; gap: 6px;">
                                                         <span style="color: \${subtask.completed ? 'var(--success-light)' : 'var(--text-secondary-light)'};">
                                                             <i class="fas fa-\${subtask.completed ? 'check-circle' : 'circle'}"></i>
                                                         </span>
-                                                        <details style="flex: 1;">
-                                                            <summary style="font-weight: 600; font-size: 0.8rem; cursor: pointer;">
+                                                        \${hasContent(subtask.description) ? \`
+                                                            <details style="flex: 1;">
+                                                                <summary style="font-weight: 600; font-size: 0.8rem; cursor: pointer;">
+                                                                    \${escapeHtml(subtask.title)}
+                                                                </summary>
+                                                                <div style="font-size: 0.75rem; color: var(--text-secondary-light); margin-top: 4px; padding: 6px 10px; background: var(--card-bg-light); border-radius: 0 6px 6px 0; border-left: 2px solid var(--accent-light); width: 100%; box-sizing: border-box; white-space: pre-wrap;">
+                                                                    \${preserveLineBreaks(subtask.description)}
+                                                                </div>
+                                                            </details>
+                                                        \` : \`
+                                                            <span style="font-weight: 600; font-size: 0.8rem;">
                                                                 \${escapeHtml(subtask.title)}
-                                                            </summary>
-                                                            <div style="font-size: 0.75rem; color: var(--text-secondary-light); margin-top: 4px; padding: 6px; background: var(--card-bg-light); border-radius: 0 6px 6px 0; border-left: 2px solid var(--accent-light); width: 100%;">
-                                                                \${subtask.description ? escapeHtml(subtask.description) : ''}
-                                                            </div>
-                                                        </details>
+                                                            </span>
+                                                        \`}
                                                     </div>
                                                 </div>
                                             \`).join('')}
@@ -1676,21 +1744,6 @@ function writeMainEJS() {
                 currentYear++;
             }
             renderPage();
-        }
-
-        // ==========================================
-        // UTILITY FUNCTIONS
-        // ==========================================
-        function escapeHtml(text) {
-            if (!text) return '';
-            const map = {
-                '&': '&amp;',
-                '<': '&lt;',
-                '>': '&gt;',
-                '"': '&quot;',
-                "'": '&#039;'
-            };
-            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
         }
 
         function formatTime(dateString) {
@@ -1781,7 +1834,7 @@ function writeMainEJS() {
             document.getElementById('editSubtaskTaskId').value = taskId;
             document.getElementById('editSubtaskId').value = subtaskId;
             document.getElementById('editSubtaskTitle').value = title;
-            document.getElementById('editSubtaskDescription').value = description;
+            document.getElementById('editSubtaskDescription').value = description || '';
             openModal('editSubtaskModal');
         }
 
@@ -1792,12 +1845,12 @@ function writeMainEJS() {
         function openEditNoteModal(noteId, title, description) {
             document.getElementById('editNoteId').value = noteId;
             document.getElementById('editNoteTitle').value = title;
-            document.getElementById('editNoteDescription').value = description;
+            document.getElementById('editNoteDescription').value = description || '';
             openModal('editNoteModal');
         }
 
         // ==========================================
-        // FORM SUBMISSIONS - FIXED API ENDPOINTS
+        // FORM SUBMISSIONS
         // ==========================================
         function submitTaskForm(event) {
             event.preventDefault();
@@ -2128,11 +2181,10 @@ function writeMainEJS() {
     console.log('✅ EJS template file created successfully');
 }
 
-// Write EJS file on startup
 writeMainEJS();
 
 // ==========================================
-// 🗄️ DATABASE CONNECTION - GLOBAL NO USER ID
+// 🗄️ DATABASE CONNECTION
 // ==========================================
 let db;
 let client;
@@ -2153,7 +2205,6 @@ async function connectDB() {
             db = client.db('telegram_bot');
             console.log('✅ Connected to MongoDB - Global Mode');
             
-            // Create indexes for global access
             try {
                 await db.collection('tasks').createIndex({ taskId: 1 }, { unique: true });
                 await db.collection('tasks').createIndex({ nextOccurrence: 1 });
@@ -2182,7 +2233,6 @@ async function connectDB() {
     return false;
 }
 
-// ✅ Health check endpoint
 app.get('/health', (req, res) => {
     res.status(200).json({ 
         status: 'OK', 
@@ -2192,34 +2242,39 @@ app.get('/health', (req, res) => {
 });
 
 // ==========================================
-// 🛠️ UTC UTILITY FUNCTIONS - NO TIMEZONE
+// 🛠️ UTILITY FUNCTIONS - FIXED ID GENERATION (NO PREFIX)
 // ==========================================
+function generateId(type = 'task') {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    const length = type === 'task' ? 10 : 8;
+    for (let i = 0; i < length; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+}
 
-function generateId(prefix = '') {
-    // Task ID: 10 alphanumeric [A-Z,0-1]
-    if (prefix === 'task_') {
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ01';
-        let result = '';
-        for (let i = 0; i < 10; i++) {
-            result += chars.charAt(Math.floor(Math.random() * chars.length));
+function generateSubtaskId() {
+    return 'sub_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 5);
+}
+
+async function reindexNotes() {
+    try {
+        const notes = await db.collection('notes')
+            .find()
+            .sort({ orderIndex: 1 })
+            .toArray();
+        
+        for (let i = 0; i < notes.length; i++) {
+            await db.collection('notes').updateOne(
+                { noteId: notes[i].noteId },
+                { $set: { orderIndex: i } }
+            );
         }
-        return 'task_' + result;
+        console.log('✅ Notes reindexed successfully');
+    } catch (error) {
+        console.error('❌ Error reindexing notes:', error.message);
     }
-    // Note ID: 5 alphanumeric [A-Z,0-1]
-    else if (prefix === 'note_') {
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ01';
-        let result = '';
-        for (let i = 0; i < 5; i++) {
-            result += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        return 'note_' + result;
-    }
-    // Subtask ID: taskId + subtask number
-    else if (prefix === 'sub_') {
-        return 'sub_' + Date.now() + Math.random().toString(36).substring(2, 5);
-    }
-    // Fallback
-    return prefix + Math.random().toString(36).substring(2, 10) + '_' + Date.now();
 }
 
 async function safeEdit(ctx, text, keyboard = null) {
@@ -2249,8 +2304,12 @@ async function safeEdit(ctx, text, keyboard = null) {
     }
 }
 
+function hasContent(text) {
+    return text && text.trim().length > 0;
+}
+
 function formatBlockquote(text) {
-    if (!text || text.trim() === '') return '';
+    if (!hasContent(text)) return '';
     const words = text.split(/\s+/).length;
     if (words > 100 || text.split('\n').length > 4) {
         return '<blockquote expandable>' + text + '</blockquote>';
@@ -2278,11 +2337,18 @@ function formatDuration(minutes) {
 }
 
 function formatDateUTC(utcDate) {
-    return utcDate.toISOString().split('T')[0].split('-').reverse().join('-');
+    const date = new Date(utcDate);
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const year = date.getUTCFullYear();
+    return day + '-' + month + '-' + year;
 }
 
 function formatTimeUTC(utcDate) {
-    return utcDate.toISOString().split('T')[1].substring(0, 5);
+    const date = new Date(utcDate);
+    const hours = String(date.getUTCHours()).padStart(2, '0');
+    const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+    return hours + ':' + minutes;
 }
 
 function formatDateTimeUTC(utcDate) {
@@ -2300,9 +2366,8 @@ function getTomorrowUTC() {
 }
 
 // ==========================================
-// ⏰ SCHEDULER LOGIC - FIXED WITH 10 MINUTE CHECK
+// ⏰ SCHEDULER LOGIC
 // ==========================================
-
 function scheduleTask(task) {
     if (!task || !task.taskId || !task.startDate) return;
     
@@ -2313,7 +2378,6 @@ function scheduleTask(task) {
 
         cancelTaskSchedule(taskId);
 
-        // Don't schedule if start time is in past or within 10 minutes
         const tenMinutesFromNow = new Date(now.getTime() + 10 * 60000);
         if (startTime <= tenMinutesFromNow) {
             console.log('⏰ Not scheduling task ' + task.title + ' - start time is within 10 minutes or in past');
@@ -2443,7 +2507,6 @@ async function rescheduleAllPending() {
 // ==========================================
 // ⏰ AUTO-COMPLETE PENDING TASKS AT 23:59 UTC
 // ==========================================
-
 async function autoCompletePendingTasks() {
     console.log('⏰ Running auto-complete for pending tasks at 23:59...');
     
@@ -2550,9 +2613,8 @@ function scheduleAutoComplete() {
 }
 
 // ==========================================
-// 📱 WEB INTERFACE ROUTES - FIXED FOR CRUD OPERATIONS
+// 📱 WEB INTERFACE ROUTES
 // ==========================================
-
 app.get('/', (req, res) => {
     res.redirect('/tasks');
 });
@@ -2770,7 +2832,6 @@ app.get('/api/tasks/:taskId', async (req, res) => {
     }
 });
 
-// ✅ Fixed: Task creation endpoint with URLSearchParams
 app.post('/api/tasks', async (req, res) => {
     try {
         const { title, description, startDate, startTime, endTime, repeat, repeatCount } = req.body;
@@ -2804,7 +2865,7 @@ app.post('/api/tasks', async (req, res) => {
         const nextOrderIndex = highestTask ? highestTask.orderIndex + 1 : 0;
         
         const task = {
-            taskId: generateId('task_'),
+            taskId: generateId('task'),
             title: title.trim(),
             description: description ? description.trim() : '',
             startDate: startDateUTC,
@@ -2839,11 +2900,15 @@ app.post('/api/tasks/:taskId/update', async (req, res) => {
         const taskId = req.params.taskId;
         const { title, description, startDate, startTime, endTime, repeat, repeatCount } = req.body;
         
+        const task = await db.collection('tasks').findOne({ taskId });
+        if (!task) {
+            return res.status(404).send('Task not found');
+        }
+        
         const [year, month, day] = startDate.split('-').map(Number);
         const [startHour, startMinute] = startTime.split(':').map(Number);
         const [endHour, endMinute] = endTime.split(':').map(Number);
         
-        // Validate times are within 00:00-23:59 range
         if (startHour < 0 || startHour > 23 || startMinute < 0 || startMinute > 59 ||
             endHour < 0 || endHour > 23 || endMinute < 0 || endMinute > 59) {
             return res.status(400).send('Time must be between 00:00 and 23:59');
@@ -2854,13 +2919,6 @@ app.post('/api/tasks/:taskId/update', async (req, res) => {
         
         if (endDateUTC <= startDateUTC) {
             return res.status(400).send('End time must be after start time');
-        }
-        
-        const now = new Date();
-        const tenMinutesFromNow = new Date(now.getTime() + 10 * 60000);
-        
-        if (startDateUTC <= tenMinutesFromNow) {
-            return res.status(400).send('Start time must be at least 10 minutes from now');
         }
         
         cancelTaskSchedule(taskId);
@@ -2884,6 +2942,7 @@ app.post('/api/tasks/:taskId/update', async (req, res) => {
         );
         
         const updatedTask = await db.collection('tasks').findOne({ taskId });
+        const tenMinutesFromNow = new Date(Date.now() + 10 * 60000);
         if (updatedTask && updatedTask.startDate > tenMinutesFromNow) {
             scheduleTask(updatedTask);
         }
@@ -3030,7 +3089,7 @@ app.post('/api/tasks/:taskId/subtasks', async (req, res) => {
         }
         
         const subtask = {
-            id: generateId('sub_'),
+            id: generateSubtaskId(),
             title: title.trim(),
             description: description ? description.trim() : '',
             completed: false,
@@ -3146,7 +3205,7 @@ app.post('/api/notes', async (req, res) => {
         const nextOrderIndex = highestNote ? highestNote.orderIndex + 1 : 0;
         
         const note = {
-            noteId: generateId('note_'),
+            noteId: generateId('note'),
             title: title.trim(),
             description: description ? description.trim() : '',
             createdAt: new Date(),
@@ -3210,6 +3269,8 @@ app.post('/api/notes/:noteId/delete', async (req, res) => {
         
         console.log('🗑️ Note deleted: ' + noteId);
         
+        await reindexNotes();
+        
         res.redirect('/notes');
     } catch (error) {
         console.error('Error deleting note:', error);
@@ -3270,9 +3331,8 @@ app.post('/api/notes/:noteId/move', async (req, res) => {
 });
 
 // ==========================================
-// 🤖 BOT COMMANDS - FIXED SUBTASK DETAILS
+// 🤖 BOT COMMANDS - FIXED SUBTASK HANDLING
 // ==========================================
-
 const bot = new Telegraf(BOT_TOKEN);
 const activeSchedules = new Map();
 let hourlySummaryJob = null;
@@ -3328,7 +3388,7 @@ bot.command('start', async (ctx) => {
             Markup.button.callback('📥 Download', 'download_menu'),
             Markup.button.callback('🗑️ Delete', 'delete_menu')
         ],
-        [Markup.button.webApp('🌐 Open Web App', WEB_APP_URL)]
+        [Markup.button.url('🌐 Open Web App', WEB_APP_URL)]
     ]);
 
     await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard.reply_markup });
@@ -3367,7 +3427,7 @@ async function showMainMenu(ctx) {
             Markup.button.callback('📥 Download', 'download_menu'),
             Markup.button.callback('🗑️ Delete', 'delete_menu')
         ],
-        [Markup.button.webApp('🌐 Open Web App', WEB_APP_URL)]
+        [Markup.button.url('🌐 Open Web App', WEB_APP_URL)]
     ]);
 
     await safeEdit(ctx, text, keyboard);
@@ -3376,7 +3436,6 @@ async function showMainMenu(ctx) {
 // ==========================================
 // 📅 TASK VIEWS - WITH PAGINATION
 // ==========================================
-
 bot.action(/^view_today_tasks_(\d+)$/, async (ctx) => {
     const page = parseInt(ctx.match[1]);
     const todayUTC = getTodayUTC();
@@ -3475,11 +3534,10 @@ Select a task to view details:`;
 // ==========================================
 // ➕ ADD TASK WIZARD
 // ==========================================
-
 bot.action('add_task', async (ctx) => {
     ctx.session.step = 'task_title';
     ctx.session.task = { 
-        taskId: generateId('task_'), 
+        taskId: generateId('task'), 
         status: 'pending',
         createdAt: new Date(),
         subtasks: []
@@ -3494,7 +3552,7 @@ bot.action('add_task', async (ctx) => {
 bot.action('add_note', async (ctx) => {
     ctx.session.step = 'note_title';
     ctx.session.note = { 
-        noteId: generateId('note_'), 
+        noteId: generateId('note'), 
         createdAt: new Date()
     };
     
@@ -3507,7 +3565,6 @@ bot.action('add_note', async (ctx) => {
 // ==========================================
 // 📨 TEXT INPUT HANDLER
 // ==========================================
-
 bot.on('text', async (ctx) => {
     if (!ctx.session || !ctx.session.step) return;
     
@@ -3690,7 +3747,7 @@ bot.on('text', async (ctx) => {
                     '✅ <b>𝗡𝗢𝗧𝗘 𝗦𝗔𝗩𝗘𝗗 𝗦𝗨𝗖𝗖𝗘𝗦𝗦𝗙𝗨𝗟𝗟𝗬!</b>\n' +
                     '━━━━━━━━━━━━━━━━━━━━\n' +
                     '📌 <b>' + noteTitle + '</b>\n' +
-                    (noteContent ? formatBlockquote(noteContent) : '') + '\n' +
+                    (hasContent(noteContent) ? formatBlockquote(noteContent) : '') + '\n' +
                     '📅 Saved on: ' + formatDateTimeUTC(new Date()),
                     { parse_mode: 'HTML' }
                 );
@@ -3702,7 +3759,7 @@ bot.on('text', async (ctx) => {
                         '📝 <b>𝗡𝗘𝗪 𝗚𝗟𝗢𝗕𝗔𝗟 𝗡𝗢𝗧𝗘 𝗔𝗗𝗗𝗘𝗗</b>\n' +
                         '━━━━━━━━━━━━━━━━━━━━\n' +
                         '📌 <b>' + noteTitle + '</b>\n' +
-                        (noteContent ? formatBlockquote(noteContent) : '') + '\n' +
+                        (hasContent(noteContent) ? formatBlockquote(noteContent) : '') + '\n' +
                         '📅 ' + formatDateTimeUTC(new Date()) + '\n' +
                         '━━━━━━━━━━━━━━━━━━━━',
                         { parse_mode: 'HTML' }
@@ -3751,8 +3808,15 @@ bot.on('text', async (ctx) => {
             
             const task = await db.collection('tasks').findOne({ taskId });
             
+            if (!task) {
+                ctx.session.step = null;
+                delete ctx.session.addSubtasksTaskId;
+                delete ctx.session.subtaskTitle;
+                return ctx.reply('❌ Task not found.');
+            }
+            
             const newSubtask = {
-                id: generateId('sub_'),
+                id: generateSubtaskId(),
                 title: title.substring(0, 100),
                 description: description,
                 completed: false,
@@ -3773,7 +3837,7 @@ bot.on('text', async (ctx) => {
                 '━━━━━━━━━━━━━━━━━━━━\n' +
                 '📌 <b>' + task.title + '</b>\n' +
                 '➕ Title: ' + title + '\n' +
-                (description ? '📝 Description: ' + description + '\n' : '') +
+                (hasContent(description) ? '📝 Description: ' + description + '\n' : '') +
                 '━━━━━━━━━━━━━━━━━━━━',
                 { parse_mode: 'HTML' }
             );
@@ -3782,6 +3846,11 @@ bot.on('text', async (ctx) => {
         }
         else if (step === 'edit_subtask_title') {
             const { taskId, subtaskId } = ctx.session.editSubtask;
+            
+            if (!taskId || !subtaskId) {
+                ctx.session.step = null;
+                return ctx.reply('❌ Invalid session data.');
+            }
             
             if (text.length === 0) return ctx.reply('❌ Title cannot be empty.');
             if (text.length > 100) return ctx.reply('❌ Title too long. Max 100 characters.');
@@ -3801,6 +3870,18 @@ bot.on('text', async (ctx) => {
             const { taskId, subtaskId } = ctx.session.editSubtask;
             const title = ctx.session.editSubtaskTitle;
             const description = text === '-' ? '' : text;
+            
+            if (!taskId || !subtaskId) {
+                ctx.session.step = null;
+                return ctx.reply('❌ Invalid session data.');
+            }
+            
+            const task = await db.collection('tasks').findOne({ taskId });
+            if (!task) {
+                ctx.session.step = null;
+                delete ctx.session.editSubtask;
+                return ctx.reply('❌ Task not found.');
+            }
             
             await db.collection('tasks').updateOne(
                 { taskId, "subtasks.id": subtaskId },
@@ -3822,6 +3903,11 @@ bot.on('text', async (ctx) => {
         }
         else if (step === 'edit_task_title') {
             const taskId = ctx.session.editTaskId;
+            if (!taskId) {
+                ctx.session.step = null;
+                return ctx.reply('❌ No task selected.');
+            }
+            
             if (text.length === 0) return ctx.reply('❌ Title cannot be empty.');
             if (text.length > 100) return ctx.reply('❌ Title too long. Max 100 characters.');
             
@@ -3857,6 +3943,11 @@ bot.on('text', async (ctx) => {
         }
         else if (step === 'edit_task_desc') {
             const taskId = ctx.session.editTaskId;
+            if (!taskId) {
+                ctx.session.step = null;
+                return ctx.reply('❌ No task selected.');
+            }
+            
             const description = text === '-' ? '' : text;
             if (description.length > 0 && description.split(/\s+/).length > 100) {
                 return ctx.reply('❌ Too long! Max 100 words.');
@@ -3884,6 +3975,10 @@ bot.on('text', async (ctx) => {
         }
         else if (step === 'edit_task_start') {
             const taskId = ctx.session.editTaskId;
+            if (!taskId) {
+                ctx.session.step = null;
+                return ctx.reply('❌ No task selected.');
+            }
             
             if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(text)) {
                 return ctx.reply('❌ Invalid Format. Use HH:MM (24-hour)');
@@ -3905,12 +4000,6 @@ bot.on('text', async (ctx) => {
                 const day = utcDate.getUTCDate();
                 
                 const newStartDateUTC = new Date(Date.UTC(year, month, day, h, m, 0));
-                const now = new Date();
-                const tenMinutesFromNow = new Date(now.getTime() + 10 * 60000);
-                
-                if (newStartDateUTC <= tenMinutesFromNow) {
-                    return ctx.reply('❌ Start time must be at least 10 minutes from now.');
-                }
                 
                 const duration = task.endDate.getTime() - task.startDate.getTime();
                 const newEndDateUTC = new Date(newStartDateUTC.getTime() + duration);
@@ -3940,6 +4029,7 @@ bot.on('text', async (ctx) => {
                 const updatedTask = await db.collection('tasks').findOne({ taskId });
                 if (updatedTask) {
                     cancelTaskSchedule(taskId);
+                    const tenMinutesFromNow = new Date(Date.now() + 10 * 60000);
                     if (updatedTask.nextOccurrence > tenMinutesFromNow) {
                         scheduleTask(updatedTask);
                     }
@@ -3956,6 +4046,10 @@ bot.on('text', async (ctx) => {
         }
         else if (step === 'edit_task_end') {
             const taskId = ctx.session.editTaskId;
+            if (!taskId) {
+                ctx.session.step = null;
+                return ctx.reply('❌ No task selected.');
+            }
             
             if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(text)) {
                 return ctx.reply('❌ Invalid Format. Use HH:MM (24-hour)');
@@ -4012,6 +4106,11 @@ bot.on('text', async (ctx) => {
         }
         else if (step === 'edit_task_repeat_count') {
             const taskId = ctx.session.editTaskId;
+            if (!taskId) {
+                ctx.session.step = null;
+                return ctx.reply('❌ No task selected.');
+            }
+            
             const count = parseInt(text);
             
             if (isNaN(count) || count < 0 || count > 365) {
@@ -4050,6 +4149,11 @@ bot.on('text', async (ctx) => {
         }
         else if (step === 'edit_note_title') {
             const noteId = ctx.session.editNoteId;
+            if (!noteId) {
+                ctx.session.step = null;
+                return ctx.reply('❌ No note selected.');
+            }
+            
             if (text.length === 0) return ctx.reply('❌ Title cannot be empty.');
             if (text.length > 200) return ctx.reply('❌ Title too long. Max 200 characters.');
             
@@ -4068,7 +4172,7 @@ bot.on('text', async (ctx) => {
                     '✅ <b>𝗡𝗢𝗧𝗘 𝗧𝗜𝗧𝗟𝗘 𝗨𝗣𝗗𝗔𝗧𝗘𝗗!</b>\n' +
                     '━━━━━━━━━━━━━━━━━━━━\n' +
                     '📌 <b>' + updatedNote.title + '</b>\n' +
-                    (updatedNote.description ? formatBlockquote(updatedNote.description) : '') + '\n' +
+                    (hasContent(updatedNote.description) ? formatBlockquote(updatedNote.description) : '') + '\n' +
                     '📅 Updated: ' + formatDateTimeUTC(new Date()),
                     { parse_mode: 'HTML' }
                 );
@@ -4084,6 +4188,11 @@ bot.on('text', async (ctx) => {
         }
         else if (step === 'edit_note_content') {
             const noteId = ctx.session.editNoteId;
+            if (!noteId) {
+                ctx.session.step = null;
+                return ctx.reply('❌ No note selected.');
+            }
+            
             const content = text === '-' ? '' : text;
             if (content.length > 0 && content.split(/\s+/).length > 400) {
                 return ctx.reply('❌ Too long! Max 400 words.');
@@ -4104,7 +4213,7 @@ bot.on('text', async (ctx) => {
                     '✅ <b>𝗡𝗢𝗧𝗘 𝗖𝗢𝗡𝗧𝗘𝗡𝗧 𝗨𝗣𝗗𝗔𝗧𝗘𝗗!</b>\n' +
                     '━━━━━━━━━━━━━━━━━━━━\n' +
                     '📌 <b>' + updatedNote.title + '</b>\n' +
-                    (updatedNote.description ? formatBlockquote(updatedNote.description) : '') + '\n' +
+                    (hasContent(updatedNote.description) ? formatBlockquote(updatedNote.description) : '') + '\n' +
                     '📅 Updated: ' + formatDateTimeUTC(new Date()),
                     { parse_mode: 'HTML' }
                 );
@@ -4186,7 +4295,7 @@ async function saveTask(ctx) {
 ✅ <b>𝗚𝗟𝗢𝗕𝗔𝗟 𝗧𝗔𝗦𝗞 𝗖𝗥𝗘𝗔𝗧𝗘𝗗 𝗦𝗨𝗖𝗖𝗘𝗦𝗦𝗙𝗨𝗟𝗟𝗬!</b>
 ━━━━━━━━━━━━━━━━━━━━
 📌 <b>${task.title}</b>
-${task.description ? formatBlockquote(task.description) : ''}
+${hasContent(task.description) ? formatBlockquote(task.description) : ''}
 📅 <b>Date:</b> ${formatDateUTC(task.startDate)}
 ⏰ <b>Time:</b> ${task.startTimeStr} - ${task.endTimeStr}
 ⏱️ <b>Duration:</b> ${formatDuration(duration)}
@@ -4210,7 +4319,7 @@ ${task.description ? formatBlockquote(task.description) : ''}
                 '✅ <b>𝗡𝗘𝗪 𝗚𝗟𝗢𝗕𝗔𝗟 𝗧𝗔𝗦𝗞 𝗔𝗗𝗗𝗘𝗗</b>\n' +
                 '━━━━━━━━━━━━━━━━━━━━\n' +
                 '📌 <b>' + task.title + '</b>\n' +
-                (task.description ? formatBlockquote(task.description) : '') + '\n' +
+                (hasContent(task.description) ? formatBlockquote(task.description) : '') + '\n' +
                 '📅 ' + formatDateUTC(task.startDate) + '\n' +
                 '⏰ ' + task.startTimeStr + ' - ' + task.endTimeStr + '\n' +
                 '━━━━━━━━━━━━━━━━━━━━',
@@ -4223,11 +4332,20 @@ ${task.description ? formatBlockquote(task.description) : ''}
     }
 }
 
+// ==========================================
+// 🔍 TASK DETAIL - FIXED SUBTASK HANDLING
+// ==========================================
 bot.action(/^task_det_(.+)$/, async (ctx) => {
-    await showTaskDetail(ctx, ctx.match[1]);
+    const taskId = ctx.match[1];
+    await showTaskDetail(ctx, taskId);
 });
 
 async function showTaskDetail(ctx, taskId) {
+    if (!taskId) {
+        await ctx.answerCbQuery('❌ Invalid task ID');
+        return;
+    }
+    
     const task = await db.collection('tasks').findOne({ taskId });
     if (!task) {
         const text = '❌ <b>𝗧𝗔𝗦𝗞 𝗡𝗢𝗧 𝗙𝗢𝗨𝗡𝗗</b>\n\nThis task may have been completed or deleted.';
@@ -4249,7 +4367,7 @@ async function showTaskDetail(ctx, taskId) {
 ━━━━━━━━━━━━━━━━━━━━
 🆔 <b>Task ID:</b> <code>${task.taskId}</code>
 📛 <b>Title:</b> ${task.title}
-${task.description ? formatBlockquote(task.description) : ''}
+${hasContent(task.description) ? formatBlockquote(task.description) : ''}
 📅 <b>Next Occurrence:</b> ${formatDateTimeUTC(task.nextOccurrence)}
 ⏰ <b>Time:</b> ${formatTimeUTC(task.startDate)} - ${formatTimeUTC(task.endDate)}
 ⏱️ <b>Duration:</b> ${formatDuration(duration)}
@@ -4316,10 +4434,17 @@ ${progressBar} ${progress}%
     await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
 }
 
-// ✅ Fixed: Subtask detail handler
+// ==========================================
+// 🔍 SUBTASK DETAIL - COMPLETELY FIXED
+// ==========================================
 bot.action(/^subtask_det_(.+)_(.+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     const subtaskId = ctx.match[2];
+    
+    if (!taskId || !subtaskId) {
+        await ctx.answerCbQuery('❌ Invalid request');
+        return;
+    }
     
     const task = await db.collection('tasks').findOne({ taskId });
     if (!task) {
@@ -4334,12 +4459,14 @@ bot.action(/^subtask_det_(.+)_(.+)$/, async (ctx) => {
     }
     
     const status = subtask.completed ? '✅ Completed' : '⭕ Pending';
-    const text = `
+    const hasDesc = hasContent(subtask.description);
+    
+    let text = `
 📋 <b>𝗦𝗨𝗕𝗧𝗔𝗦𝗞 𝗗𝗘𝗧𝗔𝗜𝗟𝗦</b>
 ━━━━━━━━━━━━━━━━━━━━
 📌 <b>Task:</b> ${task.title}
 🔖 <b>Subtask:</b> ${subtask.title}
-${subtask.description ? formatBlockquote(subtask.description) : ''}
+${hasDesc ? formatBlockquote(subtask.description) : ''}
 📊 <b>Status:</b> ${status}
 🆔 <b>ID:</b> <code>${subtask.id}</code>
 📅 <b>Created:</b> ${formatDateTimeUTC(subtask.createdAt)}
@@ -4347,19 +4474,16 @@ ${subtask.description ? formatBlockquote(subtask.description) : ''}
 
     const buttons = [];
     
+    const actionRow = [];
+    
     if (!subtask.completed) {
-        buttons.push([
-            Markup.button.callback('✅', 'subtask_complete_' + taskId + '_' + subtaskId),
-            Markup.button.callback('✏️', 'subtask_edit_' + taskId + '_' + subtaskId),
-            Markup.button.callback('🗑️', 'subtask_delete_' + taskId + '_' + subtaskId)
-        ]);
-    } else {
-        buttons.push([
-            Markup.button.callback('✏️', 'subtask_edit_' + taskId + '_' + subtaskId),
-            Markup.button.callback('🗑️', 'subtask_delete_' + taskId + '_' + subtaskId)
-        ]);
+        actionRow.push(Markup.button.callback('✅ Complete', 'subtask_complete_' + taskId + '_' + subtaskId));
     }
     
+    actionRow.push(Markup.button.callback('✏️ Edit', 'subtask_edit_' + taskId + '_' + subtaskId));
+    actionRow.push(Markup.button.callback('🗑️ Delete', 'subtask_delete_' + taskId + '_' + subtaskId));
+    
+    buttons.push(actionRow);
     buttons.push([Markup.button.callback('🔙 Back to Task', 'task_det_' + taskId)]);
     
     await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
@@ -4370,6 +4494,12 @@ bot.action(/^subtask_complete_(.+)_(.+)$/, async (ctx) => {
     const subtaskId = ctx.match[2];
     
     try {
+        const task = await db.collection('tasks').findOne({ taskId });
+        if (!task) {
+            await ctx.answerCbQuery('❌ Task not found');
+            return;
+        }
+        
         await db.collection('tasks').updateOne(
             { taskId, "subtasks.id": subtaskId },
             { $set: { "subtasks.$.completed": true } }
@@ -4387,6 +4517,12 @@ bot.action(/^subtask_edit_(.+)_(.+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     const subtaskId = ctx.match[2];
     
+    const task = await db.collection('tasks').findOne({ taskId });
+    if (!task) {
+        await ctx.answerCbQuery('❌ Task not found');
+        return;
+    }
+    
     ctx.session.step = 'edit_subtask_title';
     ctx.session.editSubtask = { taskId, subtaskId };
     
@@ -4403,6 +4539,12 @@ bot.action(/^subtask_delete_(.+)_(.+)$/, async (ctx) => {
     const subtaskId = ctx.match[2];
     
     try {
+        const task = await db.collection('tasks').findOne({ taskId });
+        if (!task) {
+            await ctx.answerCbQuery('❌ Task not found');
+            return;
+        }
+        
         await db.collection('tasks').updateOne(
             { taskId },
             { $pull: { subtasks: { id: subtaskId } } }
@@ -4732,7 +4874,6 @@ bot.action(/^delete_task_(.+)$/, async (ctx) => {
 // ==========================================
 // 🔄 REORDER TASKS SYSTEM
 // ==========================================
-
 bot.action('reorder_tasks_menu', async (ctx) => {
     try {
         const tasks = await db.collection('tasks')
@@ -5005,7 +5146,6 @@ bot.action('reorder_task_save', async (ctx) => {
 // ==========================================
 // 🔄 REORDER NOTES SYSTEM
 // ==========================================
-
 bot.action('reorder_notes_menu', async (ctx) => {
     try {
         const notes = await db.collection('notes')
@@ -5272,9 +5412,8 @@ bot.action('reorder_note_save', async (ctx) => {
 });
 
 // ==========================================
-// 📜 VIEW HISTORY - WITH PAGINATION AND SUBTASK BLOCKQUOTES
+// 📜 VIEW HISTORY - WITH PAGINATION
 // ==========================================
-
 bot.action(/^view_history_dates_(\d+)$/, async (ctx) => {
     const page = parseInt(ctx.match[1]);
     
@@ -5366,7 +5505,7 @@ bot.action(/^hist_list_([\d-]+)_(\d+)$/, async (ctx) => {
     }).sort({ completedAt: -1 }).skip(skip).limit(perPage).toArray();
 
     const date = new Date(year, month - 1, day);
-        let text = '📅 <b>𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘𝗗 𝗢𝗡 ' + formatDateUTC(date).toUpperCase() + '</b>\n━━━━━━━━━━━━━━━━━━━━\n📊 Total: ' + totalTasks + ' task' + (totalTasks !== 1 ? 's' : '') + '\n📄 Page: ' + page + '/' + totalPages + '\n━━━━━━━━━━━━━━━━━━━━\n';
+    let text = '📅 <b>𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘𝗗 𝗢𝗡 ' + formatDateUTC(date).toUpperCase() + '</b>\n━━━━━━━━━━━━━━━━━━━━\n📊 Total: ' + totalTasks + ' task' + (totalTasks !== 1 ? 's' : '') + '\n📄 Page: ' + page + '/' + totalPages + '\n━━━━━━━━━━━━━━━━━━━━\n';
     
     if (tasks.length === 0) {
         text += '📭 No tasks completed on this date.';
@@ -5423,7 +5562,7 @@ bot.action(/^hist_det_(.+)$/, async (ctx) => {
 📜 <b>𝗚𝗟𝗢𝗕𝗔𝗟 𝗛𝗜𝗦𝗧𝗢𝗥𝗬 𝗗𝗘𝗧𝗔𝗜𝗟</b>
 ━━━━━━━━━━━━━━━━━━━━
 📌 <b>${task.title}</b>
-${task.description ? formatBlockquote(task.description) : ''}
+${hasContent(task.description) ? formatBlockquote(task.description) : ''}
 ✅ <b>Completed At:</b> ${formatDateTimeUTC(task.completedAt)}
 ${task.autoCompleted ? '🤖 <b>Auto-completed at 23:59</b>\n' : ''}
 ⏰ <b>Original Time:</b> ${formatTimeUTC(task.startDate)} - ${formatTimeUTC(task.endDate)}
@@ -5443,7 +5582,7 @@ ${task.repeatCount > 0 ? '🔢 <b>Remaining Repeats:</b> ' + task.repeatCount + 
                 let title = subtask.title;
                 if (title.length > 40) title = title.substring(0, 37) + '...';
                 text += status + ' ' + (index + 1) + '. ' + title + '\n';
-                if (subtask.description) {
+                if (hasContent(subtask.description)) {
                     text += '   ' + formatBlockquote(subtask.description) + '\n';
                 }
             });
@@ -5464,7 +5603,6 @@ ${task.repeatCount > 0 ? '🔢 <b>Remaining Repeats:</b> ' + task.repeatCount + 
 // ==========================================
 // 🗒️ VIEW NOTES - WITH PAGINATION
 // ==========================================
-
 bot.action(/^view_notes_(\d+)$/, async (ctx) => {
     const page = parseInt(ctx.match[1]);
     
@@ -5520,6 +5658,11 @@ bot.action(/^note_det_(.+)$/, async (ctx) => {
 });
 
 async function showNoteDetail(ctx, noteId) {
+    if (!noteId) {
+        await ctx.answerCbQuery('❌ Invalid note ID');
+        return;
+    }
+    
     const note = await db.collection('notes').findOne({ noteId });
     if (!note) {
         const text = '❌ <b>𝗡𝗢𝗧𝗘 𝗡𝗢𝗧 𝗙𝗢𝗨𝗡𝗗</b>\n\nThis note may have been deleted.';
@@ -5536,7 +5679,7 @@ async function showNoteDetail(ctx, noteId) {
 📝 <b>𝗚𝗟𝗢𝗕𝗔𝗟 𝗡𝗢𝗧𝗘 𝗗𝗘𝗧𝗔𝗜𝗟𝗦</b>
 ━━━━━━━━━━━━━━━━━━━━
 📌 <b>${note.title}</b>
-${contentDisplay ? formatBlockquote(contentDisplay) : ''}
+${hasContent(contentDisplay) ? formatBlockquote(contentDisplay) : ''}
 📅 <b>Created:</b> ${formatDateTimeUTC(note.createdAt)}
 ${note.updatedAt ? '✏️ <b>Updated:</b> ' + formatDateTimeUTC(note.updatedAt) : ''}
 🏷️ <b>Order:</b> ${note.orderIndex + 1}
@@ -5559,7 +5702,6 @@ ${note.updatedAt ? '✏️ <b>Updated:</b> ' + formatDateTimeUTC(note.updatedAt)
 // ==========================================
 // ✏️ EDIT NOTE HANDLERS
 // ==========================================
-
 bot.action(/^edit_note_title_(.+)$/, async (ctx) => {
     const noteId = ctx.match[1];
     
@@ -5613,6 +5755,7 @@ bot.action(/^delete_note_(.+)$/, async (ctx) => {
         const noteTitle = note?.title || 'Note';
         
         await db.collection('notes').deleteOne({ noteId: noteId });
+        await reindexNotes();
         await ctx.answerCbQuery('✅ Note Deleted');
         
         try {
@@ -5636,7 +5779,6 @@ bot.action(/^delete_note_(.+)$/, async (ctx) => {
 // ==========================================
 // 📥 DOWNLOAD DATA MENU
 // ==========================================
-
 bot.action('download_menu', async (ctx) => {
     const text = '📥 <b>𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗 𝗚𝗟𝗢𝗕𝗔𝗟 𝗗𝗔𝗧𝗔</b>\n━━━━━━━━━━━━━━━━━━━━\n📁 <i>Files will be sent as JSON documents</i>';
     
@@ -5824,7 +5966,6 @@ bot.action('download_all', async (ctx) => {
 // ==========================================
 // 🗑️ DELETE DATA MENU - GLOBAL
 // ==========================================
-
 bot.action('delete_menu', async (ctx) => {
     try {
         const text = '🗑️ <b>𝗗𝗘𝗟𝗘𝗧𝗘 𝗚𝗟𝗢𝗕𝗔𝗟 𝗗𝗔𝗧𝗔</b>\n━━━━━━━━━━━━━━━━━━━━\n⚠️ <b>⚠️ WARNING: This will delete data for EVERYONE!</b>\n━━━━━━━━━━━━━━━━━━━━\n<b>Select what to delete:</b>';
@@ -6132,7 +6273,6 @@ bot.action('no_action', async (ctx) => {
 // ==========================================
 // ⏰ HALF HOURLY SUMMARY
 // ==========================================
-
 async function sendHalfHourlySummary() {
     try {
         const todayUTC = getTodayUTC();
@@ -6215,7 +6355,6 @@ function scheduleHalfHourlySummary() {
 // ==========================================
 // 🚀 BOOTSTRAP
 // ==========================================
-
 async function start() {
     try {
         if (await connectDB()) {
@@ -6223,7 +6362,6 @@ async function start() {
             scheduleHalfHourlySummary();
             scheduleAutoComplete();
             
-            // Start Express server
             const server = app.listen(PORT, '0.0.0.0', () => {
                 console.log('🌐 Web interface running on port ' + PORT);
                 console.log('📱 Web URL: http://localhost:' + PORT);
@@ -6240,14 +6378,12 @@ async function start() {
                 }
             });
             
-            // Start Telegram bot
             await bot.launch();
             console.log('🤖 Bot Started Successfully!');
             console.log('👤 Bot only responding to user ID: ' + CHAT_ID);
             console.log('⏰ Current Time: ' + formatTimeUTC(new Date()));
             console.log('📊 Currently tracking ' + activeSchedules.size + ' tasks');
             
-            // Send initial summary
             setTimeout(async () => {
                 try {
                     const tasks = await db.collection('tasks').find({
@@ -6284,14 +6420,12 @@ async function start() {
 // ==========================================
 // 🛑 GRACEFUL SHUTDOWN
 // ==========================================
-
 function gracefulShutdown(signal) {
     if (isShuttingDown) return;
     isShuttingDown = true;
     
     console.log('🛑 ' + signal + ' received, stopping bot gracefully...');
     
-    // Cancel all scheduled jobs
     for (const [taskId, schedule] of activeSchedules) {
         try {
             if (schedule.startJob) schedule.startJob.cancel();
@@ -6322,7 +6456,6 @@ function gracefulShutdown(signal) {
 process.once('SIGINT', () => gracefulShutdown('SIGINT'));
 process.once('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
-// Handle uncaught errors
 process.on('uncaughtException', (error) => {
     console.error('❌ Uncaught Exception:', error.message);
     console.error(error.stack);
@@ -6332,5 +6465,4 @@ process.on('unhandledRejection', (reason, promise) => {
     console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
-// Start the application
 start();
