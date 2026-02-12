@@ -320,6 +320,7 @@ function writeMainEJS() {
             font-size: 0.75rem;
             font-weight: 500;
             color: var(--text-secondary-light);
+            
         }
 
         .time-chip {
@@ -332,6 +333,7 @@ function writeMainEJS() {
             font-size: 0.75rem;
             font-weight: 500;
             color: var(--text-secondary-light);
+            margin-left: auto;
         }
 
         @media (prefers-color-scheme: dark) {
@@ -1415,13 +1417,13 @@ function writeMainEJS() {
                                         <span class="task-title no-description">\${escapeHtml(task.title)}</span>
                                     \`}
                                     <div class="task-time-container">
-                                        <span class="date-chip">
-                                            <i class="fas fa-calendar-alt"></i> \${task.dateUTC}
-                                        </span>
-                                        <span class="time-chip">
-                                            <i class="fas fa-clock"></i> \${task.startTimeUTC}-\${task.endTimeUTC}
-                                        </span>
-                                    </div>
+    <span class="date-chip">
+        <i class="fas fa-calendar-alt"></i> ${task.dateUTC}
+    </span>
+    <span class="time-chip">
+        <i class="fas fa-clock"></i> ${task.startTimeUTC}-${task.endTimeUTC}
+    </span>
+</div>
                                 </div>
                                 <div class="task-actions">
                                     \${totalSubtasks < 10 ? \`
