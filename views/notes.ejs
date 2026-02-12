@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Manager - Notes</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #4361ee;
+            --primary-light: #4895ef;
+            --secondary: #3f37c9;
+            --success: #4cc9f0;
+            --danger: #f72585;
+            --warning: #f8961e;
+            --info: #4895ef;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --gray: #6c757d;
+            --gray-light: #adb5bd;
+            --border-radius: 12px;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --transition: all 0.3s ease;
+            --note-bg: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            --note-shadow: 0 8px 32px rgba(31, 38, 135, 0.1);
+        }
+        
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --primary: #5a6ff0;
+                --primary-light: #6a80f2;
+                --secondary: #4f46e5;
+                --success: #5fd3f0;
+                --danger: #ff2d8e;
+                --warning: #ffa94d;
+                --info: #6a80f2;
+                --light: #121212;
+                --dark: #ffffff;
+                --gray: #94a3b8;
+                --gray-light: #475569;
+                --shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+                --note-bg: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                --note-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            }
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: var(--light);
+            color: var(--dark);
+            transition: var(--transition);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            font-size: 14px;
+        }
+        
+        .header {
+            background-color: var(--light);
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            box-shadow: var(--shadow);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .header-action-btn {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 20px;
+            padding: 8px 16px;
+            cursor: pointer;
+            transition: var(--transition);
+            box-shadow: var(--shadow);
+            gap: 8px;
+            flex: 1;
+            max-width: 120px;
+            margin: 0 4px;
+            text-decoration: none;
+        }
+        
+        .header-action-btn i {
+            font-size: 1rem;
+        }
+        
+        .header-action-btn span {
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .header-action-btn:hover {
+            background: var(--primary-light);
+            transform: translateY(-2px);
+        }
+        
+        .header-action-btn.active {
+            background: var(--secondary);
+            box-shadow: 0 0 0 2px var(--primary-light);
+        }
+        
+        @media (max-width: 768px) {
+            .header {
+                padding: 8px;
+                gap: 4px;
+            }
+            .header-action-btn {
+                width: 100%;
+                max-width: none;
+                padding: 10px;
+                margin: 2px;
+                border-radius: 12px;
+            }
+            .header-action-btn span {
+                display: block;
+                font-size: 0.75rem;
+            }
+            .header-action-btn i {
+                margin-right: 4px;
+                font-size: 0.9rem;
+            }
+        }
+        
+        .fab {
+            position: fixed;
+            width: 60px;
+            height: 60px;
+            background-color: var(--primary);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            transition: var(--transition);
+            z-index: 1000;
+            border: none;
+            bottom: 30px;
+            right: 30px;
+        }
+        
+        .fab:hover {
+            background-color: var(--primary-light);
+            transform: scale(1.1);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+        }
+        
+        @media (max-width: 768px) {
+            .fab {
+                width: 50px;
+                height: 50px;
+                font-size: 1.3rem;
+                bottom: 20px;
+                right: 20px;
+            }
+        }
+        
+        .main-content {
+            flex-grow: 1;
+            padding: 16px;
+            overflow-y: auto;
+            padding-bottom: 100px;
+        }
+        
+        .content-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+        
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--dark);
+        }
+        
+        .notes-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 16px;
+        }
+        
+        .note-card {
+            background: var(--note-bg);
+            border-radius: var(--border-radius);
+            padding: 0;
+            box-shadow: var(--note-shadow);
+            transition: var(--transition);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        .note-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+        }
+        
+        .note-details {
+            width: 100%;
+        }
+        
+        .note-summary {
+            list-style: none;
+            padding: 20px;
+            cursor: pointer;
+        }
+        
+        .note-summary::-webkit-details-marker {
+            display: none;
+        }
+        
+        .note-header {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+        
+        .note-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 4px;
+            line-height: 1.3;
+        }
+        
+        .note-date {
+            font-size: 0.75rem;
+            color: var(--gray);
+            font-weight: 500;
+        }
+        
+        .note-content {
+            padding: 0 20px 20px 20px;
+        }
+        
+        .note-description {
+            font-size: 0.9rem;
+            color: var(--dark);
+            line-height: 1.5;
+            margin-bottom: 16px;
+        }
+        
+        .note-description strong {
+            font-weight: 700;
+            color: var(--primary);
+        }
+        
+        .note-description em {
+            font-style: italic;
+            color: var(--secondary);
+        }
+        
+        .note-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: auto;
+            padding-top: 12px;
+            border-top: 1px solid rgba(0,0,0,0.05);
+        }
+        
+        @media (prefers-color-scheme: dark) {
+            .note-footer {
+                border-top-color: rgba(255,255,255,0.05);
+            }
+        }
+        
+        .note-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .note-date-badge {
+            background: rgba(67, 97, 238, 0.1);
+            color: var(--primary);
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 500;
+        }
+        
+        .note-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .note-action-btn, .note-move-btn {
+            background: none;
+            border: none;
+            color: var(--primary);
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: var(--transition);
+            opacity: 0.7;
+            padding: 4px;
+            border-radius: 4px;
+        }
+        
+        .note-action-btn:hover, .note-move-btn:hover {
+            opacity: 1;
+            transform: scale(1.1);
+            background: rgba(67, 97, 238, 0.1);
+        }
+        
+        .note-action-btn.delete {
+            color: var(--danger);
+        }
+        
+        .note-action-btn.delete:hover {
+            background: rgba(247, 37, 133, 0.1);
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 32px 16px;
+            color: var(--gray);
+            grid-column: 1 / -1;
+        }
+        
+        .empty-state i {
+            font-size: 2.5rem;
+            margin-bottom: 12px;
+            opacity: 0.5;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .modal-content {
+            background-color: var(--light);
+            border-radius: var(--border-radius);
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            animation: scaleIn 0.3s ease;
+            overflow: hidden;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--gray-light);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .modal-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+        
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 1.3rem;
+            color: var(--gray);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        
+        .close-modal:hover {
+            color: var(--danger);
+        }
+        
+        .modal-body {
+            padding: 16px;
+        }
+        
+        .form-group {
+            margin-bottom: 12px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 4px;
+            font-weight: 600;
+            color: var(--dark);
+            font-size: 0.9rem;
+        }
+        
+        .form-input, .form-textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--gray-light);
+            border-radius: 6px;
+            background-color: var(--light);
+            color: var(--dark);
+            transition: var(--transition);
+            font-size: 0.9rem;
+        }
+        
+        .form-input:focus, .form-textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+        }
+        
+        .form-textarea {
+            min-height: 120px;
+            resize: vertical;
+            line-height: 1.4;
+        }
+        
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 16px;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            font-size: 0.9rem;
+        }
+        
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--secondary);
+        }
+        
+        .btn-secondary {
+            background-color: var(--gray-light);
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background-color: var(--gray);
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes scaleIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="/tasks" class="header-action-btn">
+            <i class="fas fa-tasks"></i>
+            <span>Tasks</span>
+        </a>
+        <a href="/notes" class="header-action-btn active">
+            <i class="fas fa-wand-magic-sparkles"></i>
+            <span>Notes</span>
+        </a>
+        <a href="/history" class="header-action-btn">
+            <i class="fas fa-history"></i>
+            <span>History</span>
+        </a>
+    </div>
+
+    <button class="fab" onclick="openAddNoteModal()" title="Add Note">
+        <i class="fas fa-plus"></i>
+    </button>
+
+    <div class="main-content">
+        <div class="content-header">
+            <h1 class="page-title">My Notes</h1>
+        </div>
+
+        <div class="notes-container">
+            <% if (notes.length === 0) { %>
+                <div class="empty-state">
+                    <i class="fas fa-wand-magic-sparkles"></i>
+                    <p>No notes yet. Click the + button to add your first note!</p>
+                </div>
+            <% } else { %>
+                <% notes.forEach(function(note) { %>
+                    <div class="note-card">
+                        <details class="note-details">
+                            <summary class="note-summary">
+                                <div class="note-header">
+                                    <h3 class="note-title"><%= note.title %></h3>
+                                    <div class="note-date">
+                                        <i class="fas fa-clock"></i>
+                                        <%= note.updatedAtIST || note.createdAtIST %>
+                                    </div>
+                                </div>
+                            </summary>
+                            <div class="note-content">
+                                <% if (note.description) { %>
+                                    <div class="note-description"><%= note.description %></div>
+                                <% } %>
+                                <div class="note-footer">
+                                    <div class="note-meta">
+                                        <span class="note-date-badge">
+                                            <i class="fas fa-calendar"></i>
+                                            Created: <%= note.createdAtIST %>
+                                        </span>
+                                    </div>
+                                    <div class="note-actions">
+                                        <form method="POST" action="/api/notes/<%= note.noteId %>/move" style="display:inline;">
+                                            <input type="hidden" name="direction" value="up">
+                                            <button type="submit" class="note-move-btn" title="Move Up">
+                                                <i class="fas fa-arrow-up"></i>
+                                            </button>
+                                        </form>
+                                        <form method="POST" action="/api/notes/<%= note.noteId %>/move" style="display:inline;">
+                                            <input type="hidden" name="direction" value="down">
+                                            <button type="submit" class="note-move-btn" title="Move Down">
+                                                <i class="fas fa-arrow-down"></i>
+                                            </button>
+                                        </form>
+                                        <button class="note-action-btn" onclick="openEditNoteModal('<%= note.noteId %>', '<%= note.title.replace(/'/g, "\\'") %>', '<%= (note.description || "").replace(/'/g, "\\'") %>')" title="Edit Note">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <form method="POST" action="/api/notes/<%= note.noteId %>/delete" style="display:inline;">
+                                            <button type="submit" class="note-action-btn delete" title="Delete Note">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </details>
+                    </div>
+                <% }); %>
+            <% } %>
+        </div>
+    </div>
+
+    <!-- Add Note Modal -->
+    <div class="modal" id="addNoteModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Add New Note</h2>
+                <button type="button" class="close-modal" onclick="closeAddNoteModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form method="POST" action="/api/notes">
+                    <div class="form-group">
+                        <label class="form-label">Title *</label>
+                        <input type="text" class="form-input" name="title" required placeholder="Enter note title">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Content</label>
+                        <textarea class="form-textarea" name="description" placeholder="Write your note here..."></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closeAddNoteModal()">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Note</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Note Modal -->
+    <div class="modal" id="editNoteModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Edit Note</h2>
+                <button type="button" class="close-modal" onclick="closeEditNoteModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form method="POST" id="editNoteForm">
+                    <input type="hidden" name="noteId" id="editNoteId">
+                    <div class="form-group">
+                        <label class="form-label">Title *</label>
+                        <input type="text" class="form-input" name="title" id="editNoteTitle" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Content</label>
+                        <textarea class="form-textarea" name="description" id="editNoteDescription"></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closeEditNoteModal()">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Update Note</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function openAddNoteModal() {
+            document.getElementById('addNoteModal').style.display = 'flex';
+        }
+
+        function closeAddNoteModal() {
+            document.getElementById('addNoteModal').style.display = 'none';
+        }
+
+        function openEditNoteModal(noteId, title, description) {
+            document.getElementById('editNoteId').value = noteId;
+            document.getElementById('editNoteTitle').value = title;
+            document.getElementById('editNoteDescription').value = description;
+            document.getElementById('editNoteForm').action = `/api/notes/${noteId}/update`;
+            document.getElementById('editNoteModal').style.display = 'flex';
+        }
+
+        function closeEditNoteModal() {
+            document.getElementById('editNoteModal').style.display = 'none';
+        }
+
+        // Close modals when clicking outside
+        window.addEventListener('click', function(event) {
+            const modals = document.querySelectorAll('.modal');
+            modals.forEach(modal => {
+                if (event.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
+        });
+    </script>
+</body>
+</html>
