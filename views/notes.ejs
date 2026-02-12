@@ -206,6 +206,7 @@
             transition: var(--transition);
             border: 1px solid rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(10px);
+            overflow: hidden;
         }
         
         .note-card:hover {
@@ -219,7 +220,7 @@
         
         .note-summary {
             list-style: none;
-            padding: 20px;
+            padding: 16px;
             cursor: pointer;
         }
         
@@ -248,14 +249,24 @@
         }
         
         .note-content {
-            padding: 0 20px 20px 20px;
+            padding: 0 16px 16px 16px;
+            border-top: 1px solid rgba(0,0,0,0.05);
+            margin-top: 8px;
+        }
+        
+        @media (prefers-color-scheme: dark) {
+            .note-content {
+                border-top-color: rgba(255,255,255,0.05);
+            }
         }
         
         .note-description {
             font-size: 0.9rem;
             color: var(--dark);
-            line-height: 1.5;
+            line-height: 1.6;
             margin-bottom: 16px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
         }
         
         .note-description strong {
@@ -275,6 +286,8 @@
             margin-top: auto;
             padding-top: 12px;
             border-top: 1px solid rgba(0,0,0,0.05);
+            flex-wrap: wrap;
+            gap: 8px;
         }
         
         @media (prefers-color-scheme: dark) {
@@ -287,6 +300,7 @@
             display: flex;
             align-items: center;
             gap: 8px;
+            flex-wrap: wrap;
         }
         
         .note-date-badge {
@@ -515,7 +529,7 @@
             <% } else { %>
                 <% notes.forEach(function(note) { %>
                     <div class="note-card">
-                        <details class="note-details">
+                        <details class="note-details" <%= notes.indexOf(note) === 0 ? 'open' : '' %>>
                             <summary class="note-summary">
                                 <div class="note-header">
                                     <h3 class="note-title"><%= note.title %></h3>
@@ -527,7 +541,10 @@
                             </summary>
                             <div class="note-content">
                                 <% if (note.description) { %>
-                                    <div class="note-description"><%= note.description %></div>
+                                    <!-- FIXED: Preserve line breaks -->
+                                    <div class="note-description"><%- note.description.replace(/\n/g, '<br>') %></div>
+                                <% } else { %>
+                                    <div class="note-description" style="color: var(--gray); font-style: italic;">Empty note</div>
                                 <% } %>
                                 <div class="note-footer">
                                     <div class="note-meta">
@@ -537,6 +554,7 @@
                                         </span>
                                     </div>
                                     <div class="note-actions">
+                                        <!-- FIXED: Move up/down buttons -->
                                         <form method="POST" action="/api/notes/<%= note.noteId %>/move" style="display:inline;">
                                             <input type="hidden" name="direction" value="up">
                                             <button type="submit" class="note-move-btn" title="Move Up">
@@ -549,10 +567,11 @@
                                                 <i class="fas fa-arrow-down"></i>
                                             </button>
                                         </form>
-                                        <button class="note-action-btn" onclick="openEditNoteModal('<%= note.noteId %>', '<%= note.title.replace(/'/g, "\\'") %>', '<%= (note.description || "").replace(/'/g, "\\'") %>')" title="Edit Note">
+                                        <!-- FIXED: Escape quotes for JavaScript -->
+                                        <button class="note-action-btn" onclick='openEditNoteModal("<%= note.noteId %>", <%= JSON.stringify(note.title) %>, <%= JSON.stringify(note.description || "") %>)' title="Edit Note">
                                             <i class="fas fa-edit"></i>
                                         </button>
-                                        <form method="POST" action="/api/notes/<%= note.noteId %>/delete" style="display:inline;">
+                                        <form method="POST" action="/api/notes/<%= note.noteId %>/delete" style="display:inline;" onsubmit="return confirm('Delete this note?')">
                                             <button type="submit" class="note-action-btn delete" title="Delete Note">
                                                 <i class="fas fa-trash"></i>
                                             </button>
@@ -578,7 +597,7 @@
                 <form method="POST" action="/api/notes">
                     <div class="form-group">
                         <label class="form-label">Title *</label>
-                        <input type="text" class="form-input" name="title" required placeholder="Enter note title">
+                        <input type="text" class="form-input" name="title" required placeholder="Enter note title" maxlength="200">
                     </div>
                     <div class="form-group">
                         <label class="form-label">Content</label>
@@ -601,11 +620,10 @@
                 <button type="button" class="close-modal" onclick="closeEditNoteModal()">&times;</button>
             </div>
             <div class="modal-body">
-                <form method="POST" id="editNoteForm">
-                    <input type="hidden" name="noteId" id="editNoteId">
+                <form method="POST" action="" id="editNoteForm">
                     <div class="form-group">
                         <label class="form-label">Title *</label>
-                        <input type="text" class="form-input" name="title" id="editNoteTitle" required>
+                        <input type="text" class="form-input" name="title" id="editNoteTitle" required maxlength="200">
                     </div>
                     <div class="form-group">
                         <label class="form-label">Content</label>
@@ -627,18 +645,20 @@
 
         function closeAddNoteModal() {
             document.getElementById('addNoteModal').style.display = 'none';
+            document.getElementById('addNoteModal').querySelector('form').reset();
         }
 
+        // FIXED: Proper escaping for quotes
         function openEditNoteModal(noteId, title, description) {
-            document.getElementById('editNoteId').value = noteId;
+            document.getElementById('editNoteForm').action = `/api/notes/${noteId}/update`;
             document.getElementById('editNoteTitle').value = title;
             document.getElementById('editNoteDescription').value = description;
-            document.getElementById('editNoteForm').action = `/api/notes/${noteId}/update`;
             document.getElementById('editNoteModal').style.display = 'flex';
         }
 
         function closeEditNoteModal() {
             document.getElementById('editNoteModal').style.display = 'none';
+            document.getElementById('editNoteForm').reset();
         }
 
         // Close modals when clicking outside
@@ -647,6 +667,12 @@
             modals.forEach(modal => {
                 if (event.target === modal) {
                     modal.style.display = 'none';
+                    if (modal.id === 'addNoteModal') {
+                        modal.querySelector('form').reset();
+                    }
+                    if (modal.id === 'editNoteModal') {
+                        modal.querySelector('form').reset();
+                    }
                 }
             });
         });
