@@ -1,4 +1,3 @@
-
 const { Telegraf, session: telegrafSession, Markup } = require('telegraf');
 const { MongoClient, ObjectId } = require('mongodb');
 const schedule = require('node-schedule');
@@ -279,7 +278,7 @@ function writeMainEJS() {
         .task-description {
             font-size: 0.85rem;
             color: var(--text-secondary-light);
-            padding: 6px 12px;
+            padding: 4px 6px;
             background: var(--hover-light);
             border-radius: 0 10px 10px 0;
             border-left: 3px solid var(--accent-light);
@@ -535,7 +534,7 @@ function writeMainEJS() {
         .subtask-description {
             font-size: 0.8rem;
             color: var(--text-secondary-light);
-            padding: 6px 12px;
+            padding: 4px 6px;
             background: var(--card-bg-light);
             border-radius: 0 8px 8px 0;
             border-left: 2px solid var(--accent-light);
@@ -605,7 +604,7 @@ function writeMainEJS() {
         .note-content {
             font-size: 0.85rem;
             color: var(--text-secondary-light);
-            padding: 6px 12px;
+            padding: 4px 6px;
             background: var(--hover-light);
             border-radius: 0 10px 10px 0;
             border-left: 3px solid var(--accent-light);
@@ -743,7 +742,7 @@ function writeMainEJS() {
         .history-description {
             font-size: 0.8rem;
             color: var(--text-secondary-light);
-            padding: 6px 12px;
+            padding: 4px 6px;
             background: var(--card-bg-light);
             border-radius: 0 8px 8px 0;
             border-left: 2px solid var(--success-light);
@@ -1479,12 +1478,10 @@ function writeMainEJS() {
                                 </div>
                             </div>
 
-                            <!-- Description placed outside header, full width, fit-content -->
+                            <!-- Description placed outside header, full width, fit-content - NO INDENTATION -->
                             \${hasDescription ? \`
                                 <div id="\${descriptionId}" class="task-description-container hidden">
-                                    <div class="task-description">
-                                        \${preserveLineBreaks(task.description)}
-                                    </div>
+                                    <div class="task-description">\${preserveLineBreaks(task.description)}</div>
                                 </div>
                             \` : ''}
 
@@ -1545,12 +1542,10 @@ function writeMainEJS() {
                                                             </button>
                                                         </div>
                                                     </div>
-                                                    <!-- Subtask Description - NEW LINE, FULL WIDTH, FIT CONTENT -->
+                                                    <!-- Subtask Description - NEW LINE, FULL WIDTH, FIT CONTENT - NO INDENTATION -->
                                                     \${subtaskHasDesc ? \`
                                                         <div id="\${subtaskDescId}" class="subtask-description-container hidden">
-                                                            <div class="subtask-description">
-                                                                \${preserveLineBreaks(subtask.description)}
-                                                            </div>
+                                                            <div class="subtask-description">\${preserveLineBreaks(subtask.description)}</div>
                                                         </div>
                                                     \` : ''}
                                                 </div>
@@ -1635,12 +1630,10 @@ function writeMainEJS() {
                                 </div>
                             </div>
                             
-                            <!-- Note Content - FIT CONTENT, REDUCED PADDING -->
+                            <!-- Note Content - FIT CONTENT, REDUCED PADDING - NO INDENTATION -->
                             \${hasDescription ? \`
                                 <div id="\${noteDescId}" class="note-content-container hidden">
-                                    <div class="note-content">
-                                        \${preserveLineBreaks(note.description)}
-                                    </div>
+                                    <div class="note-content">\${preserveLineBreaks(note.description)}</div>
                                 </div>
                             \` : ''}
                             
@@ -1725,12 +1718,10 @@ function writeMainEJS() {
                                     </span>
                                 </div>
                                 
-                                <!-- History Description - FIT CONTENT -->
+                                <!-- History Description - FIT CONTENT - NO INDENTATION -->
                                 \${hasDescription ? \`
                                     <div id="\${historyDescId}" class="history-description-container hidden">
-                                        <div class="history-description">
-                                            \${preserveLineBreaks(task.description)}
-                                        </div>
+                                        <div class="history-description">\${preserveLineBreaks(task.description)}</div>
                                     </div>
                                 \` : ''}
                                 
@@ -1771,9 +1762,7 @@ function writeMainEJS() {
                                                                 </div>
                                                                 \${subtaskHasDesc ? \`
                                                                     <div id="\${historySubtaskDescId}" class="history-description-container hidden">
-                                                                        <div class="history-description" style="border-left-color: var(--accent-light);">
-                                                                            \${preserveLineBreaks(subtask.description)}
-                                                                        </div>
+                                                                        <div class="history-description" style="border-left-color: var(--accent-light);">\${preserveLineBreaks(subtask.description)}</div>
                                                                     </div>
                                                                 \` : ''}
                                                             </div>
@@ -2255,9 +2244,8 @@ function writeMainEJS() {
 </html>`;
 
     fs.writeFileSync(path.join(viewsDir, 'index.ejs'), mainEJS);
-    console.log('✅ EJS template file created successfully with all fixes');
+    console.log('✅ EJS template file created successfully with all CSS padding and indentation fixes');
 }
-
 writeMainEJS();
 
 // ==========================================
