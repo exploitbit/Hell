@@ -25,29 +25,27 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ✅ CRITICAL FIX: Set up EJS view engine correctly
+// ✅ Set up EJS view engine
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-// ✅ ADDED: Create views directory if it doesn't exist
+// ✅ Create directories if they don't exist
 const viewsDir = path.join(__dirname, 'views');
+const publicDir = path.join(__dirname, 'public');
+
 if (!fs.existsSync(viewsDir)) {
     fs.mkdirSync(viewsDir, { recursive: true });
     console.log('📁 Created views directory');
 }
 
-// ✅ ADDED: Create public directory if it doesn't exist
-const publicDir = path.join(__dirname, 'public');
 if (!fs.existsSync(publicDir)) {
     fs.mkdirSync(publicDir, { recursive: true });
     console.log('📁 Created public directory');
 }
 
-// ✅ ADDED: Write EJS files to views directory
-function writeEJSFiles() {
-    try {
-        // Combined EJS file with all pages
-        const mainEJS = `<!DOCTYPE html>
+// ✅ Write the main EJS template file
+function writeMainEJS() {
+    const mainEJS = `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -1307,19 +1305,19 @@ function writeEJSFiles() {
         }
 
         function renderTasksPage() {
-            let html = `
+            let html = \`
                 <h1 class="page-title">Today's Tasks</h1>
                 <div class="tasks-grid">
-            `;
+            \`;
 
             if (!tasksData || tasksData.length === 0) {
-                html += `
+                html += \`
                     <div class="empty-state" style="grid-column: 1/-1;">
                         <i class="fas fa-clipboard-list" style="font-size: 2rem;"></i>
                         <h3 style="margin-top: 12px;">No tasks for today</h3>
                         <p style="margin-top: 8px; font-size: 0.85rem;">Click the + button to add your first task!</p>
                     </div>
-                `;
+                \`;
             } else {
                 tasksData.forEach(task => {
                     const progress = task.subtaskProgress || 0;
@@ -1328,151 +1326,151 @@ function writeEJSFiles() {
                     const completedSubtasks = task.subtasks ? task.subtasks.filter(s => s.completed).length : 0;
                     const totalSubtasks = task.subtasks ? task.subtasks.length : 0;
                     
-                    html += `
+                    html += \`
                         <div class="task-card">
                             <div class="task-header">
                                 <div class="task-title-section">
                                     <details class="task-details">
                                         <summary>
-                                            <span class="task-title">${escapeHtml(task.title)}</span>
+                                            <span class="task-title">\${escapeHtml(task.title)}</span>
                                         </summary>
                                         <div class="task-description">
-                                            ${escapeHtml(task.description || '<i>No description</i>').replace(/\\n/g, '<br>')}
+                                            \${escapeHtml(task.description || '<i>No description</i>').replace(/\\n/g, '<br>')}
                                         </div>
                                     </details>
                                     <div class="task-time">
                                         <span class="time-chip">
-                                            <i class="fas fa-calendar"></i> ${task.dateUTC}
+                                            <i class="fas fa-calendar"></i> \${task.dateUTC}
                                         </span>
                                         <span class="time-chip">
-                                            <i class="fas fa-clock"></i> ${task.startTimeUTC} - ${task.endTimeUTC}
+                                            <i class="fas fa-clock"></i> \${task.startTimeUTC} - \${task.endTimeUTC}
                                         </span>
                                     </div>
                                 </div>
                                 <div class="task-actions">
-                                    <button class="action-btn" onclick="openAddSubtaskModal('${task.taskId}')" title="Add Subtask">
+                                    <button class="action-btn" onclick="openAddSubtaskModal('\${task.taskId}')" title="Add Subtask">
                                         <i class="fas fa-plus"></i>
                                     </button>
-                                    <button class="action-btn" onclick="openEditTaskModal('${task.taskId}')" title="Edit Task">
+                                    <button class="action-btn" onclick="openEditTaskModal('\${task.taskId}')" title="Edit Task">
                                         <i class="fas fa-pencil-alt"></i>
                                     </button>
-                                    <button class="action-btn" onclick="completeTask('${task.taskId}')" title="Complete Task">
+                                    <button class="action-btn" onclick="completeTask('\${task.taskId}')" title="Complete Task">
                                         <i class="fas fa-check"></i>
                                     </button>
-                                    <button class="action-btn delete" onclick="deleteTask('${task.taskId}')" title="Delete Task">
+                                    <button class="action-btn delete" onclick="deleteTask('\${task.taskId}')" title="Delete Task">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 </div>
                             </div>
 
                             <div class="flex-row">
-                                ${totalSubtasks > 0 ? `
+                                \${totalSubtasks > 0 ? \`
                                     <div class="progress-ring-small">
                                         <svg width="40" height="40">
                                             <circle class="progress-ring-circle-small" stroke="var(--progress-bg-light)" stroke-width="3" fill="transparent" r="16" cx="20" cy="20"/>
                                             <circle class="progress-ring-circle-small" stroke="var(--accent-light)" stroke-width="3" fill="transparent" r="16" cx="20" cy="20"
-                                                style="stroke-dasharray: ${circleCircumference}; stroke-dashoffset: ${circleOffset};"/>
+                                                style="stroke-dasharray: \${circleCircumference}; stroke-dashoffset: \${circleOffset};"/>
                                         </svg>
-                                        <span class="progress-text-small">${progress}%</span>
+                                        <span class="progress-text-small">\${progress}%</span>
                                     </div>
                                     <span style="font-size: 0.8rem; color: var(--text-secondary-light);">
-                                        ${completedSubtasks}/${totalSubtasks} subtasks
+                                        \${completedSubtasks}/\${totalSubtasks} subtasks
                                     </span>
-                                ` : `
+                                \` : \`
                                     <span style="font-size: 0.8rem; color: var(--text-secondary-light);">
                                         <i class="fas fa-tasks"></i> No subtasks
                                     </span>
-                                `}
+                                \`}
                             </div>
 
-                            ${task.subtasks && task.subtasks.length > 0 ? `
+                            \${task.subtasks && task.subtasks.length > 0 ? \`
                                 <div class="subtasks-container">
-                                    ${task.subtasks.sort((a, b) => {
+                                    \${task.subtasks.sort((a, b) => {
                                         if (a.completed === b.completed) return 0;
                                         return a.completed ? 1 : -1;
-                                    }).map(subtask => `
+                                    }).map(subtask => \`
                                         <div class="subtask-item">
-                                            <div class="subtask-checkbox ${subtask.completed ? 'completed' : ''}" onclick="toggleSubtask('${task.taskId}', '${subtask.id}')">
-                                                ${subtask.completed ? '<i class="fas fa-check"></i>' : ''}
+                                            <div class="subtask-checkbox \${subtask.completed ? 'completed' : ''}" onclick="toggleSubtask('\${task.taskId}', '\${subtask.id}')">
+                                                \${subtask.completed ? '<i class="fas fa-check"></i>' : ''}
                                             </div>
                                             <div class="subtask-details">
                                                 <details class="subtask-details">
                                                     <summary>
-                                                        <span class="subtask-title ${subtask.completed ? 'completed' : ''}">
-                                                            ${escapeHtml(subtask.title)}
+                                                        <span class="subtask-title \${subtask.completed ? 'completed' : ''}">
+                                                            \${escapeHtml(subtask.title)}
                                                         </span>
                                                     </summary>
                                                     <div class="subtask-desc">
-                                                        ${escapeHtml(subtask.description || '<i>No description</i>').replace(/\\n/g, '<br>')}
+                                                        \${escapeHtml(subtask.description || '<i>No description</i>').replace(/\\n/g, '<br>')}
                                                     </div>
                                                 </details>
                                             </div>
                                             <div class="subtask-actions">
-                                                <button class="subtask-btn" onclick="editSubtask('${task.taskId}', '${subtask.id}', '${escapeHtml(subtask.title)}', '${escapeHtml(subtask.description || '')}')">
+                                                <button class="subtask-btn" onclick="editSubtask('\${task.taskId}', '\${subtask.id}', '\${escapeHtml(subtask.title)}', '\${escapeHtml(subtask.description || '')}')">
                                                     <i class="fas fa-pencil-alt"></i>
                                                 </button>
-                                                <button class="subtask-btn delete" onclick="deleteSubtask('${task.taskId}', '${subtask.id}')">
+                                                <button class="subtask-btn delete" onclick="deleteSubtask('\${task.taskId}', '\${subtask.id}')">
                                                     <i class="fas fa-trash"></i>
                                                 </button>
                                             </div>
                                         </div>
-                                    `).join('')}
+                                    \`).join('')}
                                 </div>
-                            ` : ''}
+                            \` : ''}
 
                             <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
                                 <span class="badge">
-                                    <i class="fas fa-repeat"></i> ${task.repeat && task.repeat !== 'none' ? (task.repeat === 'daily' ? 'Daily' : 'Weekly') : 'No Repeat'}
+                                    <i class="fas fa-repeat"></i> \${task.repeat && task.repeat !== 'none' ? (task.repeat === 'daily' ? 'Daily' : 'Weekly') : 'No Repeat'}
                                 </span>
                                 <span class="badge">
-                                    <i class="fas fa-hourglass-half"></i> ${task.durationFormatted}
+                                    <i class="fas fa-hourglass-half"></i> \${task.durationFormatted}
                                 </span>
-                                ${task.repeatCount > 0 ? `
+                                \${task.repeatCount > 0 ? \`
                                     <span class="badge">
-                                        <i class="fas fa-hashtag"></i> ${task.repeatCount} left
+                                        <i class="fas fa-hashtag"></i> \${task.repeatCount} left
                                     </span>
-                                ` : ''}
+                                \` : ''}
                             </div>
                         </div>
-                    `;
+                    \`;
                 });
             }
 
-            html += `</div>`;
+            html += \`</div>\`;
             return html;
         }
 
         function renderNotesPage() {
-            let html = `
+            let html = \`
                 <h1 class="page-title">Notes</h1>
                 <div class="notes-grid">
-            `;
+            \`;
 
             if (!notesData || notesData.length === 0) {
-                html += `
+                html += \`
                     <div class="empty-state" style="grid-column: 1/-1;">
                         <i class="fas fa-note-sticky" style="font-size: 2rem;"></i>
                         <h3 style="margin-top: 12px;">No notes yet</h3>
                         <p style="margin-top: 8px; font-size: 0.85rem;">Click the + button to create your first note!</p>
                     </div>
-                `;
+                \`;
             } else {
                 notesData.forEach((note, index) => {
-                    html += `
+                    html += \`
                         <div class="note-card">
                             <div class="note-header">
-                                <span class="note-title">${escapeHtml(note.title)}</span>
+                                <span class="note-title">\${escapeHtml(note.title)}</span>
                                 <div style="display: flex; gap: 4px;">
-                                    <button class="action-btn" onclick="moveNote('${note.noteId}', 'up')" title="Move Up">
+                                    <button class="action-btn" onclick="moveNote('\${note.noteId}', 'up')" title="Move Up">
                                         <i class="fas fa-arrow-up"></i>
                                     </button>
-                                    <button class="action-btn" onclick="moveNote('${note.noteId}', 'down')" title="Move Down">
+                                    <button class="action-btn" onclick="moveNote('\${note.noteId}', 'down')" title="Move Down">
                                         <i class="fas fa-arrow-down"></i>
                                     </button>
-                                    <button class="action-btn" onclick="openEditNoteModal('${note.noteId}', '${escapeHtml(note.title)}', '${escapeHtml(note.description || '')}')">
+                                    <button class="action-btn" onclick="openEditNoteModal('\${note.noteId}', '\${escapeHtml(note.title)}', '\${escapeHtml(note.description || '')}')">
                                         <i class="fas fa-pencil-alt"></i>
                                     </button>
-                                    <button class="action-btn delete" onclick="deleteNote('${note.noteId}')">
+                                    <button class="action-btn delete" onclick="deleteNote('\${note.noteId}')">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 </div>
@@ -1480,26 +1478,26 @@ function writeEJSFiles() {
                             <details class="note-details">
                                 <summary><i class="fas fa-chevron-right"></i> View Content</summary>
                                 <div class="note-content">
-                                    ${escapeHtml(note.description || '<i>Empty note</i>').replace(/\\n/g, '<br>')}
+                                    \${escapeHtml(note.description || '<i>Empty note</i>').replace(/\\n/g, '<br>')}
                                 </div>
                             </details>
                             <div class="note-meta">
-                                <span><i class="fas fa-clock"></i> ${note.createdAtUTC}</span>
-                                ${note.updatedAtUTC !== note.createdAtUTC ? `
-                                    <span><i class="fas fa-pencil-alt"></i> ${note.updatedAtUTC}</span>
-                                ` : ''}
+                                <span><i class="fas fa-clock"></i> \${note.createdAtUTC}</span>
+                                \${note.updatedAtUTC !== note.createdAtUTC ? \`
+                                    <span><i class="fas fa-pencil-alt"></i> \${note.updatedAtUTC}</span>
+                                \` : ''}
                             </div>
                         </div>
-                    `;
+                    \`;
                 });
             }
 
-            html += `</div>`;
+            html += \`</div>\`;
             return html;
         }
 
         function renderHistoryPage() {
-            let html = `
+            let html = \`
                 <h1 class="page-title">Task History</h1>
                 <div class="history-header">
                     <div class="month-selector">
@@ -1507,7 +1505,7 @@ function writeEJSFiles() {
                             <i class="fas fa-chevron-left"></i> Prev
                         </button>
                         <span style="font-weight: 600; font-size: 1rem;">
-                            ${new Date(currentYear, currentMonth).toLocaleString('default', { month: 'long' })} ${currentYear}
+                            \${new Date(currentYear, currentMonth).toLocaleString('default', { month: 'long' })} \${currentYear}
                         </span>
                         <button class="month-btn" onclick="changeMonth(1)">
                             Next <i class="fas fa-chevron-right"></i>
@@ -1515,108 +1513,108 @@ function writeEJSFiles() {
                     </div>
                 </div>
                 <div class="history-grid">
-            `;
+            \`;
 
             const filteredHistory = filterHistoryByMonth(historyData, currentYear, currentMonth);
             const dates = Object.keys(filteredHistory).sort().reverse();
 
             if (dates.length === 0) {
-                html += `
+                html += \`
                     <div class="empty-state">
                         <i class="fas fa-history" style="font-size: 2rem;"></i>
                         <h3 style="margin-top: 12px;">No completed tasks</h3>
                         <p style="margin-top: 8px; font-size: 0.85rem;">No tasks completed in this month</p>
                     </div>
-                `;
+                \`;
             } else {
                 dates.forEach(date => {
                     const tasks = filteredHistory[date];
-                    html += `
+                    html += \`
                         <div class="history-date-card">
                             <details class="history-details">
                                 <summary>
                                     <i class="fas fa-calendar-alt"></i>
-                                    <span style="font-weight: 600;">${date}</span>
+                                    <span style="font-weight: 600;">\${date}</span>
                                     <span class="badge" style="margin-left: auto;">
-                                        ${tasks.length} task${tasks.length !== 1 ? 's' : ''}
+                                        \${tasks.length} task\${tasks.length !== 1 ? 's' : ''}
                                     </span>
                                 </summary>
                                 <div class="history-tasks-grid">
-                    `;
+                    \`;
 
                     tasks.forEach(task => {
-                        html += `
+                        html += \`
                             <div class="history-task-card">
                                 <div class="history-task-header">
                                     <details style="flex: 1;">
                                         <summary class="history-task-title">
-                                            ${escapeHtml(task.title)}
+                                            \${escapeHtml(task.title)}
                                         </summary>
                                         <div style="font-size: 0.8rem; color: var(--text-secondary-light); margin-top: 8px; padding: 8px; background: var(--card-bg-light); border-radius: 8px;">
-                                            ${escapeHtml(task.description || '<i>No description</i>').replace(/\\n/g, '<br>')}
+                                            \${escapeHtml(task.description || '<i>No description</i>').replace(/\\n/g, '<br>')}
                                         </div>
                                     </details>
                                     <span class="history-task-time">
-                                        <i class="fas fa-check-circle" style="color: var(--success-light);"></i> ${task.completedTimeUTC}
+                                        <i class="fas fa-check-circle" style="color: var(--success-light);"></i> \${task.completedTimeUTC}
                                     </span>
                                 </div>
                                 <div style="display: flex; gap: 6px; margin: 8px 0; flex-wrap: wrap;">
                                     <span class="badge">
-                                        <i class="fas fa-clock"></i> ${task.startTimeUTC || formatTime(task.startDate)} - ${task.endTimeUTC || formatTime(task.endDate)}
+                                        <i class="fas fa-clock"></i> \${task.startTimeUTC || formatTime(task.startDate)} - \${task.endTimeUTC || formatTime(task.endDate)}
                                     </span>
                                     <span class="badge">
-                                        <i class="fas fa-hourglass-half"></i> ${task.durationFormatted}
+                                        <i class="fas fa-hourglass-half"></i> \${task.durationFormatted}
                                     </span>
-                                    ${task.repeat && task.repeat !== 'none' ? `
+                                    \${task.repeat && task.repeat !== 'none' ? \`
                                         <span class="badge">
-                                            <i class="fas fa-repeat"></i> ${task.repeat === 'daily' ? 'Daily' : 'Weekly'}
+                                            <i class="fas fa-repeat"></i> \${task.repeat === 'daily' ? 'Daily' : 'Weekly'}
                                         </span>
-                                    ` : ''}
-                                    ${task.repeatCount > 0 ? `
+                                    \` : ''}
+                                    \${task.repeatCount > 0 ? \`
                                         <span class="badge">
-                                            <i class="fas fa-hashtag"></i> ${task.repeatCount} left
+                                            <i class="fas fa-hashtag"></i> \${task.repeatCount} left
                                         </span>
-                                    ` : ''}
+                                    \` : ''}
                                 </div>
-                                ${task.subtasks && task.subtasks.length > 0 ? `
+                                \${task.subtasks && task.subtasks.length > 0 ? \`
                                     <details style="margin-top: 8px;">
                                         <summary style="cursor: pointer; color: var(--accent-light); font-weight: 600; font-size: 0.8rem;">
-                                            <i class="fas fa-tasks"></i> Subtasks (${task.subtasks.filter(s => s.completed).length}/${task.subtasks.length})
+                                            <i class="fas fa-tasks"></i> Subtasks (\${task.subtasks.filter(s => s.completed).length}/\${task.subtasks.length})
                                         </summary>
                                         <div style="margin-top: 8px;">
-                                            ${task.subtasks.map(subtask => `
+                                            \${task.subtasks.map(subtask => \`
                                                 <div class="history-subtask">
                                                     <div style="display: flex; align-items: center; gap: 6px;">
-                                                        <span style="color: ${subtask.completed ? 'var(--success-light)' : 'var(--text-secondary-light)'};">
-                                                            <i class="fas fa-${subtask.completed ? 'check-circle' : 'circle'}"></i>
+                                                        <span style="color: \${subtask.completed ? 'var(--success-light)' : 'var(--text-secondary-light)'};">
+                                                            <i class="fas fa-\${subtask.completed ? 'check-circle' : 'circle'}"></i>
                                                         </span>
                                                         <details style="flex: 1;">
                                                             <summary style="font-weight: 600; font-size: 0.8rem; cursor: pointer;">
-                                                                ${escapeHtml(subtask.title)}
+                                                                \${escapeHtml(subtask.title)}
                                                             </summary>
                                                             <div style="font-size: 0.75rem; color: var(--text-secondary-light); margin-top: 4px; padding: 6px; background: var(--card-bg-light); border-radius: 6px;">
-                                                                ${escapeHtml(subtask.description || '<i>No description</i>')}
+                                                                \${escapeHtml(subtask.description || '<i>No description</i>')}
                                                             </div>
                                                         </details>
                                                     </div>
                                                 </div>
-                                            `).join('')}
+                                            \`).join('')}
                                         </div>
                                     </details>
-                                ` : ''}
+                                \` : ''}
                             </div>
-                        `;
+                        \`;
                     });
 
-                    html += `
+                    html += \`
                                 </div>
                             </details>
                         </div>
-                    `;
+                    \`;
                 });
             }
 
-            html += `</div>`;
+            html += \`</div>\`;
             return html;
         }
 
@@ -1692,11 +1690,11 @@ function writeEJSFiles() {
             const hours = String(now.getUTCHours()).padStart(2, '0');
             const minutes = String(now.getUTCMinutes()).padStart(2, '0');
             
-            document.getElementById('startDate').value = `${year}-${month}-${day}`;
-            document.getElementById('startTime').value = `${hours}:${minutes}`;
+            document.getElementById('startDate').value = \`\${year}-\${month}-\${day}\`;
+            document.getElementById('startTime').value = \`\${hours}:\${minutes}\`;
             
             const endHours = String(now.getUTCHours() + 1).padStart(2, '0');
-            document.getElementById('endTime').value = `${endHours}:${minutes}`;
+            document.getElementById('endTime').value = \`\${endHours}:\${minutes}\`;
             
             openModal('addTaskModal');
         }
@@ -1713,16 +1711,16 @@ function writeEJSFiles() {
                     const year = startDate.getUTCFullYear();
                     const month = String(startDate.getUTCMonth() + 1).padStart(2, '0');
                     const day = String(startDate.getUTCDate()).padStart(2, '0');
-                    document.getElementById('editStartDate').value = `${year}-${month}-${day}`;
+                    document.getElementById('editStartDate').value = \`\${year}-\${month}-\${day}\`;
                     
                     const startHours = String(startDate.getUTCHours()).padStart(2, '0');
                     const startMinutes = String(startDate.getUTCMinutes()).padStart(2, '0');
-                    document.getElementById('editStartTime').value = `${startHours}:${startMinutes}`;
+                    document.getElementById('editStartTime').value = \`\${startHours}:\${startMinutes}\`;
                     
                     const endDate = new Date(task.endDate);
                     const endHours = String(endDate.getUTCHours()).padStart(2, '0');
                     const endMinutes = String(endDate.getUTCMinutes()).padStart(2, '0');
-                    document.getElementById('editEndTime').value = `${endHours}:${endMinutes}`;
+                    document.getElementById('editEndTime').value = \`\${endHours}:\${endMinutes}\`;
                     
                     document.getElementById('editRepeatSelect').value = task.repeat || 'none';
                     document.getElementById('editRepeatCount').value = task.repeatCount || 7;
@@ -1771,7 +1769,7 @@ function writeEJSFiles() {
             
             fetch('/api/tasks', {
                 method: 'POST',
-                body: formData
+                body: new URLSearchParams(formData)
             })
             .then(res => {
                 if (res.ok) {
@@ -1797,7 +1795,7 @@ function writeEJSFiles() {
             
             fetch('/api/tasks/' + taskId + '/update', {
                 method: 'POST',
-                body: formData
+                body: new URLSearchParams(formData)
             })
             .then(res => {
                 if (res.ok) {
@@ -1823,7 +1821,7 @@ function writeEJSFiles() {
             
             fetch('/api/tasks/' + taskId + '/subtasks', {
                 method: 'POST',
-                body: formData
+                body: new URLSearchParams(formData)
             })
             .then(res => {
                 if (res.ok) {
@@ -1850,7 +1848,7 @@ function writeEJSFiles() {
             
             fetch('/api/tasks/' + taskId + '/subtasks/' + subtaskId + '/update', {
                 method: 'POST',
-                body: formData
+                body: new URLSearchParams(formData)
             })
             .then(res => {
                 if (res.ok) {
@@ -1875,7 +1873,7 @@ function writeEJSFiles() {
             
             fetch('/api/notes', {
                 method: 'POST',
-                body: formData
+                body: new URLSearchParams(formData)
             })
             .then(res => {
                 if (res.ok) {
@@ -1901,7 +1899,7 @@ function writeEJSFiles() {
             
             fetch('/api/notes/' + noteId + '/update', {
                 method: 'POST',
-                body: formData
+                body: new URLSearchParams(formData)
             })
             .then(res => {
                 if (res.ok) {
@@ -2033,7 +2031,7 @@ function writeEJSFiles() {
             
             fetch('/api/notes/' + noteId + '/move', {
                 method: 'POST',
-                body: formData
+                body: new URLSearchParams(formData)
             })
             .then(res => {
                 if (res.ok) {
@@ -2064,8 +2062,8 @@ function writeEJSFiles() {
                 const day = String(now.getUTCDate()).padStart(2, '0');
                 const month = String(now.getUTCMonth() + 1).padStart(2, '0');
                 const year = now.getUTCFullYear();
-                document.getElementById('currentTimeDisplay').innerHTML = `${hours}:${minutes}`;
-                document.getElementById('currentDateDisplay').innerHTML = `${day}-${month}-${year}`;
+                document.getElementById('currentTimeDisplay').innerHTML = \`\${hours}:\${minutes}\`;
+                document.getElementById('currentDateDisplay').innerHTML = \`\${day}-\${month}-\${year}\`;
             }, 1000);
             
             document.getElementById('repeatSelect').addEventListener('change', function() {
@@ -2088,17 +2086,13 @@ function writeEJSFiles() {
     </script>
 </body>
 </html>`;
-        
-        fs.writeFileSync(path.join(viewsDir, 'index.ejs'), mainEJS);
-        
-        console.log('✅ EJS template file created successfully');
-    } catch (error) {
-        console.error('❌ Error writing EJS file:', error.message);
-    }
+
+    fs.writeFileSync(path.join(viewsDir, 'index.ejs'), mainEJS);
+    console.log('✅ EJS template file created successfully');
 }
 
-// Write EJS files on startup
-writeEJSFiles();
+// Write EJS file on startup
+writeMainEJS();
 
 // ==========================================
 // 🗄️ DATABASE CONNECTION - GLOBAL NO USER ID
@@ -2151,7 +2145,7 @@ async function connectDB() {
     return false;
 }
 
-// ✅ ADDED: Health check endpoint
+// ✅ Health check endpoint
 app.get('/health', (req, res) => {
     res.status(200).json({ 
         status: 'OK', 
@@ -2739,7 +2733,7 @@ app.get('/api/tasks/:taskId', async (req, res) => {
     }
 });
 
-// FIXED: Task creation endpoint
+// ✅ Fixed: Task creation endpoint with URLSearchParams
 app.post('/api/tasks', async (req, res) => {
     try {
         const { title, description, startDate, startTime, endTime, repeat, repeatCount } = req.body;
@@ -3340,7 +3334,7 @@ async function showMainMenu(ctx) {
 // 📅 TASK VIEWS - WITH PAGINATION
 // ==========================================
 
-bot.action(/^view_today_tasks_(\\d+)$/, async (ctx) => {
+bot.action(/^view_today_tasks_(\d+)$/, async (ctx) => {
     const page = parseInt(ctx.match[1]);
     const todayUTC = getTodayUTC();
     const tomorrowUTC = getTomorrowUTC();
@@ -3494,7 +3488,7 @@ bot.on('text', async (ctx) => {
         }
         else if (step === 'task_desc') {
             const description = text === '-' ? '' : text;
-            if (description.length > 0 && description.split(/\\s+/).length > 100) {
+            if (description.length > 0 && description.split(/\s+/).length > 100) {
                 return ctx.reply('❌ Too long! Keep it under 100 words.');
             }
             ctx.session.task.description = description;
@@ -3508,7 +3502,7 @@ bot.on('text', async (ctx) => {
             );
         }
         else if (step === 'task_date') {
-            if (!/^(0[1-9]|[12][0-9]|3[01])-(0[1-9]|1[0-2])-\\d{4}$/.test(text)) {
+            if (!/^(0[1-9]|[12][0-9]|3[01])-(0[1-9]|1[0-2])-\d{4}$/.test(text)) {
                 return ctx.reply('❌ Invalid date format. Use DD-MM-YYYY');
             }
             
@@ -3625,7 +3619,7 @@ bot.on('text', async (ctx) => {
         }
         else if (step === 'note_content') {
             const content = text === '-' ? '' : text;
-            if (content.length > 0 && content.split(/\\s+/).length > 400) {
+            if (content.length > 0 && content.split(/\s+/).length > 400) {
                 return ctx.reply('❌ Too long! Keep it under 400 words.');
             }
             
@@ -3821,7 +3815,7 @@ bot.on('text', async (ctx) => {
         else if (step === 'edit_task_desc') {
             const taskId = ctx.session.editTaskId;
             const description = text === '-' ? '' : text;
-            if (description.length > 0 && description.split(/\\s+/).length > 100) {
+            if (description.length > 0 && description.split(/\s+/).length > 100) {
                 return ctx.reply('❌ Too long! Max 100 words.');
             }
             
@@ -4042,7 +4036,7 @@ bot.on('text', async (ctx) => {
         else if (step === 'edit_note_content') {
             const noteId = ctx.session.editNoteId;
             const content = text === '-' ? '' : text;
-            if (content.length > 0 && content.split(/\\s+/).length > 400) {
+            if (content.length > 0 && content.split(/\s+/).length > 400) {
                 return ctx.reply('❌ Too long! Max 400 words.');
             }
             
@@ -4273,7 +4267,7 @@ ${progressBar} ${progress}%
     await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
 }
 
-// FIXED: Subtask detail handler
+// ✅ Fixed: Subtask detail handler
 bot.action(/^subtask_det_(.+)_(.+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     const subtaskId = ctx.match[2];
@@ -5232,7 +5226,7 @@ bot.action('reorder_note_save', async (ctx) => {
 // 📜 VIEW HISTORY - WITH PAGINATION AND SUBTASK BLOCKQUOTES
 // ==========================================
 
-bot.action(/^view_history_dates_(\\d+)$/, async (ctx) => {
+bot.action(/^view_history_dates_(\d+)$/, async (ctx) => {
     const page = parseInt(ctx.match[1]);
     
     const perPage = 10;
@@ -5294,7 +5288,7 @@ bot.action(/^view_history_dates_(\\d+)$/, async (ctx) => {
     await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
 });
 
-bot.action(/^hist_list_([\\d-]+)_(\\d+)$/, async (ctx) => {
+bot.action(/^hist_list_([\d-]+)_(\d+)$/, async (ctx) => {
     const dateStr = ctx.match[1];
     const page = parseInt(ctx.match[2]);
 
@@ -5422,7 +5416,7 @@ ${task.repeatCount > 0 ? '🔢 <b>Remaining Repeats:</b> ' + task.repeatCount + 
 // 🗒️ VIEW NOTES - WITH PAGINATION
 // ==========================================
 
-bot.action(/^view_notes_(\\d+)$/, async (ctx) => {
+bot.action(/^view_notes_(\d+)$/, async (ctx) => {
     const page = parseInt(ctx.match[1]);
     
     const perPage = 10;
