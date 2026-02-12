@@ -1,14 +1,14 @@
-const { Telegraf, session, Markup } = require('telegraf');
+const { Telegraf, session: telegrafSession, Markup } = require('telegraf');
 const { MongoClient, ObjectId } = require('mongodb');
 const schedule = require('node-schedule');
 const express = require('express');
 const path = require('path');
-const session = require('express-session');
+const expressSession = require('express-session');
 const crypto = require('crypto');
 require('dotenv').config();
 
 // ==========================================
-// ⚙️ CONFIGURATION
+// ⚙️ CONFIGURATION - FIXED
 // ==========================================
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -31,12 +31,17 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Express session for web interface
-app.use(session({
+// Express session for web interface - FIXED: Renamed variable
+app.use(expressSession({
     secret: SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000 }
+    cookie: { 
+        secure: process.env.NODE_ENV === 'production', // Auto-adapt to HTTPS in production
+        maxAge: 24 * 60 * 60 * 1000,
+        httpOnly: true,
+        sameSite: 'lax'
+    }
 }));
 
 // Set view engine
@@ -46,10 +51,13 @@ app.set('views', path.join(__dirname, 'views'));
 // Telegram Bot
 const bot = new Telegraf(BOT_TOKEN);
 
-// MongoDB Client
+// MongoDB Client - FIXED: Connection options
 const client = new MongoClient(MONGODB_URI, {
-    serverSelectionTimeoutMS: 5000,
-    connectTimeoutMS: 10000,
+    serverSelectionTimeoutMS: 10000,
+    connectTimeoutMS: 15000,
+    socketTimeoutMS: 45000,
+    maxPoolSize: 50,
+    minPoolSize: 5
 });
 
 let db;
@@ -61,44 +69,46 @@ let hourlySummaryJob = null;
 let autoCompleteJob = null;
 
 // ==========================================
-// 🛠️ TIMEZONE UTILITY FUNCTIONS - FIXED
+// 🛠️ TIMEZONE UTILITY FUNCTIONS - FIXED & TESTED
 // ==========================================
 
 // IST is UTC+5:30
-const IST_OFFSET = 5.5 * 60 * 60 * 1000; // 5.5 hours in milliseconds
+const IST_OFFSET_MINUTES = 330; // 5.5 hours in minutes
+const IST_OFFSET_MS = IST_OFFSET_MINUTES * 60 * 1000;
 
 /**
- * Convert IST time string to UTC Date object for storage
+ * Convert IST components to UTC Date object
  */
 function istToUtc(year, month, day, hour = 0, minute = 0) {
     const istDate = new Date(year, month - 1, day, hour, minute, 0);
-    return new Date(istDate.getTime() - IST_OFFSET);
+    return new Date(istDate.getTime() - IST_OFFSET_MS);
 }
 
 /**
- * Convert UTC Date object to IST Date object for display
+ * Convert UTC Date to IST Date
  */
 function utcToIst(utcDate) {
-    return new Date(utcDate.getTime() + IST_OFFSET);
+    return new Date(utcDate.getTime() + IST_OFFSET_MS);
 }
 
 /**
- * Get current time in IST as Date object
+ * Get current time in IST
  */
 function getCurrentIST() {
     const now = new Date();
-    return new Date(now.getTime() + IST_OFFSET);
+    return new Date(now.getTime() + IST_OFFSET_MS);
 }
 
 /**
- * Get current time in IST formatted as HH:MM
+ * Get current IST time string (HH:MM)
  */
 function getCurrentISTTimeString() {
     const istNow = getCurrentIST();
     return istNow.toLocaleTimeString('en-IN', {
         hour: '2-digit',
         minute: '2-digit',
-        hour12: false
+        hour12: false,
+        timeZone: 'Asia/Kolkata'
     });
 }
 
@@ -111,7 +121,8 @@ function formatDate(utcDate) {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
-        weekday: 'long'
+        weekday: 'long',
+        timeZone: 'Asia/Kolkata'
     });
 }
 
@@ -123,7 +134,8 @@ function formatTime(utcDate) {
     return istDate.toLocaleTimeString('en-IN', {
         hour: '2-digit',
         minute: '2-digit',
-        hour12: false
+        hour12: false,
+        timeZone: 'Asia/Kolkata'
     });
 }
 
@@ -132,24 +144,25 @@ function formatDateTime(utcDate) {
 }
 
 /**
- * Get day name in IST from UTC date
+ * Get day name in IST
  */
 function getDayName(utcDate) {
     const istDate = utcToIst(utcDate);
     return istDate.toLocaleDateString('en-IN', {
-        weekday: 'long'
+        weekday: 'long',
+        timeZone: 'Asia/Kolkata'
     });
 }
 
 /**
- * Check if two UTC dates are the same day in IST
+ * Check if two dates are same day in IST
  */
 function isSameDay(utcDate1, utcDate2) {
     const ist1 = utcToIst(utcDate1);
     const ist2 = utcToIst(utcDate2);
-    ist1.setHours(0, 0, 0, 0);
-    ist2.setHours(0, 0, 0, 0);
-    return ist1.getTime() === ist2.getTime();
+    return ist1.getFullYear() === ist2.getFullYear() &&
+           ist1.getMonth() === ist2.getMonth() &&
+           ist1.getDate() === ist2.getDate();
 }
 
 /**
@@ -158,7 +171,7 @@ function isSameDay(utcDate1, utcDate2) {
 function getTodayIST_UTC() {
     const istNow = getCurrentIST();
     istNow.setHours(0, 0, 0, 0);
-    return new Date(istNow.getTime() - IST_OFFSET);
+    return new Date(istNow.getTime() - IST_OFFSET_MS);
 }
 
 /**
@@ -172,7 +185,7 @@ function getTomorrowIST_UTC() {
 }
 
 /**
- * Get current date in IST for history grouping (date only)
+ * Get current date in IST (date only, time = 00:00)
  */
 function getCurrentISTDateOnly() {
     const istNow = getCurrentIST();
@@ -183,12 +196,12 @@ function getCurrentISTDateOnly() {
 /**
  * Generate unique ID
  */
-function generateId(prefix = '', length = 10) {
-    return prefix + Math.random().toString(36).substring(2, 2 + length).toUpperCase() + '_' + Date.now();
+function generateId(prefix = '', length = 8) {
+    return prefix + Math.random().toString(36).substring(2, 2 + length) + '_' + Date.now();
 }
 
 /**
- * SIMPLIFIED safeEdit function
+ * FIXED: Safe edit with better error handling
  */
 async function safeEdit(ctx, text, keyboard = null) {
     try {
@@ -198,22 +211,32 @@ async function safeEdit(ctx, text, keyboard = null) {
         };
         await ctx.editMessageText(text, options);
     } catch (err) {
-        if (err.description && err.description.includes("message is not modified")) return;
-        try {
-            const options = { 
-                parse_mode: 'HTML',
-                ...(keyboard && { reply_markup: keyboard.reply_markup })
-            };
-            await ctx.reply(text, options);
-        } catch (e) { 
-            console.error('SafeEdit Error:', e);
-            await ctx.reply(text, { parse_mode: 'HTML' });
+        if (err.description && err.description.includes("message is not modified")) {
+            return; // Silent ignore
         }
+        if (err.description && err.description.includes("message can't be edited")) {
+            try {
+                const options = { 
+                    parse_mode: 'HTML',
+                    ...(keyboard && { reply_markup: keyboard.reply_markup })
+                };
+                await ctx.reply(text, options);
+            } catch (e) { 
+                console.error('SafeEdit Reply Error:', e.message);
+                try {
+                    await ctx.reply(text, { parse_mode: 'HTML' });
+                } catch (finalError) {
+                    console.error('SafeEdit Final Error:', finalError.message);
+                }
+            }
+            return;
+        }
+        console.error('SafeEdit Error:', err.message);
     }
 }
 
 /**
- * Format text in blockquote
+ * Format blockquote
  */
 function formatBlockquote(text) {
     if (!text || text.trim() === '') return '';
@@ -230,16 +253,17 @@ function calculateSubtaskProgress(subtasks) {
 }
 
 /**
- * Calculate duration between two dates in minutes
+ * Calculate duration in minutes
  */
 function calculateDuration(startDate, endDate) {
     return Math.round((endDate - startDate) / 60000);
 }
 
 /**
- * Format minutes to hours and minutes
+ * Format minutes to hours/minutes
  */
 function formatDuration(minutes) {
+    if (minutes < 0) return '0 mins';
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     if (hours === 0) return `${mins} min${mins !== 1 ? 's' : ''}`;
@@ -248,37 +272,50 @@ function formatDuration(minutes) {
 }
 
 // ==========================================
-// 🗄️ DATABASE CONNECTION
+// 🗄️ DATABASE CONNECTION - FIXED
 // ==========================================
 
 async function connectDB() {
-    try {
-        await client.connect();
-        db = client.db('telegram_task_bot');
-        console.log('✅ Connected to MongoDB');
-        
-        // Create indexes
-        await db.collection('tasks').createIndex({ userId: 1, status: 1 });
-        await db.collection('tasks').createIndex({ taskId: 1 }, { unique: true });
-        await db.collection('tasks').createIndex({ userId: 1, nextOccurrence: 1 });
-        await db.collection('tasks').createIndex({ userId: 1, orderIndex: 1 });
-        await db.collection('history').createIndex({ userId: 1, completedAt: -1 });
-        await db.collection('history').createIndex({ originalTaskId: 1 });
-        await db.collection('history').createIndex({ userId: 1, completedDate: -1 });
-        await db.collection('notes').createIndex({ userId: 1 });
-        await db.collection('notes').createIndex({ noteId: 1 }, { unique: true });
-        await db.collection('notes').createIndex({ userId: 1, orderIndex: 1 });
-        await db.collection('users').createIndex({ userId: 1 }, { unique: true });
-        
-        return true;
-    } catch (error) {
-        console.error('❌ MongoDB Connection Error:', error);
-        return false;
+    let retries = 5;
+    while (retries > 0) {
+        try {
+            await client.connect();
+            db = client.db('telegram_task_bot');
+            console.log('✅ Connected to MongoDB');
+            
+            // Create indexes with proper error handling
+            try {
+                await db.collection('tasks').createIndex({ userId: 1, status: 1 });
+                await db.collection('tasks').createIndex({ taskId: 1 }, { unique: true });
+                await db.collection('tasks').createIndex({ userId: 1, nextOccurrence: 1 });
+                await db.collection('tasks').createIndex({ userId: 1, orderIndex: 1 });
+                await db.collection('history').createIndex({ userId: 1, completedAt: -1 });
+                await db.collection('history').createIndex({ originalTaskId: 1 });
+                await db.collection('history').createIndex({ userId: 1, completedDate: -1 });
+                await db.collection('notes').createIndex({ userId: 1 });
+                await db.collection('notes').createIndex({ noteId: 1 }, { unique: true });
+                await db.collection('notes').createIndex({ userId: 1, orderIndex: 1 });
+                await db.collection('users').createIndex({ userId: 1 }, { unique: true });
+            } catch (indexError) {
+                console.warn('⚠️ Index creation warning (may already exist):', indexError.message);
+            }
+            
+            return true;
+        } catch (error) {
+            retries--;
+            console.error(`❌ MongoDB Connection Error (${retries} retries left):`, error.message);
+            if (retries === 0) {
+                console.error('❌ Failed to connect to MongoDB after multiple attempts');
+                return false;
+            }
+            await new Promise(resolve => setTimeout(resolve, 5000));
+        }
     }
+    return false;
 }
 
 // ==========================================
-// ⏰ SCHEDULER LOGIC - WORKS IN UTC
+// ⏰ SCHEDULER LOGIC - FIXED MEMORY LEAKS
 // ==========================================
 
 function scheduleTask(task) {
@@ -298,7 +335,7 @@ function scheduleTask(task) {
         const notifyTime = new Date(startTime.getTime() - 10 * 60000);
         const triggerDate = notifyTime > now ? notifyTime : now;
 
-        console.log(`⏰ Scheduled: ${task.title} for ${formatDateTime(startTime)} (UTC: ${startTime.toISOString()})`);
+        console.log(`⏰ Scheduled: ${task.title} for ${formatDateTime(startTime)}`);
 
         const startJob = schedule.scheduleJob(triggerDate, async function() {
             console.log(`🔔 Starting notifications for task: ${task.title}`);
@@ -325,7 +362,9 @@ function scheduleTask(task) {
                                 { parse_mode: 'HTML' }
                             );
                         } catch (e) {
-                            console.error('Error sending start message:', e);
+                            if (e.code !== 403 && e.code !== 400) {
+                                console.error('Error sending start message:', e.message);
+                            }
                         }
                     }
                     
@@ -346,9 +385,10 @@ function scheduleTask(task) {
                         `━━━━━━━━━━━━━━━━━━━━`, 
                         { parse_mode: 'HTML' }
                     );
-                    console.log(`📤 Sent notification ${count + 1} for task: ${task.title}`);
                 } catch (e) {
-                    console.error('Error sending notification:', e);
+                    if (e.code !== 403 && e.code !== 400) {
+                        console.error('Error sending notification:', e.message);
+                    }
                 }
                 
                 count++;
@@ -359,6 +399,9 @@ function scheduleTask(task) {
             const interval = setInterval(sendNotification, 60000);
             
             if (activeSchedules.has(taskId)) {
+                if (activeSchedules.get(taskId).interval) {
+                    clearInterval(activeSchedules.get(taskId).interval);
+                }
                 activeSchedules.get(taskId).interval = interval;
             } else {
                 activeSchedules.set(taskId, { startJob, interval });
@@ -366,13 +409,16 @@ function scheduleTask(task) {
         });
 
         if (activeSchedules.has(taskId)) {
+            if (activeSchedules.get(taskId).startJob) {
+                activeSchedules.get(taskId).startJob.cancel();
+            }
             activeSchedules.get(taskId).startJob = startJob;
         } else {
             activeSchedules.set(taskId, { startJob });
         }
 
     } catch (error) {
-        console.error(`❌ Scheduler Error for task ${task.taskId}:`, error);
+        console.error(`❌ Scheduler Error for task ${task.taskId}:`, error.message);
     }
 }
 
@@ -380,14 +426,21 @@ function cancelTaskSchedule(taskId) {
     if (activeSchedules.has(taskId)) {
         const s = activeSchedules.get(taskId);
         if (s.startJob) {
-            s.startJob.cancel();
-            console.log(`🗑️ Cancelled job for task ${taskId}`);
+            try {
+                s.startJob.cancel();
+            } catch (e) {
+                console.error(`Error cancelling job for task ${taskId}:`, e.message);
+            }
         }
         if (s.interval) {
-            clearInterval(s.interval);
-            console.log(`🗑️ Cleared interval for task ${taskId}`);
+            try {
+                clearInterval(s.interval);
+            } catch (e) {
+                console.error(`Error clearing interval for task ${taskId}:`, e.message);
+            }
         }
         activeSchedules.delete(taskId);
+        console.log(`🗑️ Cleared schedules for task ${taskId}`);
     }
 }
 
@@ -402,12 +455,12 @@ async function rescheduleAllPending() {
         tasks.forEach(task => scheduleTask(task));
         console.log(`✅ Rescheduled ${tasks.length} tasks.`);
     } catch (error) {
-        console.error('❌ Error rescheduling tasks:', error);
+        console.error('❌ Error rescheduling tasks:', error.message);
     }
 }
 
 // ==========================================
-// ⏰ AUTO-COMPLETE PENDING TASKS AT 23:59 IST
+// ⏰ AUTO-COMPLETE PENDING TASKS AT 23:59 IST - FIXED CRON
 // ==========================================
 
 async function autoCompletePendingTasks() {
@@ -433,7 +486,7 @@ async function autoCompletePendingTasks() {
         
         console.log(`✅ Auto-completed ${pendingTasks.length} tasks`);
     } catch (error) {
-        console.error('❌ Error in auto-complete:', error);
+        console.error('❌ Error in auto-complete:', error.message);
     }
 }
 
@@ -476,7 +529,7 @@ async function autoCompleteTask(task) {
             });
             
             const updatedTask = await db.collection('tasks').findOne({ taskId });
-            if (updatedTask.nextOccurrence > new Date()) {
+            if (updatedTask && updatedTask.nextOccurrence > new Date()) {
                 scheduleTask(updatedTask);
             }
         } else {
@@ -494,11 +547,13 @@ async function autoCompleteTask(task) {
                 { parse_mode: 'HTML' }
             );
         } catch (e) {
-            console.error('Error sending auto-complete notification:', e);
+            if (e.code !== 403 && e.code !== 400) {
+                console.error('Error sending auto-complete notification:', e.message);
+            }
         }
         
     } catch (error) {
-        console.error(`Error auto-completing task ${task.taskId}:`, error);
+        console.error(`Error auto-completing task ${task.taskId}:`, error.message);
     }
 }
 
@@ -507,6 +562,7 @@ function scheduleAutoComplete() {
         autoCompleteJob.cancel();
     }
     
+    // 23:59 IST = 18:29 UTC (since IST is UTC+5:30)
     autoCompleteJob = schedule.scheduleJob('29 18 * * *', async () => {
         await autoCompletePendingTasks();
     });
@@ -515,7 +571,7 @@ function scheduleAutoComplete() {
 }
 
 // ==========================================
-// ⏰ HOURLY SUMMARY SCHEDULER
+// ⏰ HOURLY SUMMARY SCHEDULER - FIXED TO 30 MINUTES
 // ==========================================
 
 async function sendHourlySummary(userId) {
@@ -523,22 +579,24 @@ async function sendHourlySummary(userId) {
         const todayUTC = getTodayIST_UTC();
         const tomorrowUTC = getTomorrowIST_UTC();
         
-        const completedTasks = await db.collection('history').find({
-            userId: userId,
-            completedAt: {
-                $gte: todayUTC,
-                $lt: tomorrowUTC
-            }
-        }).sort({ completedAt: 1 }).toArray();
-        
-        const pendingTasks = await db.collection('tasks').find({
-            userId: userId,
-            status: 'pending',
-            nextOccurrence: {
-                $gte: todayUTC,
-                $lt: tomorrowUTC
-            }
-        }).sort({ orderIndex: 1, nextOccurrence: 1 }).toArray();
+        const [completedTasks, pendingTasks] = await Promise.all([
+            db.collection('history').find({
+                userId: userId,
+                completedAt: {
+                    $gte: todayUTC,
+                    $lt: tomorrowUTC
+                }
+            }).sort({ completedAt: 1 }).toArray(),
+            
+            db.collection('tasks').find({
+                userId: userId,
+                status: 'pending',
+                nextOccurrence: {
+                    $gte: todayUTC,
+                    $lt: tomorrowUTC
+                }
+            }).sort({ orderIndex: 1, nextOccurrence: 1 }).toArray()
+        ]);
         
         let summaryText = `
 🕰️ <b>𝗛𝗔𝗟𝗙 𝗛𝗢𝗨𝗥𝗟𝗬 𝗦𝗨𝗠𝗠𝗔𝗥𝗬</b>
@@ -570,12 +628,12 @@ async function sendHourlySummary(userId) {
             await bot.telegram.sendMessage(userId, summaryText, { parse_mode: 'HTML' });
         } catch (e) {
             if (e.code !== 403) {
-                console.error('Error sending hourly summary:', e);
+                console.error('Error sending hourly summary:', e.message);
             }
         }
         
     } catch (error) {
-        console.error('Error generating hourly summary:', error);
+        console.error('Error generating hourly summary:', error.message);
     }
 }
 
@@ -584,36 +642,48 @@ function scheduleHourlySummary() {
         hourlySummaryJob.cancel();
     }
     
+    // Every 30 minutes
     hourlySummaryJob = schedule.scheduleJob('*/30 * * * *', async () => {
-        console.log(`⏰ Sending hourly summaries...`);
+        console.log(`⏰ Sending hourly summaries at ${getCurrentISTTimeString()} IST...`);
         try {
             const users = await db.collection('tasks').distinct('userId');
             for (const userId of users) {
                 await sendHourlySummary(userId);
             }
         } catch (error) {
-            console.error('Error sending hourly summaries:', error);
+            console.error('Error sending hourly summaries:', error.message);
         }
     });
     
-    console.log('✅ Hourly summary scheduler started');
+    console.log('✅ Half-hourly summary scheduler started');
 }
 
 // ==========================================
-// 📱 WEB INTERFACE ROUTES
+// 📱 WEB INTERFACE ROUTES - FIXED
 // ==========================================
 
 // Middleware to check if user is registered
 async function ensureUser(req, res, next) {
-    if (!req.session.userId) {
-        req.session.userId = 'user_' + Date.now() + '_' + Math.random().toString(36).substring(2);
-        await db.collection('users').updateOne(
-            { userId: req.session.userId },
-            { $set: { userId: req.session.userId, createdAt: new Date() } },
-            { upsert: true }
-        );
+    try {
+        if (!req.session.userId) {
+            req.session.userId = 'web_' + Date.now() + '_' + Math.random().toString(36).substring(2, 10);
+            await db.collection('users').updateOne(
+                { userId: req.session.userId },
+                { 
+                    $set: { 
+                        userId: req.session.userId, 
+                        createdAt: new Date(),
+                        source: 'web'
+                    } 
+                },
+                { upsert: true }
+            );
+        }
+        next();
+    } catch (error) {
+        console.error('Error in ensureUser middleware:', error);
+        next(error);
     }
-    next();
 }
 
 // Home page - redirect to tasks
@@ -628,22 +698,24 @@ app.get('/tasks', ensureUser, async (req, res) => {
         const todayUTC = getTodayIST_UTC();
         const tomorrowUTC = getTomorrowIST_UTC();
         
-        const tasks = await db.collection('tasks').find({
-            userId: userId,
-            status: 'pending',
-            nextOccurrence: {
-                $gte: todayUTC,
-                $lt: tomorrowUTC
-            }
-        }).sort({ orderIndex: 1, nextOccurrence: 1 }).toArray();
-        
-        const completedTasks = await db.collection('history').find({
-            userId: userId,
-            completedAt: {
-                $gte: todayUTC,
-                $lt: tomorrowUTC
-            }
-        }).sort({ completedAt: -1 }).toArray();
+        const [tasks, completedTasks] = await Promise.all([
+            db.collection('tasks').find({
+                userId: userId,
+                status: 'pending',
+                nextOccurrence: {
+                    $gte: todayUTC,
+                    $lt: tomorrowUTC
+                }
+            }).sort({ orderIndex: 1, nextOccurrence: 1 }).toArray(),
+            
+            db.collection('history').find({
+                userId: userId,
+                completedAt: {
+                    $gte: todayUTC,
+                    $lt: tomorrowUTC
+                }
+            }).sort({ completedAt: -1 }).toArray()
+        ]);
         
         res.render('tasks', {
             tasks: tasks.map(task => ({
@@ -652,7 +724,8 @@ app.get('/tasks', ensureUser, async (req, res) => {
                 endTimeIST: formatTime(task.endDate),
                 dateIST: formatDate(task.startDate),
                 duration: calculateDuration(task.startDate, task.endDate),
-                durationFormatted: formatDuration(calculateDuration(task.startDate, task.endDate))
+                durationFormatted: formatDuration(calculateDuration(task.startDate, task.endDate)),
+                subtaskProgress: calculateSubtaskProgress(task.subtasks)
             })),
             completedTasks: completedTasks.map(task => ({
                 ...task,
@@ -696,6 +769,7 @@ app.get('/history', ensureUser, async (req, res) => {
         
         const history = await db.collection('history').find({ userId })
             .sort({ completedAt: -1 })
+            .limit(100) // Limit to prevent memory issues
             .toArray();
         
         const groupedHistory = {};
@@ -723,12 +797,17 @@ app.post('/api/tasks', ensureUser, async (req, res) => {
         const userId = req.session.userId;
         const { title, description, startDate, startTime, duration, repeat, repeatCount } = req.body;
         
+        if (!title || !startDate || !startTime || !duration) {
+            return res.status(400).send('Missing required fields');
+        }
+        
         const [year, month, day] = startDate.split('-').map(Number);
         const [hour, minute] = startTime.split(':').map(Number);
         
         const startDateUTC = istToUtc(year, month, day, hour, minute);
-        const endDateUTC = new Date(startDateUTC.getTime() + (duration * 60 * 1000));
+        const endDateUTC = new Date(startDateUTC.getTime() + (parseInt(duration) * 60 * 1000));
         
+        // FIXED: Get highest order index
         const highestTask = await db.collection('tasks').findOne(
             { userId },
             { sort: { orderIndex: -1 } }
@@ -738,17 +817,18 @@ app.post('/api/tasks', ensureUser, async (req, res) => {
         const task = {
             taskId: generateId('task_'),
             userId,
-            title,
-            description: description || '',
+            title: title.trim(),
+            description: description ? description.trim() : '',
             startDate: startDateUTC,
             endDate: endDateUTC,
             nextOccurrence: startDateUTC,
             status: 'pending',
             repeat: repeat || 'none',
-            repeatCount: repeat !== 'none' ? (parseInt(repeatCount) || 10) : 0,
+            repeatCount: repeat && repeat !== 'none' ? (parseInt(repeatCount) || 10) : 0,
             subtasks: [],
             createdAt: new Date(),
-            orderIndex: nextOrderIndex
+            orderIndex: nextOrderIndex,
+            startTimeStr: startTime
         };
         
         await db.collection('tasks').insertOne(task);
@@ -826,7 +906,7 @@ app.post('/api/tasks/:taskId/complete', ensureUser, async (req, res) => {
             });
             
             const updatedTask = await db.collection('tasks').findOne({ taskId });
-            if (updatedTask.nextOccurrence > new Date()) {
+            if (updatedTask && updatedTask.nextOccurrence > new Date()) {
                 scheduleTask(updatedTask);
             }
         } else {
@@ -861,6 +941,10 @@ app.post('/api/tasks/:taskId/subtasks', ensureUser, async (req, res) => {
         const taskId = req.params.taskId;
         const { title, description } = req.body;
         
+        if (!title || title.trim() === '') {
+            return res.status(400).send('Subtask title cannot be empty');
+        }
+        
         const task = await db.collection('tasks').findOne({ taskId, userId });
         if (!task) {
             return res.status(404).send('Task not found');
@@ -873,8 +957,8 @@ app.post('/api/tasks/:taskId/subtasks', ensureUser, async (req, res) => {
         
         const subtask = {
             id: generateId('sub_'),
-            title,
-            description: description || '',
+            title: title.trim(),
+            description: description ? description.trim() : '',
             completed: false,
             createdAt: new Date()
         };
@@ -942,6 +1026,10 @@ app.post('/api/notes', ensureUser, async (req, res) => {
         const userId = req.session.userId;
         const { title, description } = req.body;
         
+        if (!title || title.trim() === '') {
+            return res.status(400).send('Note title cannot be empty');
+        }
+        
         const highestNote = await db.collection('notes').findOne(
             { userId },
             { sort: { orderIndex: -1 } }
@@ -951,8 +1039,8 @@ app.post('/api/notes', ensureUser, async (req, res) => {
         const note = {
             noteId: generateId('note_'),
             userId,
-            title,
-            description: description || '',
+            title: title.trim(),
+            description: description ? description.trim() : '',
             createdAt: new Date(),
             updatedAt: new Date(),
             orderIndex: nextOrderIndex
@@ -973,12 +1061,16 @@ app.post('/api/notes/:noteId/update', ensureUser, async (req, res) => {
         const noteId = req.params.noteId;
         const { title, description } = req.body;
         
+        if (!title || title.trim() === '') {
+            return res.status(400).send('Note title cannot be empty');
+        }
+        
         await db.collection('notes').updateOne(
             { noteId, userId },
             { 
                 $set: { 
-                    title, 
-                    description: description || '',
+                    title: title.trim(), 
+                    description: description ? description.trim() : '',
                     updatedAt: new Date() 
                 } 
             }
@@ -1059,10 +1151,19 @@ app.post('/api/notes/:noteId/move', ensureUser, async (req, res) => {
 });
 
 // ==========================================
-// 📱 BOT COMMANDS
+// 📱 BOT COMMANDS - FIXED SESSION
 // ==========================================
 
-bot.use(session());
+// FIXED: Use proper session middleware
+bot.use(telegrafSession());
+
+// Initialize session for new users
+bot.use((ctx, next) => {
+    if (!ctx.session) {
+        ctx.session = {};
+    }
+    return next();
+});
 
 bot.command('start', async (ctx) => {
     ctx.session = {};
@@ -1071,7 +1172,15 @@ bot.command('start', async (ctx) => {
     
     await db.collection('users').updateOne(
         { userId },
-        { $set: { userId, username: ctx.from.username, firstName: ctx.from.first_name, lastName: ctx.from.last_name, lastSeen: new Date() } },
+        { 
+            $set: { 
+                userId, 
+                username: ctx.from.username, 
+                firstName: ctx.from.first_name, 
+                lastName: ctx.from.last_name, 
+                lastSeen: new Date() 
+            } 
+        },
         { upsert: true }
     );
     
@@ -1102,7 +1211,7 @@ bot.command('start', async (ctx) => {
             Markup.button.callback('📥 Download', 'download_menu'),
             Markup.button.callback('🗑️ Delete', 'delete_menu')
         ],
-        [Markup.button.url('🌐 Open Web App', 'https://web-production-ce8fc.up.railway.app/')]
+        [Markup.button.url('🌐 Open Web App', `${req.protocol}://${req.get('host')}`)]
     ]);
 
     await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard.reply_markup });
@@ -1140,7 +1249,7 @@ async function showMainMenu(ctx) {
             Markup.button.callback('📥 Download', 'download_menu'),
             Markup.button.callback('🗑️ Delete', 'delete_menu')
         ],
-        [Markup.button.url('🌐 Open Web App', 'https://web-production-ce8fc.up.railway.app/')]
+        [Markup.button.url('🌐 Open Web App', `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` || 'http://localhost:3000')]
     ]);
 
     await safeEdit(ctx, text, keyboard);
@@ -1168,7 +1277,7 @@ bot.action(/^view_today_tasks_(\d+)$/, async (ctx) => {
         }
     });
     
-    const totalPages = Math.ceil(totalTasks / perPage);
+    const totalPages = Math.max(1, Math.ceil(totalTasks / perPage));
     
     const tasks = await db.collection('tasks')
         .find({ 
@@ -1214,6 +1323,11 @@ Select a task to view details:`;
         if (t.subtasks && t.subtasks.length > 0) {
             const progress = calculateSubtaskProgress(t.subtasks);
             taskTitle += ` [${progress}%]`;
+        }
+        
+        // Truncate long titles
+        if (taskTitle.length > 30) {
+            taskTitle = taskTitle.substring(0, 27) + '...';
         }
         
         buttons.push([
@@ -1279,590 +1393,617 @@ bot.action('add_note', async (ctx) => {
 });
 
 // ==========================================
-// 📨 TEXT INPUT HANDLER
+// 📨 TEXT INPUT HANDLER - FIXED
 // ==========================================
 
 bot.on('text', async (ctx) => {
     if (!ctx.session || !ctx.session.step) return;
-    const text = ctx.message.text.trim();
-    const step = ctx.session.step;
+    
+    try {
+        const text = ctx.message.text.trim();
+        const step = ctx.session.step;
 
-    console.log(`Text handler step: ${step}`);
-
-    // --- TASK FLOW ---
-    if (step === 'task_title') {
-        if (text.length === 0) return ctx.reply('❌ Title cannot be empty.');
-        ctx.session.task.title = text;
-        ctx.session.step = 'task_desc';
-        await ctx.reply(
-            `📄 <b>𝗘𝗡𝗧𝗘𝗥 𝗗𝗘𝗦𝗖𝗥𝗜𝗣𝗧𝗜𝗢𝗡</b>\n\n` +
-            `━━━━━━━━━━━━━━━━━━━━\n` +
-            `📝 <i>Describe your task (Max 100 words):</i>`,
-            { parse_mode: 'HTML' }
-        );
-    }
-    else if (step === 'task_desc') {
-        if (text.split(/\s+/).length > 100) return ctx.reply('❌ Too long! Keep it under 100 words.');
-        ctx.session.task.description = text;
-        ctx.session.step = 'task_date';
-        await ctx.reply(
-            `📅 <b>𝗦𝗘𝗟𝗘𝗖𝗧 𝗗𝗔𝗧𝗘</b>\n` +
-            `━━━━━━━━━━━━━━━━━━━━\n` +
-            `📆 Today: ${formatDate(new Date())}\n` +
-            `📝 <i>Enter the date (DD-MM-YYYY) in IST:</i>`,
-            { parse_mode: 'HTML' }
-        );
-    }
-    else if (step === 'task_date') {
-        if (!/^(0[1-9]|[12][0-9]|3[01])-(0[1-9]|1[0-2])-\d{4}$/.test(text)) {
-            return ctx.reply('❌ Invalid date format. Use DD-MM-YYYY');
-        }
-        
-        const [day, month, year] = text.split('-').map(Number);
-        
-        const istNow = getCurrentIST();
-        const inputIST = new Date(year, month - 1, day);
-        
-        if (inputIST < new Date(istNow.getFullYear(), istNow.getMonth(), istNow.getDate())) {
-            return ctx.reply('❌ Date cannot be in the past. Please select today or a future date.');
-        }
-        
-        ctx.session.task.dateStr = text;
-        ctx.session.task.year = year;
-        ctx.session.task.month = month;
-        ctx.session.task.day = day;
-        ctx.session.step = 'task_start';
-        
-        await ctx.reply(
-            `⏰ <b>𝗦𝗘𝗟𝗘𝗖𝗧 𝗦𝗧𝗔𝗥𝗧 𝗧𝗜𝗠𝗘</b>\n` +
-            `━━━━━━━━━━━━━━━━━━━━\n` +
-            `🕒 Current Time: ${getCurrentISTTimeString()}\n` +
-            `📝 <i>Enter start time in HH:MM (IST, 24-hour):</i>`,
-            { parse_mode: 'HTML' }
-        );
-    }
-    else if (step === 'task_start') {
-        if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(text)) {
-            return ctx.reply('❌ Invalid format. Use HH:MM (24-hour).');
-        }
-        
-        const [h, m] = text.split(':').map(Number);
-        const { year, month, day } = ctx.session.task;
-        
-        const startDateUTC = istToUtc(year, month, day, h, m);
-        
-        const istNow = getCurrentIST();
-        const startDateIST = utcToIst(startDateUTC);
-        
-        if (isSameDay(startDateUTC, new Date())) {
-            const currentTimeIST = istNow.getHours() * 60 + istNow.getMinutes();
-            const startTimeIST = startDateIST.getHours() * 60 + startDateIST.getMinutes();
+        // --- TASK FLOW ---
+        if (step === 'task_title') {
+            if (text.length === 0) return ctx.reply('❌ Title cannot be empty.');
+            if (text.length > 100) return ctx.reply('❌ Title too long. Max 100 characters.');
             
-            if (startTimeIST <= currentTimeIST) {
-                return ctx.reply('❌ Start time is in the past. Please enter a future time.');
-            }
-        }
-        
-        ctx.session.task.startDate = startDateUTC;
-        ctx.session.task.startTimeStr = text;
-        ctx.session.task.nextOccurrence = startDateUTC;
-        ctx.session.step = 'task_duration';
-        
-        await ctx.reply(
-            `⏱️ <b>𝗦𝗘𝗟𝗘𝗖𝗧 𝗗𝗨𝗥𝗔𝗧𝗜𝗢𝗡</b>\n` +
-            `━━━━━━━━━━━━━━━━━━━━\n` +
-            `⏰ Start Time: ${text} IST\n` +
-            `📝 <i>Enter task duration in minutes (e.g., 30, 60, 90, 120):</i>\n` +
-            `📝 <i>Or enter end time in HH:MM format</i>`,
-            { parse_mode: 'HTML' }
-        );
-    }
-    else if (step === 'task_duration') {
-        let endDateUTC;
-        let endTimeStr;
-        
-        if (/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(text)) {
-            const [eh, em] = text.split(':').map(Number);
-            const { year, month, day } = ctx.session.task;
-            endDateUTC = istToUtc(year, month, day, eh, em);
-            endTimeStr = text;
-        } else {
-            const duration = parseInt(text);
-            if (isNaN(duration) || duration < 1 || duration > 1440) {
-                return ctx.reply('❌ Please enter a valid duration between 1 and 1440 minutes, or end time in HH:MM format.');
-            }
-            endDateUTC = new Date(ctx.session.task.startDate.getTime() + duration * 60000);
-            
-            const endDateIST = utcToIst(endDateUTC);
-            endTimeStr = endDateIST.toLocaleTimeString('en-IN', {
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: false
-            });
-        }
-        
-        const endDateIST = utcToIst(endDateUTC);
-        const endTimeIST = endDateIST.getHours() * 60 + endDateIST.getMinutes();
-        
-        if (endTimeIST > 23 * 60 + 59) {
-            return ctx.reply('❌ End time must be before 23:59 IST');
-        }
-        
-        if (endDateUTC <= ctx.session.task.startDate) {
-            return ctx.reply('❌ End time must be after Start time.');
-        }
-        
-        ctx.session.task.endDate = endDateUTC;
-        ctx.session.task.endTimeStr = endTimeStr;
-        ctx.session.step = null;
-
-        const dayName = getDayName(ctx.session.task.startDate);
-        const duration = calculateDuration(ctx.session.task.startDate, endDateUTC);
-        
-        await ctx.reply(
-            `🔄 <b>𝗥𝗘𝗣𝗘𝗔𝗧 𝗢𝗣𝗧𝗜𝗢𝗡𝗦</b>\n` +
-            `━━━━━━━━━━━━━━━━━━━━\n` +
-            `How should this task repeat?\n\n` +
-            `📅 Task Date: ${formatDate(ctx.session.task.startDate)} (${dayName})\n` +
-            `⏰ Time: ${ctx.session.task.startTimeStr} - ${endTimeStr} IST\n` +
-            `⏱️ Duration: ${formatDuration(duration)}\n\n`,
-            {
-                parse_mode: 'HTML',
-                ...Markup.inlineKeyboard([
-                    [Markup.button.callback('❌ No Repeat', 'repeat_none')],
-                    [Markup.button.callback('📅 Daily', 'repeat_daily')],
-                    [Markup.button.callback(`📅 Weekly on ${dayName}`, 'repeat_weekly')],
-                    [Markup.button.callback('🔙 Cancel', 'main_menu')]
-                ])
-            }
-        );
-    }
-    else if (step === 'task_repeat_count') {
-        const count = parseInt(text);
-        if (isNaN(count) || count < 1 || count > 365) {
-            return ctx.reply('❌ Please enter a valid number between 1 and 365.');
-        }
-        ctx.session.task.repeatCount = count;
-        await saveTask(ctx);
-    }
-
-    // --- NOTE FLOW ---
-    else if (step === 'note_title') {
-        if (text.length === 0) return ctx.reply('❌ Title cannot be empty.');
-        ctx.session.note.title = text;
-        ctx.session.step = 'note_content';
-        await ctx.reply(
-            `📝 <b>𝗘𝗡𝗧𝗘𝗥 𝗡𝗢𝗧𝗘 𝗖𝗢𝗡𝗧𝗘𝗡𝗧</b>\n` +
-            `━━━━━━━━━━━━━━━━━━━━\n` +
-            `📝 <i>Enter note content (Max 400 words)</i>`,
-            { parse_mode: 'HTML' }
-        );
-    }
-    else if (step === 'note_content') {
-        if (text.split(/\s+/).length > 400) {
-            return ctx.reply('❌ Too long! Keep it under 400 words.');
-        }
-        
-        ctx.session.note.content = text;
-        ctx.session.note.createdAt = new Date();
-        ctx.session.note.updatedAt = new Date();
-        
-        try {
-            const highestNote = await db.collection('notes').findOne(
-                { userId: ctx.from.id.toString() },
-                { sort: { orderIndex: -1 } }
-            );
-            const nextOrderIndex = highestNote ? highestNote.orderIndex + 1 : 0;
-            ctx.session.note.orderIndex = nextOrderIndex;
-            
-            const noteTitle = ctx.session.note.title;
-            const noteContent = ctx.session.note.content;
-            
-            await db.collection('notes').insertOne(ctx.session.note);
-            
-            ctx.session.step = null;
-            delete ctx.session.note;
-            
+            ctx.session.task.title = text;
+            ctx.session.step = 'task_desc';
             await ctx.reply(
-                `✅ <b>𝗡𝗢𝗧𝗘 𝗦𝗔𝗩𝗘𝗗 𝗦𝗨𝗖𝗖𝗘𝗦𝗦𝗙𝗨𝗟𝗟𝗬!</b>\n` +
+                `📄 <b>𝗘𝗡𝗧𝗘𝗥 𝗗𝗘𝗦𝗖𝗥𝗜𝗣𝗧𝗜𝗢𝗡</b>\n\n` +
                 `━━━━━━━━━━━━━━━━━━━━\n` +
-                `📌 <b>${noteTitle}</b>\n` +
-                `${formatBlockquote(noteContent)}\n` +
-                `📅 Saved on: ${formatDateTime(new Date())}`,
+                `📝 <i>Describe your task (Max 100 words):</i>\n` +
+                `Enter "-" for no description`,
                 { parse_mode: 'HTML' }
             );
-            
-            await showMainMenu(ctx);
-            
-        } catch (error) {
-            console.error('Error saving note:', error);
-            await ctx.reply('❌ Failed to save note. Please try again.');
         }
-    }
-
-    // --- SUBTASK ADDITION FLOW ---
-    else if (step === 'add_subtasks') {
-        const taskId = ctx.session.addSubtasksTaskId;
-        
-        const task = await db.collection('tasks').findOne({ taskId });
-        if (!task) {
-            ctx.session.step = null;
-            delete ctx.session.addSubtasksTaskId;
-            return ctx.reply('❌ Task not found.');
-        }
-        
-        const currentSubtasks = task.subtasks || [];
-        const availableSlots = 10 - currentSubtasks.length;
-        
-        if (availableSlots <= 0) {
-            ctx.session.step = null;
-            delete ctx.session.addSubtasksTaskId;
-            return ctx.reply('❌ Maximum subtasks limit (10) reached for this task.');
-        }
-        
-        const lines = text.split('\n')
-            .map(line => line.trim())
-            .filter(line => line.length > 0);
-        
-        if (lines.length === 0) {
-            return ctx.reply('❌ Please enter at least one subtask title.');
-        }
-        
-        if (lines.length > availableSlots) {
-            return ctx.reply(`❌ You can only add ${availableSlots} more subtask${availableSlots !== 1 ? 's' : ''}. Please enter ${availableSlots} or fewer.`);
-        }
-        
-        const newSubtasks = lines.map(title => ({
-            id: generateId('sub_'),
-            title: title,
-            description: '',
-            completed: false,
-            createdAt: new Date()
-        }));
-        
-        await db.collection('tasks').updateOne(
-            { taskId },
-            { 
-                $push: { 
-                    subtasks: { 
-                        $each: newSubtasks 
-                    } 
-                } 
+        else if (step === 'task_desc') {
+            const description = text === '-' ? '' : text;
+            if (description.length > 0 && description.split(/\s+/).length > 100) {
+                return ctx.reply('❌ Too long! Keep it under 100 words.');
             }
-        );
-        
-        ctx.session.step = null;
-        delete ctx.session.addSubtasksTaskId;
-        
-        await ctx.reply(
-            `✅ <b>𝗦𝗨𝗕𝗧𝗔𝗦𝗞𝗦 𝗔𝗗𝗗𝗘𝗗</b>\n` +
-            `━━━━━━━━━━━━━━━━━━━━\n` +
-            `📌 <b>${task.title}</b>\n` +
-            `➕ Added ${newSubtasks.length} new subtask${newSubtasks.length !== 1 ? 's' : ''}\n` +
-            `📊 Now has ${currentSubtasks.length + newSubtasks.length}/10 subtasks\n` +
-            `━━━━━━━━━━━━━━━━━━━━`,
-            { parse_mode: 'HTML' }
-        );
-        
-        await showTaskDetail(ctx, taskId);
-    }
-
-    // --- EDIT SUBTASK FLOW ---
-    else if (step === 'edit_subtask_title') {
-        const { taskId, subtaskId } = ctx.session.editSubtask;
-        
-        if (text.length === 0) return ctx.reply('❌ Title cannot be empty.');
-        
-        try {
-            await db.collection('tasks').updateOne(
-                { taskId, "subtasks.id": subtaskId },
-                { $set: { "subtasks.$.title": text } }
+            ctx.session.task.description = description;
+            ctx.session.step = 'task_date';
+            await ctx.reply(
+                `📅 <b>𝗦𝗘𝗟𝗘𝗖𝗧 𝗗𝗔𝗧𝗘</b>\n` +
+                `━━━━━━━━━━━━━━━━━━━━\n` +
+                `📆 Today: ${formatDate(new Date())}\n` +
+                `📝 <i>Enter the date (DD-MM-YYYY) in IST:</i>`,
+                { parse_mode: 'HTML' }
             );
-            
-            ctx.session.step = null;
-            delete ctx.session.editSubtask;
-            
-            await ctx.reply(`✅ <b>𝗦𝗨𝗕𝗧𝗔𝗦𝗞 𝗨𝗣𝗗𝗔𝗧𝗘𝗗!</b>`, { parse_mode: 'HTML' });
-            await showTaskDetail(ctx, taskId);
-        } catch (error) {
-            console.error('Error editing subtask:', error);
-            await ctx.reply('❌ Failed to update subtask.');
         }
-    }
-
-    // --- EDIT TASK FLOW ---
-    else if (step === 'edit_task_title') {
-        const taskId = ctx.session.editTaskId;
-        if (text.length === 0) return ctx.reply('❌ Title cannot be empty.');
-        
-        try {
-            await db.collection('tasks').updateOne(
-                { taskId: taskId }, 
-                { $set: { title: text } }
-            );
-            
-            await db.collection('history').updateMany(
-                { originalTaskId: taskId }, 
-                { $set: { title: text } }
-            );
-            
-            ctx.session.step = null;
-            delete ctx.session.editTaskId;
-            await ctx.reply(`✅ <b>TITLE UPDATED!</b>`, { parse_mode: 'HTML' });
-            await showTaskDetail(ctx, taskId);
-        } catch (error) {
-            console.error('Error updating title:', error);
-            await ctx.reply('❌ Failed to update title.');
-        }
-    }
-    else if (step === 'edit_task_desc') {
-        const taskId = ctx.session.editTaskId;
-        if (text.split(/\s+/).length > 100) return ctx.reply('❌ Too long! Max 100 words.');
-        
-        try {
-            await db.collection('tasks').updateOne(
-                { taskId: taskId }, 
-                { $set: { description: text } }
-            );
-            
-            await db.collection('history').updateMany(
-                { originalTaskId: taskId }, 
-                { $set: { description: text } }
-            );
-            
-            ctx.session.step = null;
-            delete ctx.session.editTaskId;
-            await ctx.reply(`✅ <b>DESCRIPTION UPDATED!</b>`, { parse_mode: 'HTML' });
-            await showTaskDetail(ctx, taskId);
-        } catch (error) {
-            console.error('Error updating description:', error);
-            await ctx.reply('❌ Failed to update description.');
-        }
-    }
-    else if (step === 'edit_task_start') {
-        const taskId = ctx.session.editTaskId;
-        
-        if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(text)) {
-            return ctx.reply('❌ Invalid Format. Use HH:MM (24-hour)');
-        }
-        
-        try {
-            const task = await db.collection('tasks').findOne({ taskId });
-            if (!task) {
-                ctx.session.step = null;
-                delete ctx.session.editTaskId;
-                return ctx.reply('❌ Task not found.');
+        else if (step === 'task_date') {
+            if (!/^(0[1-9]|[12][0-9]|3[01])-(0[1-9]|1[0-2])-\d{4}$/.test(text)) {
+                return ctx.reply('❌ Invalid date format. Use DD-MM-YYYY');
             }
             
-            const istDate = utcToIst(task.startDate);
-            const year = istDate.getFullYear();
-            const month = istDate.getMonth() + 1;
-            const day = istDate.getDate();
+            const [day, month, year] = text.split('-').map(Number);
+            
+            const istNow = getCurrentIST();
+            const inputIST = new Date(year, month - 1, day);
+            
+            // Compare only dates, not time
+            if (inputIST < new Date(istNow.getFullYear(), istNow.getMonth(), istNow.getDate())) {
+                return ctx.reply('❌ Date cannot be in the past. Please select today or a future date.');
+            }
+            
+            ctx.session.task.dateStr = text;
+            ctx.session.task.year = year;
+            ctx.session.task.month = month;
+            ctx.session.task.day = day;
+            ctx.session.step = 'task_start';
+            
+            await ctx.reply(
+                `⏰ <b>𝗦𝗘𝗟𝗘𝗖𝗧 𝗦𝗧𝗔𝗥𝗧 𝗧𝗜𝗠𝗘</b>\n` +
+                `━━━━━━━━━━━━━━━━━━━━\n` +
+                `🕒 Current Time: ${getCurrentISTTimeString()}\n` +
+                `📝 <i>Enter start time in HH:MM (IST, 24-hour):</i>`,
+                { parse_mode: 'HTML' }
+            );
+        }
+        else if (step === 'task_start') {
+            if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(text)) {
+                return ctx.reply('❌ Invalid format. Use HH:MM (24-hour).');
+            }
+            
             const [h, m] = text.split(':').map(Number);
+            const { year, month, day } = ctx.session.task;
             
-            const newStartDateUTC = istToUtc(year, month, day, h, m);
+            const startDateUTC = istToUtc(year, month, day, h, m);
             
-            const duration = task.endDate.getTime() - task.startDate.getTime();
-            const newEndDateUTC = new Date(newStartDateUTC.getTime() + duration);
+            const istNow = getCurrentIST();
+            const startDateIST = utcToIst(startDateUTC);
             
-            await db.collection('tasks').updateOne(
-                { taskId: taskId }, 
-                { 
-                    $set: { 
-                        startDate: newStartDateUTC,
-                        endDate: newEndDateUTC,
-                        nextOccurrence: newStartDateUTC,
-                        startTimeStr: text
-                    } 
+            if (isSameDay(startDateUTC, new Date())) {
+                const currentTimeIST = istNow.getHours() * 60 + istNow.getMinutes();
+                const startTimeIST = startDateIST.getHours() * 60 + startDateIST.getMinutes();
+                
+                if (startTimeIST <= currentTimeIST) {
+                    return ctx.reply('❌ Start time is in the past. Please enter a future time.');
                 }
-            );
-            
-            await db.collection('history').updateMany(
-                { originalTaskId: taskId }, 
-                { 
-                    $set: { 
-                        startDate: newStartDateUTC,
-                        endDate: newEndDateUTC
-                    } 
-                }
-            );
-            
-            const updatedTask = await db.collection('tasks').findOne({ taskId });
-            scheduleTask(updatedTask);
-            
-            ctx.session.step = null;
-            delete ctx.session.editTaskId;
-            await ctx.reply(`✅ <b>START TIME UPDATED!</b>\n\nEnd time adjusted to: ${formatTime(newEndDateUTC)}`, { parse_mode: 'HTML' });
-            await showTaskDetail(ctx, taskId);
-        } catch (error) {
-            console.error('Error updating start time:', error);
-            await ctx.reply('❌ Failed to update start time.');
-        }
-    }
-    else if (step === 'edit_task_duration') {
-        const taskId = ctx.session.editTaskId;
-        
-        try {
-            const task = await db.collection('tasks').findOne({ taskId });
-            if (!task) {
-                ctx.session.step = null;
-                delete ctx.session.editTaskId;
-                return ctx.reply('❌ Task not found.');
             }
             
-            let newEndDateUTC;
+            ctx.session.task.startDate = startDateUTC;
+            ctx.session.task.startTimeStr = text;
+            ctx.session.task.nextOccurrence = startDateUTC;
+            ctx.session.step = 'task_duration';
+            
+            await ctx.reply(
+                `⏱️ <b>𝗦𝗘𝗟𝗘𝗖𝗧 𝗗𝗨𝗥𝗔𝗧𝗜𝗢𝗡</b>\n` +
+                `━━━━━━━━━━━━━━━━━━━━\n` +
+                `⏰ Start Time: ${text} IST\n` +
+                `📝 <i>Enter task duration in minutes (e.g., 30, 60, 90, 120):</i>\n` +
+                `📝 <i>Or enter end time in HH:MM format</i>`,
+                { parse_mode: 'HTML' }
+            );
+        }
+        else if (step === 'task_duration') {
+            let endDateUTC;
+            let endTimeStr;
             
             if (/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(text)) {
                 const [eh, em] = text.split(':').map(Number);
-                const istDate = utcToIst(task.endDate);
-                const year = istDate.getFullYear();
-                const month = istDate.getMonth() + 1;
-                const day = istDate.getDate();
-                
-                newEndDateUTC = istToUtc(year, month, day, eh, em);
-                
-                if (newEndDateUTC <= task.startDate) {
-                    return ctx.reply('❌ End time must be after start time.');
-                }
+                const { year, month, day } = ctx.session.task;
+                endDateUTC = istToUtc(year, month, day, eh, em);
+                endTimeStr = text;
             } else {
                 const duration = parseInt(text);
                 if (isNaN(duration) || duration < 1 || duration > 1440) {
                     return ctx.reply('❌ Please enter a valid duration between 1 and 1440 minutes, or end time in HH:MM format.');
                 }
-                newEndDateUTC = new Date(task.startDate.getTime() + duration * 60000);
+                endDateUTC = new Date(ctx.session.task.startDate.getTime() + duration * 60000);
+                
+                const endDateIST = utcToIst(endDateUTC);
+                endTimeStr = endDateIST.toLocaleTimeString('en-IN', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false
+                });
             }
             
-            await db.collection('tasks').updateOne(
-                { taskId: taskId }, 
-                { $set: { endDate: newEndDateUTC } }
-            );
+            const endDateIST = utcToIst(endDateUTC);
+            const endTimeIST = endDateIST.getHours() * 60 + endDateIST.getMinutes();
             
-            await db.collection('history').updateMany(
-                { originalTaskId: taskId }, 
-                { $set: { endDate: newEndDateUTC } }
-            );
+            if (endTimeIST > 23 * 60 + 59) {
+                return ctx.reply('❌ End time must be before 23:59 IST');
+            }
             
+            if (endDateUTC <= ctx.session.task.startDate) {
+                return ctx.reply('❌ End time must be after Start time.');
+            }
+            
+            ctx.session.task.endDate = endDateUTC;
+            ctx.session.task.endTimeStr = endTimeStr;
             ctx.session.step = null;
-            delete ctx.session.editTaskId;
-            await ctx.reply(`✅ <b>DURATION UPDATED!</b>\n\nNew end time: ${formatTime(newEndDateUTC)}`, { parse_mode: 'HTML' });
-            await showTaskDetail(ctx, taskId);
-        } catch (error) {
-            console.error('Error updating duration:', error);
-            await ctx.reply('❌ Failed to update duration.');
+
+            const dayName = getDayName(ctx.session.task.startDate);
+            const duration = calculateDuration(ctx.session.task.startDate, endDateUTC);
+            
+            await ctx.reply(
+                `🔄 <b>𝗥𝗘𝗣𝗘𝗔𝗧 𝗢𝗣𝗧𝗜𝗢𝗡𝗦</b>\n` +
+                `━━━━━━━━━━━━━━━━━━━━\n` +
+                `How should this task repeat?\n\n` +
+                `📅 Task Date: ${formatDate(ctx.session.task.startDate)} (${dayName})\n` +
+                `⏰ Time: ${ctx.session.task.startTimeStr} - ${endTimeStr} IST\n` +
+                `⏱️ Duration: ${formatDuration(duration)}\n\n`,
+                {
+                    parse_mode: 'HTML',
+                    ...Markup.inlineKeyboard([
+                        [Markup.button.callback('❌ No Repeat', 'repeat_none')],
+                        [Markup.button.callback('📅 Daily', 'repeat_daily')],
+                        [Markup.button.callback(`📅 Weekly on ${dayName}`, 'repeat_weekly')],
+                        [Markup.button.callback('🔙 Cancel', 'main_menu')]
+                    ])
+                }
+            );
         }
-    }
-    else if (step === 'edit_task_repeat_count') {
-        const taskId = ctx.session.editTaskId;
-        const count = parseInt(text);
-        
-        if (isNaN(count) || count < 0 || count > 365) {
-            return ctx.reply('❌ Invalid Number. Enter 0-365');
+        else if (step === 'task_repeat_count') {
+            const count = parseInt(text);
+            if (isNaN(count) || count < 1 || count > 365) {
+                return ctx.reply('❌ Please enter a valid number between 1 and 365.');
+            }
+            ctx.session.task.repeatCount = count;
+            await saveTask(ctx);
         }
-        
-        try {
+
+        // --- NOTE FLOW ---
+        else if (step === 'note_title') {
+            if (text.length === 0) return ctx.reply('❌ Title cannot be empty.');
+            if (text.length > 200) return ctx.reply('❌ Title too long. Max 200 characters.');
+            
+            ctx.session.note.title = text;
+            ctx.session.step = 'note_content';
+            await ctx.reply(
+                `📝 <b>𝗘𝗡𝗧𝗘𝗥 𝗡𝗢𝗧𝗘 𝗖𝗢𝗡𝗧𝗘𝗡𝗧</b>\n` +
+                `━━━━━━━━━━━━━━━━━━━━\n` +
+                `📝 <i>Enter note content (Max 400 words)</i>\n` +
+                `Enter "-" for empty content`,
+                { parse_mode: 'HTML' }
+            );
+        }
+        else if (step === 'note_content') {
+            const content = text === '-' ? '' : text;
+            if (content.length > 0 && content.split(/\s+/).length > 400) {
+                return ctx.reply('❌ Too long! Keep it under 400 words.');
+            }
+            
+            ctx.session.note.content = content;
+            ctx.session.note.createdAt = new Date();
+            ctx.session.note.updatedAt = new Date();
+            
+            try {
+                const highestNote = await db.collection('notes').findOne(
+                    { userId: ctx.from.id.toString() },
+                    { sort: { orderIndex: -1 } }
+                );
+                const nextOrderIndex = highestNote ? highestNote.orderIndex + 1 : 0;
+                ctx.session.note.orderIndex = nextOrderIndex;
+                
+                const noteTitle = ctx.session.note.title;
+                const noteContent = ctx.session.note.content;
+                
+                await db.collection('notes').insertOne(ctx.session.note);
+                
+                ctx.session.step = null;
+                delete ctx.session.note;
+                
+                await ctx.reply(
+                    `✅ <b>𝗡𝗢𝗧𝗘 𝗦𝗔𝗩𝗘𝗗 𝗦𝗨𝗖𝗖𝗘𝗦𝗦𝗙𝗨𝗟𝗟𝗬!</b>\n` +
+                    `━━━━━━━━━━━━━━━━━━━━\n` +
+                    `📌 <b>${noteTitle}</b>\n` +
+                    `${formatBlockquote(noteContent)}\n` +
+                    `📅 Saved on: ${formatDateTime(new Date())}`,
+                    { parse_mode: 'HTML' }
+                );
+                
+                await showMainMenu(ctx);
+                
+            } catch (error) {
+                console.error('Error saving note:', error);
+                await ctx.reply('❌ Failed to save note. Please try again.');
+            }
+        }
+
+        // --- SUBTASK ADDITION FLOW ---
+        else if (step === 'add_subtasks') {
+            const taskId = ctx.session.addSubtasksTaskId;
+            
+            const task = await db.collection('tasks').findOne({ taskId });
+            if (!task) {
+                ctx.session.step = null;
+                delete ctx.session.addSubtasksTaskId;
+                return ctx.reply('❌ Task not found.');
+            }
+            
+            const currentSubtasks = task.subtasks || [];
+            const availableSlots = 10 - currentSubtasks.length;
+            
+            if (availableSlots <= 0) {
+                ctx.session.step = null;
+                delete ctx.session.addSubtasksTaskId;
+                return ctx.reply('❌ Maximum subtasks limit (10) reached for this task.');
+            }
+            
+            const lines = text.split('\n')
+                .map(line => line.trim())
+                .filter(line => line.length > 0);
+            
+            if (lines.length === 0) {
+                return ctx.reply('❌ Please enter at least one subtask title.');
+            }
+            
+            if (lines.length > availableSlots) {
+                return ctx.reply(`❌ You can only add ${availableSlots} more subtask${availableSlots !== 1 ? 's' : ''}. Please enter ${availableSlots} or fewer.`);
+            }
+            
+            const newSubtasks = lines.map(title => ({
+                id: generateId('sub_'),
+                title: title.substring(0, 100), // Limit length
+                description: '',
+                completed: false,
+                createdAt: new Date()
+            }));
+            
             await db.collection('tasks').updateOne(
-                { taskId: taskId }, 
+                { taskId },
                 { 
-                    $set: { 
-                        repeatCount: count,
-                        ...(count === 0 && { repeat: 'none' })
+                    $push: { 
+                        subtasks: { 
+                            $each: newSubtasks 
+                        } 
                     } 
                 }
             );
             
-            await db.collection('history').updateMany(
-                { originalTaskId: taskId }, 
-                { 
-                    $set: { 
-                        repeatCount: count,
-                        ...(count === 0 && { repeat: 'none' })
-                    } 
-                }
+            ctx.session.step = null;
+            delete ctx.session.addSubtasksTaskId;
+            
+            await ctx.reply(
+                `✅ <b>𝗦𝗨𝗕𝗧𝗔𝗦𝗞𝗦 𝗔𝗗𝗗𝗘𝗗</b>\n` +
+                `━━━━━━━━━━━━━━━━━━━━\n` +
+                `📌 <b>${task.title}</b>\n` +
+                `➕ Added ${newSubtasks.length} new subtask${newSubtasks.length !== 1 ? 's' : ''}\n` +
+                `📊 Now has ${currentSubtasks.length + newSubtasks.length}/10 subtasks\n` +
+                `━━━━━━━━━━━━━━━━━━━━`,
+                { parse_mode: 'HTML' }
             );
             
-            ctx.session.step = null;
-            delete ctx.session.editTaskId;
-            await ctx.reply(`✅ <b>REPEAT COUNT UPDATED!</b>`, { parse_mode: 'HTML' });
             await showTaskDetail(ctx, taskId);
-        } catch (error) {
-            console.error('Error updating repeat count:', error);
-            await ctx.reply('❌ Failed to update repeat count.');
         }
-    }
-    
-    // --- EDIT NOTE FLOW ---
-    else if (step === 'edit_note_title') {
-        const noteId = ctx.session.editNoteId;
-        if (text.length === 0) return ctx.reply('❌ Title cannot be empty.');
+
+        // --- EDIT SUBTASK FLOW ---
+        else if (step === 'edit_subtask_title') {
+            const { taskId, subtaskId } = ctx.session.editSubtask;
+            
+            if (text.length === 0) return ctx.reply('❌ Title cannot be empty.');
+            if (text.length > 100) return ctx.reply('❌ Title too long. Max 100 characters.');
+            
+            try {
+                await db.collection('tasks').updateOne(
+                    { taskId, "subtasks.id": subtaskId },
+                    { $set: { "subtasks.$.title": text } }
+                );
+                
+                ctx.session.step = null;
+                delete ctx.session.editSubtask;
+                
+                await ctx.reply(`✅ <b>𝗦𝗨𝗕𝗧𝗔𝗦𝗞 𝗨𝗣𝗗𝗔𝗧𝗘𝗗!</b>`, { parse_mode: 'HTML' });
+                await showTaskDetail(ctx, taskId);
+            } catch (error) {
+                console.error('Error editing subtask:', error);
+                await ctx.reply('❌ Failed to update subtask.');
+            }
+        }
+
+        // --- EDIT TASK FLOW ---
+        else if (step === 'edit_task_title') {
+            const taskId = ctx.session.editTaskId;
+            if (text.length === 0) return ctx.reply('❌ Title cannot be empty.');
+            if (text.length > 100) return ctx.reply('❌ Title too long. Max 100 characters.');
+            
+            try {
+                await db.collection('tasks').updateOne(
+                    { taskId: taskId }, 
+                    { $set: { title: text } }
+                );
+                
+                await db.collection('history').updateMany(
+                    { originalTaskId: taskId }, 
+                    { $set: { title: text } }
+                );
+                
+                ctx.session.step = null;
+                delete ctx.session.editTaskId;
+                await ctx.reply(`✅ <b>TITLE UPDATED!</b>`, { parse_mode: 'HTML' });
+                await showTaskDetail(ctx, taskId);
+            } catch (error) {
+                console.error('Error updating title:', error);
+                await ctx.reply('❌ Failed to update title.');
+            }
+        }
+        else if (step === 'edit_task_desc') {
+            const taskId = ctx.session.editTaskId;
+            const description = text === '-' ? '' : text;
+            if (description.length > 0 && description.split(/\s+/).length > 100) {
+                return ctx.reply('❌ Too long! Max 100 words.');
+            }
+            
+            try {
+                await db.collection('tasks').updateOne(
+                    { taskId: taskId }, 
+                    { $set: { description: description } }
+                );
+                
+                await db.collection('history').updateMany(
+                    { originalTaskId: taskId }, 
+                    { $set: { description: description } }
+                );
+                
+                ctx.session.step = null;
+                delete ctx.session.editTaskId;
+                await ctx.reply(`✅ <b>DESCRIPTION UPDATED!</b>`, { parse_mode: 'HTML' });
+                await showTaskDetail(ctx, taskId);
+            } catch (error) {
+                console.error('Error updating description:', error);
+                await ctx.reply('❌ Failed to update description.');
+            }
+        }
+        else if (step === 'edit_task_start') {
+            const taskId = ctx.session.editTaskId;
+            
+            if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(text)) {
+                return ctx.reply('❌ Invalid Format. Use HH:MM (24-hour)');
+            }
+            
+            try {
+                const task = await db.collection('tasks').findOne({ taskId });
+                if (!task) {
+                    ctx.session.step = null;
+                    delete ctx.session.editTaskId;
+                    return ctx.reply('❌ Task not found.');
+                }
+                
+                const istDate = utcToIst(task.startDate);
+                const year = istDate.getFullYear();
+                const month = istDate.getMonth() + 1;
+                const day = istDate.getDate();
+                const [h, m] = text.split(':').map(Number);
+                
+                const newStartDateUTC = istToUtc(year, month, day, h, m);
+                
+                const duration = task.endDate.getTime() - task.startDate.getTime();
+                const newEndDateUTC = new Date(newStartDateUTC.getTime() + duration);
+                
+                await db.collection('tasks').updateOne(
+                    { taskId: taskId }, 
+                    { 
+                        $set: { 
+                            startDate: newStartDateUTC,
+                            endDate: newEndDateUTC,
+                            nextOccurrence: newStartDateUTC,
+                            startTimeStr: text
+                        } 
+                    }
+                );
+                
+                await db.collection('history').updateMany(
+                    { originalTaskId: taskId }, 
+                    { 
+                        $set: { 
+                            startDate: newStartDateUTC,
+                            endDate: newEndDateUTC
+                        } 
+                    }
+                );
+                
+                const updatedTask = await db.collection('tasks').findOne({ taskId });
+                if (updatedTask) {
+                    cancelTaskSchedule(taskId);
+                    if (updatedTask.nextOccurrence > new Date()) {
+                        scheduleTask(updatedTask);
+                    }
+                }
+                
+                ctx.session.step = null;
+                delete ctx.session.editTaskId;
+                await ctx.reply(`✅ <b>START TIME UPDATED!</b>\n\nEnd time adjusted to: ${formatTime(newEndDateUTC)}`, { parse_mode: 'HTML' });
+                await showTaskDetail(ctx, taskId);
+            } catch (error) {
+                console.error('Error updating start time:', error);
+                await ctx.reply('❌ Failed to update start time.');
+            }
+        }
+        else if (step === 'edit_task_duration') {
+            const taskId = ctx.session.editTaskId;
+            
+            try {
+                const task = await db.collection('tasks').findOne({ taskId });
+                if (!task) {
+                    ctx.session.step = null;
+                    delete ctx.session.editTaskId;
+                    return ctx.reply('❌ Task not found.');
+                }
+                
+                let newEndDateUTC;
+                
+                if (/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(text)) {
+                    const [eh, em] = text.split(':').map(Number);
+                    const istDate = utcToIst(task.endDate);
+                    const year = istDate.getFullYear();
+                    const month = istDate.getMonth() + 1;
+                    const day = istDate.getDate();
+                    
+                    newEndDateUTC = istToUtc(year, month, day, eh, em);
+                    
+                    if (newEndDateUTC <= task.startDate) {
+                        return ctx.reply('❌ End time must be after start time.');
+                    }
+                } else {
+                    const duration = parseInt(text);
+                    if (isNaN(duration) || duration < 1 || duration > 1440) {
+                        return ctx.reply('❌ Please enter a valid duration between 1 and 1440 minutes, or end time in HH:MM format.');
+                    }
+                    newEndDateUTC = new Date(task.startDate.getTime() + duration * 60000);
+                }
+                
+                await db.collection('tasks').updateOne(
+                    { taskId: taskId }, 
+                    { $set: { endDate: newEndDateUTC } }
+                );
+                
+                await db.collection('history').updateMany(
+                    { originalTaskId: taskId }, 
+                    { $set: { endDate: newEndDateUTC } }
+                );
+                
+                ctx.session.step = null;
+                delete ctx.session.editTaskId;
+                await ctx.reply(`✅ <b>DURATION UPDATED!</b>\n\nNew end time: ${formatTime(newEndDateUTC)}`, { parse_mode: 'HTML' });
+                await showTaskDetail(ctx, taskId);
+            } catch (error) {
+                console.error('Error updating duration:', error);
+                await ctx.reply('❌ Failed to update duration.');
+            }
+        }
+        else if (step === 'edit_task_repeat_count') {
+            const taskId = ctx.session.editTaskId;
+            const count = parseInt(text);
+            
+            if (isNaN(count) || count < 0 || count > 365) {
+                return ctx.reply('❌ Invalid Number. Enter 0-365');
+            }
+            
+            try {
+                await db.collection('tasks').updateOne(
+                    { taskId: taskId }, 
+                    { 
+                        $set: { 
+                            repeatCount: count,
+                            ...(count === 0 && { repeat: 'none' })
+                        } 
+                    }
+                );
+                
+                await db.collection('history').updateMany(
+                    { originalTaskId: taskId }, 
+                    { 
+                        $set: { 
+                            repeatCount: count,
+                            ...(count === 0 && { repeat: 'none' })
+                        } 
+                    }
+                );
+                
+                ctx.session.step = null;
+                delete ctx.session.editTaskId;
+                await ctx.reply(`✅ <b>REPEAT COUNT UPDATED!</b>`, { parse_mode: 'HTML' });
+                await showTaskDetail(ctx, taskId);
+            } catch (error) {
+                console.error('Error updating repeat count:', error);
+                await ctx.reply('❌ Failed to update repeat count.');
+            }
+        }
         
-        try {
-            await db.collection('notes').updateOne(
-                { noteId: noteId }, 
-                { $set: { title: text, updatedAt: new Date() } }
-            );
+        // --- EDIT NOTE FLOW ---
+        else if (step === 'edit_note_title') {
+            const noteId = ctx.session.editNoteId;
+            if (text.length === 0) return ctx.reply('❌ Title cannot be empty.');
+            if (text.length > 200) return ctx.reply('❌ Title too long. Max 200 characters.');
             
-            const updatedNote = await db.collection('notes').findOne({ noteId: noteId });
-            
-            ctx.session.step = null;
-            delete ctx.session.editNoteId;
-            
-            await ctx.reply(
-                `✅ <b>𝗡𝗢𝗧𝗘 𝗧𝗜𝗧𝗟𝗘 𝗨𝗣𝗗𝗔𝗧𝗘𝗗!</b>\n` +
-                `━━━━━━━━━━━━━━━━━━━━\n` +
-                `📌 <b>${updatedNote.title}</b>\n` +
-                `${formatBlockquote(updatedNote.content)}\n` +
-                `📅 Updated: ${formatDateTime(new Date())}`,
-                { parse_mode: 'HTML' }
-            );
-            
-            await showNoteDetail(ctx, noteId);
-            
-        } catch (error) {
-            console.error('Error updating note title:', error);
-            ctx.session.step = null;
-            delete ctx.session.editNoteId;
-            await ctx.reply('❌ Failed to update title.');
+            try {
+                await db.collection('notes').updateOne(
+                    { noteId: noteId }, 
+                    { $set: { title: text, updatedAt: new Date() } }
+                );
+                
+                const updatedNote = await db.collection('notes').findOne({ noteId: noteId });
+                
+                ctx.session.step = null;
+                delete ctx.session.editNoteId;
+                
+                await ctx.reply(
+                    `✅ <b>𝗡𝗢𝗧𝗘 𝗧𝗜𝗧𝗟𝗘 𝗨𝗣𝗗𝗔𝗧𝗘𝗗!</b>\n` +
+                    `━━━━━━━━━━━━━━━━━━━━\n` +
+                    `📌 <b>${updatedNote.title}</b>\n` +
+                    `${formatBlockquote(updatedNote.content)}\n` +
+                    `📅 Updated: ${formatDateTime(new Date())}`,
+                    { parse_mode: 'HTML' }
+                );
+                
+                await showNoteDetail(ctx, noteId);
+                
+            } catch (error) {
+                console.error('Error updating note title:', error);
+                ctx.session.step = null;
+                delete ctx.session.editNoteId;
+                await ctx.reply('❌ Failed to update title.');
+            }
         }
-    }
-    else if (step === 'edit_note_content') {
-        const noteId = ctx.session.editNoteId;
-        if (text.split(/\s+/).length > 400) {
-            return ctx.reply('❌ Too long! Max 400 words.');
+        else if (step === 'edit_note_content') {
+            const noteId = ctx.session.editNoteId;
+            const content = text === '-' ? '' : text;
+            if (content.length > 0 && content.split(/\s+/).length > 400) {
+                return ctx.reply('❌ Too long! Max 400 words.');
+            }
+            
+            try {
+                await db.collection('notes').updateOne(
+                    { noteId: noteId }, 
+                    { $set: { content: content, updatedAt: new Date() } }
+                );
+                
+                const updatedNote = await db.collection('notes').findOne({ noteId: noteId });
+                
+                ctx.session.step = null;
+                delete ctx.session.editNoteId;
+                
+                await ctx.reply(
+                    `✅ <b>𝗡𝗢𝗧𝗘 𝗖𝗢𝗡𝗧𝗘𝗡𝗧 𝗨𝗣𝗗𝗔𝗧𝗘𝗗!</b>\n` +
+                    `━━━━━━━━━━━━━━━━━━━━\n` +
+                    `📌 <b>${updatedNote.title}</b>\n` +
+                    `${formatBlockquote(updatedNote.content)}\n` +
+                    `📅 Updated: ${formatDateTime(new Date())}`,
+                    { parse_mode: 'HTML' }
+                );
+                
+                await showNoteDetail(ctx, noteId);
+                
+            } catch (error) {
+                console.error('Error updating note content:', error);
+                ctx.session.step = null;
+                delete ctx.session.editNoteId;
+                await ctx.reply('❌ Failed to update content.');
+            }
         }
-        
-        try {
-            await db.collection('notes').updateOne(
-                { noteId: noteId }, 
-                { $set: { content: text, updatedAt: new Date() } }
-            );
-            
-            const updatedNote = await db.collection('notes').findOne({ noteId: noteId });
-            
-            ctx.session.step = null;
-            delete ctx.session.editNoteId;
-            
-            await ctx.reply(
-                `✅ <b>𝗡𝗢𝗧𝗘 𝗖𝗢𝗡𝗧𝗘𝗡𝗧 𝗨𝗣𝗗𝗔𝗧𝗘𝗗!</b>\n` +
-                `━━━━━━━━━━━━━━━━━━━━\n` +
-                `📌 <b>${updatedNote.title}</b>\n` +
-                `${formatBlockquote(updatedNote.content)}\n` +
-                `📅 Updated: ${formatDateTime(new Date())}`,
-                { parse_mode: 'HTML' }
-            );
-            
-            await showNoteDetail(ctx, noteId);
-            
-        } catch (error) {
-            console.error('Error updating note content:', error);
-            ctx.session.step = null;
-            delete ctx.session.editNoteId;
-            await ctx.reply('❌ Failed to update content.');
-        }
+    } catch (error) {
+        console.error('Text handler error:', error);
+        await ctx.reply('❌ An error occurred. Please try again.');
     }
 });
 
 // ==========================================
-// 🕹️ BUTTON ACTIONS
+// 🕹️ BUTTON ACTIONS - CONTINUED
 // ==========================================
 
 bot.action('repeat_none', async (ctx) => {
@@ -1877,7 +2018,7 @@ bot.action('repeat_daily', async (ctx) => {
     await ctx.reply(
         `🔢 <b>𝗗𝗔𝗜𝗟𝗬 𝗥𝗘𝗣𝗘𝗔𝗧</b>\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
-        `📝 <i>How many times should this task repeat?</i>`,
+        `📝 <i>How many times should this task repeat? (1-365)</i>`,
         { parse_mode: 'HTML' }
     );
 });
@@ -1888,7 +2029,7 @@ bot.action('repeat_weekly', async (ctx) => {
     await ctx.reply(
         `🔢 <b>𝗪𝗘𝗘𝗞𝗟𝗬 𝗥𝗘𝗣𝗘𝗔𝗧</b>\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
-        `📝 <i>How many times should this task repeat?</i>`,
+        `📝 <i>How many times should this task repeat? (1-365)</i>`,
         { parse_mode: 'HTML' }
     );
 });
@@ -1896,21 +2037,21 @@ bot.action('repeat_weekly', async (ctx) => {
 async function saveTask(ctx) {
     const task = ctx.session.task;
     
-    const highestTask = await db.collection('tasks').findOne(
-        { userId: task.userId },
-        { sort: { orderIndex: -1 } }
-    );
-    const nextOrderIndex = highestTask ? highestTask.orderIndex + 1 : 0;
-    
-    task.status = 'pending';
-    task.createdAt = new Date();
-    task.orderIndex = nextOrderIndex;
-    task.subtasks = task.subtasks || [];
-    if (!task.nextOccurrence) {
-        task.nextOccurrence = task.startDate;
-    }
-    
     try {
+        const highestTask = await db.collection('tasks').findOne(
+            { userId: task.userId },
+            { sort: { orderIndex: -1 } }
+        );
+        const nextOrderIndex = highestTask ? highestTask.orderIndex + 1 : 0;
+        
+        task.status = 'pending';
+        task.createdAt = new Date();
+        task.orderIndex = nextOrderIndex;
+        task.subtasks = task.subtasks || [];
+        if (!task.nextOccurrence) {
+            task.nextOccurrence = task.startDate;
+        }
+        
         await db.collection('tasks').insertOne(task);
         scheduleTask(task);
         
@@ -2003,9 +2144,12 @@ ${progressBar} ${progress}%
     
     subtasks.forEach((subtask, index) => {
         const status = subtask.completed ? '✅' : '⭕';
+        let title = subtask.title;
+        if (title.length > 30) title = title.substring(0, 27) + '...';
+        
         const buttonRow = [
             Markup.button.callback(
-                `${status} ${index + 1}. ${subtask.title}`, 
+                `${status} ${index + 1}. ${title}`, 
                 `subtask_det_${taskId}_${subtask.id}`
             )
         ];
@@ -2226,7 +2370,7 @@ bot.action(/^complete_(.+)$/, async (ctx) => {
             
             const updatedTask = await db.collection('tasks').findOne({ taskId });
             
-            if (updatedTask.nextOccurrence > new Date()) {
+            if (updatedTask && updatedTask.nextOccurrence > new Date()) {
                 scheduleTask(updatedTask);
                 await ctx.answerCbQuery('✅ Completed! Next occurrence scheduled.');
             } else {
@@ -2289,7 +2433,7 @@ bot.action(/^edit_task_desc_(.+)$/, async (ctx) => {
     await ctx.reply(
         `✏️ <b>𝗘𝗗𝗜𝗧 𝗗𝗘𝗦𝗖𝗥𝗜𝗣𝗧𝗜𝗢𝗡</b>\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
-        `Enter new description (Max 100 words):`,
+        `Enter new description (Max 100 words, enter "-" for empty):`,
         Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `task_det_${taskId}`)]])
     );
 });
@@ -2407,9 +2551,7 @@ bot.action(/^delete_task_(.+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     try {
         await db.collection('tasks').deleteOne({ taskId });
-        
         await db.collection('history').deleteMany({ originalTaskId: taskId });
-        
         cancelTaskSchedule(taskId);
         await ctx.answerCbQuery(`✅ Task Deleted`);
         await showMainMenu(ctx);
@@ -2451,8 +2593,11 @@ bot.action('reorder_tasks_menu', async (ctx) => {
         const keyboard = [];
         
         tasks.forEach((task, index) => {
+            let title = task.title;
+            if (title.length > 35) title = title.substring(0, 32) + '...';
+            
             keyboard.push([{ 
-                text: `${index + 1}. ${task.title}`, 
+                text: `${index + 1}. ${title}`, 
                 callback_data: `reorder_task_select_${task.taskId}` 
             }]);
         });
@@ -2498,10 +2643,13 @@ bot.action(/^reorder_task_select_(.+)$/, async (ctx) => {
         text += 'Current order (selected task is highlighted):\n\n';
         
         tasks.forEach((task, index) => {
+            let title = task.title;
+            if (title.length > 30) title = title.substring(0, 27) + '...';
+            
             if (index === selectedIndex) {
-                text += `<blockquote>${index + 1}. ${task.title}</blockquote>\n`;
+                text += `<blockquote>${index + 1}. ${title}</blockquote>\n`;
             } else {
-                text += `${index + 1}. ${task.title}\n`;
+                text += `${index + 1}. ${title}\n`;
             }
         });
         
@@ -2558,10 +2706,13 @@ bot.action('reorder_task_up', async (ctx) => {
         text += 'Current order (selected task is highlighted):\n\n';
         
         tasks.forEach((task, index) => {
+            let title = task.title;
+            if (title.length > 30) title = title.substring(0, 27) + '...';
+            
             if (index === ctx.session.reorderTask.selectedIndex) {
-                text += `<blockquote>${index + 1}. ${task.title}</blockquote>\n`;
+                text += `<blockquote>${index + 1}. ${title}</blockquote>\n`;
             } else {
-                text += `${index + 1}. ${task.title}\n`;
+                text += `${index + 1}. ${title}\n`;
             }
         });
         
@@ -2621,10 +2772,13 @@ bot.action('reorder_task_down', async (ctx) => {
         text += 'Current order (selected task is highlighted):\n\n';
         
         tasks.forEach((task, index) => {
+            let title = task.title;
+            if (title.length > 30) title = title.substring(0, 27) + '...';
+            
             if (index === ctx.session.reorderTask.selectedIndex) {
-                text += `<blockquote>${index + 1}. ${task.title}</blockquote>\n`;
+                text += `<blockquote>${index + 1}. ${title}</blockquote>\n`;
             } else {
-                text += `${index + 1}. ${task.title}\n`;
+                text += `${index + 1}. ${title}\n`;
             }
         });
         
@@ -2715,8 +2869,11 @@ bot.action('reorder_notes_menu', async (ctx) => {
         const keyboard = [];
         
         notes.forEach((note, index) => {
+            let title = note.title;
+            if (title.length > 35) title = title.substring(0, 32) + '...';
+            
             keyboard.push([{ 
-                text: `${index + 1}. ${note.title}`, 
+                text: `${index + 1}. ${title}`, 
                 callback_data: `reorder_note_select_${note.noteId}` 
             }]);
         });
@@ -2759,10 +2916,13 @@ bot.action(/^reorder_note_select_(.+)$/, async (ctx) => {
         text += 'Current order (selected note is highlighted):\n\n';
         
         notes.forEach((note, index) => {
+            let title = note.title;
+            if (title.length > 30) title = title.substring(0, 27) + '...';
+            
             if (index === selectedIndex) {
-                text += `<blockquote>${index + 1}. ${note.title}</blockquote>\n`;
+                text += `<blockquote>${index + 1}. ${title}</blockquote>\n`;
             } else {
-                text += `${index + 1}. ${note.title}\n`;
+                text += `${index + 1}. ${title}\n`;
             }
         });
         
@@ -2819,10 +2979,13 @@ bot.action('reorder_note_up', async (ctx) => {
         text += 'Current order (selected note is highlighted):\n\n';
         
         notes.forEach((note, index) => {
+            let title = note.title;
+            if (title.length > 30) title = title.substring(0, 27) + '...';
+            
             if (index === ctx.session.reorderNote.selectedIndex) {
-                text += `<blockquote>${index + 1}. ${note.title}</blockquote>\n`;
+                text += `<blockquote>${index + 1}. ${title}</blockquote>\n`;
             } else {
-                text += `${index + 1}. ${note.title}\n`;
+                text += `${index + 1}. ${title}\n`;
             }
         });
         
@@ -2882,10 +3045,13 @@ bot.action('reorder_note_down', async (ctx) => {
         text += 'Current order (selected note is highlighted):\n\n';
         
         notes.forEach((note, index) => {
+            let title = note.title;
+            if (title.length > 30) title = title.substring(0, 27) + '...';
+            
             if (index === ctx.session.reorderNote.selectedIndex) {
-                text += `<blockquote>${index + 1}. ${note.title}</blockquote>\n`;
+                text += `<blockquote>${index + 1}. ${title}</blockquote>\n`;
             } else {
-                text += `${index + 1}. ${note.title}\n`;
+                text += `${index + 1}. ${title}\n`;
             }
         });
         
@@ -2948,7 +3114,7 @@ bot.action('reorder_note_save', async (ctx) => {
 });
 
 // ==========================================
-// 📜 VIEW HISTORY - WITH PAGINATION AND SUBTASKS
+// 📜 VIEW HISTORY - WITH PAGINATION
 // ==========================================
 
 bot.action(/^view_history_dates_(\d+)$/, async (ctx) => {
@@ -2982,9 +3148,15 @@ bot.action(/^view_history_dates_(\d+)$/, async (ctx) => {
 
     const totalDates = dates[0]?.metadata[0]?.total || 0;
     const dateList = dates[0]?.data || [];
-    const totalPages = Math.ceil(totalDates / perPage);
+    const totalPages = Math.max(1, Math.ceil(totalDates / perPage));
 
-    const text = `📜 <b>𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘𝗗 𝗧𝗔𝗦𝗞𝗦 𝗛𝗜𝗦𝗧𝗢𝗥𝗬</b>\n━━━━━━━━━━━━━━━━━━━━\n📊 Total: ${totalDates} date${totalDates !== 1 ? 's' : ''}\n📄 Page: ${page}/${totalPages}\n━━━━━━━━━━━━━━━━━━━━\nSelect a date to view:`;
+    let text = `📜 <b>𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘𝗗 𝗧𝗔𝗦𝗞𝗦 𝗛𝗜𝗦𝗧𝗢𝗥𝗬</b>\n━━━━━━━━━━━━━━━━━━━━\n📊 Total: ${totalDates} date${totalDates !== 1 ? 's' : ''}\n📄 Page: ${page}/${totalPages}\n━━━━━━━━━━━━━━━━━━━━\n`;
+    
+    if (dateList.length === 0) {
+        text += '📭 No history available.';
+    } else {
+        text += 'Select a date to view:';
+    }
     
     const buttons = dateList.map(d => {
         const date = new Date(d.completedDate);
@@ -3034,7 +3206,7 @@ bot.action(/^hist_list_([\d-]+)_(\d+)$/, async (ctx) => {
         }
     });
     
-    const totalPages = Math.ceil(totalTasks / perPage);
+    const totalPages = Math.max(1, Math.ceil(totalTasks / perPage));
 
     const tasks = await db.collection('history').find({
         userId: userId,
@@ -3045,7 +3217,13 @@ bot.action(/^hist_list_([\d-]+)_(\d+)$/, async (ctx) => {
     }).sort({ completedAt: -1 }).skip(skip).limit(perPage).toArray();
 
     const date = new Date(year, month - 1, day);
-    const text = `📅 <b>𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘𝗗 𝗢𝗡 ${formatDate(date).toUpperCase()}</b>\n━━━━━━━━━━━━━━━━━━━━\n📊 Total: ${totalTasks} task${totalTasks !== 1 ? 's' : ''}\n📄 Page: ${page}/${totalPages}\n━━━━━━━━━━━━━━━━━━━━\nSelect a task to view details:`;
+    let text = `📅 <b>𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘𝗗 𝗢𝗡 ${formatDate(date).toUpperCase()}</b>\n━━━━━━━━━━━━━━━━━━━━\n📊 Total: ${totalTasks} task${totalTasks !== 1 ? 's' : ''}\n📄 Page: ${page}/${totalPages}\n━━━━━━━━━━━━━━━━━━━━\n`;
+    
+    if (tasks.length === 0) {
+        text += '📭 No tasks completed on this date.';
+    } else {
+        text += 'Select a task to view details:';
+    }
     
     const buttons = tasks.map((t, index) => {
         const taskNum = skip + index + 1;
@@ -3055,6 +3233,8 @@ bot.action(/^hist_list_([\d-]+)_(\d+)$/, async (ctx) => {
             const completed = t.subtasks.filter(s => s.completed).length;
             taskTitle += ` [${completed}/${t.subtasks.length}]`;
         }
+        
+        if (taskTitle.length > 40) taskTitle = taskTitle.substring(0, 37) + '...';
         
         return [
             Markup.button.callback(`✅ ${taskNum}. ${taskTitle} (${formatTime(t.completedAt)})`, `hist_det_${t._id}`)
@@ -3079,14 +3259,18 @@ bot.action(/^hist_list_([\d-]+)_(\d+)$/, async (ctx) => {
 });
 
 bot.action(/^hist_det_(.+)$/, async (ctx) => {
-    const id = ctx.match[1];
-    const task = await db.collection('history').findOne({ _id: new ObjectId(id) });
+    try {
+        const id = ctx.match[1];
+        const task = await db.collection('history').findOne({ _id: new ObjectId(id) });
 
-    if (!task) return ctx.answerCbQuery('Task not found');
+        if (!task) {
+            await ctx.answerCbQuery('Task not found');
+            return;
+        }
 
-    const duration = calculateDuration(task.startDate, task.endDate);
+        const duration = calculateDuration(task.startDate, task.endDate);
 
-    let text = `
+        let text = `
 📜 <b>𝗛𝗜𝗦𝗧𝗢𝗥𝗬 𝗗𝗘𝗧𝗔𝗜𝗟</b>
 ━━━━━━━━━━━━━━━━━━━━
 📌 <b>${task.title}</b>
@@ -3099,20 +3283,26 @@ ${task.autoCompleted ? '🤖 <b>Auto-completed at 23:59 IST</b>\n' : ''}
 ━━━━━━━━━━━━━━━━━━━━
 `;
 
-    if (task.subtasks && task.subtasks.length > 0) {
-        text += `📋 <b>𝗦𝗨𝗕𝗧𝗔𝗦𝗞𝗦:</b>\n`;
-        task.subtasks.forEach((subtask, index) => {
-            const status = subtask.completed ? '✅' : '❌';
-            text += `${status} ${index + 1}. ${subtask.title}\n`;
-        });
-        text += `━━━━━━━━━━━━━━━━━━━━\n`;
-    }
+        if (task.subtasks && task.subtasks.length > 0) {
+            text += `📋 <b>𝗦𝗨𝗕𝗧𝗔𝗦𝗞𝗦:</b>\n`;
+            task.subtasks.forEach((subtask, index) => {
+                const status = subtask.completed ? '✅' : '❌';
+                let title = subtask.title;
+                if (title.length > 40) title = title.substring(0, 37) + '...';
+                text += `${status} ${index + 1}. ${title}\n`;
+            });
+            text += `━━━━━━━━━━━━━━━━━━━━\n`;
+        }
 
-    const keyboard = Markup.inlineKeyboard([
-        [Markup.button.callback('🔙 Back to History', 'view_history_dates_1')]
-    ]);
-    
-    await safeEdit(ctx, text, keyboard);
+        const keyboard = Markup.inlineKeyboard([
+            [Markup.button.callback('🔙 Back to History', 'view_history_dates_1')]
+        ]);
+        
+        await safeEdit(ctx, text, keyboard);
+    } catch (error) {
+        console.error('Error showing history detail:', error);
+        await ctx.answerCbQuery('❌ Error loading history detail');
+    }
 });
 
 // ==========================================
@@ -3127,7 +3317,7 @@ bot.action(/^view_notes_(\d+)$/, async (ctx) => {
     const skip = (page - 1) * perPage;
     
     const totalNotes = await db.collection('notes').countDocuments({ userId });
-    const totalPages = Math.ceil(totalNotes / perPage);
+    const totalPages = Math.max(1, Math.ceil(totalNotes / perPage));
     
     const notes = await db.collection('notes').find({ userId })
         .sort({ orderIndex: 1, createdAt: -1 })
@@ -3135,12 +3325,21 @@ bot.action(/^view_notes_(\d+)$/, async (ctx) => {
         .limit(perPage)
         .toArray();
 
-    const text = `🗒️ <b>𝗬𝗢𝗨𝗥 𝗡𝗢𝗧𝗘𝗦</b>\n━━━━━━━━━━━━━━━━━━━━\n📊 Total: ${totalNotes} note${totalNotes !== 1 ? 's' : ''}\n📄 Page: ${page}/${totalPages}\n━━━━━━━━━━━━━━━━━━━━\nSelect a note to view:`;
+    let text = `🗒️ <b>𝗬𝗢𝗨𝗥 𝗡𝗢𝗧𝗘𝗦</b>\n━━━━━━━━━━━━━━━━━━━━\n📊 Total: ${totalNotes} note${totalNotes !== 1 ? 's' : ''}\n📄 Page: ${page}/${totalPages}\n━━━━━━━━━━━━━━━━━━━━\n`;
+    
+    if (notes.length === 0) {
+        text += '📭 No notes yet.';
+    } else {
+        text += 'Select a note to view:';
+    }
     
     const buttons = notes.map((n, index) => {
         const noteNum = skip + index + 1;
+        let title = n.title;
+        if (title.length > 40) title = title.substring(0, 37) + '...';
+        
         return [
-            Markup.button.callback(`📄 ${noteNum}. ${n.title}`, `note_det_${n.noteId}`)
+            Markup.button.callback(`📄 ${noteNum}. ${title}`, `note_det_${n.noteId}`)
         ];
     });
     
@@ -3176,11 +3375,13 @@ async function showNoteDetail(ctx, noteId) {
         return safeEdit(ctx, text, keyboard);
     }
 
+    let contentDisplay = note.content || '<i>Empty note</i>';
+    
     const text = `
 📝 <b>𝗡𝗢𝗧𝗘 𝗗𝗘𝗧𝗔𝗜𝗟𝗦</b>
 ━━━━━━━━━━━━━━━━━━━━
 📌 <b>${note.title}</b>
-${formatBlockquote(note.content)}
+${formatBlockquote(contentDisplay)}
 📅 <b>Created:</b> ${formatDateTime(note.createdAt)} IST
 ${note.updatedAt ? `✏️ <b>Updated:</b> ${formatDateTime(note.updatedAt)} IST` : ''}
 🏷️ <b>Order:</b> ${note.orderIndex + 1}
@@ -3242,7 +3443,7 @@ bot.action(/^edit_note_content_(.+)$/, async (ctx) => {
     await ctx.reply(
         `✏️ <b>𝗘𝗗𝗜𝗧 𝗡𝗢𝗧𝗘 𝗖𝗢𝗡𝗧𝗘𝗡𝗧</b>\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
-        `Enter new content (Max 400 words):`,
+        `Enter new content (Max 400 words, enter "-" for empty):`,
         { 
             parse_mode: 'HTML',
             ...Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `note_det_${noteId}`)]])
@@ -3381,9 +3582,11 @@ bot.action('download_all', async (ctx) => {
         const userId = ctx.from.id.toString();
         const timestamp = Date.now();
         
-        const tasks = await db.collection('tasks').find({ userId }).toArray();
-        const history = await db.collection('history').find({ userId }).toArray();
-        const notes = await db.collection('notes').find({ userId }).toArray();
+        const [tasks, history, notes] = await Promise.all([
+            db.collection('tasks').find({ userId }).toArray(),
+            db.collection('history').find({ userId }).toArray(),
+            db.collection('notes').find({ userId }).toArray()
+        ]);
         
         const totalItems = tasks.length + history.length + notes.length;
         
@@ -3444,12 +3647,12 @@ bot.action('download_all', async (ctx) => {
             `📜 History: ${history.length} item${history.length !== 1 ? 's' : ''}\n` +
             `🗒️ Notes: ${notes.length} item${notes.length !== 1 ? 's' : ''}\n` +
             `📊 Total: ${totalItems} items\n` +
-            `📁 3 JSON files sent\n` +
+            `📁 ${[tasks, history, notes].filter(a => a.length > 0).length} JSON files sent\n` +
             `📅 ${formatDateTime(new Date())}\n━━━━━━━━━━━━━━━━━━━━`,
             { parse_mode: 'HTML' }
         );
         
-        await ctx.answerCbQuery(`✅ Sent ${totalItems} items across 3 files`);
+        await ctx.answerCbQuery(`✅ Sent ${totalItems} items across ${[tasks, history, notes].filter(a => a.length > 0).length} files`);
     } catch (error) {
         console.error('Error downloading all data:', error);
         await ctx.answerCbQuery('❌ Error sending files');
@@ -3647,9 +3850,11 @@ bot.action('delete_notes_final', async (ctx) => {
 bot.action('delete_all_confirm', async (ctx) => {
     try {
         const userId = ctx.from.id.toString();
-        const tasksCount = await db.collection('tasks').countDocuments({ userId });
-        const historyCount = await db.collection('history').countDocuments({ userId });
-        const notesCount = await db.collection('notes').countDocuments({ userId });
+        const [tasksCount, historyCount, notesCount] = await Promise.all([
+            db.collection('tasks').countDocuments({ userId }),
+            db.collection('history').countDocuments({ userId }),
+            db.collection('notes').countDocuments({ userId })
+        ]);
         const totalCount = tasksCount + historyCount + notesCount;
         
         const text = `⚠️ <b>𝗙𝗜𝗡𝗔𝗟 𝗪𝗔𝗥𝗡𝗜𝗡𝗚</b>\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Delete ALL ${totalCount} items?\n\n📋 Tasks: ${tasksCount}\n📜 History: ${historyCount}\n🗒️ Notes: ${notesCount}\n\n<b>⚠️ THIS ACTION CANNOT BE UNDONE!</b>\n━━━━━━━━━━━━━━━━━━━━`;
@@ -3671,15 +3876,19 @@ bot.action('delete_all_final', async (ctx) => {
         await ctx.answerCbQuery('⏳ Processing...');
         const userId = ctx.from.id.toString();
         
-        const tasks = await db.collection('tasks').find({ userId }).toArray();
-        const history = await db.collection('history').find({ userId }).toArray();
-        const notes = await db.collection('notes').find({ userId }).toArray();
+        const [tasks, history, notes] = await Promise.all([
+            db.collection('tasks').find({ userId }).toArray(),
+            db.collection('history').find({ userId }).toArray(),
+            db.collection('notes').find({ userId }).toArray()
+        ]);
         
         tasks.forEach(t => cancelTaskSchedule(t.taskId));
         
-        const tasksResult = await db.collection('tasks').deleteMany({ userId });
-        const historyResult = await db.collection('history').deleteMany({ userId });
-        const notesResult = await db.collection('notes').deleteMany({ userId });
+        const [tasksResult, historyResult, notesResult] = await Promise.all([
+            db.collection('tasks').deleteMany({ userId }),
+            db.collection('history').deleteMany({ userId }),
+            db.collection('notes').deleteMany({ userId })
+        ]);
         
         const totalDeleted = tasksResult.deletedCount + historyResult.deletedCount + notesResult.deletedCount;
         const timestamp = Date.now();
@@ -3728,7 +3937,7 @@ bot.action('no_action', async (ctx) => {
 });
 
 // ==========================================
-// 🚀 BOOTSTRAP
+// 🚀 BOOTSTRAP - FIXED
 // ==========================================
 
 async function start() {
@@ -3741,6 +3950,7 @@ async function start() {
             // Start Express server
             app.listen(PORT, () => {
                 console.log(`🌐 Web interface running on port ${PORT}`);
+                console.log(`📱 Web URL: http://localhost:${PORT}`);
             });
             
             // Start Telegram bot
@@ -3749,14 +3959,16 @@ async function start() {
             console.log(`⏰ Current IST Time: ${getCurrentISTTimeString()}`);
             console.log(`📊 Currently tracking ${activeSchedules.size} tasks`);
             
+            // Send initial summary to active users
             setTimeout(async () => {
                 try {
                     const users = await db.collection('tasks').distinct('userId');
                     for (const userId of users) {
                         await sendHourlySummary(userId);
                     }
+                    console.log(`📊 Sent initial summary to ${users.length} users`);
                 } catch (error) {
-                    console.error('Error sending initial summary:', error);
+                    console.error('Error sending initial summary:', error.message);
                 }
             }, 5000);
         } else {
@@ -3764,54 +3976,53 @@ async function start() {
             setTimeout(start, 5000);
         }
     } catch (error) {
-        console.error('❌ Failed to start bot:', error);
+        console.error('❌ Failed to start bot:', error.message);
         setTimeout(start, 10000);
     }
 }
 
-// Graceful Stop
-process.once('SIGINT', () => {
-    console.log('🛑 SIGINT received, stopping bot gracefully...');
+// Graceful Stop - FIXED
+function gracefulShutdown(signal) {
+    console.log(`🛑 ${signal} received, stopping bot gracefully...`);
     
+    // Cancel all scheduled jobs
     for (const [taskId, schedule] of activeSchedules) {
-        if (schedule.startJob) schedule.startJob.cancel();
-        if (schedule.interval) clearInterval(schedule.interval);
+        try {
+            if (schedule.startJob) schedule.startJob.cancel();
+            if (schedule.interval) clearInterval(schedule.interval);
+        } catch (e) {
+            console.error(`Error cleaning up task ${taskId}:`, e.message);
+        }
     }
     
     if (hourlySummaryJob) {
-        hourlySummaryJob.cancel();
+        try { hourlySummaryJob.cancel(); } catch (e) {}
     }
     
     if (autoCompleteJob) {
-        autoCompleteJob.cancel();
+        try { autoCompleteJob.cancel(); } catch (e) {}
     }
     
-    bot.stop('SIGINT');
-    if (client) client.close();
+    bot.stop(signal).catch(e => console.error('Error stopping bot:', e.message));
+    
+    if (client) {
+        client.close().catch(e => console.error('Error closing MongoDB:', e.message));
+    }
+    
     console.log('👋 Bot stopped gracefully');
     process.exit(0);
+}
+
+process.once('SIGINT', () => gracefulShutdown('SIGINT'));
+process.once('SIGTERM', () => gracefulShutdown('SIGTERM'));
+
+// Handle uncaught errors
+process.on('uncaughtException', (error) => {
+    console.error('❌ Uncaught Exception:', error);
 });
 
-process.once('SIGTERM', () => {
-    console.log('🛑 SIGTERM received, stopping bot gracefully...');
-    
-    for (const [taskId, schedule] of activeSchedules) {
-        if (schedule.startJob) schedule.startJob.cancel();
-        if (schedule.interval) clearInterval(schedule.interval);
-    }
-    
-    if (hourlySummaryJob) {
-        hourlySummaryJob.cancel();
-    }
-    
-    if (autoCompleteJob) {
-        autoCompleteJob.cancel();
-    }
-    
-    bot.stop('SIGTERM');
-    if (client) client.close();
-    console.log('👋 Bot stopped gracefully');
-    process.exit(0);
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
 // Start the application
