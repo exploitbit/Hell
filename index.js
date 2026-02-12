@@ -4,20 +4,2446 @@ const schedule = require('node-schedule');
 const express = require('express');
 const path = require('path');
 const crypto = require('crypto');
+const fs = require('fs');
 
 // ==========================================
 // ⚙️ CONFIGURATION - DIRECT HARDCODED VALUES
 // ==========================================
 const BOT_TOKEN = '8388773187:AAGeJLg_0U2qj9sg9awJ9aQVdF9klxEiRw4';
 const MONGODB_URI = 'mongodb+srv://sandip:9E9AISFqTfU3VI5i@cluster0.p8irtov.mongodb.net/telegram_bot';
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 const WEB_APP_URL = 'https://web-production-e5ea9.up.railway.app';
+const CHAT_ID = 8469993808; // Your specific user ID - now only sends to you
 
 // Initialize Express app
 const app = express();
+
+// ==========================================
+// 🎨 EXPRESS CONFIGURATION - FIXED
+// ==========================================
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// ✅ CRITICAL FIX: Set up EJS view engine correctly
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+
+// ✅ ADDED: Create views directory if it doesn't exist
+const viewsDir = path.join(__dirname, 'views');
+if (!fs.existsSync(viewsDir)) {
+    fs.mkdirSync(viewsDir, { recursive: true });
+    console.log('📁 Created views directory');
+}
+
+// ✅ ADDED: Create public directory if it doesn't exist
+const publicDir = path.join(__dirname, 'public');
+if (!fs.existsSync(publicDir)) {
+    fs.mkdirSync(publicDir, { recursive: true });
+    console.log('📁 Created public directory');
+}
+
+// ✅ ADDED: Write EJS files to views directory
+function writeEJSFiles() {
+    try {
+        // Tasks.ejs
+        const tasksEJS = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global Task Manager - Tasks</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #4361ee;
+            --primary-light: #4895ef;
+            --secondary: #3f37c9;
+            --success: #4cc9f0;
+            --danger: #f72585;
+            --warning: #f8961e;
+            --info: #4895ef;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --gray: #6c757d;
+            --gray-light: #adb5bd;
+            --border-radius: 12px;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --transition: all 0.3s ease;
+            --pink-bg: rgba(255, 182, 193, 0.1);
+            --blue-bg: rgba(173, 216, 230, 0.15);
+            --blue-bg-hover: rgba(173, 216, 230, 0.25);
+            --completed-bg: rgba(108, 117, 125, 0.1);
+            --completed-text: #6c757d;
+        }
+        
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --primary: #5a6ff0;
+                --primary-light: #6a80f2;
+                --secondary: #4f46e5;
+                --success: #5fd3f0;
+                --danger: #ff2d8e;
+                --warning: #ffa94d;
+                --info: #6a80f2;
+                --light: #121212;
+                --dark: #ffffff;
+                --gray: #94a3b8;
+                --gray-light: #475569;
+                --shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+                --pink-bg: rgba(255, 182, 193, 0.05);
+                --blue-bg: rgba(173, 216, 230, 0.08);
+                --blue-bg-hover: rgba(173, 216, 230, 0.15);
+                --completed-bg: rgba(108, 117, 125, 0.2);
+                --completed-text: #94a3b8;
+            }
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: var(--light);
+            color: var(--dark);
+            transition: var(--transition);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            font-size: 14px;
+        }
+        
+        .header {
+            background-color: var(--light);
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            box-shadow: var(--shadow);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .header-action-btn {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 20px;
+            padding: 8px 16px;
+            cursor: pointer;
+            transition: var(--transition);
+            box-shadow: var(--shadow);
+            gap: 8px;
+            flex: 1;
+            max-width: 120px;
+            margin: 0 4px;
+            text-decoration: none;
+        }
+        
+        .header-action-btn i {
+            font-size: 1rem;
+        }
+        
+        .header-action-btn span {
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .header-action-btn:hover {
+            background: var(--primary-light);
+            transform: translateY(-2px);
+        }
+        
+        .header-action-btn.active {
+            background: var(--secondary);
+            box-shadow: 0 0 0 2px var(--primary-light);
+        }
+        
+        @media (max-width: 768px) {
+            .header {
+                padding: 8px;
+                gap: 4px;
+            }
+            .header-action-btn {
+                width: 100%;
+                max-width: none;
+                padding: 10px;
+                margin: 2px;
+                border-radius: 12px;
+            }
+            .header-action-btn span {
+                display: block;
+                font-size: 0.75rem;
+            }
+            .header-action-btn i {
+                margin-right: 4px;
+                font-size: 0.9rem;
+            }
+        }
+        
+        .fab {
+            position: fixed;
+            width: 60px;
+            height: 60px;
+            background-color: var(--primary);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            transition: var(--transition);
+            z-index: 1000;
+            border: none;
+            bottom: 30px;
+            right: 30px;
+        }
+        
+        .fab:hover {
+            background-color: var(--primary-light);
+            transform: scale(1.1);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+        }
+        
+        @media (max-width: 768px) {
+            .fab {
+                width: 50px;
+                height: 50px;
+                font-size: 1.3rem;
+                bottom: 20px;
+                right: 20px;
+            }
+        }
+        
+        .main-content {
+            flex-grow: 1;
+            padding: 16px;
+            overflow-y: auto;
+            padding-bottom: 100px;
+        }
+        
+        .content-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+        
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--dark);
+        }
+        
+        .global-badge {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .time-header {
+            background-color: var(--blue-bg);
+            padding: 12px;
+            border-radius: var(--border-radius);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .current-time {
+            font-size: 1rem;
+            color: var(--dark);
+        }
+        
+        .current-time i {
+            color: var(--primary);
+            margin-right: 8px;
+        }
+        
+        .bucket-header {
+            display: flex;
+            align-items: center;
+            margin: 24px 0 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--gray-light);
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .bucket-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--dark);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .bucket-count {
+            background-color: var(--primary);
+            color: white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+        }
+        
+        .items-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            width: 100%;
+        }
+        
+        @media (max-width: 1200px) {
+            .items-container {
+                grid-template-columns: repeat(2, 1fr) !important;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .items-container {
+                grid-template-columns: 1fr !important;
+            }
+        }
+        
+        .task-card {
+            background-color: var(--pink-bg);
+            border-radius: var(--border-radius);
+            padding: 16px;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+            animation: slideIn 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            min-height: 140px;
+            position: relative;
+        }
+        
+        .task-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .task-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        
+        .task-title {
+            font-size: 1rem !important;
+            font-weight: 600;
+            color: var(--dark);
+            margin-bottom: 4px;
+            line-height: 1.4 !important;
+        }
+        
+        .task-description {
+            font-size: 0.8rem !important;
+            color: var(--gray);
+            margin-bottom: 12px;
+            line-height: 1.4 !important;
+            flex-grow: 1;
+        }
+        
+        .task-description:empty {
+            display: none !important;
+            margin-bottom: 0 !important;
+        }
+        
+        .task-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .action-btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: var(--transition);
+            font-size: 0.8rem;
+            text-decoration: none;
+        }
+        
+        .action-btn:hover {
+            background-color: var(--primary);
+            transform: scale(1.1);
+        }
+        
+        .action-btn.disabled {
+            background-color: var(--gray-light);
+            cursor: not-allowed;
+            opacity: 0.6;
+            pointer-events: none;
+        }
+        
+        .task-meta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: var(--gray);
+            margin-top: auto;
+            padding-top: 12px;
+        }
+        
+        .repeat-badge {
+            background-color: rgba(67, 97, 238, 0.1);
+            color: var(--primary);
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .duration-badge {
+            background-color: rgba(108, 117, 125, 0.2);
+            color: var(--gray);
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .task-date-range {
+            font-size: 0.75rem;
+            color: var(--gray);
+            margin-right: 8px;
+        }
+        
+        .task-time-range {
+            font-size: 0.75rem;
+            color: var(--gray);
+            font-weight: 500;
+        }
+        
+        .utc-badge {
+            background-color: rgba(67, 97, 238, 0.1);
+            color: var(--primary);
+            padding: 2px 4px;
+            border-radius: 4px;
+            font-size: 0.6rem;
+            font-weight: 600;
+            margin-left: 4px;
+        }
+        
+        .time-remaining-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            display: inline-block;
+            margin-top: 8px;
+        }
+        
+        .time-remaining-badge.upcoming {
+            background-color: rgba(108, 117, 125, 0.2);
+            color: var(--gray);
+        }
+        
+        .time-remaining-badge.starting_soon {
+            background-color: rgba(248, 150, 30, 0.1);
+            color: var(--warning);
+        }
+        
+        .time-remaining-badge.active {
+            background-color: rgba(76, 201, 240, 0.2);
+            color: var(--success);
+        }
+        
+        .time-remaining-badge.due {
+            background-color: rgba(248, 150, 30, 0.1);
+            color: var(--warning);
+        }
+        
+        .time-remaining-badge.overdue {
+            background-color: rgba(247, 37, 133, 0.1);
+            color: var(--danger);
+        }
+        
+        .subtask-number-badge {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background-color: var(--gray-light);
+            color: var(--dark);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: bold;
+            transition: var(--transition);
+        }
+        
+        .subtask-number-badge.completed {
+            background-color: var(--primary);
+            color: white;
+        }
+        
+        .subtask-complete-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            margin-right: 8px;
+        }
+        
+        .edit-subtask-btn, .delete-subtask-btn {
+            background: none;
+            border: none;
+            color: var(--primary);
+            cursor: pointer;
+            font-size: 0.7rem;
+            opacity: 0.7;
+            transition: var(--transition);
+            padding: 2px 4px;
+        }
+        
+        .edit-subtask-btn:hover, .delete-subtask-btn:hover {
+            opacity: 1;
+            transform: scale(1.1);
+        }
+        
+        .delete-subtask-btn {
+            color: var(--danger);
+        }
+        
+        .subtasks-details {
+            margin-top: 12px;
+            border-top: 1px solid var(--gray-light);
+            padding-top: 12px;
+        }
+        
+        .subtasks-details summary {
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: var(--primary);
+            padding: 4px 0;
+            transition: var(--transition);
+        }
+        
+        .subtasks-details summary:hover {
+            color: var(--primary-light);
+        }
+        
+        .subtasks-content {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(0,0,0,0.05);
+        }
+        
+        @media (prefers-color-scheme: dark) {
+            .subtasks-content {
+                border-top-color: rgba(255,255,255,0.05);
+            }
+        }
+        
+        .subtask-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 8px;
+            padding: 8px;
+            background: rgba(0,0,0,0.03);
+            border-radius: 6px;
+        }
+        
+        @media (prefers-color-scheme: dark) {
+            .subtask-item {
+                background: rgba(255,255,255,0.05);
+            }
+        }
+        
+        .subtask-details-container {
+            flex: 1;
+            margin-right: 8px;
+        }
+        
+        .subtask-title {
+            font-size: 0.85rem;
+            color: var(--dark);
+            cursor: pointer;
+        }
+        
+        .subtask-completed {
+            text-decoration: line-through;
+            color: var(--gray);
+        }
+        
+        .subtask-description {
+            font-size: 0.75rem;
+            color: var(--gray);
+            margin-top: 4px;
+            padding-left: 8px;
+            border-left: 2px solid var(--primary-light);
+            line-height: 1.4;
+        }
+        
+        .subtask-actions {
+            display: flex;
+            align-items: center;
+            margin-left: auto;
+        }
+        
+        .progress-display-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        
+        .progress-circle {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: conic-gradient(var(--primary) 0%, var(--gray-light) 0%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            flex-shrink: 0;
+        }
+        
+        .progress-circle::before {
+            content: '';
+            position: absolute;
+            width: 26px;
+            height: 26px;
+            background-color: var(--light);
+            border-radius: 50%;
+        }
+        
+        .progress-text {
+            font-size: 0.75rem;
+            color: var(--gray);
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .modal-content {
+            background-color: var(--light);
+            border-radius: var(--border-radius);
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            animation: scaleIn 0.3s ease;
+            overflow: hidden;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--gray-light);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .modal-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+        
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 1.3rem;
+            color: var(--gray);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        
+        .close-modal:hover {
+            color: var(--danger);
+        }
+        
+        .modal-body {
+            padding: 16px;
+        }
+        
+        .form-group {
+            margin-bottom: 12px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 4px;
+            font-weight: 600;
+            color: var(--dark);
+            font-size: 0.9rem;
+        }
+        
+        .form-input, .form-select, .form-textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--gray-light);
+            border-radius: 6px;
+            background-color: var(--light);
+            color: var(--dark);
+            transition: var(--transition);
+            font-size: 0.9rem;
+        }
+        
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+        }
+        
+        .form-textarea {
+            min-height: 80px;
+            resize: vertical;
+            line-height: 1.4;
+        }
+        
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 16px;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            font-size: 0.9rem;
+        }
+        
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--secondary);
+        }
+        
+        .btn-secondary {
+            background-color: var(--gray-light);
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background-color: var(--gray);
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 32px 16px;
+            color: var(--gray);
+            grid-column: 1 / -1;
+        }
+        
+        .empty-state i {
+            font-size: 2.5rem;
+            margin-bottom: 12px;
+            opacity: 0.5;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes scaleIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .info-message {
+            background-color: var(--blue-bg);
+            border-left: 4px solid var(--primary);
+            padding: 12px;
+            margin-bottom: 16px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="/tasks" class="header-action-btn active">
+            <i class="fas fa-tasks"></i>
+            <span>Tasks</span>
+        </a>
+        <a href="/notes" class="header-action-btn">
+            <i class="fas fa-wand-magic-sparkles"></i>
+            <span>Notes</span>
+        </a>
+        <a href="/history" class="header-action-btn">
+            <i class="fas fa-history"></i>
+            <span>History</span>
+        </a>
+    </div>
+
+    <button class="fab" onclick="openAddTaskModal()" title="Add Task">
+        <i class="fas fa-plus"></i>
+    </button>
+
+    <div class="main-content">
+        <div class="info-message">
+            <i class="fas fa-globe"></i> <strong>Global Mode</strong> - Everyone sees the same tasks and notes
+        </div>
+        
+        <div class="time-header">
+            <span class="current-time">
+                <i class="fas fa-clock"></i>
+                Current UTC Time: <span id="currentTimeDisplay"><%= currentTime %></span> UTC
+            </span>
+            <span class="current-time">
+                <i class="fas fa-calendar"></i>
+                <%= currentDate %> UTC
+            </span>
+        </div>
+
+        <div class="content-header">
+            <h1 class="page-title">Today's Global Tasks</h1>
+        </div>
+
+        <% if (tasks.length === 0 && completedTasks.length === 0) { %>
+            <div class="empty-state">
+                <i class="fas fa-clipboard-list"></i>
+                <p>No tasks for today. Click the + button to add a new global task!</p>
+            </div>
+        <% } else { %>
+            <% if (tasks.length > 0) { %>
+                <div class="bucket-header">
+                    <h2 class="bucket-title">
+                        <i class="fas fa-tasks"></i>
+                        Active Tasks
+                        <span class="bucket-count"><%= tasks.length %></span>
+                    </h2>
+                </div>
+
+                <div class="items-container">
+                    <% tasks.forEach(function(task) { %>
+                        <div class="task-card">
+                            <div class="task-header">
+                                <div style="flex: 1;">
+                                    <h3 class="task-title"><%= task.title %></h3>
+                                    <div>
+                                        <span class="task-date-range"><%= task.dateUTC %></span>
+                                        <span class="task-time-range"><%= task.startTimeUTC %> - <%= task.endTimeUTC %></span>
+                                        <span class="utc-badge">UTC</span>
+                                    </div>
+                                    <span class="time-remaining-badge" id="time-<%= task.taskId %>" 
+                                          data-start="<%= new Date(task.startDate).getTime() %>" 
+                                          data-end="<%= new Date(task.endDate).getTime() %>">
+                                        Calculating...
+                                    </span>
+                                </div>
+                                <div class="task-actions">
+                                    <button class="action-btn" onclick="openAddSubtaskModal('<%= task.taskId %>')" title="Add Subtask">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                    <form method="POST" action="/api/tasks/<%= task.taskId %>/complete" style="display:inline;">
+                                        <button type="submit" class="action-btn" title="Complete Task">
+                                            <i class="fas fa-check"></i>
+                                        </button>
+                                    </form>
+                                    <form method="POST" action="/api/tasks/<%= task.taskId %>/delete" style="display:inline;" onsubmit="return confirm('Delete this global task? Everyone will lose it!')">
+                                        <button type="submit" class="action-btn" title="Delete Task">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+
+                            <% if (task.description) { %>
+                                <p class="task-description"><%= task.description %></p>
+                            <% } %>
+
+                            <% if (task.subtasks && task.subtasks.length > 0) { %>
+                                <% 
+                                    const completedSubtasks = task.subtasks.filter(s => s.completed === true).length;
+                                    const totalSubtasks = task.subtasks.length;
+                                    const progress = totalSubtasks > 0 ? Math.round((completedSubtasks / totalSubtasks) * 100) : 0;
+                                %>
+                                <div class="progress-display-container">
+                                    <div class="progress-circle" style="background: conic-gradient(var(--primary) <%= progress %>%%, var(--gray-light) 0%);">
+                                        <span style="font-size: 0.65rem; z-index: 1; color: var(--dark);"><%= progress %>%</span>
+                                    </div>
+                                    <div class="progress-text">
+                                        <%= completedSubtasks %> of <%= totalSubtasks %> subtasks completed
+                                    </div>
+                                </div>
+
+                                <details class="subtasks-details">
+                                    <summary>
+                                        <i class="fas fa-tasks"></i>
+                                        Subtasks (<%= completedSubtasks %>/<%= totalSubtasks %>)
+                                    </summary>
+                                    <div class="subtasks-content">
+                                        <% task.subtasks.sort((a, b) => (a.completed === b.completed ? 0 : a.completed ? 1 : -1)).forEach(function(subtask, index) { %>
+                                            <div class="subtask-item">
+                                                <form method="POST" action="/api/tasks/<%= task.taskId %>/subtasks/<%= subtask.id %>/toggle" style="display:inline;">
+                                                    <button type="submit" class="subtask-complete-btn">
+                                                        <span class="subtask-number-badge <%= subtask.completed ? 'completed' : '' %>">
+                                                            <%= index + 1 %>
+                                                        </span>
+                                                    </button>
+                                                </form>
+                                                <div class="subtask-details-container">
+                                                    <div class="subtask-title <%= subtask.completed ? 'subtask-completed' : '' %>">
+                                                        <%= subtask.title %>
+                                                    </div>
+                                                    <% if (subtask.description) { %>
+                                                        <div class="subtask-description"><%= subtask.description %></div>
+                                                    <% } %>
+                                                </div>
+                                                <div class="subtask-actions">
+                                                    <form method="POST" action="/api/tasks/<%= task.taskId %>/subtasks/<%= subtask.id %>/delete" style="display:inline;" onsubmit="return confirm('Delete this subtask?')">
+                                                        <button type="submit" class="delete-subtask-btn" title="Delete Subtask">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        <% }); %>
+                                    </div>
+                                </details>
+                            <% } else { %>
+                                <div style="margin-top: 10px;">
+                                    <button class="action-btn" onclick="openAddSubtaskModal('<%= task.taskId %>')" style="border-radius: 20px; width: auto; padding: 0 12px;">
+                                        <i class="fas fa-plus"></i> Add Subtask
+                                    </button>
+                                </div>
+                            <% } %>
+
+                            <div class="task-meta">
+                                <span class="repeat-badge">
+                                    <i class="fas fa-repeat"></i>
+                                    <%= task.repeat && task.repeat !== 'none' ? (task.repeat === 'daily' ? 'Daily' : 'Weekly') : 'No Repeat' %>
+                                    <% if (task.repeatCount && task.repeatCount > 0) { %>(<%= task.repeatCount %> left)<% } %>
+                                </span>
+                                <span class="duration-badge">
+                                    <i class="fas fa-hourglass-half"></i>
+                                    <%= task.durationFormatted || task.duration + ' min' || '30 min' %>
+                                </span>
+                            </div>
+                        </div>
+                    <% }); %>
+                </div>
+            <% } %>
+
+            <% if (completedTasks.length > 0) { %>
+                <div class="bucket-header" style="margin-top: 40px;">
+                    <h2 class="bucket-title">
+                        <i class="fas fa-check-circle"></i>
+                        Completed Today
+                        <span class="bucket-count"><%= completedTasks.length %></span>
+                    </h2>
+                </div>
+
+                <div class="items-container">
+                    <% completedTasks.forEach(function(task) { %>
+                        <div class="task-card" style="opacity: 0.8; background-color: var(--completed-bg);">
+                            <div class="task-header">
+                                <div style="flex: 1;">
+                                    <h3 class="task-title" style="color: var(--completed-text);"><%= task.title %></h3>
+                                    <div>
+                                        <span class="task-date-range"><%= task.dateUTC %></span>
+                                        <span class="task-time-range">Completed at <%= task.completedTimeUTC %> UTC</span>
+                                        <span class="utc-badge">UTC</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <% if (task.description) { %>
+                                <p class="task-description" style="color: var(--completed-text);"><%= task.description %></p>
+                            <% } %>
+                            <div class="task-meta" style="margin-top: 8px;">
+                                <span style="color: var(--completed-text);">
+                                    <i class="fas fa-check-circle"></i> Completed
+                                </span>
+                                <% if (task.autoCompleted) { %>
+                                    <span style="color: var(--completed-text);">
+                                        <i class="fas fa-robot"></i> Auto-completed
+                                    </span>
+                                <% } %>
+                            </div>
+                        </div>
+                    <% }); %>
+                </div>
+            <% } %>
+        <% } %>
+    </div>
+
+    <!-- Add Task Modal - BOT STYLE FIELDS -->
+    <div class="modal" id="addTaskModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Add New Global Task</h2>
+                <button type="button" class="close-modal" onclick="closeAddTaskModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form method="POST" action="/api/tasks">
+                    <div class="form-group">
+                        <label class="form-label">Title * (Max 100 chars)</label>
+                        <input type="text" class="form-input" name="title" required placeholder="Enter task title" maxlength="100">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Description (Max 100 words)</label>
+                        <textarea class="form-textarea" name="description" placeholder="Enter task description, or '-' for none"></textarea>
+                        <small style="color: var(--gray); font-size: 0.75rem;">Enter '-' if no description</small>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Start Date (UTC)</label>
+                        <input type="date" class="form-input" name="startDate" id="startDate" required>
+                        <small style="color: var(--gray); font-size: 0.75rem;">Format: YYYY-MM-DD (UTC)</small>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Start Time (UTC)</label>
+                        <input type="time" class="form-input" name="startTime" id="startTime" required>
+                        <small style="color: var(--gray); font-size: 0.75rem;">Format: HH:MM (24-hour UTC)</small>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Duration (minutes) or End Time</label>
+                        <input type="text" class="form-input" name="duration" id="duration" value="30" placeholder="e.g., 30 or 16:30" required>
+                        <small style="color: var(--gray); font-size: 0.75rem;">Enter minutes (15-1440) OR end time in HH:MM format</small>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Repeat</label>
+                        <select class="form-select" name="repeat" id="repeatSelect">
+                            <option value="none">No Repeat</option>
+                            <option value="daily">Daily</option>
+                            <option value="weekly">Weekly</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="repeatCountGroup" style="display: none;">
+                        <label class="form-label">Repeat Count (1-365)</label>
+                        <input type="number" class="form-input" name="repeatCount" value="10" min="1" max="365">
+                        <small style="color: var(--gray); font-size: 0.75rem;">Number of times to repeat</small>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closeAddTaskModal()">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Create Task</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Subtask Modal -->
+    <div class="modal" id="addSubtaskModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Add Subtask</h2>
+                <button type="button" class="close-modal" onclick="closeAddSubtaskModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form method="POST" action="" id="addSubtaskForm">
+                    <div class="form-group">
+                        <label class="form-label">Subtask Title * (Max 100 chars)</label>
+                        <input type="text" class="form-input" name="title" required placeholder="Enter subtask title" maxlength="100">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-textarea" name="description" placeholder="Optional description"></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closeAddSubtaskModal()">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Add Subtask</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Set default date and time to today/now UTC
+        document.addEventListener('DOMContentLoaded', function() {
+            const now = new Date();
+            const year = now.getUTCFullYear();
+            const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+            const day = String(now.getUTCDate()).padStart(2, '0');
+            const today = \`\${year}-\${month}-\${day}\`;
+            const hours = String(now.getUTCHours()).padStart(2, '0');
+            const minutes = String(now.getUTCMinutes()).padStart(2, '0');
+            const currentTime = \`\${hours}:\${minutes}\`;
+            
+            const startDateInput = document.getElementById('startDate');
+            const startTimeInput = document.getElementById('startTime');
+            
+            if (startDateInput) startDateInput.value = today;
+            if (startTimeInput) startTimeInput.value = currentTime;
+            
+            // Repeat select toggle
+            const repeatSelect = document.getElementById('repeatSelect');
+            const repeatCountGroup = document.getElementById('repeatCountGroup');
+            
+            if (repeatSelect && repeatCountGroup) {
+                repeatSelect.addEventListener('change', function() {
+                    repeatCountGroup.style.display = this.value === 'none' ? 'none' : 'block';
+                });
+            }
+            
+            updateAllTimeRemaining();
+            setInterval(updateAllTimeRemaining, 60000);
+        });
+
+        function updateAllTimeRemaining() {
+            document.querySelectorAll('[id^="time-"]').forEach(el => {
+                const startTime = parseInt(el.dataset.start);
+                const endTime = parseInt(el.dataset.end);
+                const now = Date.now();
+                
+                let text = '';
+                let className = '';
+                
+                if (now < startTime) {
+                    const minutesLeft = Math.ceil((startTime - now) / 60000);
+                    if (minutesLeft > 120) {
+                        text = 'Upcoming';
+                        className = 'upcoming';
+                    } else {
+                        text = \`Starts in \${minutesLeft}m\`;
+                        className = 'starting_soon';
+                    }
+                } else if (now >= startTime && now <= endTime) {
+                    const minutesLeft = Math.ceil((endTime - now) / 60000);
+                    text = \`\${minutesLeft}m left\`;
+                    className = 'active';
+                } else if (now > endTime) {
+                    const minutesOver = Math.ceil((now - endTime) / 60000);
+                    if (minutesOver < 120) {
+                        text = \`Due \${minutesOver}m ago\`;
+                        className = 'due';
+                    } else {
+                        text = 'Overdue';
+                        className = 'overdue';
+                    }
+                }
+                
+                el.textContent = text;
+                el.className = 'time-remaining-badge ' + className;
+            });
+        }
+
+        function openAddTaskModal() {
+            document.getElementById('addTaskModal').style.display = 'flex';
+        }
+
+        function closeAddTaskModal() {
+            document.getElementById('addTaskModal').style.display = 'none';
+        }
+
+        function openAddSubtaskModal(taskId) {
+            const form = document.getElementById('addSubtaskForm');
+            form.action = \`/api/tasks/\${taskId}/subtasks\`;
+            document.getElementById('addSubtaskModal').style.display = 'flex';
+        }
+
+        function closeAddSubtaskModal() {
+            document.getElementById('addSubtaskModal').style.display = 'none';
+            document.getElementById('addSubtaskForm').reset();
+        }
+
+        window.addEventListener('click', function(event) {
+            const modals = document.querySelectorAll('.modal');
+            modals.forEach(modal => {
+                if (event.target === modal) {
+                    modal.style.display = 'none';
+                    if (modal.id === 'addSubtaskModal') {
+                        document.getElementById('addSubtaskForm').reset();
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>`;
+        fs.writeFileSync(path.join(viewsDir, 'tasks.ejs'), tasksEJS);
+        
+        // Notes.ejs
+        const notesEJS = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global Task Manager - Notes</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #4361ee;
+            --primary-light: #4895ef;
+            --secondary: #3f37c9;
+            --success: #4cc9f0;
+            --danger: #f72585;
+            --warning: #f8961e;
+            --info: #4895ef;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --gray: #6c757d;
+            --gray-light: #adb5bd;
+            --border-radius: 12px;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --transition: all 0.3s ease;
+            --note-bg: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            --note-shadow: 0 8px 32px rgba(31, 38, 135, 0.1);
+        }
+        
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --primary: #5a6ff0;
+                --primary-light: #6a80f2;
+                --secondary: #4f46e5;
+                --success: #5fd3f0;
+                --danger: #ff2d8e;
+                --warning: #ffa94d;
+                --info: #6a80f2;
+                --light: #121212;
+                --dark: #ffffff;
+                --gray: #94a3b8;
+                --gray-light: #475569;
+                --shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+                --note-bg: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                --note-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            }
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: var(--light);
+            color: var(--dark);
+            transition: var(--transition);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            font-size: 14px;
+        }
+        
+        .header {
+            background-color: var(--light);
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            box-shadow: var(--shadow);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .header-action-btn {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 20px;
+            padding: 8px 16px;
+            cursor: pointer;
+            transition: var(--transition);
+            box-shadow: var(--shadow);
+            gap: 8px;
+            flex: 1;
+            max-width: 120px;
+            margin: 0 4px;
+            text-decoration: none;
+        }
+        
+        .header-action-btn i {
+            font-size: 1rem;
+        }
+        
+        .header-action-btn span {
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .header-action-btn:hover {
+            background: var(--primary-light);
+            transform: translateY(-2px);
+        }
+        
+        .header-action-btn.active {
+            background: var(--secondary);
+            box-shadow: 0 0 0 2px var(--primary-light);
+        }
+        
+        @media (max-width: 768px) {
+            .header {
+                padding: 8px;
+                gap: 4px;
+            }
+            .header-action-btn {
+                width: 100%;
+                max-width: none;
+                padding: 10px;
+                margin: 2px;
+                border-radius: 12px;
+            }
+            .header-action-btn span {
+                display: block;
+                font-size: 0.75rem;
+            }
+            .header-action-btn i {
+                margin-right: 4px;
+                font-size: 0.9rem;
+            }
+        }
+        
+        .fab {
+            position: fixed;
+            width: 60px;
+            height: 60px;
+            background-color: var(--primary);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            transition: var(--transition);
+            z-index: 1000;
+            border: none;
+            bottom: 30px;
+            right: 30px;
+        }
+        
+        .fab:hover {
+            background-color: var(--primary-light);
+            transform: scale(1.1);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+        }
+        
+        @media (max-width: 768px) {
+            .fab {
+                width: 50px;
+                height: 50px;
+                font-size: 1.3rem;
+                bottom: 20px;
+                right: 20px;
+            }
+        }
+        
+        .main-content {
+            flex-grow: 1;
+            padding: 16px;
+            overflow-y: auto;
+            padding-bottom: 100px;
+        }
+        
+        .content-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+        
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--dark);
+        }
+        
+        .global-badge {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .info-message {
+            background-color: rgba(67, 97, 238, 0.1);
+            border-left: 4px solid var(--primary);
+            padding: 12px;
+            margin-bottom: 16px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+        }
+        
+        .notes-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 16px;
+        }
+        
+        .note-card {
+            background: var(--note-bg);
+            border-radius: var(--border-radius);
+            padding: 0;
+            box-shadow: var(--note-shadow);
+            transition: var(--transition);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            overflow: hidden;
+        }
+        
+        .note-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+        }
+        
+        .note-details {
+            width: 100%;
+        }
+        
+        .note-summary {
+            list-style: none;
+            padding: 16px;
+            cursor: pointer;
+        }
+        
+        .note-summary::-webkit-details-marker {
+            display: none;
+        }
+        
+        .note-header {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+        
+        .note-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 4px;
+            line-height: 1.3;
+        }
+        
+        .note-date {
+            font-size: 0.75rem;
+            color: var(--gray);
+            font-weight: 500;
+        }
+        
+        .utc-badge {
+            background-color: rgba(67, 97, 238, 0.1);
+            color: var(--primary);
+            padding: 2px 4px;
+            border-radius: 4px;
+            font-size: 0.6rem;
+            font-weight: 600;
+            margin-left: 4px;
+        }
+        
+        .note-content {
+            padding: 0 16px 16px 16px;
+            border-top: 1px solid rgba(0,0,0,0.05);
+            margin-top: 8px;
+        }
+        
+        @media (prefers-color-scheme: dark) {
+            .note-content {
+                border-top-color: rgba(255,255,255,0.05);
+            }
+        }
+        
+        .note-description {
+            font-size: 0.9rem;
+            color: var(--dark);
+            line-height: 1.6;
+            margin-bottom: 16px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .note-description strong {
+            font-weight: 700;
+            color: var(--primary);
+        }
+        
+        .note-description em {
+            font-style: italic;
+            color: var(--secondary);
+        }
+        
+        .note-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: auto;
+            padding-top: 12px;
+            border-top: 1px solid rgba(0,0,0,0.05);
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
+        @media (prefers-color-scheme: dark) {
+            .note-footer {
+                border-top-color: rgba(255,255,255,0.05);
+            }
+        }
+        
+        .note-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .note-date-badge {
+            background: rgba(67, 97, 238, 0.1);
+            color: var(--primary);
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 500;
+        }
+        
+        .note-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .note-action-btn, .note-move-btn {
+            background: none;
+            border: none;
+            color: var(--primary);
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: var(--transition);
+            opacity: 0.7;
+            padding: 4px;
+            border-radius: 4px;
+        }
+        
+        .note-action-btn:hover, .note-move-btn:hover {
+            opacity: 1;
+            transform: scale(1.1);
+            background: rgba(67, 97, 238, 0.1);
+        }
+        
+        .note-action-btn.delete {
+            color: var(--danger);
+        }
+        
+        .note-action-btn.delete:hover {
+            background: rgba(247, 37, 133, 0.1);
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 32px 16px;
+            color: var(--gray);
+            grid-column: 1 / -1;
+        }
+        
+        .empty-state i {
+            font-size: 2.5rem;
+            margin-bottom: 12px;
+            opacity: 0.5;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .modal-content {
+            background-color: var(--light);
+            border-radius: var(--border-radius);
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            animation: scaleIn 0.3s ease;
+            overflow: hidden;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--gray-light);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .modal-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+        
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 1.3rem;
+            color: var(--gray);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        
+        .close-modal:hover {
+            color: var(--danger);
+        }
+        
+        .modal-body {
+            padding: 16px;
+        }
+        
+        .form-group {
+            margin-bottom: 12px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 4px;
+            font-weight: 600;
+            color: var(--dark);
+            font-size: 0.9rem;
+        }
+        
+        .form-input, .form-textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--gray-light);
+            border-radius: 6px;
+            background-color: var(--light);
+            color: var(--dark);
+            transition: var(--transition);
+            font-size: 0.9rem;
+        }
+        
+        .form-input:focus, .form-textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+        }
+        
+        .form-textarea {
+            min-height: 120px;
+            resize: vertical;
+            line-height: 1.4;
+        }
+        
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 16px;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            font-size: 0.9rem;
+        }
+        
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--secondary);
+        }
+        
+        .btn-secondary {
+            background-color: var(--gray-light);
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background-color: var(--gray);
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes scaleIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="/tasks" class="header-action-btn">
+            <i class="fas fa-tasks"></i>
+            <span>Tasks</span>
+        </a>
+        <a href="/notes" class="header-action-btn active">
+            <i class="fas fa-wand-magic-sparkles"></i>
+            <span>Notes</span>
+        </a>
+        <a href="/history" class="header-action-btn">
+            <i class="fas fa-history"></i>
+            <span>History</span>
+        </a>
+    </div>
+
+    <button class="fab" onclick="openAddNoteModal()" title="Add Note">
+        <i class="fas fa-plus"></i>
+    </button>
+
+    <div class="main-content">
+        <div class="info-message">
+            <i class="fas fa-globe"></i> <strong>Global Mode</strong> - Everyone sees the same notes
+        </div>
+        
+        <div class="content-header">
+            <h1 class="page-title">Global Notes</h1>
+        </div>
+
+        <div class="notes-container">
+            <% if (notes.length === 0) { %>
+                <div class="empty-state">
+                    <i class="fas fa-wand-magic-sparkles"></i>
+                    <p>No notes yet. Click the + button to add your first global note!</p>
+                </div>
+            <% } else { %>
+                <% notes.forEach(function(note) { %>
+                    <div class="note-card">
+                        <details class="note-details" <%= notes.indexOf(note) === 0 ? 'open' : '' %>>
+                            <summary class="note-summary">
+                                <div class="note-header">
+                                    <h3 class="note-title"><%= note.title %></h3>
+                                    <div class="note-date">
+                                        <i class="fas fa-clock"></i>
+                                        <%= note.updatedAtUTC || note.createdAtUTC %> UTC
+                                    </div>
+                                </div>
+                            </summary>
+                            <div class="note-content">
+                                <% if (note.description) { %>
+                                    <div class="note-description"><%- note.description.replace(/\\n/g, '<br>') %></div>
+                                <% } else { %>
+                                    <div class="note-description" style="color: var(--gray); font-style: italic;">Empty note</div>
+                                <% } %>
+                                <div class="note-footer">
+                                    <div class="note-meta">
+                                        <span class="note-date-badge">
+                                            <i class="fas fa-calendar"></i>
+                                            Created: <%= note.createdAtUTC %> UTC
+                                        </span>
+                                    </div>
+                                    <div class="note-actions">
+                                        <form method="POST" action="/api/notes/<%= note.noteId %>/move" style="display:inline;">
+                                            <input type="hidden" name="direction" value="up">
+                                            <button type="submit" class="note-move-btn" title="Move Up">
+                                                <i class="fas fa-arrow-up"></i>
+                                            </button>
+                                        </form>
+                                        <form method="POST" action="/api/notes/<%= note.noteId %>/move" style="display:inline;">
+                                            <input type="hidden" name="direction" value="down">
+                                            <button type="submit" class="note-move-btn" title="Move Down">
+                                                <i class="fas fa-arrow-down"></i>
+                                            </button>
+                                        </form>
+                                        <button class="note-action-btn" onclick='openEditNoteModal("<%= note.noteId %>", <%= JSON.stringify(note.title) %>, <%= JSON.stringify(note.description || "") %>)' title="Edit Note">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <form method="POST" action="/api/notes/<%= note.noteId %>/delete" style="display:inline;" onsubmit="return confirm('Delete this global note? Everyone will lose it!')">
+                                            <button type="submit" class="note-action-btn delete" title="Delete Note">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </details>
+                    </div>
+                <% }); %>
+            <% } %>
+        </div>
+    </div>
+
+    <!-- Add Note Modal - BOT STYLE -->
+    <div class="modal" id="addNoteModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Add New Global Note</h2>
+                <button type="button" class="close-modal" onclick="closeAddNoteModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form method="POST" action="/api/notes">
+                    <div class="form-group">
+                        <label class="form-label">Title * (Max 200 chars)</label>
+                        <input type="text" class="form-input" name="title" required placeholder="Enter note title" maxlength="200">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Content (Max 400 words)</label>
+                        <textarea class="form-textarea" name="description" placeholder="Enter note content, or '-' for none"></textarea>
+                        <small style="color: var(--gray); font-size: 0.75rem;">Enter '-' if no content</small>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closeAddNoteModal()">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Note</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Note Modal -->
+    <div class="modal" id="editNoteModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Edit Global Note</h2>
+                <button type="button" class="close-modal" onclick="closeEditNoteModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form method="POST" action="" id="editNoteForm">
+                    <div class="form-group">
+                        <label class="form-label">Title * (Max 200 chars)</label>
+                        <input type="text" class="form-input" name="title" id="editNoteTitle" required maxlength="200">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Content (Max 400 words)</label>
+                        <textarea class="form-textarea" name="description" id="editNoteDescription" placeholder="Enter '-' for empty"></textarea>
+                        <small style="color: var(--gray); font-size: 0.75rem;">Enter '-' if no content</small>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closeEditNoteModal()">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Update Note</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function openAddNoteModal() {
+            document.getElementById('addNoteModal').style.display = 'flex';
+        }
+
+        function closeAddNoteModal() {
+            document.getElementById('addNoteModal').style.display = 'none';
+            document.getElementById('addNoteModal').querySelector('form').reset();
+        }
+
+        function openEditNoteModal(noteId, title, description) {
+            document.getElementById('editNoteForm').action = \`/api/notes/\${noteId}/update\`;
+            document.getElementById('editNoteTitle').value = title;
+            document.getElementById('editNoteDescription').value = description;
+            document.getElementById('editNoteModal').style.display = 'flex';
+        }
+
+        function closeEditNoteModal() {
+            document.getElementById('editNoteModal').style.display = 'none';
+            document.getElementById('editNoteForm').reset();
+        }
+
+        window.addEventListener('click', function(event) {
+            const modals = document.querySelectorAll('.modal');
+            modals.forEach(modal => {
+                if (event.target === modal) {
+                    modal.style.display = 'none';
+                    if (modal.id === 'addNoteModal') {
+                        modal.querySelector('form').reset();
+                    }
+                    if (modal.id === 'editNoteModal') {
+                        modal.querySelector('form').reset();
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>`;
+        fs.writeFileSync(path.join(viewsDir, 'notes.ejs'), notesEJS);
+        
+        // History.ejs
+        const historyEJS = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global Task Manager - History</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #4361ee;
+            --primary-light: #4895ef;
+            --secondary: #3f37c9;
+            --success: #4cc9f0;
+            --danger: #f72585;
+            --warning: #f8961e;
+            --info: #4895ef;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --gray: #6c757d;
+            --gray-light: #adb5bd;
+            --border-radius: 12px;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --transition: all 0.3s ease;
+            --blue-bg: rgba(173, 216, 230, 0.15);
+            --blue-bg-hover: rgba(173, 216, 230, 0.25);
+        }
+        
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --primary: #5a6ff0;
+                --primary-light: #6a80f2;
+                --secondary: #4f46e5;
+                --success: #5fd3f0;
+                --danger: #ff2d8e;
+                --warning: #ffa94d;
+                --info: #6a80f2;
+                --light: #121212;
+                --dark: #ffffff;
+                --gray: #94a3b8;
+                --gray-light: #475569;
+                --shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+                --blue-bg: rgba(173, 216, 230, 0.08);
+                --blue-bg-hover: rgba(173, 216, 230, 0.15);
+            }
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: var(--light);
+            color: var(--dark);
+            transition: var(--transition);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            font-size: 14px;
+        }
+        
+        .header {
+            background-color: var(--light);
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            box-shadow: var(--shadow);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .header-action-btn {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 20px;
+            padding: 8px 16px;
+            cursor: pointer;
+            transition: var(--transition);
+            box-shadow: var(--shadow);
+            gap: 8px;
+            flex: 1;
+            max-width: 120px;
+            margin: 0 4px;
+            text-decoration: none;
+        }
+        
+        .header-action-btn i {
+            font-size: 1rem;
+        }
+        
+        .header-action-btn span {
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .header-action-btn:hover {
+            background: var(--primary-light);
+            transform: translateY(-2px);
+        }
+        
+        .header-action-btn.active {
+            background: var(--secondary);
+            box-shadow: 0 0 0 2px var(--primary-light);
+        }
+        
+        @media (max-width: 768px) {
+            .header {
+                padding: 8px;
+                gap: 4px;
+            }
+            .header-action-btn {
+                width: 100%;
+                max-width: none;
+                padding: 10px;
+                margin: 2px;
+                border-radius: 12px;
+            }
+            .header-action-btn span {
+                display: block;
+                font-size: 0.75rem;
+            }
+            .header-action-btn i {
+                margin-right: 4px;
+                font-size: 0.9rem;
+            }
+        }
+        
+        .main-content {
+            flex-grow: 1;
+            padding: 16px;
+            overflow-y: auto;
+            padding-bottom: 100px;
+        }
+        
+        .content-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+        
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--dark);
+        }
+        
+        .global-badge {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .info-message {
+            background-color: rgba(67, 97, 238, 0.1);
+            border-left: 4px solid var(--primary);
+            padding: 12px;
+            margin-bottom: 16px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+        }
+        
+        .history-date-group {
+            margin-bottom: 15px;
+        }
+        
+        .history-date-details {
+            border-radius: var(--border-radius);
+        }
+        
+        .history-date-summary {
+            padding: 12px 16px;
+            background-color: var(--blue-bg);
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: var(--transition);
+            border: 1px solid transparent;
+            list-style: none;
+        }
+        
+        .history-date-summary:hover {
+            background-color: var(--blue-bg-hover);
+            border-color: var(--primary-light);
+        }
+        
+        .history-date-summary::-webkit-details-marker {
+            display: none;
+        }
+        
+        .history-date-content {
+            padding: 15px 0 0 0;
+        }
+        
+        .history-items-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin: 10px 0;
+        }
+        
+        @media (max-width: 1200px) {
+            .history-items-container {
+                grid-template-columns: repeat(2, 1fr) !important;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .history-items-container {
+                grid-template-columns: 1fr !important;
+            }
+        }
+        
+        .history-card {
+            background-color: var(--blue-bg);
+            border-radius: var(--border-radius);
+            padding: 16px;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+            border: 1px solid rgba(0,0,0,0.05);
+            border-left: 4px solid var(--success);
+        }
+        
+        .history-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .history-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+        
+        .history-card-title {
+            font-weight: 600;
+            color: var(--dark);
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+        }
+        
+        .history-card-title i {
+            color: var(--primary);
+            font-size: 0.9rem;
+        }
+        
+        .history-card-time {
+            font-size: 0.75rem;
+            color: var(--gray);
+            background: rgba(0,0,0,0.05);
+            padding: 3px 8px;
+            border-radius: 12px;
+            white-space: nowrap;
+            margin-left: 10px;
+        }
+        
+        .utc-badge {
+            background-color: rgba(67, 97, 238, 0.1);
+            color: var(--primary);
+            padding: 2px 4px;
+            border-radius: 4px;
+            font-size: 0.6rem;
+            font-weight: 600;
+            margin-left: 4px;
+        }
+        
+        @media (prefers-color-scheme: dark) {
+            .history-card-time {
+                background: rgba(255,255,255,0.1);
+            }
+        }
+        
+        .history-card-description {
+            font-size: 0.8rem;
+            color: var(--gray);
+            margin-bottom: 12px;
+            line-height: 1.4;
+        }
+        
+        .history-card-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        
+        .history-meta-item {
+            background: rgba(0,0,0,0.05);
+            color: var(--gray);
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        
+        @media (prefers-color-scheme: dark) {
+            .history-meta-item {
+                background: rgba(255,255,255,0.1);
+            }
+        }
+        
+        .history-subitems {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(0,0,0,0.1);
+        }
+        
+        @media (prefers-color-scheme: dark) {
+            .history-subitems {
+                border-top-color: rgba(255,255,255,0.1);
+            }
+        }
+        
+        .history-stage-item {
+            font-size: 0.8rem;
+            color: var(--gray);
+            margin-bottom: 8px;
+            padding: 8px;
+            background: rgba(0,0,0,0.03);
+            border-radius: 6px;
+        }
+        
+        @media (prefers-color-scheme: dark) {
+            .history-stage-item {
+                background: rgba(255,255,255,0.05);
+            }
+        }
+        
+        .history-stage-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+        
+        .history-stage-title {
+            font-weight: 600;
+            color: var(--dark);
+            flex: 1;
+            font-size: 0.85rem;
+        }
+        
+        .history-stage-description {
+            font-size: 0.75rem;
+            color: var(--gray);
+            margin-top: 4px;
+            padding-left: 8px;
+            border-left: 2px solid var(--success);
+            line-height: 1.4;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 32px 16px;
+            color: var(--gray);
+        }
+        
+        .empty-state i {
+            font-size: 2.5rem;
+            margin-bottom: 12px;
+            opacity: 0.5;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="/tasks" class="header-action-btn">
+            <i class="fas fa-tasks"></i>
+            <span>Tasks</span>
+        </a>
+        <a href="/notes" class="header-action-btn">
+            <i class="fas fa-wand-magic-sparkles"></i>
+            <span>Notes</span>
+        </a>
+        <a href="/history" class="header-action-btn active">
+            <i class="fas fa-history"></i>
+            <span>History</span>
+        </a>
+    </div>
+
+    <div class="main-content">
+        <div class="info-message">
+            <i class="fas fa-globe"></i> <strong>Global Mode</strong> - Everyone sees the same history
+        </div>
+        
+        <div class="content-header">
+            <h1 class="page-title">Global Task History</h1>
+        </div>
+
+        <% if (Object.keys(groupedHistory).length === 0) { %>
+            <div class="empty-state">
+                <i class="fas fa-history"></i>
+                <p>No completed tasks yet. Complete some global tasks to see them here!</p>
+            </div>
+        <% } else { %>
+            <% 
+                const sortedDates = Object.keys(groupedHistory).sort().reverse(); 
+            %>
+            <% sortedDates.forEach(function(date, index) { %>
+                <div class="history-date-group">
+                    <details class="history-date-details" <%= index === 0 ? 'open' : '' %>>
+                        <summary class="history-date-summary">
+                            <i class="fas fa-calendar"></i>
+                            <%= date %> UTC
+                            <span style="margin-left: auto; font-size: 0.8rem; color: var(--gray);">
+                                <%= groupedHistory[date].length %> global task<%= groupedHistory[date].length !== 1 ? 's' : '' %>
+                            </span>
+                        </summary>
+                        <div class="history-date-content">
+                            <div class="history-items-container">
+                                <% groupedHistory[date].forEach(function(task) { %>
+                                    <div class="history-card">
+                                        <div class="history-card-header">
+                                            <div class="history-card-title">
+                                                <i class="fas fa-check-circle"></i>
+                                                <%= task.title %>
+                                            </div>
+                                            <div class="history-card-time">
+                                                <i class="fas fa-clock"></i> <%= task.completedTimeUTC %> UTC
+                                            </div>
+                                        </div>
+                                        
+                                        <% if (task.description) { %>
+                                            <div class="history-card-description"><%= task.description %></div>
+                                        <% } %>
+                                        
+                                        <div class="history-card-meta">
+                                            <% if (task.repeat && task.repeat !== 'none') { %>
+                                                <span class="history-meta-item">
+                                                    <i class="fas fa-repeat"></i> <%= task.repeat === 'daily' ? 'Daily' : 'Weekly' %>
+                                                    <% if (task.repeatCount) { %>(<%= task.repeatCount %>)<% } %>
+                                                </span>
+                                            <% } %>
+                                            <span class="history-meta-item">
+                                                <i class="fas fa-hourglass-half"></i> 
+                                                <%= task.durationFormatted || (task.endDate && task.startDate ? Math.round((new Date(task.endDate) - new Date(task.startDate)) / 60000) + ' min' : '30 min') %>
+                                            </span>
+                                            <% if (task.autoCompleted) { %>
+                                                <span class="history-meta-item">
+                                                    <i class="fas fa-robot"></i> Auto
+                                                </span>
+                                            <% } %>
+                                            <span class="history-meta-item">
+                                                <i class="fas fa-globe"></i> Global
+                                            </span>
+                                        </div>
+                                        
+                                        <% if (task.subtasks && task.subtasks.length > 0) { %>
+                                            <div class="history-subitems">
+                                                <div style="font-size: 0.8rem; font-weight: 600; margin-bottom: 8px; color: var(--dark);">
+                                                    <i class="fas fa-tasks"></i> Subtasks (<%= task.subtasks.filter(s => s.completed).length %>/<%= task.subtasks.length %>)
+                                                </div>
+                                                <% task.subtasks.forEach(function(subtask) { %>
+                                                    <div class="history-stage-item">
+                                                        <div class="history-stage-header">
+                                                            <span style="<%= subtask.completed ? 'color: var(--success);' : 'color: var(--gray);' %>">
+                                                                <%= subtask.completed ? '✅' : '⭕' %>
+                                                            </span>
+                                                            <span class="history-stage-title <%= subtask.completed ? '' : '' %>">
+                                                                <%= subtask.title %>
+                                                            </span>
+                                                        </div>
+                                                        <% if (subtask.description) { %>
+                                                            <div class="history-stage-description"><%= subtask.description %></div>
+                                                        <% } %>
+                                                    </div>
+                                                <% }); %>
+                                            </div>
+                                        <% } %>
+                                    </div>
+                                <% }); %>
+                            </div>
+                        </div>
+                    </details>
+                </div>
+            <% }); %>
+        <% } %>
+    </div>
+</body>
+</html>`;
+        fs.writeFileSync(path.join(viewsDir, 'history.ejs'), historyEJS);
+        
+        console.log('✅ EJS template files created successfully');
+    } catch (error) {
+        console.error('❌ Error writing EJS files:', error.message);
+    }
+}
+
+// Write EJS files on startup
+writeEJSFiles();
 
 // ==========================================
 // 🗄️ DATABASE CONNECTION - GLOBAL NO USER ID
@@ -70,18 +2496,14 @@ async function connectDB() {
     return false;
 }
 
-// Set view engine
-app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'views'));
-
-// Telegram Bot
-const bot = new Telegraf(BOT_TOKEN);
-
-// Map to store active jobs: key = taskId, value = { startJob, interval }
-const activeSchedules = new Map();
-let hourlySummaryJob = null;
-let autoCompleteJob = null;
-let isShuttingDown = false;
+// ✅ ADDED: Health check endpoint
+app.get('/health', (req, res) => {
+    res.status(200).json({ 
+        status: 'OK', 
+        time: new Date().toISOString(),
+        uptime: process.uptime()
+    });
+});
 
 // ==========================================
 // 🛠️ UTC UTILITY FUNCTIONS - NO TIMEZONE
@@ -210,7 +2632,7 @@ function scheduleTask(task) {
                     
                     if (currentTime >= startTime) {
                         try {
-                            await bot.telegram.sendMessage(-1001234567890, 
+                            await bot.telegram.sendMessage(CHAT_ID, 
                                 `🚀 <b>𝙏𝘼𝙎𝙆 𝙎𝙏𝘼𝙍𝙏𝙀𝘿 𝙉𝙊𝙒!</b>\n` +
                                 `📌 <b>Title: ${task.title}</b>\n\n` +
                                 `Time to work! ⏰`, 
@@ -228,7 +2650,7 @@ function scheduleTask(task) {
                 if (minutesLeft <= 0) return;
 
                 try {
-                    await bot.telegram.sendMessage(-1001234567890, 
+                    await bot.telegram.sendMessage(CHAT_ID, 
                         `🔔 <b>𝗥𝗘𝗠𝗜𝗡𝗗𝗘𝗥 (${count + 1}/${maxNotifications})</b>\n` +
                         `━━━━━━━━━━━━━━━━━━━━\n` +
                         `📌 <b>${task.title}</b>\n` +
@@ -380,7 +2802,7 @@ async function autoCompleteTask(task) {
         }
         
         try {
-            await bot.telegram.sendMessage(-1001234567890,
+            await bot.telegram.sendMessage(CHAT_ID,
                 `⏰ <b>𝗔𝗨𝗧𝗢-𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘𝗗 𝗧𝗔𝗦𝗞</b>\n` +
                 `━━━━━━━━━━━━━━━━━━━━\n` +
                 `📌 <b>${task.title}</b>\n` +
@@ -414,12 +2836,12 @@ function scheduleAutoComplete() {
 // 📱 WEB INTERFACE ROUTES - NO SESSION, GLOBAL DATA
 // ==========================================
 
-// NO SESSION MIDDLEWARE - Everyone sees same data
-
+// ✅ FIXED: Root route with error handling
 app.get('/', (req, res) => {
     res.redirect('/tasks');
 });
 
+// ✅ FIXED: Tasks route with error handling
 app.get('/tasks', async (req, res) => {
     try {
         const todayUTC = getTodayUTC();
@@ -468,6 +2890,7 @@ app.get('/tasks', async (req, res) => {
     }
 });
 
+// ✅ FIXED: Notes route with error handling
 app.get('/notes', async (req, res) => {
     try {
         const notes = await db.collection('notes').find()
@@ -489,6 +2912,7 @@ app.get('/notes', async (req, res) => {
     }
 });
 
+// ✅ FIXED: History route with error handling
 app.get('/history', async (req, res) => {
     try {
         const history = await db.collection('history').find()
@@ -517,6 +2941,7 @@ app.get('/history', async (req, res) => {
     }
 });
 
+// API Routes
 app.post('/api/tasks', async (req, res) => {
     try {
         const { title, description, startDate, startTime, duration, repeat, repeatCount } = req.body;
@@ -633,7 +3058,7 @@ app.post('/api/tasks/:taskId/complete', async (req, res) => {
             }
             
             try {
-                await bot.telegram.sendMessage(-1001234567890,
+                await bot.telegram.sendMessage(CHAT_ID,
                     `✅ <b>𝗧𝗔𝗦𝗞 𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘𝗗</b>\n` +
                     `━━━━━━━━━━━━━━━━━━━━\n` +
                     `📌 <b>${task.title}</b>\n` +
@@ -647,7 +3072,7 @@ app.post('/api/tasks/:taskId/complete', async (req, res) => {
             await db.collection('tasks').deleteOne({ taskId });
             
             try {
-                await bot.telegram.sendMessage(-1001234567890,
+                await bot.telegram.sendMessage(CHAT_ID,
                     `✅ <b>𝗧𝗔𝗦𝗞 𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘𝗗</b>\n` +
                     `━━━━━━━━━━━━━━━━━━━━\n` +
                     `📌 <b>${task.title}</b>\n` +
@@ -897,10 +3322,17 @@ app.post('/api/notes/:noteId/move', async (req, res) => {
 });
 
 // ==========================================
-// 🤖 BOT COMMANDS - GLOBAL, NO USER ID
+// 🤖 BOT COMMANDS - GLOBAL, ONLY SEND TO YOUR USER ID
 // ==========================================
 
-const CHAT_ID = -1001234567890; // Replace with your group/channel ID
+// Telegram Bot
+const bot = new Telegraf(BOT_TOKEN);
+
+// Map to store active jobs: key = taskId, value = { startJob, interval }
+const activeSchedules = new Map();
+let hourlySummaryJob = null;
+let autoCompleteJob = null;
+let isShuttingDown = false;
 
 bot.use(telegrafSession());
 
@@ -909,6 +3341,15 @@ bot.use((ctx, next) => {
         ctx.session = {};
     }
     return next();
+});
+
+// ✅ FIXED: Only respond to your user ID
+bot.use((ctx, next) => {
+    if (ctx.from && ctx.from.id.toString() === CHAT_ID.toString()) {
+        return next();
+    }
+    // Ignore messages from other users
+    return;
 });
 
 bot.command('start', async (ctx) => {
@@ -923,7 +3364,7 @@ bot.command('start', async (ctx) => {
 
 🌟 <b>Welcome to Global Task Manager!</b>
 🌍 Everyone sees the same tasks and notes
-📢 All notifications will be sent here`;
+📢 All notifications will be sent to you only`;
 
     const keyboard = Markup.inlineKeyboard([
         [Markup.button.callback('📋 Today\'s Tasks', 'view_today_tasks_1')],
@@ -3708,74 +6149,7 @@ bot.action('no_action', async (ctx) => {
 });
 
 // ==========================================
-// 🚀 BOOTSTRAP
-// ==========================================
-
-async function start() {
-    try {
-        if (await connectDB()) {
-            await rescheduleAllPending();
-            scheduleHourlySummary();
-            scheduleAutoComplete();
-            
-            // Start Express server
-            const server = app.listen(PORT, '0.0.0.0', () => {
-                console.log(`🌐 Web interface running on port ${PORT}`);
-                console.log(`📱 Web URL: http://localhost:${PORT}`);
-            }).on('error', (err) => {
-                if (err.code === 'EADDRINUSE') {
-                    console.error(`❌ Port ${PORT} is already in use. Trying port ${PORT + 1}...`);
-                    app.listen(PORT + 1, '0.0.0.0', () => {
-                        console.log(`🌐 Web interface running on port ${PORT + 1}`);
-                        console.log(`📱 Web URL: http://localhost:${PORT + 1}`);
-                    });
-                } else {
-                    console.error('❌ Express server error:', err);
-                }
-            });
-            
-            // Start Telegram bot
-            await bot.launch();
-            console.log('🤖 Bot Started Successfully!');
-            console.log(`⏰ Current UTC Time: ${formatTimeUTC(new Date())}`);
-            console.log(`📊 Currently tracking ${activeSchedules.size} tasks`);
-            
-            // Send initial summary
-            setTimeout(async () => {
-                try {
-                    const tasks = await db.collection('tasks').find({
-                        nextOccurrence: {
-                            $gte: getTodayUTC(),
-                            $lt: getTomorrowUTC()
-                        }
-                    }).toArray();
-                    
-                    if (tasks.length > 0) {
-                        await bot.telegram.sendMessage(CHAT_ID,
-                            `📋 <b>𝗧𝗢𝗗𝗔𝗬'𝗦 𝗚𝗟𝗢𝗕𝗔𝗟 𝗧𝗔𝗦𝗞𝗦</b>\n` +
-                            `━━━━━━━━━━━━━━━━━━━━\n` +
-                            `📊 Total: ${tasks.length} task${tasks.length !== 1 ? 's' : ''}\n` +
-                            `📅 ${formatDateUTC(new Date())} UTC\n` +
-                            `━━━━━━━━━━━━━━━━━━━━`,
-                            { parse_mode: 'HTML' }
-                        );
-                    }
-                } catch (error) {
-                    console.error('Error sending initial summary:', error.message);
-                }
-            }, 5000);
-        } else {
-            console.error('❌ Failed to connect to database. Retrying in 5 seconds...');
-            setTimeout(start, 5000);
-        }
-    } catch (error) {
-        console.error('❌ Failed to start bot:', error.message);
-        setTimeout(start, 10000);
-    }
-}
-
-// ==========================================
-// ⏰ HOURLY SUMMARY - MODIFIED FOR GLOBAL
+// ⏰ HOURLY SUMMARY - MODIFIED FOR YOUR USER
 // ==========================================
 
 async function sendHourlySummary() {
@@ -3855,6 +6229,75 @@ function scheduleHourlySummary() {
     });
     
     console.log('✅ Global half-hourly summary scheduler started');
+}
+
+// ==========================================
+// 🚀 BOOTSTRAP
+// ==========================================
+
+async function start() {
+    try {
+        if (await connectDB()) {
+            await rescheduleAllPending();
+            scheduleHourlySummary();
+            scheduleAutoComplete();
+            
+            // Start Express server
+            const server = app.listen(PORT, '0.0.0.0', () => {
+                console.log(`🌐 Web interface running on port ${PORT}`);
+                console.log(`📱 Web URL: http://localhost:${PORT}`);
+                console.log(`🌍 Public Web URL: ${WEB_APP_URL}`);
+            }).on('error', (err) => {
+                if (err.code === 'EADDRINUSE') {
+                    console.error(`❌ Port ${PORT} is already in use. Trying port ${PORT + 1}...`);
+                    app.listen(PORT + 1, '0.0.0.0', () => {
+                        console.log(`🌐 Web interface running on port ${PORT + 1}`);
+                        console.log(`📱 Web URL: http://localhost:${PORT + 1}`);
+                    });
+                } else {
+                    console.error('❌ Express server error:', err);
+                }
+            });
+            
+            // Start Telegram bot
+            await bot.launch();
+            console.log('🤖 Bot Started Successfully!');
+            console.log(`👤 Bot only responding to user ID: ${CHAT_ID}`);
+            console.log(`⏰ Current UTC Time: ${formatTimeUTC(new Date())}`);
+            console.log(`📊 Currently tracking ${activeSchedules.size} tasks`);
+            
+            // Send initial summary
+            setTimeout(async () => {
+                try {
+                    const tasks = await db.collection('tasks').find({
+                        nextOccurrence: {
+                            $gte: getTodayUTC(),
+                            $lt: getTomorrowUTC()
+                        }
+                    }).toArray();
+                    
+                    if (tasks.length > 0) {
+                        await bot.telegram.sendMessage(CHAT_ID,
+                            `📋 <b>𝗧𝗢𝗗𝗔𝗬'𝗦 𝗚𝗟𝗢𝗕𝗔𝗟 𝗧𝗔𝗦𝗞𝗦</b>\n` +
+                            `━━━━━━━━━━━━━━━━━━━━\n` +
+                            `📊 Total: ${tasks.length} task${tasks.length !== 1 ? 's' : ''}\n` +
+                            `📅 ${formatDateUTC(new Date())} UTC\n` +
+                            `━━━━━━━━━━━━━━━━━━━━`,
+                            { parse_mode: 'HTML' }
+                        );
+                    }
+                } catch (error) {
+                    console.error('Error sending initial summary:', error.message);
+                }
+            }, 5000);
+        } else {
+            console.error('❌ Failed to connect to database. Retrying in 5 seconds...');
+            setTimeout(start, 5000);
+        }
+    } catch (error) {
+        console.error('❌ Failed to start bot:', error.message);
+        setTimeout(start, 10000);
+    }
 }
 
 // ==========================================
