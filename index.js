@@ -11,7 +11,7 @@ const fs = require('fs');
 // ==========================================
 const BOT_TOKEN = '8388773187:AAGeJLg_0U2qj9sg9awJ9aQVdF9klxEiRw4';
 const MONGODB_URI = 'mongodb+srv://sandip:9E9AISFqTfU3VI5i@cluster0.p8irtov.mongodb.net/telegram_bot';
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 const WEB_APP_URL = 'https://task-manager-bot.up.railway.app';
 const CHAT_ID = 8469993808; // Your specific user ID - now only sends to you
 
@@ -46,615 +46,539 @@ if (!fs.existsSync(publicDir)) {
 // ✅ ADDED: Write EJS files to views directory
 function writeEJSFiles() {
     try {
-        // Tasks.ejs
-        const tasksEJS = `<!DOCTYPE html>
+        // Combined EJS file with all pages
+        const mainEJS = `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Global Task Manager - Tasks</title>
+    <title>TaskFlow · Global Task Manager</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
-            --primary: #4361ee;
-            --primary-light: #4895ef;
-            --secondary: #3f37c9;
-            --success: #4cc9f0;
-            --danger: #f72585;
-            --warning: #f8961e;
-            --info: #4895ef;
-            --light: #f8f9fa;
-            --dark: #212529;
-            --gray: #6c757d;
-            --gray-light: #adb5bd;
-            --border-radius: 12px;
-            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            --transition: all 0.3s ease;
-            --pink-bg: rgba(255, 182, 193, 0.1);
-            --blue-bg: rgba(173, 216, 230, 0.15);
-            --blue-bg-hover: rgba(173, 216, 230, 0.25);
-            --completed-bg: rgba(108, 117, 125, 0.1);
-            --completed-text: #6c757d;
+            /* Light mode */
+            --bg-gradient-light: linear-gradient(145deg, #f9fcff 0%, #eef2f7 100%);
+            --glass-bg-light: rgba(255, 255, 255, 0.65);
+            --glass-border-light: rgba(255, 255, 255, 0.5);
+            --glass-shadow-light: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+            --card-bg-light: rgba(255, 255, 255, 0.7);
+            --text-primary-light: #1a2639;
+            --text-secondary-light: #4a5568;
+            --accent-light: #3b82f6;
+            --accent-soft-light: #dbeafe;
+            --success-light: #10b981;
+            --warning-light: #f59e0b;
+            --danger-light: #ef4444;
+            --border-light: rgba(0,0,0,0.06);
+            --hover-light: rgba(59,130,246,0.08);
+            --progress-bg-light: #e2e8f0;
+            --toast-bg-light: rgba(26, 32, 44, 0.9);
+            --toast-text-light: #ffffff;
+            
+            /* Dark mode */
+            --bg-gradient-dark: linear-gradient(145deg, #0f172a 0%, #1e293b 100%);
+            --glass-bg-dark: rgba(15, 23, 42, 0.7);
+            --glass-border-dark: rgba(71, 85, 105, 0.3);
+            --glass-shadow-dark: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            --card-bg-dark: rgba(30, 41, 59, 0.7);
+            --text-primary-dark: #f1f5f9;
+            --text-secondary-dark: #94a3b8;
+            --accent-dark: #60a5fa;
+            --accent-soft-dark: #1e293b;
+            --success-dark: #34d399;
+            --warning-dark: #fbbf24;
+            --danger-dark: #f87171;
+            --border-dark: rgba(255,255,255,0.06);
+            --hover-dark: rgba(96,165,250,0.1);
+            --progress-bg-dark: #334155;
+            --toast-bg-dark: rgba(15, 23, 42, 0.95);
+            --toast-text-dark: #f1f5f9;
         }
-        
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --primary: #5a6ff0;
-                --primary-light: #6a80f2;
-                --secondary: #4f46e5;
-                --success: #5fd3f0;
-                --danger: #ff2d8e;
-                --warning: #ffa94d;
-                --info: #6a80f2;
-                --light: #121212;
-                --dark: #ffffff;
-                --gray: #94a3b8;
-                --gray-light: #475569;
-                --shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-                --pink-bg: rgba(255, 182, 193, 0.05);
-                --blue-bg: rgba(173, 216, 230, 0.08);
-                --blue-bg-hover: rgba(173, 216, 230, 0.15);
-                --completed-bg: rgba(108, 117, 125, 0.2);
-                --completed-text: #94a3b8;
-            }
-        }
-        
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
-        
+
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
         body {
-            background-color: var(--light);
-            color: var(--dark);
-            transition: var(--transition);
+            background: var(--bg-gradient-light);
+            color: var(--text-primary-light);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             min-height: 100vh;
-            display: flex;
-            flex-direction: column;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
             font-size: 14px;
+            line-height: 1.5;
         }
-        
-        .header {
-            background-color: var(--light);
-            padding: 8px 16px;
-            display: flex;
-            align-items: center;
-            justify-content: space-around;
-            box-shadow: var(--shadow);
+
+        @media (prefers-color-scheme: dark) {
+            body {
+                background: var(--bg-gradient-dark);
+                color: var(--text-primary-dark);
+            }
+        }
+
+        .glass-panel {
+            background: var(--glass-bg-light);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border-light);
+            box-shadow: var(--glass-shadow-light);
+            border-radius: 24px;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .glass-panel {
+                background: var(--glass-bg-dark);
+                border: 1px solid var(--glass-border-dark);
+                box-shadow: var(--glass-shadow-dark);
+            }
+        }
+
+        .app-header {
+            background: rgba(255,255,255,0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-light);
+            padding: 12px 24px;
             position: sticky;
             top: 0;
             z-index: 100;
-            gap: 8px;
-            flex-wrap: wrap;
         }
-        
-        .header-action-btn {
+
+        @media (prefers-color-scheme: dark) {
+            .app-header {
+                background: rgba(15,23,42,0.8);
+                border-bottom: 1px solid var(--border-dark);
+            }
+        }
+
+        .nav-container {
+            max-width: 1400px;
+            margin: 0 auto;
             display: flex;
-            flex-direction: row;
             align-items: center;
-            justify-content: center;
-            background: var(--primary);
-            color: white;
-            border: none;
-            border-radius: 20px;
-            padding: 8px 16px;
-            cursor: pointer;
-            transition: var(--transition);
-            box-shadow: var(--shadow);
-            gap: 8px;
-            flex: 1;
-            max-width: 120px;
-            margin: 0 4px;
-            text-decoration: none;
+            justify-content: space-between;
         }
-        
-        .header-action-btn i {
+
+        .nav-links {
+            display: flex;
+            gap: 8px;
+            background: rgba(0,0,0,0.03);
+            padding: 4px;
+            border-radius: 100px;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .nav-links {
+                background: rgba(255,255,255,0.05);
+            }
+        }
+
+        .nav-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border-radius: 100px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary-light);
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .nav-btn {
+                color: var(--text-secondary-dark);
+            }
+        }
+
+        .nav-btn.active {
+            background: white;
+            color: var(--accent-light);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .nav-btn.active {
+                background: var(--accent-dark);
+                color: white;
+                box-shadow: 0 4px 12px rgba(96,165,250,0.3);
+            }
+        }
+
+        .nav-btn i {
             font-size: 1rem;
         }
-        
-        .header-action-btn span {
-            font-size: 0.8rem;
-            font-weight: 600;
-        }
-        
-        .header-action-btn:hover {
-            background: var(--primary-light);
-            transform: translateY(-2px);
-        }
-        
-        .header-action-btn.active {
-            background: var(--secondary);
-            box-shadow: 0 0 0 2px var(--primary-light);
-        }
-        
-        @media (max-width: 768px) {
-            .header {
-                padding: 8px;
-                gap: 4px;
-            }
-            .header-action-btn {
-                width: 100%;
-                max-width: none;
-                padding: 10px;
-                margin: 2px;
-                border-radius: 12px;
-            }
-            .header-action-btn span {
-                display: block;
-                font-size: 0.75rem;
-            }
-            .header-action-btn i {
-                margin-right: 4px;
-                font-size: 0.9rem;
-            }
-        }
-        
-        .fab {
-            position: fixed;
-            width: 60px;
-            height: 60px;
-            background-color: var(--primary);
-            color: white;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-            cursor: pointer;
-            transition: var(--transition);
-            z-index: 1000;
-            border: none;
-            bottom: 30px;
-            right: 30px;
-        }
-        
-        .fab:hover {
-            background-color: var(--primary-light);
-            transform: scale(1.1);
-            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
-        }
-        
-        @media (max-width: 768px) {
-            .fab {
-                width: 50px;
-                height: 50px;
-                font-size: 1.3rem;
-                bottom: 20px;
-                right: 20px;
-            }
-        }
-        
+
         .main-content {
-            flex-grow: 1;
-            padding: 16px;
-            overflow-y: auto;
+            max-width: 1400px;
+            margin: 24px auto;
+            padding: 0 24px;
             padding-bottom: 100px;
         }
-        
-        .content-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 16px;
-        }
-        
-        .page-title {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--dark);
-        }
-        
-        .global-badge {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 600;
-        }
-        
-        .time-header {
-            background-color: var(--blue-bg);
-            padding: 12px;
-            border-radius: var(--border-radius);
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        
-        .current-time {
-            font-size: 1rem;
-            color: var(--dark);
-        }
-        
-        .current-time i {
-            color: var(--primary);
-            margin-right: 8px;
-        }
-        
-        .bucket-header {
-            display: flex;
-            align-items: center;
-            margin: 24px 0 12px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid var(--gray-light);
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-        
-        .bucket-title {
-            font-size: 1.2rem;
-            font-weight: 600;
-            color: var(--dark);
-            display: flex;
+
+        .time-badge {
+            display: inline-flex;
             align-items: center;
             gap: 8px;
+            padding: 10px 18px;
+            background: rgba(59,130,246,0.08);
+            border-radius: 100px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--accent-light);
+            margin-bottom: 24px;
         }
-        
-        .bucket-count {
-            background-color: var(--primary);
-            color: white;
-            border-radius: 50%;
-            width: 24px;
-            height: 24px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.8rem;
+
+        @media (prefers-color-scheme: dark) {
+            .time-badge {
+                background: rgba(96,165,250,0.15);
+                color: var(--accent-dark);
+            }
         }
-        
-        .items-container {
+
+        .page-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 24px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.02em;
+        }
+
+        .tasks-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 16px;
-            width: 100%;
+            grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
         }
-        
-        @media (max-width: 1200px) {
-            .items-container {
-                grid-template-columns: repeat(2, 1fr) !important;
-            }
-        }
-        
-        @media (max-width: 768px) {
-            .items-container {
-                grid-template-columns: 1fr !important;
-            }
-        }
-        
+
         .task-card {
-            background-color: var(--pink-bg);
-            border-radius: var(--border-radius);
-            padding: 16px;
-            box-shadow: var(--shadow);
-            transition: var(--transition);
-            animation: slideIn 0.3s ease;
-            display: flex;
-            flex-direction: column;
-            min-height: 140px;
+            background: var(--card-bg-light);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-light);
+            border-radius: 24px;
+            padding: 20px;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
+            overflow: hidden;
         }
-        
+
+        @media (prefers-color-scheme: dark) {
+            .task-card {
+                background: var(--card-bg-dark);
+                border: 1px solid var(--border-dark);
+            }
+        }
+
         .task-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px -12px rgba(0,0,0,0.15);
+            border-color: var(--accent-light);
         }
-        
+
         .task-header {
             display: flex;
-            align-items: flex-start;
             justify-content: space-between;
-            margin-bottom: 8px;
+            align-items: flex-start;
+            margin-bottom: 16px;
         }
-        
+
+        .task-title-section {
+            flex: 1;
+        }
+
         .task-title {
-            font-size: 1rem !important;
-            font-weight: 600;
-            color: var(--dark);
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--text-primary-light);
+            margin-bottom: 6px;
+            line-height: 1.3;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .task-title {
+                color: var(--text-primary-dark);
+            }
+        }
+
+        .task-time {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
             margin-bottom: 4px;
-            line-height: 1.4 !important;
         }
-        
-        .task-description {
-            font-size: 0.8rem !important;
-            color: var(--gray);
-            margin-bottom: 12px;
-            line-height: 1.4 !important;
-            flex-grow: 1;
+
+        .time-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            background: rgba(59,130,246,0.1);
+            border-radius: 100px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--accent-light);
         }
-        
-        .task-description:empty {
-            display: none !important;
-            margin-bottom: 0 !important;
+
+        @media (prefers-color-scheme: dark) {
+            .time-chip {
+                background: rgba(96,165,250,0.15);
+                color: var(--accent-dark);
+            }
         }
-        
+
         .task-actions {
             display: flex;
             gap: 8px;
         }
-        
+
         .action-btn {
-            background-color: var(--primary);
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 28px;
-            height: 28px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: var(--transition);
-            font-size: 0.8rem;
-            text-decoration: none;
-        }
-        
-        .action-btn:hover {
-            background-color: var(--primary);
-            transform: scale(1.1);
-        }
-        
-        .action-btn.disabled {
-            background-color: var(--gray-light);
-            cursor: not-allowed;
-            opacity: 0.6;
-            pointer-events: none;
-        }
-        
-        .task-meta {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            font-size: 0.75rem;
-            color: var(--gray);
-            margin-top: auto;
-            padding-top: 12px;
-        }
-        
-        .repeat-badge {
-            background-color: rgba(67, 97, 238, 0.1);
-            color: var(--primary);
-            padding: 2px 8px;
-            border-radius: 20px;
-            font-size: 0.65rem;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-        
-        .duration-badge {
-            background-color: rgba(108, 117, 125, 0.2);
-            color: var(--gray);
-            padding: 2px 8px;
-            border-radius: 20px;
-            font-size: 0.65rem;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-        
-        .task-date-range {
-            font-size: 0.75rem;
-            color: var(--gray);
-            margin-right: 8px;
-        }
-        
-        .task-time-range {
-            font-size: 0.75rem;
-            color: var(--gray);
-            font-weight: 500;
-        }
-        
-        .utc-badge {
-            background-color: rgba(67, 97, 238, 0.1);
-            color: var(--primary);
-            padding: 2px 4px;
-            border-radius: 4px;
-            font-size: 0.6rem;
-            font-weight: 600;
-            margin-left: 4px;
-        }
-        
-        .time-remaining-badge {
-            padding: 4px 8px;
+            width: 36px;
+            height: 36px;
             border-radius: 12px;
-            font-size: 0.7rem;
-            font-weight: 600;
-            display: inline-block;
-            margin-top: 8px;
-        }
-        
-        .time-remaining-badge.upcoming {
-            background-color: rgba(108, 117, 125, 0.2);
-            color: var(--gray);
-        }
-        
-        .time-remaining-badge.starting_soon {
-            background-color: rgba(248, 150, 30, 0.1);
-            color: var(--warning);
-        }
-        
-        .time-remaining-badge.active {
-            background-color: rgba(76, 201, 240, 0.2);
-            color: var(--success);
-        }
-        
-        .time-remaining-badge.due {
-            background-color: rgba(248, 150, 30, 0.1);
-            color: var(--warning);
-        }
-        
-        .time-remaining-badge.overdue {
-            background-color: rgba(247, 37, 133, 0.1);
-            color: var(--danger);
-        }
-        
-        .subtask-number-badge {
-            width: 22px;
-            height: 22px;
-            border-radius: 50%;
-            background-color: var(--gray-light);
-            color: var(--dark);
+            border: none;
+            background: rgba(0,0,0,0.03);
+            color: var(--text-secondary-light);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.7rem;
-            font-weight: bold;
-            transition: var(--transition);
-        }
-        
-        .subtask-number-badge.completed {
-            background-color: var(--primary);
-            color: white;
-        }
-        
-        .subtask-complete-btn {
-            background: none;
-            border: none;
             cursor: pointer;
-            padding: 0;
-            margin-right: 8px;
+            transition: all 0.2s ease;
+            font-size: 0.9rem;
         }
-        
-        .edit-subtask-btn, .delete-subtask-btn {
-            background: none;
-            border: none;
-            color: var(--primary);
-            cursor: pointer;
-            font-size: 0.7rem;
-            opacity: 0.7;
-            transition: var(--transition);
-            padding: 2px 4px;
-        }
-        
-        .edit-subtask-btn:hover, .delete-subtask-btn:hover {
-            opacity: 1;
-            transform: scale(1.1);
-        }
-        
-        .delete-subtask-btn {
-            color: var(--danger);
-        }
-        
-        .subtasks-details {
-            margin-top: 12px;
-            border-top: 1px solid var(--gray-light);
-            padding-top: 12px;
-        }
-        
-        .subtasks-details summary {
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-weight: 600;
-            font-size: 0.85rem;
-            color: var(--primary);
-            padding: 4px 0;
-            transition: var(--transition);
-        }
-        
-        .subtasks-details summary:hover {
-            color: var(--primary-light);
-        }
-        
-        .subtasks-content {
-            margin-top: 8px;
-            padding-top: 8px;
-            border-top: 1px solid rgba(0,0,0,0.05);
-        }
-        
+
         @media (prefers-color-scheme: dark) {
-            .subtasks-content {
-                border-top-color: rgba(255,255,255,0.05);
+            .action-btn {
+                background: rgba(255,255,255,0.05);
+                color: var(--text-secondary-dark);
             }
         }
-        
+
+        .action-btn:hover {
+            background: var(--accent-light);
+            color: white;
+            transform: scale(1.05);
+        }
+
+        .action-btn.delete:hover {
+            background: var(--danger-light);
+        }
+
+        .task-description {
+            font-size: 0.95rem;
+            color: var(--text-secondary-light);
+            margin: 16px 0;
+            line-height: 1.6;
+            padding: 12px;
+            background: rgba(0,0,0,0.02);
+            border-radius: 16px;
+            border-left: 4px solid var(--accent-light);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .task-description {
+                color: var(--text-secondary-dark);
+                background: rgba(255,255,255,0.03);
+            }
+        }
+
+        .progress-section {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin: 20px 0 16px;
+        }
+
+        .progress-ring {
+            position: relative;
+            width: 56px;
+            height: 56px;
+        }
+
+        .progress-ring-circle {
+            transition: stroke-dashoffset 0.5s;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+
+        .progress-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--accent-light);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .progress-text {
+                color: var(--accent-dark);
+            }
+        }
+
+        .subtasks-container {
+            margin-top: 16px;
+            border-top: 1px solid var(--border-light);
+            padding-top: 16px;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .subtasks-container {
+                border-top-color: var(--border-dark);
+            }
+        }
+
+        details.subtask-details {
+            margin-bottom: 8px;
+        }
+
+        details.subtask-details summary {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px;
+            background: rgba(0,0,0,0.02);
+            border-radius: 14px;
+            cursor: pointer;
+            font-weight: 500;
+            color: var(--text-primary-light);
+            transition: all 0.2s ease;
+            list-style: none;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            details.subtask-details summary {
+                background: rgba(255,255,255,0.03);
+                color: var(--text-primary-dark);
+            }
+        }
+
+        details.subtask-details summary::-webkit-details-marker {
+            display: none;
+        }
+
+        details.subtask-details summary:hover {
+            background: var(--hover-light);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            details.subtask-details summary:hover {
+                background: var(--hover-dark);
+            }
+        }
+
+        .subtask-content {
+            padding: 16px 16px 16px 46px;
+        }
+
         .subtask-item {
             display: flex;
             align-items: flex-start;
+            gap: 12px;
+            padding: 12px;
+            background: rgba(0,0,0,0.02);
+            border-radius: 14px;
             margin-bottom: 8px;
-            padding: 8px;
-            background: rgba(0,0,0,0.03);
-            border-radius: 6px;
+            transition: all 0.2s ease;
         }
-        
+
         @media (prefers-color-scheme: dark) {
             .subtask-item {
-                background: rgba(255,255,255,0.05);
+                background: rgba(255,255,255,0.03);
             }
         }
-        
-        .subtask-details-container {
-            flex: 1;
-            margin-right: 8px;
-        }
-        
-        .subtask-title {
-            font-size: 0.85rem;
-            color: var(--dark);
-            cursor: pointer;
-        }
-        
-        .subtask-completed {
-            text-decoration: line-through;
-            color: var(--gray);
-        }
-        
-        .subtask-description {
-            font-size: 0.75rem;
-            color: var(--gray);
-            margin-top: 4px;
-            padding-left: 8px;
-            border-left: 2px solid var(--primary-light);
-            line-height: 1.4;
-        }
-        
-        .subtask-actions {
-            display: flex;
-            align-items: center;
-            margin-left: auto;
-        }
-        
-        .progress-display-container {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 12px;
-        }
-        
-        .progress-circle {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            background: conic-gradient(var(--primary) 0%, var(--gray-light) 0%);
+
+        .subtask-checkbox {
+            width: 22px;
+            height: 22px;
+            border-radius: 8px;
+            border: 2px solid var(--accent-light);
+            background: transparent;
             display: flex;
             align-items: center;
             justify-content: center;
-            position: relative;
-            flex-shrink: 0;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: white;
+            font-size: 0.8rem;
+            margin-top: 2px;
         }
-        
-        .progress-circle::before {
-            content: '';
-            position: absolute;
-            width: 26px;
-            height: 26px;
-            background-color: var(--light);
-            border-radius: 50%;
+
+        .subtask-checkbox.completed {
+            background: var(--success-light);
+            border-color: var(--success-light);
         }
-        
-        .progress-text {
-            font-size: 0.75rem;
-            color: var(--gray);
+
+        .subtask-details {
+            flex: 1;
         }
-        
+
+        .subtask-title {
+            font-weight: 600;
+            color: var(--text-primary-light);
+            margin-bottom: 4px;
+            font-size: 0.95rem;
+        }
+
+        .subtask-title.completed {
+            text-decoration: line-through;
+            color: var(--text-secondary-light);
+        }
+
+        .subtask-desc {
+            font-size: 0.85rem;
+            color: var(--text-secondary-light);
+            margin-top: 6px;
+            padding-left: 10px;
+            border-left: 2px solid var(--accent-light);
+            line-height: 1.5;
+        }
+
+        .subtask-actions {
+            display: flex;
+            gap: 6px;
+        }
+
+        .subtask-btn {
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            border: none;
+            background: rgba(0,0,0,0.03);
+            color: var(--text-secondary-light);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .subtask-btn {
+                background: rgba(255,255,255,0.05);
+                color: var(--text-secondary-dark);
+            }
+        }
+
+        .subtask-btn:hover {
+            background: var(--accent-light);
+            color: white;
+        }
+
+        .subtask-btn.delete:hover {
+            background: var(--danger-light);
+        }
+
         .modal {
             display: none;
             position: fixed;
@@ -662,404 +586,583 @@ function writeEJSFiles() {
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-            z-index: 1000;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(8px);
             align-items: center;
             justify-content: center;
-            animation: fadeIn 0.3s ease;
+            z-index: 1000;
+            animation: fadeIn 0.2s ease;
         }
-        
+
         .modal-content {
-            background-color: var(--light);
-            border-radius: var(--border-radius);
+            background: var(--glass-bg-light);
+            backdrop-filter: blur(24px);
+            border: 1px solid var(--glass-border-light);
+            border-radius: 32px;
+            padding: 32px;
             width: 90%;
             max-width: 500px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-            animation: scaleIn 0.3s ease;
-            overflow: hidden;
             max-height: 90vh;
             overflow-y: auto;
+            animation: slideUp 0.3s ease;
         }
-        
+
+        @media (prefers-color-scheme: dark) {
+            .modal-content {
+                background: var(--glass-bg-dark);
+                border: 1px solid var(--glass-border-dark);
+            }
+        }
+
         .modal-header {
-            padding: 16px;
-            border-bottom: 1px solid var(--gray-light);
             display: flex;
-            align-items: center;
             justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
         }
-        
+
         .modal-title {
-            font-size: 1.2rem;
-            font-weight: 600;
-            color: var(--dark);
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
-        
-        .close-modal {
-            background: none;
+
+        .close-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
             border: none;
-            font-size: 1.3rem;
-            color: var(--gray);
+            background: rgba(0,0,0,0.05);
+            color: var(--text-secondary-light);
             cursor: pointer;
-            transition: var(--transition);
+            transition: all 0.2s ease;
+            font-size: 1.2rem;
         }
-        
-        .close-modal:hover {
-            color: var(--danger);
+
+        @media (prefers-color-scheme: dark) {
+            .close-btn {
+                background: rgba(255,255,255,0.05);
+                color: var(--text-secondary-dark);
+            }
         }
-        
-        .modal-body {
-            padding: 16px;
+
+        .close-btn:hover {
+            background: var(--danger-light);
+            color: white;
         }
-        
+
         .form-group {
-            margin-bottom: 12px;
+            margin-bottom: 20px;
         }
-        
+
         .form-label {
             display: block;
-            margin-bottom: 4px;
+            margin-bottom: 8px;
             font-weight: 600;
-            color: var(--dark);
+            color: var(--text-primary-light);
             font-size: 0.9rem;
         }
-        
-        .form-input, .form-select, .form-textarea {
+
+        @media (prefers-color-scheme: dark) {
+            .form-label {
+                color: var(--text-primary-dark);
+            }
+        }
+
+        .form-control {
             width: 100%;
-            padding: 8px;
-            border: 1px solid var(--gray-light);
-            border-radius: 6px;
-            background-color: var(--light);
-            color: var(--dark);
-            transition: var(--transition);
-            font-size: 0.9rem;
+            padding: 14px 16px;
+            border-radius: 16px;
+            border: 1px solid var(--border-light);
+            background: rgba(255,255,255,0.5);
+            color: var(--text-primary-light);
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
         }
-        
-        .form-input:focus, .form-select:focus, .form-textarea:focus {
+
+        @media (prefers-color-scheme: dark) {
+            .form-control {
+                background: rgba(0,0,0,0.2);
+                border: 1px solid var(--border-dark);
+                color: var(--text-primary-dark);
+            }
+        }
+
+        .form-control:focus {
             outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+            border-color: var(--accent-light);
+            box-shadow: 0 0 0 4px rgba(59,130,246,0.1);
         }
-        
-        .form-textarea {
-            min-height: 80px;
-            resize: vertical;
-            line-height: 1.4;
+
+        .form-select {
+            width: 100%;
+            padding: 14px 16px;
+            border-radius: 16px;
+            border: 1px solid var(--border-light);
+            background: rgba(255,255,255,0.5);
+            color: var(--text-primary-light);
+            font-size: 0.95rem;
+            cursor: pointer;
         }
-        
-        .form-actions {
+
+        @media (prefers-color-scheme: dark) {
+            .form-select {
+                background: rgba(0,0,0,0.2);
+                border: 1px solid var(--border-dark);
+                color: var(--text-primary-dark);
+            }
+        }
+
+        .btn {
+            padding: 14px 24px;
+            border-radius: 100px;
+            border: none;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            color: white;
+            box-shadow: 0 8px 20px -6px rgba(59,130,246,0.4);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 28px -6px rgba(59,130,246,0.5);
+        }
+
+        .btn-secondary {
+            background: rgba(0,0,0,0.05);
+            color: var(--text-secondary-light);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .btn-secondary {
+                background: rgba(255,255,255,0.1);
+                color: var(--text-secondary-dark);
+            }
+        }
+
+        .btn-secondary:hover {
+            background: rgba(0,0,0,0.1);
+        }
+
+        .fab {
+            position: fixed;
+            bottom: 32px;
+            right: 32px;
+            width: 64px;
+            height: 64px;
+            border-radius: 32px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            color: white;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            box-shadow: 0 12px 32px -6px rgba(59,130,246,0.5);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             display: flex;
-            justify-content: flex-end;
-            gap: 8px;
+            align-items: center;
+            justify-content: center;
+            z-index: 99;
+        }
+
+        .fab:hover {
+            transform: scale(1.1) rotate(90deg);
+            box-shadow: 0 20px 40px -6px rgba(59,130,246,0.6);
+        }
+
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+        }
+
+        .toast {
+            background: var(--toast-bg-light);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: var(--toast-text-light);
+            padding: 12px 24px;
+            border-radius: 100px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+            animation: slideInRight 0.3s ease;
+            font-weight: 500;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .toast {
+                background: var(--toast-bg-dark);
+                color: var(--toast-text-dark);
+            }
+        }
+
+        .toast.success {
+            border-left: 4px solid var(--success-light);
+        }
+
+        .toast.error {
+            border-left: 4px solid var(--danger-light);
+        }
+
+        .toast.info {
+            border-left: 4px solid var(--accent-light);
+        }
+
+        .loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(8px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9998;
+        }
+
+        .loader-content {
+            background: var(--glass-bg-light);
+            backdrop-filter: blur(24px);
+            padding: 40px;
+            border-radius: 32px;
+            text-align: center;
+            animation: scaleIn 0.3s ease;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .loader-content {
+                background: var(--glass-bg-dark);
+            }
+        }
+
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid rgba(59,130,246,0.1);
+            border-top: 4px solid var(--accent-light);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 16px;
+        }
+
+        .history-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+
+        .history-date-card {
+            background: var(--card-bg-light);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border-light);
+            border-radius: 24px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .history-date-card {
+                background: var(--card-bg-dark);
+                border: 1px solid var(--border-dark);
+            }
+        }
+
+        details.history-details summary {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 12px;
+            background: rgba(59,130,246,0.05);
+            border-radius: 16px;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--text-primary-light);
+            list-style: none;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            details.history-details summary {
+                background: rgba(96,165,250,0.1);
+                color: var(--text-primary-dark);
+            }
+        }
+
+        details.history-details summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .history-tasks {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 16px;
             margin-top: 16px;
         }
-        
-        .btn {
-            padding: 8px 16px;
-            border: none;
-            border-radius: 6px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: var(--transition);
-            font-size: 0.9rem;
+
+        .history-task-card {
+            background: rgba(0,0,0,0.02);
+            border-radius: 20px;
+            padding: 16px;
+            border-left: 4px solid var(--success-light);
         }
-        
-        .btn-primary {
-            background-color: var(--primary);
-            color: white;
+
+        @media (prefers-color-scheme: dark) {
+            .history-task-card {
+                background: rgba(255,255,255,0.03);
+            }
         }
-        
-        .btn-primary:hover {
-            background-color: var(--secondary);
+
+        .notes-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
         }
-        
-        .btn-secondary {
-            background-color: var(--gray-light);
-            color: white;
+
+        .note-card {
+            background: linear-gradient(145deg, rgba(255,255,255,0.7), rgba(255,255,255,0.5));
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border-light);
+            border-radius: 24px;
+            padding: 20px;
+            transition: all 0.2s ease;
         }
-        
-        .btn-secondary:hover {
-            background-color: var(--gray);
+
+        @media (prefers-color-scheme: dark) {
+            .note-card {
+                background: linear-gradient(145deg, rgba(30,41,59,0.7), rgba(30,41,59,0.5));
+                border: 1px solid var(--border-dark);
+            }
         }
-        
-        .empty-state {
-            text-align: center;
-            padding: 32px 16px;
-            color: var(--gray);
-            grid-column: 1 / -1;
+
+        .note-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px -12px rgba(0,0,0,0.2);
         }
-        
-        .empty-state i {
-            font-size: 2.5rem;
+
+        .note-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
             margin-bottom: 12px;
-            opacity: 0.5;
         }
-        
+
+        .note-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--text-primary-light);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .note-title {
+                color: var(--text-primary-dark);
+            }
+        }
+
+        .note-content {
+            font-size: 0.95rem;
+            color: var(--text-secondary-light);
+            line-height: 1.6;
+            margin: 16px 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            padding: 16px;
+            background: rgba(0,0,0,0.02);
+            border-radius: 16px;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .note-content {
+                color: var(--text-secondary-dark);
+                background: rgba(255,255,255,0.03);
+            }
+        }
+
+        .note-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border-light);
+            font-size: 0.8rem;
+            color: var(--text-secondary-light);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .note-meta {
+                border-top-color: var(--border-dark);
+                color: var(--text-secondary-dark);
+            }
+        }
+
         @keyframes fadeIn {
             from { opacity: 0; }
             to { opacity: 1; }
         }
-        
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes slideInRight {
+            from { opacity: 0; transform: translateX(30px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
         @keyframes scaleIn {
             from { opacity: 0; transform: scale(0.9); }
             to { opacity: 1; transform: scale(1); }
         }
-        
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary-light);
+            background: rgba(0,0,0,0.02);
+            border-radius: 32px;
         }
-        
-        .info-message {
-            background-color: var(--blue-bg);
-            border-left: 4px solid var(--primary);
-            padding: 12px;
+
+        @media (prefers-color-scheme: dark) {
+            .empty-state {
+                background: rgba(255,255,255,0.03);
+                color: var(--text-secondary-dark);
+            }
+        }
+
+        .empty-state i {
+            font-size: 3rem;
             margin-bottom: 16px;
-            border-radius: 6px;
-            font-size: 0.85rem;
+            opacity: 0.5;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: 100px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            gap: 4px;
+        }
+
+        .badge.primary {
+            background: rgba(59,130,246,0.1);
+            color: var(--accent-light);
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                padding: 0 16px;
+            }
+            
+            .tasks-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .nav-container {
+                flex-direction: column;
+                gap: 12px;
+            }
+            
+            .nav-links {
+                width: 100%;
+            }
+            
+            .nav-btn {
+                flex: 1;
+                justify-content: center;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <a href="/tasks" class="header-action-btn active">
-            <i class="fas fa-tasks"></i>
-            <span>Tasks</span>
-        </a>
-        <a href="/notes" class="header-action-btn">
-            <i class="fas fa-wand-magic-sparkles"></i>
-            <span>Notes</span>
-        </a>
-        <a href="/history" class="header-action-btn">
-            <i class="fas fa-history"></i>
-            <span>History</span>
-        </a>
+    <div class="loader" id="loader">
+        <div class="loader-content">
+            <div class="spinner"></div>
+            <div style="font-weight: 600; color: var(--text-primary-light);">Updating...</div>
+        </div>
     </div>
 
-    <button class="fab" onclick="openAddTaskModal()" title="Add Task">
+    <div class="toast-container" id="toastContainer"></div>
+
+    <div class="app-header">
+        <div class="nav-container">
+            <div style="font-weight: 800; font-size: 1.4rem; background: linear-gradient(135deg, #3b82f6, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                TaskFlow
+            </div>
+            <div class="nav-links">
+                <button class="nav-btn <%= currentPage === 'tasks' ? 'active' : '' %>" onclick="switchPage('tasks')">
+                    <i class="fas fa-tasks"></i>
+                    <span>Tasks</span>
+                </button>
+                <button class="nav-btn <%= currentPage === 'notes' ? 'active' : '' %>" onclick="switchPage('notes')">
+                    <i class="fas fa-wand-magic-sparkles"></i>
+                    <span>Notes</span>
+                </button>
+                <button class="nav-btn <%= currentPage === 'history' ? 'active' : '' %>" onclick="switchPage('history')">
+                    <i class="fas fa-history"></i>
+                    <span>History</span>
+                </button>
+            </div>
+            <div class="time-badge">
+                <i class="fas fa-clock"></i>
+                <span id="currentTimeDisplay"><%= currentTime %></span> UTC
+            </div>
+        </div>
+    </div>
+
+    <button class="fab" onclick="openAddModal()" title="Add New">
         <i class="fas fa-plus"></i>
     </button>
 
-    <div class="main-content">
-        <div class="info-message">
-            <i class="fas fa-globe"></i> <strong>Global Mode</strong> - Everyone sees the same tasks and notes
-        </div>
-        
-        <div class="time-header">
-            <span class="current-time">
-                <i class="fas fa-clock"></i>
-                Current UTC Time: <span id="currentTimeDisplay"><%= currentTime %></span> UTC
-            </span>
-            <span class="current-time">
-                <i class="fas fa-calendar"></i>
-                <%= currentDate %> UTC
-            </span>
-        </div>
+    <div class="main-content" id="mainContent"></div>
 
-        <div class="content-header">
-            <h1 class="page-title">Today's Global Tasks</h1>
-        </div>
-
-        <% if (tasks.length === 0 && completedTasks.length === 0) { %>
-            <div class="empty-state">
-                <i class="fas fa-clipboard-list"></i>
-                <p>No tasks for today. Click the + button to add a new global task!</p>
-            </div>
-        <% } else { %>
-            <% if (tasks.length > 0) { %>
-                <div class="bucket-header">
-                    <h2 class="bucket-title">
-                        <i class="fas fa-tasks"></i>
-                        Active Tasks
-                        <span class="bucket-count"><%= tasks.length %></span>
-                    </h2>
-                </div>
-
-                <div class="items-container">
-                    <% tasks.forEach(function(task) { %>
-                        <div class="task-card">
-                            <div class="task-header">
-                                <div style="flex: 1;">
-                                    <h3 class="task-title"><%= task.title %></h3>
-                                    <div>
-                                        <span class="task-date-range"><%= task.dateUTC %></span>
-                                        <span class="task-time-range"><%= task.startTimeUTC %> - <%= task.endTimeUTC %></span>
-                                        <span class="utc-badge">UTC</span>
-                                    </div>
-                                    <span class="time-remaining-badge" id="time-<%= task.taskId %>" 
-                                          data-start="<%= new Date(task.startDate).getTime() %>" 
-                                          data-end="<%= new Date(task.endDate).getTime() %>">
-                                        Calculating...
-                                    </span>
-                                </div>
-                                <div class="task-actions">
-                                    <button class="action-btn" onclick="openAddSubtaskModal('<%= task.taskId %>')" title="Add Subtask">
-                                        <i class="fas fa-plus"></i>
-                                    </button>
-                                    <form method="POST" action="/api/tasks/<%= task.taskId %>/complete" style="display:inline;">
-                                        <button type="submit" class="action-btn" title="Complete Task">
-                                            <i class="fas fa-check"></i>
-                                        </button>
-                                    </form>
-                                    <form method="POST" action="/api/tasks/<%= task.taskId %>/delete" style="display:inline;" onsubmit="return confirm('Delete this global task? Everyone will lose it!')">
-                                        <button type="submit" class="action-btn" title="Delete Task">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </form>
-                                </div>
-                            </div>
-
-                            <% if (task.description) { %>
-                                <p class="task-description"><%= task.description %></p>
-                            <% } %>
-
-                            <% if (task.subtasks && task.subtasks.length > 0) { %>
-                                <% 
-                                    const completedSubtasks = task.subtasks.filter(s => s.completed === true).length;
-                                    const totalSubtasks = task.subtasks.length;
-                                    const progress = totalSubtasks > 0 ? Math.round((completedSubtasks / totalSubtasks) * 100) : 0;
-                                %>
-                                <div class="progress-display-container">
-                                    <div class="progress-circle" style="background: conic-gradient(var(--primary) <%= progress %>%%, var(--gray-light) 0%);">
-                                        <span style="font-size: 0.65rem; z-index: 1; color: var(--dark);"><%= progress %>%</span>
-                                    </div>
-                                    <div class="progress-text">
-                                        <%= completedSubtasks %> of <%= totalSubtasks %> subtasks completed
-                                    </div>
-                                </div>
-
-                                <details class="subtasks-details">
-                                    <summary>
-                                        <i class="fas fa-tasks"></i>
-                                        Subtasks (<%= completedSubtasks %>/<%= totalSubtasks %>)
-                                    </summary>
-                                    <div class="subtasks-content">
-                                        <% task.subtasks.sort((a, b) => (a.completed === b.completed ? 0 : a.completed ? 1 : -1)).forEach(function(subtask, index) { %>
-                                            <div class="subtask-item">
-                                                <form method="POST" action="/api/tasks/<%= task.taskId %>/subtasks/<%= subtask.id %>/toggle" style="display:inline;">
-                                                    <button type="submit" class="subtask-complete-btn">
-                                                        <span class="subtask-number-badge <%= subtask.completed ? 'completed' : '' %>">
-                                                            <%= index + 1 %>
-                                                        </span>
-                                                    </button>
-                                                </form>
-                                                <div class="subtask-details-container">
-                                                    <div class="subtask-title <%= subtask.completed ? 'subtask-completed' : '' %>">
-                                                        <%= subtask.title %>
-                                                    </div>
-                                                    <% if (subtask.description) { %>
-                                                        <div class="subtask-description"><%= subtask.description %></div>
-                                                    <% } %>
-                                                </div>
-                                                <div class="subtask-actions">
-                                                    <form method="POST" action="/api/tasks/<%= task.taskId %>/subtasks/<%= subtask.id %>/delete" style="display:inline;" onsubmit="return confirm('Delete this subtask?')">
-                                                        <button type="submit" class="delete-subtask-btn" title="Delete Subtask">
-                                                            <i class="fas fa-trash"></i>
-                                                        </button>
-                                                    </form>
-                                                </div>
-                                            </div>
-                                        <% }); %>
-                                    </div>
-                                </details>
-                            <% } else { %>
-                                <div style="margin-top: 10px;">
-                                    <button class="action-btn" onclick="openAddSubtaskModal('<%= task.taskId %>')" style="border-radius: 20px; width: auto; padding: 0 12px;">
-                                        <i class="fas fa-plus"></i> Add Subtask
-                                    </button>
-                                </div>
-                            <% } %>
-
-                            <div class="task-meta">
-                                <span class="repeat-badge">
-                                    <i class="fas fa-repeat"></i>
-                                    <%= task.repeat && task.repeat !== 'none' ? (task.repeat === 'daily' ? 'Daily' : 'Weekly') : 'No Repeat' %>
-                                    <% if (task.repeatCount && task.repeatCount > 0) { %>(<%= task.repeatCount %> left)<% } %>
-                                </span>
-                                <span class="duration-badge">
-                                    <i class="fas fa-hourglass-half"></i>
-                                    <%= task.durationFormatted || task.duration + ' min' || '30 min' %>
-                                </span>
-                            </div>
-                        </div>
-                    <% }); %>
-                </div>
-            <% } %>
-
-            <% if (completedTasks.length > 0) { %>
-                <div class="bucket-header" style="margin-top: 40px;">
-                    <h2 class="bucket-title">
-                        <i class="fas fa-check-circle"></i>
-                        Completed Today
-                        <span class="bucket-count"><%= completedTasks.length %></span>
-                    </h2>
-                </div>
-
-                <div class="items-container">
-                    <% completedTasks.forEach(function(task) { %>
-                        <div class="task-card" style="opacity: 0.8; background-color: var(--completed-bg);">
-                            <div class="task-header">
-                                <div style="flex: 1;">
-                                    <h3 class="task-title" style="color: var(--completed-text);"><%= task.title %></h3>
-                                    <div>
-                                        <span class="task-date-range"><%= task.dateUTC %></span>
-                                        <span class="task-time-range">Completed at <%= task.completedTimeUTC %> UTC</span>
-                                        <span class="utc-badge">UTC</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <% if (task.description) { %>
-                                <p class="task-description" style="color: var(--completed-text);"><%= task.description %></p>
-                            <% } %>
-                            <div class="task-meta" style="margin-top: 8px;">
-                                <span style="color: var(--completed-text);">
-                                    <i class="fas fa-check-circle"></i> Completed
-                                </span>
-                                <% if (task.autoCompleted) { %>
-                                    <span style="color: var(--completed-text);">
-                                        <i class="fas fa-robot"></i> Auto-completed
-                                    </span>
-                                <% } %>
-                            </div>
-                        </div>
-                    <% }); %>
-                </div>
-            <% } %>
-        <% } %>
-    </div>
-
-    <!-- Add Task Modal - BOT STYLE FIELDS -->
+    <!-- Add Task Modal -->
     <div class="modal" id="addTaskModal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2 class="modal-title">Add New Global Task</h2>
-                <button type="button" class="close-modal" onclick="closeAddTaskModal()">&times;</button>
+                <h2 class="modal-title">Create New Task</h2>
+                <button class="close-btn" onclick="closeModal('addTaskModal')">&times;</button>
             </div>
             <div class="modal-body">
-                <form method="POST" action="/api/tasks">
+                <form id="addTaskForm" onsubmit="submitTaskForm(event)">
                     <div class="form-group">
-                        <label class="form-label">Title * (Max 100 chars)</label>
-                        <input type="text" class="form-input" name="title" required placeholder="Enter task title" maxlength="100">
+                        <label class="form-label">Title *</label>
+                        <input type="text" class="form-control" name="title" required placeholder="Enter task title" maxlength="100">
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Description (Max 100 words)</label>
-                        <textarea class="form-textarea" name="description" placeholder="Enter task description, or '-' for none"></textarea>
-                        <small style="color: var(--gray); font-size: 0.75rem;">Enter '-' if no description</small>
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" name="description" placeholder="Enter task description" rows="3"></textarea>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Start Date (UTC)</label>
-                        <input type="date" class="form-input" name="startDate" id="startDate" required>
-                        <small style="color: var(--gray); font-size: 0.75rem;">Format: YYYY-MM-DD (UTC)</small>
+                        <input type="date" class="form-control" name="startDate" id="startDate" required>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Start Time (UTC)</label>
-                        <input type="time" class="form-input" name="startTime" id="startTime" required>
-                        <small style="color: var(--gray); font-size: 0.75rem;">Format: HH:MM (24-hour UTC)</small>
+                        <input type="time" class="form-control" name="startTime" id="startTime" required>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Duration (minutes) or End Time</label>
-                        <input type="text" class="form-input" name="duration" id="duration" value="30" placeholder="e.g., 30 or 16:30" required>
-                        <small style="color: var(--gray); font-size: 0.75rem;">Enter minutes (15-1440) OR end time in HH:MM format</small>
+                        <label class="form-label">End Time (UTC)</label>
+                        <input type="time" class="form-control" name="endTime" id="endTime" required>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Repeat</label>
@@ -1071,12 +1174,62 @@ function writeEJSFiles() {
                     </div>
                     <div class="form-group" id="repeatCountGroup" style="display: none;">
                         <label class="form-label">Repeat Count (1-365)</label>
-                        <input type="number" class="form-input" name="repeatCount" value="10" min="1" max="365">
-                        <small style="color: var(--gray); font-size: 0.75rem;">Number of times to repeat</small>
+                        <input type="number" class="form-control" name="repeatCount" value="7" min="1" max="365">
                     </div>
-                    <div class="form-actions">
-                        <button type="button" class="btn btn-secondary" onclick="closeAddTaskModal()">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Create Task</button>
+                    <div class="form-actions" style="display: flex; gap: 12px; margin-top: 24px;">
+                        <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('addTaskModal')">Cancel</button>
+                        <button type="submit" class="btn btn-primary" style="flex: 1;">Create Task</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Task Modal -->
+    <div class="modal" id="editTaskModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Edit Task</h2>
+                <button class="close-btn" onclick="closeModal('editTaskModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="editTaskForm" onsubmit="submitEditTaskForm(event)">
+                    <input type="hidden" name="taskId" id="editTaskId">
+                    <div class="form-group">
+                        <label class="form-label">Title *</label>
+                        <input type="text" class="form-control" name="title" id="editTitle" required maxlength="100">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" name="description" id="editDescription" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Start Date (UTC)</label>
+                        <input type="date" class="form-control" name="startDate" id="editStartDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Start Time (UTC)</label>
+                        <input type="time" class="form-control" name="startTime" id="editStartTime" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">End Time (UTC)</label>
+                        <input type="time" class="form-control" name="endTime" id="editEndTime" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Repeat</label>
+                        <select class="form-select" name="repeat" id="editRepeatSelect">
+                            <option value="none">No Repeat</option>
+                            <option value="daily">Daily</option>
+                            <option value="weekly">Weekly</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="editRepeatCountGroup" style="display: none;">
+                        <label class="form-label">Repeat Count (1-365)</label>
+                        <input type="number" class="form-control" name="repeatCount" id="editRepeatCount" min="1" max="365">
+                    </div>
+                    <div class="form-actions" style="display: flex; gap: 12px; margin-top: 24px;">
+                        <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('editTaskModal')">Cancel</button>
+                        <button type="submit" class="btn btn-primary" style="flex: 1;">Update Task</button>
                     </div>
                 </form>
             </div>
@@ -1088,771 +1241,76 @@ function writeEJSFiles() {
         <div class="modal-content">
             <div class="modal-header">
                 <h2 class="modal-title">Add Subtask</h2>
-                <button type="button" class="close-modal" onclick="closeAddSubtaskModal()">&times;</button>
+                <button class="close-btn" onclick="closeModal('addSubtaskModal')">&times;</button>
             </div>
             <div class="modal-body">
-                <form method="POST" action="" id="addSubtaskForm">
+                <form id="addSubtaskForm" onsubmit="submitSubtaskForm(event)">
+                    <input type="hidden" name="taskId" id="subtaskTaskId">
                     <div class="form-group">
-                        <label class="form-label">Subtask Title * (Max 100 chars)</label>
-                        <input type="text" class="form-input" name="title" required placeholder="Enter subtask title" maxlength="100">
+                        <label class="form-label">Title *</label>
+                        <input type="text" class="form-control" name="title" required placeholder="Enter subtask title" maxlength="100">
                     </div>
                     <div class="form-group">
                         <label class="form-label">Description</label>
-                        <textarea class="form-textarea" name="description" placeholder="Optional description"></textarea>
+                        <textarea class="form-control" name="description" placeholder="Enter subtask description" rows="2"></textarea>
                     </div>
-                    <div class="form-actions">
-                        <button type="button" class="btn btn-secondary" onclick="closeAddSubtaskModal()">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Add Subtask</button>
+                    <div class="form-actions" style="display: flex; gap: 12px; margin-top: 24px;">
+                        <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('addSubtaskModal')">Cancel</button>
+                        <button type="submit" class="btn btn-primary" style="flex: 1;">Add Subtask</button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
 
-    <script>
-        // Set default date and time to today/now UTC
-        document.addEventListener('DOMContentLoaded', function() {
-            const now = new Date();
-            const year = now.getUTCFullYear();
-            const month = String(now.getUTCMonth() + 1).padStart(2, '0');
-            const day = String(now.getUTCDate()).padStart(2, '0');
-            const today = \`\${year}-\${month}-\${day}\`;
-            const hours = String(now.getUTCHours()).padStart(2, '0');
-            const minutes = String(now.getUTCMinutes()).padStart(2, '0');
-            const currentTime = \`\${hours}:\${minutes}\`;
-            
-            const startDateInput = document.getElementById('startDate');
-            const startTimeInput = document.getElementById('startTime');
-            
-            if (startDateInput) startDateInput.value = today;
-            if (startTimeInput) startTimeInput.value = currentTime;
-            
-            // Repeat select toggle
-            const repeatSelect = document.getElementById('repeatSelect');
-            const repeatCountGroup = document.getElementById('repeatCountGroup');
-            
-            if (repeatSelect && repeatCountGroup) {
-                repeatSelect.addEventListener('change', function() {
-                    repeatCountGroup.style.display = this.value === 'none' ? 'none' : 'block';
-                });
-            }
-            
-            updateAllTimeRemaining();
-            setInterval(updateAllTimeRemaining, 60000);
-        });
-
-        function updateAllTimeRemaining() {
-            document.querySelectorAll('[id^="time-"]').forEach(el => {
-                const startTime = parseInt(el.dataset.start);
-                const endTime = parseInt(el.dataset.end);
-                const now = Date.now();
-                
-                let text = '';
-                let className = '';
-                
-                if (now < startTime) {
-                    const minutesLeft = Math.ceil((startTime - now) / 60000);
-                    if (minutesLeft > 120) {
-                        text = 'Upcoming';
-                        className = 'upcoming';
-                    } else {
-                        text = \`Starts in \${minutesLeft}m\`;
-                        className = 'starting_soon';
-                    }
-                } else if (now >= startTime && now <= endTime) {
-                    const minutesLeft = Math.ceil((endTime - now) / 60000);
-                    text = \`\${minutesLeft}m left\`;
-                    className = 'active';
-                } else if (now > endTime) {
-                    const minutesOver = Math.ceil((now - endTime) / 60000);
-                    if (minutesOver < 120) {
-                        text = \`Due \${minutesOver}m ago\`;
-                        className = 'due';
-                    } else {
-                        text = 'Overdue';
-                        className = 'overdue';
-                    }
-                }
-                
-                el.textContent = text;
-                el.className = 'time-remaining-badge ' + className;
-            });
-        }
-
-        function openAddTaskModal() {
-            document.getElementById('addTaskModal').style.display = 'flex';
-        }
-
-        function closeAddTaskModal() {
-            document.getElementById('addTaskModal').style.display = 'none';
-        }
-
-        function openAddSubtaskModal(taskId) {
-            const form = document.getElementById('addSubtaskForm');
-            form.action = \`/api/tasks/\${taskId}/subtasks\`;
-            document.getElementById('addSubtaskModal').style.display = 'flex';
-        }
-
-        function closeAddSubtaskModal() {
-            document.getElementById('addSubtaskModal').style.display = 'none';
-            document.getElementById('addSubtaskForm').reset();
-        }
-
-        window.addEventListener('click', function(event) {
-            const modals = document.querySelectorAll('.modal');
-            modals.forEach(modal => {
-                if (event.target === modal) {
-                    modal.style.display = 'none';
-                    if (modal.id === 'addSubtaskModal') {
-                        document.getElementById('addSubtaskForm').reset();
-                    }
-                }
-            });
-        });
-    </script>
-</body>
-</html>`;
-        fs.writeFileSync(path.join(viewsDir, 'tasks.ejs'), tasksEJS);
-        
-        // Notes.ejs
-        const notesEJS = `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Global Task Manager - Notes</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        :root {
-            --primary: #4361ee;
-            --primary-light: #4895ef;
-            --secondary: #3f37c9;
-            --success: #4cc9f0;
-            --danger: #f72585;
-            --warning: #f8961e;
-            --info: #4895ef;
-            --light: #f8f9fa;
-            --dark: #212529;
-            --gray: #6c757d;
-            --gray-light: #adb5bd;
-            --border-radius: 12px;
-            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            --transition: all 0.3s ease;
-            --note-bg: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            --note-shadow: 0 8px 32px rgba(31, 38, 135, 0.1);
-        }
-        
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --primary: #5a6ff0;
-                --primary-light: #6a80f2;
-                --secondary: #4f46e5;
-                --success: #5fd3f0;
-                --danger: #ff2d8e;
-                --warning: #ffa94d;
-                --info: #6a80f2;
-                --light: #121212;
-                --dark: #ffffff;
-                --gray: #94a3b8;
-                --gray-light: #475569;
-                --shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-                --note-bg: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-                --note-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            }
-        }
-        
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        
-        body {
-            background-color: var(--light);
-            color: var(--dark);
-            transition: var(--transition);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            font-size: 14px;
-        }
-        
-        .header {
-            background-color: var(--light);
-            padding: 8px 16px;
-            display: flex;
-            align-items: center;
-            justify-content: space-around;
-            box-shadow: var(--shadow);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-        
-        .header-action-btn {
-            display: flex;
-            flex-direction: row;
-            align-items: center;
-            justify-content: center;
-            background: var(--primary);
-            color: white;
-            border: none;
-            border-radius: 20px;
-            padding: 8px 16px;
-            cursor: pointer;
-            transition: var(--transition);
-            box-shadow: var(--shadow);
-            gap: 8px;
-            flex: 1;
-            max-width: 120px;
-            margin: 0 4px;
-            text-decoration: none;
-        }
-        
-        .header-action-btn i {
-            font-size: 1rem;
-        }
-        
-        .header-action-btn span {
-            font-size: 0.8rem;
-            font-weight: 600;
-        }
-        
-        .header-action-btn:hover {
-            background: var(--primary-light);
-            transform: translateY(-2px);
-        }
-        
-        .header-action-btn.active {
-            background: var(--secondary);
-            box-shadow: 0 0 0 2px var(--primary-light);
-        }
-        
-        @media (max-width: 768px) {
-            .header {
-                padding: 8px;
-                gap: 4px;
-            }
-            .header-action-btn {
-                width: 100%;
-                max-width: none;
-                padding: 10px;
-                margin: 2px;
-                border-radius: 12px;
-            }
-            .header-action-btn span {
-                display: block;
-                font-size: 0.75rem;
-            }
-            .header-action-btn i {
-                margin-right: 4px;
-                font-size: 0.9rem;
-            }
-        }
-        
-        .fab {
-            position: fixed;
-            width: 60px;
-            height: 60px;
-            background-color: var(--primary);
-            color: white;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-            cursor: pointer;
-            transition: var(--transition);
-            z-index: 1000;
-            border: none;
-            bottom: 30px;
-            right: 30px;
-        }
-        
-        .fab:hover {
-            background-color: var(--primary-light);
-            transform: scale(1.1);
-            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
-        }
-        
-        @media (max-width: 768px) {
-            .fab {
-                width: 50px;
-                height: 50px;
-                font-size: 1.3rem;
-                bottom: 20px;
-                right: 20px;
-            }
-        }
-        
-        .main-content {
-            flex-grow: 1;
-            padding: 16px;
-            overflow-y: auto;
-            padding-bottom: 100px;
-        }
-        
-        .content-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 16px;
-        }
-        
-        .page-title {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--dark);
-        }
-        
-        .global-badge {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 600;
-        }
-        
-        .info-message {
-            background-color: rgba(67, 97, 238, 0.1);
-            border-left: 4px solid var(--primary);
-            padding: 12px;
-            margin-bottom: 16px;
-            border-radius: 6px;
-            font-size: 0.85rem;
-        }
-        
-        .notes-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 16px;
-        }
-        
-        .note-card {
-            background: var(--note-bg);
-            border-radius: var(--border-radius);
-            padding: 0;
-            box-shadow: var(--note-shadow);
-            transition: var(--transition);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            overflow: hidden;
-        }
-        
-        .note-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
-        }
-        
-        .note-details {
-            width: 100%;
-        }
-        
-        .note-summary {
-            list-style: none;
-            padding: 16px;
-            cursor: pointer;
-        }
-        
-        .note-summary::-webkit-details-marker {
-            display: none;
-        }
-        
-        .note-header {
-            margin-bottom: 0;
-            padding-bottom: 0;
-            border-bottom: none;
-        }
-        
-        .note-title {
-            font-size: 1.1rem;
-            font-weight: 700;
-            color: var(--dark);
-            margin-bottom: 4px;
-            line-height: 1.3;
-        }
-        
-        .note-date {
-            font-size: 0.75rem;
-            color: var(--gray);
-            font-weight: 500;
-        }
-        
-        .utc-badge {
-            background-color: rgba(67, 97, 238, 0.1);
-            color: var(--primary);
-            padding: 2px 4px;
-            border-radius: 4px;
-            font-size: 0.6rem;
-            font-weight: 600;
-            margin-left: 4px;
-        }
-        
-        .note-content {
-            padding: 0 16px 16px 16px;
-            border-top: 1px solid rgba(0,0,0,0.05);
-            margin-top: 8px;
-        }
-        
-        @media (prefers-color-scheme: dark) {
-            .note-content {
-                border-top-color: rgba(255,255,255,0.05);
-            }
-        }
-        
-        .note-description {
-            font-size: 0.9rem;
-            color: var(--dark);
-            line-height: 1.6;
-            margin-bottom: 16px;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-        }
-        
-        .note-description strong {
-            font-weight: 700;
-            color: var(--primary);
-        }
-        
-        .note-description em {
-            font-style: italic;
-            color: var(--secondary);
-        }
-        
-        .note-footer {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: auto;
-            padding-top: 12px;
-            border-top: 1px solid rgba(0,0,0,0.05);
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-        
-        @media (prefers-color-scheme: dark) {
-            .note-footer {
-                border-top-color: rgba(255,255,255,0.05);
-            }
-        }
-        
-        .note-meta {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-        
-        .note-date-badge {
-            background: rgba(67, 97, 238, 0.1);
-            color: var(--primary);
-            padding: 4px 8px;
-            border-radius: 12px;
-            font-size: 0.7rem;
-            font-weight: 500;
-        }
-        
-        .note-actions {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        
-        .note-action-btn, .note-move-btn {
-            background: none;
-            border: none;
-            color: var(--primary);
-            cursor: pointer;
-            font-size: 0.9rem;
-            transition: var(--transition);
-            opacity: 0.7;
-            padding: 4px;
-            border-radius: 4px;
-        }
-        
-        .note-action-btn:hover, .note-move-btn:hover {
-            opacity: 1;
-            transform: scale(1.1);
-            background: rgba(67, 97, 238, 0.1);
-        }
-        
-        .note-action-btn.delete {
-            color: var(--danger);
-        }
-        
-        .note-action-btn.delete:hover {
-            background: rgba(247, 37, 133, 0.1);
-        }
-        
-        .empty-state {
-            text-align: center;
-            padding: 32px 16px;
-            color: var(--gray);
-            grid-column: 1 / -1;
-        }
-        
-        .empty-state i {
-            font-size: 2.5rem;
-            margin-bottom: 12px;
-            opacity: 0.5;
-        }
-        
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-            animation: fadeIn 0.3s ease;
-        }
-        
-        .modal-content {
-            background-color: var(--light);
-            border-radius: var(--border-radius);
-            width: 90%;
-            max-width: 500px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-            animation: scaleIn 0.3s ease;
-            overflow: hidden;
-            max-height: 90vh;
-            overflow-y: auto;
-        }
-        
-        .modal-header {
-            padding: 16px;
-            border-bottom: 1px solid var(--gray-light);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        
-        .modal-title {
-            font-size: 1.2rem;
-            font-weight: 600;
-            color: var(--dark);
-        }
-        
-        .close-modal {
-            background: none;
-            border: none;
-            font-size: 1.3rem;
-            color: var(--gray);
-            cursor: pointer;
-            transition: var(--transition);
-        }
-        
-        .close-modal:hover {
-            color: var(--danger);
-        }
-        
-        .modal-body {
-            padding: 16px;
-        }
-        
-        .form-group {
-            margin-bottom: 12px;
-        }
-        
-        .form-label {
-            display: block;
-            margin-bottom: 4px;
-            font-weight: 600;
-            color: var(--dark);
-            font-size: 0.9rem;
-        }
-        
-        .form-input, .form-textarea {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid var(--gray-light);
-            border-radius: 6px;
-            background-color: var(--light);
-            color: var(--dark);
-            transition: var(--transition);
-            font-size: 0.9rem;
-        }
-        
-        .form-input:focus, .form-textarea:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
-        }
-        
-        .form-textarea {
-            min-height: 120px;
-            resize: vertical;
-            line-height: 1.4;
-        }
-        
-        .form-actions {
-            display: flex;
-            justify-content: flex-end;
-            gap: 8px;
-            margin-top: 16px;
-        }
-        
-        .btn {
-            padding: 8px 16px;
-            border: none;
-            border-radius: 6px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: var(--transition);
-            font-size: 0.9rem;
-        }
-        
-        .btn-primary {
-            background-color: var(--primary);
-            color: white;
-        }
-        
-        .btn-primary:hover {
-            background-color: var(--secondary);
-        }
-        
-        .btn-secondary {
-            background-color: var(--gray-light);
-            color: white;
-        }
-        
-        .btn-secondary:hover {
-            background-color: var(--gray);
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        
-        @keyframes scaleIn {
-            from { opacity: 0; transform: scale(0.9); }
-            to { opacity: 1; transform: scale(1); }
-        }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <a href="/tasks" class="header-action-btn">
-            <i class="fas fa-tasks"></i>
-            <span>Tasks</span>
-        </a>
-        <a href="/notes" class="header-action-btn active">
-            <i class="fas fa-wand-magic-sparkles"></i>
-            <span>Notes</span>
-        </a>
-        <a href="/history" class="header-action-btn">
-            <i class="fas fa-history"></i>
-            <span>History</span>
-        </a>
-    </div>
-
-    <button class="fab" onclick="openAddNoteModal()" title="Add Note">
-        <i class="fas fa-plus"></i>
-    </button>
-
-    <div class="main-content">
-        <div class="info-message">
-            <i class="fas fa-globe"></i> <strong>Global Mode</strong> - Everyone sees the same notes
-        </div>
-        
-        <div class="content-header">
-            <h1 class="page-title">Global Notes</h1>
-        </div>
-
-        <div class="notes-container">
-            <% if (notes.length === 0) { %>
-                <div class="empty-state">
-                    <i class="fas fa-wand-magic-sparkles"></i>
-                    <p>No notes yet. Click the + button to add your first global note!</p>
-                </div>
-            <% } else { %>
-                <% notes.forEach(function(note) { %>
-                    <div class="note-card">
-                        <details class="note-details" <%= notes.indexOf(note) === 0 ? 'open' : '' %>>
-                            <summary class="note-summary">
-                                <div class="note-header">
-                                    <h3 class="note-title"><%= note.title %></h3>
-                                    <div class="note-date">
-                                        <i class="fas fa-clock"></i>
-                                        <%= note.updatedAtUTC || note.createdAtUTC %> UTC
-                                    </div>
-                                </div>
-                            </summary>
-                            <div class="note-content">
-                                <% if (note.description) { %>
-                                    <div class="note-description"><%- note.description.replace(/\\n/g, '<br>') %></div>
-                                <% } else { %>
-                                    <div class="note-description" style="color: var(--gray); font-style: italic;">Empty note</div>
-                                <% } %>
-                                <div class="note-footer">
-                                    <div class="note-meta">
-                                        <span class="note-date-badge">
-                                            <i class="fas fa-calendar"></i>
-                                            Created: <%= note.createdAtUTC %> UTC
-                                        </span>
-                                    </div>
-                                    <div class="note-actions">
-                                        <form method="POST" action="/api/notes/<%= note.noteId %>/move" style="display:inline;">
-                                            <input type="hidden" name="direction" value="up">
-                                            <button type="submit" class="note-move-btn" title="Move Up">
-                                                <i class="fas fa-arrow-up"></i>
-                                            </button>
-                                        </form>
-                                        <form method="POST" action="/api/notes/<%= note.noteId %>/move" style="display:inline;">
-                                            <input type="hidden" name="direction" value="down">
-                                            <button type="submit" class="note-move-btn" title="Move Down">
-                                                <i class="fas fa-arrow-down"></i>
-                                            </button>
-                                        </form>
-                                        <button class="note-action-btn" onclick='openEditNoteModal("<%= note.noteId %>", <%= JSON.stringify(note.title) %>, <%= JSON.stringify(note.description || "") %>)' title="Edit Note">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                        <form method="POST" action="/api/notes/<%= note.noteId %>/delete" style="display:inline;" onsubmit="return confirm('Delete this global note? Everyone will lose it!')">
-                                            <button type="submit" class="note-action-btn delete" title="Delete Note">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
-                        </details>
+    <!-- Edit Subtask Modal -->
+    <div class="modal" id="editSubtaskModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Edit Subtask</h2>
+                <button class="close-btn" onclick="closeModal('editSubtaskModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="editSubtaskForm" onsubmit="submitEditSubtaskForm(event)">
+                    <input type="hidden" name="taskId" id="editSubtaskTaskId">
+                    <input type="hidden" name="subtaskId" id="editSubtaskId">
+                    <div class="form-group">
+                        <label class="form-label">Title *</label>
+                        <input type="text" class="form-control" name="title" id="editSubtaskTitle" required maxlength="100">
                     </div>
-                <% }); %>
-            <% } %>
+                    <div class="form-group">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" name="description" id="editSubtaskDescription" rows="2"></textarea>
+                    </div>
+                    <div class="form-actions" style="display: flex; gap: 12px; margin-top: 24px;">
+                        <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('editSubtaskModal')">Cancel</button>
+                        <button type="submit" class="btn btn-primary" style="flex: 1;">Update Subtask</button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 
-    <!-- Add Note Modal - BOT STYLE -->
+    <!-- Add Note Modal -->
     <div class="modal" id="addNoteModal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2 class="modal-title">Add New Global Note</h2>
-                <button type="button" class="close-modal" onclick="closeAddNoteModal()">&times;</button>
+                <h2 class="modal-title">Create Note</h2>
+                <button class="close-btn" onclick="closeModal('addNoteModal')">&times;</button>
             </div>
             <div class="modal-body">
-                <form method="POST" action="/api/notes">
+                <form id="addNoteForm" onsubmit="submitNoteForm(event)">
                     <div class="form-group">
-                        <label class="form-label">Title * (Max 200 chars)</label>
-                        <input type="text" class="form-input" name="title" required placeholder="Enter note title" maxlength="200">
+                        <label class="form-label">Title *</label>
+                        <input type="text" class="form-control" name="title" required placeholder="Enter note title" maxlength="200">
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Content (Max 400 words)</label>
-                        <textarea class="form-textarea" name="description" placeholder="Enter note content, or '-' for none"></textarea>
-                        <small style="color: var(--gray); font-size: 0.75rem;">Enter '-' if no content</small>
+                        <label class="form-label">Content</label>
+                        <textarea class="form-control" name="description" placeholder="Enter note content" rows="5"></textarea>
                     </div>
-                    <div class="form-actions">
-                        <button type="button" class="btn btn-secondary" onclick="closeAddNoteModal()">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Save Note</button>
+                    <div class="form-actions" style="display: flex; gap: 12px; margin-top: 24px;">
+                        <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('addNoteModal')">Cancel</button>
+                        <button type="submit" class="btn btn-primary" style="flex: 1;">Save Note</button>
                     </div>
                 </form>
             </div>
@@ -1863,23 +1321,23 @@ function writeEJSFiles() {
     <div class="modal" id="editNoteModal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2 class="modal-title">Edit Global Note</h2>
-                <button type="button" class="close-modal" onclick="closeEditNoteModal()">&times;</button>
+                <h2 class="modal-title">Edit Note</h2>
+                <button class="close-btn" onclick="closeModal('editNoteModal')">&times;</button>
             </div>
             <div class="modal-body">
-                <form method="POST" action="" id="editNoteForm">
+                <form id="editNoteForm" onsubmit="submitEditNoteForm(event)">
+                    <input type="hidden" name="noteId" id="editNoteId">
                     <div class="form-group">
-                        <label class="form-label">Title * (Max 200 chars)</label>
-                        <input type="text" class="form-input" name="title" id="editNoteTitle" required maxlength="200">
+                        <label class="form-label">Title *</label>
+                        <input type="text" class="form-control" name="title" id="editNoteTitle" required maxlength="200">
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Content (Max 400 words)</label>
-                        <textarea class="form-textarea" name="description" id="editNoteDescription" placeholder="Enter '-' for empty"></textarea>
-                        <small style="color: var(--gray); font-size: 0.75rem;">Enter '-' if no content</small>
+                        <label class="form-label">Content</label>
+                        <textarea class="form-control" name="description" id="editNoteDescription" rows="5"></textarea>
                     </div>
-                    <div class="form-actions">
-                        <button type="button" class="btn btn-secondary" onclick="closeEditNoteModal()">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Update Note</button>
+                    <div class="form-actions" style="display: flex; gap: 12px; margin-top: 24px;">
+                        <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('editNoteModal')">Cancel</button>
+                        <button type="submit" class="btn btn-primary" style="flex: 1;">Update Note</button>
                     </div>
                 </form>
             </div>
@@ -1887,554 +1345,785 @@ function writeEJSFiles() {
     </div>
 
     <script>
-        function openAddNoteModal() {
-            document.getElementById('addNoteModal').style.display = 'flex';
+        // ==========================================
+        // TOAST NOTIFICATION SYSTEM
+        // ==========================================
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = \`
+                <i class="fas \${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'}"></i>
+                <span>\${message}</span>
+            \`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.animation = 'slideOutRight 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
         }
 
-        function closeAddNoteModal() {
-            document.getElementById('addNoteModal').style.display = 'none';
-            document.getElementById('addNoteModal').querySelector('form').reset();
+        // ==========================================
+        // LOADER SYSTEM
+        // ==========================================
+        function showLoader() {
+            document.getElementById('loader').style.display = 'flex';
+        }
+
+        function hideLoader() {
+            document.getElementById('loader').style.display = 'none';
+        }
+
+        // ==========================================
+        // PAGE SWITCHING
+        // ==========================================
+        let currentPage = '<%= currentPage %>';
+        let tasksData = <%- JSON.stringify(tasks || []) %>;
+        let notesData = <%- JSON.stringify(notes || []) %>;
+        let historyData = <%- JSON.stringify(groupedHistory || {}) %>;
+
+        function switchPage(page) {
+            showLoader();
+            fetch('/api/page/' + page)
+                .then(res => res.json())
+                .then(data => {
+                    currentPage = page;
+                    tasksData = data.tasks || [];
+                    notesData = data.notes || [];
+                    historyData = data.groupedHistory || {};
+                    renderPage();
+                    updateActiveNav();
+                    hideLoader();
+                })
+                .catch(err => {
+                    console.error(err);
+                    showToast('Error loading page', 'error');
+                    hideLoader();
+                });
+        }
+
+        function updateActiveNav() {
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                if (btn.innerText.toLowerCase().includes(currentPage)) {
+                    btn.classList.add('active');
+                }
+            });
+        }
+
+        function renderPage() {
+            const content = document.getElementById('mainContent');
+            if (currentPage === 'tasks') {
+                content.innerHTML = renderTasksPage();
+            } else if (currentPage === 'notes') {
+                content.innerHTML = renderNotesPage();
+            } else if (currentPage === 'history') {
+                content.innerHTML = renderHistoryPage();
+            }
+        }
+
+        function renderTasksPage() {
+            const todayUTC = '<%= formatDateUTC(new Date()) %>';
+            let html = \`
+                <h1 class="page-title">Today's Tasks</h1>
+                <div class="tasks-grid">
+            \`;
+
+            if (!tasksData || tasksData.length === 0) {
+                html += \`
+                    <div class="empty-state" style="grid-column: 1/-1;">
+                        <i class="fas fa-clipboard-list"></i>
+                        <h3>No tasks for today</h3>
+                        <p style="margin-top: 12px;">Click the + button to add your first task!</p>
+                    </div>
+                \`;
+            } else {
+                tasksData.forEach(task => {
+                    const progress = task.subtaskProgress || 0;
+                    const circleCircumference = 2 * Math.PI * 25;
+                    const circleOffset = circleCircumference - (progress / 100) * circleCircumference;
+                    
+                    html += \`
+                        <div class="task-card">
+                            <div class="task-header">
+                                <div class="task-title-section">
+                                    <h3 class="task-title">\${escapeHtml(task.title)}</h3>
+                                    <div class="task-time">
+                                        <span class="time-chip">
+                                            <i class="fas fa-calendar"></i> \${task.dateUTC}
+                                        </span>
+                                        <span class="time-chip">
+                                            <i class="fas fa-clock"></i> \${task.startTimeUTC} - \${task.endTimeUTC}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="task-actions">
+                                    <button class="action-btn" onclick="openAddSubtaskModal('\${task.taskId}')" title="Add Subtask">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                    <button class="action-btn" onclick="openEditTaskModal('\${task.taskId}')" title="Edit Task">
+                                        <i class="fas fa-pencil-alt"></i>
+                                    </button>
+                                    <button class="action-btn" onclick="completeTask('\${task.taskId}')" title="Complete Task">
+                                        <i class="fas fa-check"></i>
+                                    </button>
+                                    <button class="action-btn delete" onclick="deleteTask('\${task.taskId}')" title="Delete Task">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                    \`;
+
+                    if (task.description) {
+                        html += \`<div class="task-description">\${escapeHtml(task.description).replace(/\\n/g, '<br>')}</div>\`;
+                    }
+
+                    if (task.subtasks && task.subtasks.length > 0) {
+                        const completed = task.subtasks.filter(s => s.completed).length;
+                        html += \`
+                            <div class="progress-section">
+                                <div class="progress-ring">
+                                    <svg width="56" height="56">
+                                        <circle class="progress-ring-circle" stroke="var(--progress-bg-light)" stroke-width="4" fill="transparent" r="25" cx="28" cy="28"/>
+                                        <circle class="progress-ring-circle" stroke="var(--accent-light)" stroke-width="4" fill="transparent" r="25" cx="28" cy="28"
+                                            style="stroke-dasharray: \${circleCircumference}; stroke-dashoffset: \${circleOffset};"/>
+                                    </svg>
+                                    <span class="progress-text">\${progress}%</span>
+                                </div>
+                                <div style="font-size: 0.9rem; color: var(--text-secondary-light);">
+                                    <strong>\${completed}/\${task.subtasks.length}</strong> subtasks completed
+                                </div>
+                            </div>
+                            <div class="subtasks-container">
+                        \`;
+
+                        task.subtasks.sort((a, b) => {
+                            if (a.completed === b.completed) return 0;
+                            return a.completed ? 1 : -1;
+                        }).forEach((subtask, index) => {
+                            html += \`
+                                <details class="subtask-details" \${subtask.completed ? '' : ''}>
+                                    <summary>
+                                        <div class="subtask-checkbox \${subtask.completed ? 'completed' : ''}" onclick="event.preventDefault(); toggleSubtask('\${task.taskId}', '\${subtask.id}')">
+                                            \${subtask.completed ? '<i class="fas fa-check"></i>' : ''}
+                                        </div>
+                                        <span style="flex: 1; \${subtask.completed ? 'text-decoration: line-through; color: var(--text-secondary-light);' : ''}">
+                                            \${escapeHtml(subtask.title)}
+                                        </span>
+                                    </summary>
+                                    <div class="subtask-content">
+                                        \${subtask.description ? \`
+                                            <div class="subtask-desc">\${escapeHtml(subtask.description).replace(/\\n/g, '<br>')}</div>
+                                        \` : ''}
+                                        <div style="display: flex; gap: 8px; margin-top: 12px;">
+                                            <button class="subtask-btn" onclick="editSubtask('\${task.taskId}', '\${subtask.id}', '\${escapeHtml(subtask.title)}', '\${escapeHtml(subtask.description || '')}')">
+                                                <i class="fas fa-pencil-alt"></i>
+                                            </button>
+                                            <button class="subtask-btn delete" onclick="deleteSubtask('\${task.taskId}', '\${subtask.id}')">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </details>
+                            \`;
+                        });
+
+                        html += \`</div>\`;
+                    }
+
+                    html += \`
+                            <div style="display: flex; gap: 8px; margin-top: 16px;">
+                                <span class="badge primary">
+                                    <i class="fas fa-repeat"></i> \${task.repeat && task.repeat !== 'none' ? (task.repeat === 'daily' ? 'Daily' : 'Weekly') : 'No Repeat'}
+                                </span>
+                                <span class="badge primary">
+                                    <i class="fas fa-hourglass-half"></i> \${task.durationFormatted}
+                                </span>
+                            </div>
+                        </div>
+                    \`;
+                });
+            }
+
+            html += \`</div>\`;
+            return html;
+        }
+
+        function renderNotesPage() {
+            let html = \`
+                <h1 class="page-title">Notes</h1>
+                <div class="notes-grid">
+            \`;
+
+            if (!notesData || notesData.length === 0) {
+                html += \`
+                    <div class="empty-state" style="grid-column: 1/-1;">
+                        <i class="fas fa-wand-magic-sparkles"></i>
+                        <h3>No notes yet</h3>
+                        <p style="margin-top: 12px;">Click the + button to create your first note!</p>
+                    </div>
+                \`;
+            } else {
+                notesData.forEach(note => {
+                    html += \`
+                        <div class="note-card">
+                            <div class="note-header">
+                                <h3 class="note-title">\${escapeHtml(note.title)}</h3>
+                                <div style="display: flex; gap: 8px;">
+                                    <button class="action-btn" onclick="openEditNoteModal('\${note.noteId}', '\${escapeHtml(note.title)}', '\${escapeHtml(note.description || '')}')">
+                                        <i class="fas fa-pencil-alt"></i>
+                                    </button>
+                                    <button class="action-btn delete" onclick="deleteNote('\${note.noteId}')">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            \${note.description ? \`
+                                <div class="note-content">
+                                    \${escapeHtml(note.description).replace(/\\n/g, '<br>')}
+                                </div>
+                            \` : \`
+                                <div class="note-content" style="color: var(--text-secondary-light); font-style: italic;">
+                                    <i class="fas fa-info-circle"></i> Empty note
+                                </div>
+                            \`}
+                            <div class="note-meta">
+                                <span><i class="fas fa-clock"></i> \${note.createdAtUTC}</span>
+                                \${note.updatedAtUTC !== note.createdAtUTC ? \`
+                                    <span><i class="fas fa-pencil-alt"></i> \${note.updatedAtUTC}</span>
+                                \` : ''}
+                            </div>
+                        </div>
+                    \`;
+                });
+            }
+
+            html += \`</div>\`;
+            return html;
+        }
+
+        function renderHistoryPage() {
+            let html = \`
+                <h1 class="page-title">Task History</h1>
+                <div class="history-grid">
+            \`;
+
+            const dates = Object.keys(historyData).sort().reverse();
+
+            if (dates.length === 0) {
+                html += \`
+                    <div class="empty-state">
+                        <i class="fas fa-history"></i>
+                        <h3>No completed tasks yet</h3>
+                        <p style="margin-top: 12px;">Complete some tasks to see them here!</p>
+                    </div>
+                \`;
+            } else {
+                dates.forEach(date => {
+                    const tasks = historyData[date];
+                    html += \`
+                        <div class="history-date-card">
+                            <details class="history-details">
+                                <summary>
+                                    <i class="fas fa-calendar-alt"></i>
+                                    <span style="font-size: 1.1rem;">\${date}</span>
+                                    <span class="badge primary" style="margin-left: auto;">
+                                        \${tasks.length} task\${tasks.length !== 1 ? 's' : ''}
+                                    </span>
+                                </summary>
+                                <div class="history-tasks">
+                    \`;
+
+                    tasks.forEach(task => {
+                        html += \`
+                            <div class="history-task-card">
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                                    <h4 style="font-weight: 700; color: var(--text-primary-light);">\${escapeHtml(task.title)}</h4>
+                                    <span class="badge primary" style="background: rgba(16,185,129,0.1); color: var(--success-light);">
+                                        <i class="fas fa-check-circle"></i> \${task.completedTimeUTC}
+                                    </span>
+                                </div>
+                                \${task.description ? \`
+                                    <div style="font-size: 0.9rem; color: var(--text-secondary-light); margin-bottom: 12px; padding: 8px; background: rgba(0,0,0,0.02); border-radius: 8px;">
+                                        \${escapeHtml(task.description)}
+                                    </div>
+                                \` : ''}
+                                <div style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">
+                                    <span class="badge primary">
+                                        <i class="fas fa-clock"></i> \${formatTime(task.startDate)} - \${formatTime(task.endDate)} UTC
+                                    </span>
+                                    <span class="badge primary">
+                                        <i class="fas fa-hourglass-half"></i> \${task.durationFormatted}
+                                    </span>
+                                    \${task.autoCompleted ? \`
+                                        <span class="badge" style="background: rgba(245,158,11,0.1); color: var(--warning-light);">
+                                            <i class="fas fa-robot"></i> Auto
+                                        </span>
+                                    \` : ''}
+                                </div>
+                                \${task.subtasks && task.subtasks.length > 0 ? \`
+                                    <details style="margin-top: 12px;">
+                                        <summary style="cursor: pointer; color: var(--accent-light); font-weight: 600; font-size: 0.9rem;">
+                                            <i class="fas fa-tasks"></i> Subtasks (\${task.subtasks.filter(s => s.completed).length}/\${task.subtasks.length})
+                                        </summary>
+                                        <div style="margin-top: 12px; padding-left: 12px;">
+                                            \${task.subtasks.map((subtask, idx) => \`
+                                                <div style="margin-bottom: 8px; padding: 8px; background: rgba(0,0,0,0.02); border-radius: 8px;">
+                                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                                        <span style="color: \${subtask.completed ? 'var(--success-light)' : 'var(--text-secondary-light)'};">
+                                                            <i class="fas fa-\${subtask.completed ? 'check-circle' : 'circle'}"></i>
+                                                        </span>
+                                                        <span style="font-weight: 600; \${subtask.completed ? 'text-decoration: line-through;' : ''}">
+                                                            \${escapeHtml(subtask.title)}
+                                                        </span>
+                                                    </div>
+                                                    \${subtask.description ? \`
+                                                        <div style="font-size: 0.85rem; color: var(--text-secondary-light); margin-top: 4px; padding-left: 24px;">
+                                                            \${escapeHtml(subtask.description)}
+                                                        </div>
+                                                    \` : ''}
+                                                </div>
+                                            \`).join('')}
+                                        </div>
+                                    </details>
+                                \` : ''}
+                            </div>
+                        \`;
+                    });
+
+                    html += \`
+                                </div>
+                            </details>
+                        </div>
+                    \`;
+                });
+            }
+
+            html += \`</div>\`;
+            return html;
+        }
+
+        // ==========================================
+        // UTILITY FUNCTIONS
+        // ==========================================
+        function escapeHtml(text) {
+            if (!text) return '';
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+        }
+
+        function formatTime(dateString) {
+            const date = new Date(dateString);
+            return date.toISOString().split('T')[1].substring(0, 5);
+        }
+
+        // ==========================================
+        // MODAL FUNCTIONS
+        // ==========================================
+        function openModal(modalId) {
+            document.getElementById(modalId).style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+
+        function openAddModal() {
+            if (currentPage === 'tasks') {
+                openAddTaskModal();
+            } else if (currentPage === 'notes') {
+                openAddNoteModal();
+            }
+        }
+
+        function openAddTaskModal() {
+            const now = new Date();
+            const year = now.getUTCFullYear();
+            const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+            const day = String(now.getUTCDate()).padStart(2, '0');
+            const hours = String(now.getUTCHours()).padStart(2, '0');
+            const minutes = String(now.getUTCMinutes()).padStart(2, '0');
+            
+            document.getElementById('startDate').value = \`\${year}-\${month}-\${day}\`;
+            document.getElementById('startTime').value = \`\${hours}:\${minutes}\`;
+            
+            const endHours = String(now.getUTCHours() + 1).padStart(2, '0');
+            document.getElementById('endTime').value = \`\${endHours}:\${minutes}\`;
+            
+            openModal('addTaskModal');
+        }
+
+        function openEditTaskModal(taskId) {
+            fetch('/api/tasks/' + taskId)
+                .then(res => res.json())
+                .then(task => {
+                    document.getElementById('editTaskId').value = task.taskId;
+                    document.getElementById('editTitle').value = task.title;
+                    document.getElementById('editDescription').value = task.description || '';
+                    
+                    const startDate = new Date(task.startDate);
+                    const year = startDate.getUTCFullYear();
+                    const month = String(startDate.getUTCMonth() + 1).padStart(2, '0');
+                    const day = String(startDate.getUTCDate()).padStart(2, '0');
+                    document.getElementById('editStartDate').value = \`\${year}-\${month}-\${day}\`;
+                    
+                    const startHours = String(startDate.getUTCHours()).padStart(2, '0');
+                    const startMinutes = String(startDate.getUTCMinutes()).padStart(2, '0');
+                    document.getElementById('editStartTime').value = \`\${startHours}:\${startMinutes}\`;
+                    
+                    const endDate = new Date(task.endDate);
+                    const endHours = String(endDate.getUTCHours()).padStart(2, '0');
+                    const endMinutes = String(endDate.getUTCMinutes()).padStart(2, '0');
+                    document.getElementById('editEndTime').value = \`\${endHours}:\${endMinutes}\`;
+                    
+                    document.getElementById('editRepeatSelect').value = task.repeat || 'none';
+                    document.getElementById('editRepeatCount').value = task.repeatCount || 7;
+                    document.getElementById('editRepeatCountGroup').style.display = 
+                        task.repeat !== 'none' ? 'block' : 'none';
+                    
+                    openModal('editTaskModal');
+                })
+                .catch(err => {
+                    console.error(err);
+                    showToast('Error loading task details', 'error');
+                });
+        }
+
+        function openAddSubtaskModal(taskId) {
+            document.getElementById('subtaskTaskId').value = taskId;
+            openModal('addSubtaskModal');
+        }
+
+        function editSubtask(taskId, subtaskId, title, description) {
+            document.getElementById('editSubtaskTaskId').value = taskId;
+            document.getElementById('editSubtaskId').value = subtaskId;
+            document.getElementById('editSubtaskTitle').value = title;
+            document.getElementById('editSubtaskDescription').value = description;
+            openModal('editSubtaskModal');
+        }
+
+        function openAddNoteModal() {
+            openModal('addNoteModal');
         }
 
         function openEditNoteModal(noteId, title, description) {
-            document.getElementById('editNoteForm').action = \`/api/notes/\${noteId}/update\`;
+            document.getElementById('editNoteId').value = noteId;
             document.getElementById('editNoteTitle').value = title;
             document.getElementById('editNoteDescription').value = description;
-            document.getElementById('editNoteModal').style.display = 'flex';
+            openModal('editNoteModal');
         }
 
-        function closeEditNoteModal() {
-            document.getElementById('editNoteModal').style.display = 'none';
-            document.getElementById('editNoteForm').reset();
+        // ==========================================
+        // FORM SUBMISSIONS
+        // ==========================================
+        function submitTaskForm(event) {
+            event.preventDefault();
+            showLoader();
+            const formData = new FormData(event.target);
+            
+            fetch('/api/tasks', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => {
+                if (res.ok) {
+                    closeModal('addTaskModal');
+                    showToast('Task created successfully!');
+                    switchPage('tasks');
+                } else {
+                    throw new Error('Failed to create task');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showToast('Error creating task', 'error');
+                hideLoader();
+            });
         }
 
-        window.addEventListener('click', function(event) {
-            const modals = document.querySelectorAll('.modal');
-            modals.forEach(modal => {
-                if (event.target === modal) {
-                    modal.style.display = 'none';
-                    if (modal.id === 'addNoteModal') {
-                        modal.querySelector('form').reset();
-                    }
-                    if (modal.id === 'editNoteModal') {
-                        modal.querySelector('form').reset();
-                    }
+        function submitEditTaskForm(event) {
+            event.preventDefault();
+            showLoader();
+            const formData = new FormData(event.target);
+            const taskId = formData.get('taskId');
+            
+            fetch('/api/tasks/' + taskId + '/update', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => {
+                if (res.ok) {
+                    closeModal('editTaskModal');
+                    showToast('Task updated successfully!');
+                    switchPage('tasks');
+                } else {
+                    throw new Error('Failed to update task');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showToast('Error updating task', 'error');
+                hideLoader();
+            });
+        }
+
+        function submitSubtaskForm(event) {
+            event.preventDefault();
+            showLoader();
+            const formData = new FormData(event.target);
+            const taskId = formData.get('taskId');
+            
+            fetch('/api/tasks/' + taskId + '/subtasks', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => {
+                if (res.ok) {
+                    closeModal('addSubtaskModal');
+                    showToast('Subtask added successfully!');
+                    switchPage('tasks');
+                } else {
+                    throw new Error('Failed to add subtask');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showToast('Error adding subtask', 'error');
+                hideLoader();
+            });
+        }
+
+        function submitEditSubtaskForm(event) {
+            event.preventDefault();
+            showLoader();
+            const formData = new FormData(event.target);
+            const taskId = formData.get('taskId');
+            const subtaskId = formData.get('subtaskId');
+            
+            fetch('/api/tasks/' + taskId + '/subtasks/' + subtaskId + '/update', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => {
+                if (res.ok) {
+                    closeModal('editSubtaskModal');
+                    showToast('Subtask updated successfully!');
+                    switchPage('tasks');
+                } else {
+                    throw new Error('Failed to update subtask');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showToast('Error updating subtask', 'error');
+                hideLoader();
+            });
+        }
+
+        function submitNoteForm(event) {
+            event.preventDefault();
+            showLoader();
+            const formData = new FormData(event.target);
+            
+            fetch('/api/notes', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => {
+                if (res.ok) {
+                    closeModal('addNoteModal');
+                    showToast('Note created successfully!');
+                    switchPage('notes');
+                } else {
+                    throw new Error('Failed to create note');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showToast('Error creating note', 'error');
+                hideLoader();
+            });
+        }
+
+        function submitEditNoteForm(event) {
+            event.preventDefault();
+            showLoader();
+            const formData = new FormData(event.target);
+            const noteId = formData.get('noteId');
+            
+            fetch('/api/notes/' + noteId + '/update', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => {
+                if (res.ok) {
+                    closeModal('editNoteModal');
+                    showToast('Note updated successfully!');
+                    switchPage('notes');
+                } else {
+                    throw new Error('Failed to update note');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showToast('Error updating note', 'error');
+                hideLoader();
+            });
+        }
+
+        // ==========================================
+        // ACTION FUNCTIONS
+        // ==========================================
+        function toggleSubtask(taskId, subtaskId) {
+            showLoader();
+            fetch('/api/tasks/' + taskId + '/subtasks/' + subtaskId + '/toggle', {
+                method: 'POST'
+            })
+            .then(res => {
+                if (res.ok) {
+                    showToast('Subtask toggled');
+                    switchPage('tasks');
+                } else {
+                    throw new Error('Failed to toggle subtask');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showToast('Error toggling subtask', 'error');
+                hideLoader();
+            });
+        }
+
+        function deleteSubtask(taskId, subtaskId) {
+            if (!confirm('Delete this subtask?')) return;
+            showLoader();
+            fetch('/api/tasks/' + taskId + '/subtasks/' + subtaskId + '/delete', {
+                method: 'POST'
+            })
+            .then(res => {
+                if (res.ok) {
+                    showToast('Subtask deleted');
+                    switchPage('tasks');
+                } else {
+                    throw new Error('Failed to delete subtask');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showToast('Error deleting subtask', 'error');
+                hideLoader();
+            });
+        }
+
+        function completeTask(taskId) {
+            if (!confirm('Complete this task?')) return;
+            showLoader();
+            fetch('/api/tasks/' + taskId + '/complete', {
+                method: 'POST'
+            })
+            .then(res => {
+                if (res.ok) {
+                    showToast('Task completed!');
+                    switchPage('tasks');
+                } else {
+                    throw new Error('Failed to complete task');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showToast('Error completing task', 'error');
+                hideLoader();
+            });
+        }
+
+        function deleteTask(taskId) {
+            if (!confirm('Delete this task? This will affect all users!')) return;
+            showLoader();
+            fetch('/api/tasks/' + taskId + '/delete', {
+                method: 'POST'
+            })
+            .then(res => {
+                if (res.ok) {
+                    showToast('Task deleted');
+                    switchPage('tasks');
+                } else {
+                    throw new Error('Failed to delete task');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showToast('Error deleting task', 'error');
+                hideLoader();
+            });
+        }
+
+        function deleteNote(noteId) {
+            if (!confirm('Delete this note? This will affect all users!')) return;
+            showLoader();
+            fetch('/api/notes/' + noteId + '/delete', {
+                method: 'POST'
+            })
+            .then(res => {
+                if (res.ok) {
+                    showToast('Note deleted');
+                    switchPage('notes');
+                } else {
+                    throw new Error('Failed to delete note');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showToast('Error deleting note', 'error');
+                hideLoader();
+            });
+        }
+
+        // ==========================================
+        // INITIALIZATION
+        // ==========================================
+        document.addEventListener('DOMContentLoaded', function() {
+            renderPage();
+            updateActiveNav();
+            
+            setInterval(() => {
+                const now = new Date();
+                const hours = String(now.getUTCHours()).padStart(2, '0');
+                const minutes = String(now.getUTCMinutes()).padStart(2, '0');
+                document.getElementById('currentTimeDisplay').innerHTML = \`\${hours}:\${minutes}\`;
+            }, 1000);
+            
+            document.getElementById('repeatSelect').addEventListener('change', function() {
+                document.getElementById('repeatCountGroup').style.display = 
+                    this.value === 'none' ? 'none' : 'block';
+            });
+            
+            document.getElementById('editRepeatSelect').addEventListener('change', function() {
+                document.getElementById('editRepeatCountGroup').style.display = 
+                    this.value === 'none' ? 'none' : 'block';
+            });
+            
+            window.addEventListener('click', function(event) {
+                if (event.target.classList.contains('modal')) {
+                    event.target.style.display = 'none';
+                    document.body.style.overflow = 'auto';
                 }
             });
         });
     </script>
 </body>
 </html>`;
-        fs.writeFileSync(path.join(viewsDir, 'notes.ejs'), notesEJS);
         
-        // History.ejs
-        const historyEJS = `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Global Task Manager - History</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        :root {
-            --primary: #4361ee;
-            --primary-light: #4895ef;
-            --secondary: #3f37c9;
-            --success: #4cc9f0;
-            --danger: #f72585;
-            --warning: #f8961e;
-            --info: #4895ef;
-            --light: #f8f9fa;
-            --dark: #212529;
-            --gray: #6c757d;
-            --gray-light: #adb5bd;
-            --border-radius: 12px;
-            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            --transition: all 0.3s ease;
-            --blue-bg: rgba(173, 216, 230, 0.15);
-            --blue-bg-hover: rgba(173, 216, 230, 0.25);
-        }
-        
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --primary: #5a6ff0;
-                --primary-light: #6a80f2;
-                --secondary: #4f46e5;
-                --success: #5fd3f0;
-                --danger: #ff2d8e;
-                --warning: #ffa94d;
-                --info: #6a80f2;
-                --light: #121212;
-                --dark: #ffffff;
-                --gray: #94a3b8;
-                --gray-light: #475569;
-                --shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-                --blue-bg: rgba(173, 216, 230, 0.08);
-                --blue-bg-hover: rgba(173, 216, 230, 0.15);
-            }
-        }
-        
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        
-        body {
-            background-color: var(--light);
-            color: var(--dark);
-            transition: var(--transition);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            font-size: 14px;
-        }
-        
-        .header {
-            background-color: var(--light);
-            padding: 8px 16px;
-            display: flex;
-            align-items: center;
-            justify-content: space-around;
-            box-shadow: var(--shadow);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-        
-        .header-action-btn {
-            display: flex;
-            flex-direction: row;
-            align-items: center;
-            justify-content: center;
-            background: var(--primary);
-            color: white;
-            border: none;
-            border-radius: 20px;
-            padding: 8px 16px;
-            cursor: pointer;
-            transition: var(--transition);
-            box-shadow: var(--shadow);
-            gap: 8px;
-            flex: 1;
-            max-width: 120px;
-            margin: 0 4px;
-            text-decoration: none;
-        }
-        
-        .header-action-btn i {
-            font-size: 1rem;
-        }
-        
-        .header-action-btn span {
-            font-size: 0.8rem;
-            font-weight: 600;
-        }
-        
-        .header-action-btn:hover {
-            background: var(--primary-light);
-            transform: translateY(-2px);
-        }
-        
-        .header-action-btn.active {
-            background: var(--secondary);
-            box-shadow: 0 0 0 2px var(--primary-light);
-        }
-        
-        @media (max-width: 768px) {
-            .header {
-                padding: 8px;
-                gap: 4px;
-            }
-            .header-action-btn {
-                width: 100%;
-                max-width: none;
-                padding: 10px;
-                margin: 2px;
-                border-radius: 12px;
-            }
-            .header-action-btn span {
-                display: block;
-                font-size: 0.75rem;
-            }
-            .header-action-btn i {
-                margin-right: 4px;
-                font-size: 0.9rem;
-            }
-        }
-        
-        .main-content {
-            flex-grow: 1;
-            padding: 16px;
-            overflow-y: auto;
-            padding-bottom: 100px;
-        }
-        
-        .content-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 16px;
-        }
-        
-        .page-title {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--dark);
-        }
-        
-        .global-badge {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 600;
-        }
-        
-        .info-message {
-            background-color: rgba(67, 97, 238, 0.1);
-            border-left: 4px solid var(--primary);
-            padding: 12px;
-            margin-bottom: 16px;
-            border-radius: 6px;
-            font-size: 0.85rem;
-        }
-        
-        .history-date-group {
-            margin-bottom: 15px;
-        }
-        
-        .history-date-details {
-            border-radius: var(--border-radius);
-        }
-        
-        .history-date-summary {
-            padding: 12px 16px;
-            background-color: var(--blue-bg);
-            border-radius: var(--border-radius);
-            cursor: pointer;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            transition: var(--transition);
-            border: 1px solid transparent;
-            list-style: none;
-        }
-        
-        .history-date-summary:hover {
-            background-color: var(--blue-bg-hover);
-            border-color: var(--primary-light);
-        }
-        
-        .history-date-summary::-webkit-details-marker {
-            display: none;
-        }
-        
-        .history-date-content {
-            padding: 15px 0 0 0;
-        }
-        
-        .history-items-container {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 12px;
-            margin: 10px 0;
-        }
-        
-        @media (max-width: 1200px) {
-            .history-items-container {
-                grid-template-columns: repeat(2, 1fr) !important;
-            }
-        }
-        
-        @media (max-width: 768px) {
-            .history-items-container {
-                grid-template-columns: 1fr !important;
-            }
-        }
-        
-        .history-card {
-            background-color: var(--blue-bg);
-            border-radius: var(--border-radius);
-            padding: 16px;
-            box-shadow: var(--shadow);
-            transition: var(--transition);
-            border: 1px solid rgba(0,0,0,0.05);
-            border-left: 4px solid var(--success);
-        }
-        
-        .history-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
-        }
-        
-        .history-card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 10px;
-        }
-        
-        .history-card-title {
-            font-weight: 600;
-            color: var(--dark);
-            font-size: 0.9rem;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            flex: 1;
-        }
-        
-        .history-card-title i {
-            color: var(--primary);
-            font-size: 0.9rem;
-        }
-        
-        .history-card-time {
-            font-size: 0.75rem;
-            color: var(--gray);
-            background: rgba(0,0,0,0.05);
-            padding: 3px 8px;
-            border-radius: 12px;
-            white-space: nowrap;
-            margin-left: 10px;
-        }
-        
-        .utc-badge {
-            background-color: rgba(67, 97, 238, 0.1);
-            color: var(--primary);
-            padding: 2px 4px;
-            border-radius: 4px;
-            font-size: 0.6rem;
-            font-weight: 600;
-            margin-left: 4px;
-        }
-        
-        @media (prefers-color-scheme: dark) {
-            .history-card-time {
-                background: rgba(255,255,255,0.1);
-            }
-        }
-        
-        .history-card-description {
-            font-size: 0.8rem;
-            color: var(--gray);
-            margin-bottom: 12px;
-            line-height: 1.4;
-        }
-        
-        .history-card-meta {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-bottom: 12px;
-        }
-        
-        .history-meta-item {
-            background: rgba(0,0,0,0.05);
-            color: var(--gray);
-            padding: 3px 8px;
-            border-radius: 12px;
-            font-size: 0.75rem;
-            font-weight: 500;
-        }
-        
-        @media (prefers-color-scheme: dark) {
-            .history-meta-item {
-                background: rgba(255,255,255,0.1);
-            }
-        }
-        
-        .history-subitems {
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 1px solid rgba(0,0,0,0.1);
-        }
-        
-        @media (prefers-color-scheme: dark) {
-            .history-subitems {
-                border-top-color: rgba(255,255,255,0.1);
-            }
-        }
-        
-        .history-stage-item {
-            font-size: 0.8rem;
-            color: var(--gray);
-            margin-bottom: 8px;
-            padding: 8px;
-            background: rgba(0,0,0,0.03);
-            border-radius: 6px;
-        }
-        
-        @media (prefers-color-scheme: dark) {
-            .history-stage-item {
-                background: rgba(255,255,255,0.05);
-            }
-        }
-        
-        .history-stage-header {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 4px;
-        }
-        
-        .history-stage-title {
-            font-weight: 600;
-            color: var(--dark);
-            flex: 1;
-            font-size: 0.85rem;
-        }
-        
-        .history-stage-description {
-            font-size: 0.75rem;
-            color: var(--gray);
-            margin-top: 4px;
-            padding-left: 8px;
-            border-left: 2px solid var(--success);
-            line-height: 1.4;
-        }
-        
-        .empty-state {
-            text-align: center;
-            padding: 32px 16px;
-            color: var(--gray);
-        }
-        
-        .empty-state i {
-            font-size: 2.5rem;
-            margin-bottom: 12px;
-            opacity: 0.5;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <a href="/tasks" class="header-action-btn">
-            <i class="fas fa-tasks"></i>
-            <span>Tasks</span>
-        </a>
-        <a href="/notes" class="header-action-btn">
-            <i class="fas fa-wand-magic-sparkles"></i>
-            <span>Notes</span>
-        </a>
-        <a href="/history" class="header-action-btn active">
-            <i class="fas fa-history"></i>
-            <span>History</span>
-        </a>
-    </div>
-
-    <div class="main-content">
-        <div class="info-message">
-            <i class="fas fa-globe"></i> <strong>Global Mode</strong> - Everyone sees the same history
-        </div>
-        
-        <div class="content-header">
-            <h1 class="page-title">Global Task History</h1>
-        </div>
-
-        <% if (Object.keys(groupedHistory).length === 0) { %>
-            <div class="empty-state">
-                <i class="fas fa-history"></i>
-                <p>No completed tasks yet. Complete some global tasks to see them here!</p>
-            </div>
-        <% } else { %>
-            <% 
-                const sortedDates = Object.keys(groupedHistory).sort().reverse(); 
-            %>
-            <% sortedDates.forEach(function(date, index) { %>
-                <div class="history-date-group">
-                    <details class="history-date-details" <%= index === 0 ? 'open' : '' %>>
-                        <summary class="history-date-summary">
-                            <i class="fas fa-calendar"></i>
-                            <%= date %> UTC
-                            <span style="margin-left: auto; font-size: 0.8rem; color: var(--gray);">
-                                <%= groupedHistory[date].length %> global task<%= groupedHistory[date].length !== 1 ? 's' : '' %>
-                            </span>
-                        </summary>
-                        <div class="history-date-content">
-                            <div class="history-items-container">
-                                <% groupedHistory[date].forEach(function(task) { %>
-                                    <div class="history-card">
-                                        <div class="history-card-header">
-                                            <div class="history-card-title">
-                                                <i class="fas fa-check-circle"></i>
-                                                <%= task.title %>
-                                            </div>
-                                            <div class="history-card-time">
-                                                <i class="fas fa-clock"></i> <%= task.completedTimeUTC %> UTC
-                                            </div>
-                                        </div>
-                                        
-                                        <% if (task.description) { %>
-                                            <div class="history-card-description"><%= task.description %></div>
-                                        <% } %>
-                                        
-                                        <div class="history-card-meta">
-                                            <% if (task.repeat && task.repeat !== 'none') { %>
-                                                <span class="history-meta-item">
-                                                    <i class="fas fa-repeat"></i> <%= task.repeat === 'daily' ? 'Daily' : 'Weekly' %>
-                                                    <% if (task.repeatCount) { %>(<%= task.repeatCount %>)<% } %>
-                                                </span>
-                                            <% } %>
-                                            <span class="history-meta-item">
-                                                <i class="fas fa-hourglass-half"></i> 
-                                                <%= task.durationFormatted || (task.endDate && task.startDate ? Math.round((new Date(task.endDate) - new Date(task.startDate)) / 60000) + ' min' : '30 min') %>
-                                            </span>
-                                            <% if (task.autoCompleted) { %>
-                                                <span class="history-meta-item">
-                                                    <i class="fas fa-robot"></i> Auto
-                                                </span>
-                                            <% } %>
-                                            <span class="history-meta-item">
-                                                <i class="fas fa-globe"></i> Global
-                                            </span>
-                                        </div>
-                                        
-                                        <% if (task.subtasks && task.subtasks.length > 0) { %>
-                                            <div class="history-subitems">
-                                                <div style="font-size: 0.8rem; font-weight: 600; margin-bottom: 8px; color: var(--dark);">
-                                                    <i class="fas fa-tasks"></i> Subtasks (<%= task.subtasks.filter(s => s.completed).length %>/<%= task.subtasks.length %>)
-                                                </div>
-                                                <% task.subtasks.forEach(function(subtask) { %>
-                                                    <div class="history-stage-item">
-                                                        <div class="history-stage-header">
-                                                            <span style="<%= subtask.completed ? 'color: var(--success);' : 'color: var(--gray);' %>">
-                                                                <%= subtask.completed ? '✅' : '⭕' %>
-                                                            </span>
-                                                            <span class="history-stage-title <%= subtask.completed ? '' : '' %>">
-                                                                <%= subtask.title %>
-                                                            </span>
-                                                        </div>
-                                                        <% if (subtask.description) { %>
-                                                            <div class="history-stage-description"><%= subtask.description %></div>
-                                                        <% } %>
-                                                    </div>
-                                                <% }); %>
-                                            </div>
-                                        <% } %>
-                                    </div>
-                                <% }); %>
-                            </div>
-                        </div>
-                    </details>
-                </div>
-            <% }); %>
-        <% } %>
-    </div>
-</body>
-</html>`;
-        fs.writeFileSync(path.join(viewsDir, 'history.ejs'), historyEJS);
+        fs.writeFileSync(path.join(viewsDir, 'index.ejs'), mainEJS);
         
         console.log('✅ EJS template files created successfully');
     } catch (error) {
@@ -2509,8 +2198,31 @@ app.get('/health', (req, res) => {
 // 🛠️ UTC UTILITY FUNCTIONS - NO TIMEZONE
 // ==========================================
 
-function generateId(prefix = '', length = 8) {
-    return prefix + Math.random().toString(36).substring(2, 2 + length) + '_' + Date.now();
+function generateId(prefix = '') {
+    // Task ID: 10 alphanumeric [A-Z,0-1]
+    if (prefix === 'task_') {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ01';
+        let result = '';
+        for (let i = 0; i < 10; i++) {
+            result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return 'task_' + result;
+    }
+    // Note ID: 5 alphanumeric [A-Z,0-1]
+    else if (prefix === 'note_') {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ01';
+        let result = '';
+        for (let i = 0; i < 5; i++) {
+            result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return 'note_' + result;
+    }
+    // Subtask ID: taskId + subtask number (total 11-12 digits)
+    else if (prefix === 'sub_') {
+        return 'sub_' + Date.now() + Math.random().toString(36).substring(2, 5);
+    }
+    // Fallback
+    return prefix + Math.random().toString(36).substring(2, 10) + '_' + Date.now();
 }
 
 async function safeEdit(ctx, text, keyboard = null) {
@@ -2616,7 +2328,7 @@ function scheduleTask(task) {
             console.log(`🔔 Starting notifications for task: ${task.title}`);
             
             let count = 0;
-            const maxNotifications = 10;
+            const maxNotifications = 7; // Changed from 10 to 7
             
             const sendNotification = async () => {
                 if (isShuttingDown) return;
@@ -2847,26 +2559,18 @@ app.get('/tasks', async (req, res) => {
         const todayUTC = getTodayUTC();
         const tomorrowUTC = getTomorrowUTC();
         
-        const [tasks, completedTasks] = await Promise.all([
-            db.collection('tasks').find({
-                status: 'pending',
-                nextOccurrence: {
-                    $gte: todayUTC,
-                    $lt: tomorrowUTC
-                }
-            }).sort({ orderIndex: 1, nextOccurrence: 1 }).toArray(),
-            
-            db.collection('history').find({
-                completedAt: {
-                    $gte: todayUTC,
-                    $lt: tomorrowUTC
-                }
-            }).sort({ completedAt: -1 }).toArray()
-        ]);
+        const tasks = await db.collection('tasks').find({
+            status: 'pending',
+            nextOccurrence: {
+                $gte: todayUTC,
+                $lt: tomorrowUTC
+            }
+        }).sort({ orderIndex: 1, nextOccurrence: 1 }).toArray();
         
-        console.log(`📊 Tasks found: ${tasks.length}, Completed: ${completedTasks.length}`);
+        console.log(`📊 Tasks found: ${tasks.length}`);
         
-        res.render('tasks', {
+        res.render('index', {
+            currentPage: 'tasks',
             tasks: tasks.map(task => ({
                 ...task,
                 startTimeUTC: formatTimeUTC(task.startDate),
@@ -2876,13 +2580,12 @@ app.get('/tasks', async (req, res) => {
                 durationFormatted: formatDuration(calculateDuration(task.startDate, task.endDate)),
                 subtaskProgress: calculateSubtaskProgress(task.subtasks)
             })),
-            completedTasks: completedTasks.map(task => ({
-                ...task,
-                completedTimeUTC: formatTimeUTC(task.completedAt),
-                dateUTC: formatDateUTC(task.completedAt)
-            })),
+            notes: [],
+            groupedHistory: {},
             currentTime: formatTimeUTC(new Date()),
-            currentDate: formatDateUTC(new Date())
+            currentDate: formatDateUTC(new Date()),
+            formatDateUTC: formatDateUTC,
+            formatTimeUTC: formatTimeUTC
         });
     } catch (error) {
         console.error('Error loading tasks:', error);
@@ -2899,12 +2602,19 @@ app.get('/notes', async (req, res) => {
         
         console.log(`📝 Notes found: ${notes.length}`);
         
-        res.render('notes', {
+        res.render('index', {
+            currentPage: 'notes',
+            tasks: [],
             notes: notes.map(note => ({
                 ...note,
                 createdAtUTC: formatDateTimeUTC(note.createdAt),
-                updatedAtUTC: note.updatedAt ? formatDateTimeUTC(note.updatedAt) : null
-            }))
+                updatedAtUTC: note.updatedAt ? formatDateTimeUTC(note.updatedAt) : formatDateTimeUTC(note.createdAt)
+            })),
+            groupedHistory: {},
+            currentTime: formatTimeUTC(new Date()),
+            currentDate: formatDateUTC(new Date()),
+            formatDateUTC: formatDateUTC,
+            formatTimeUTC: formatTimeUTC
         });
     } catch (error) {
         console.error('Error loading notes:', error);
@@ -2928,33 +2638,147 @@ app.get('/history', async (req, res) => {
             }
             groupedHistory[dateKey].push({
                 ...item,
-                completedTimeUTC: formatTimeUTC(item.completedAt)
+                completedTimeUTC: formatTimeUTC(item.completedAt),
+                durationFormatted: formatDuration(calculateDuration(item.startDate, item.endDate))
             });
         });
         
         console.log(`📜 History entries: ${history.length}`);
         
-        res.render('history', { groupedHistory });
+        res.render('index', {
+            currentPage: 'history',
+            tasks: [],
+            notes: [],
+            groupedHistory: groupedHistory,
+            currentTime: formatTimeUTC(new Date()),
+            currentDate: formatDateUTC(new Date()),
+            formatDateUTC: formatDateUTC,
+            formatTimeUTC: formatTimeUTC
+        });
     } catch (error) {
         console.error('Error loading history:', error);
         res.status(500).send('Error loading history: ' + error.message);
     }
 });
 
+// API route for page data
+app.get('/api/page/:page', async (req, res) => {
+    try {
+        const page = req.params.page;
+        
+        if (page === 'tasks') {
+            const todayUTC = getTodayUTC();
+            const tomorrowUTC = getTomorrowUTC();
+            
+            const tasks = await db.collection('tasks').find({
+                status: 'pending',
+                nextOccurrence: {
+                    $gte: todayUTC,
+                    $lt: tomorrowUTC
+                }
+            }).sort({ orderIndex: 1, nextOccurrence: 1 }).toArray();
+            
+            res.json({
+                tasks: tasks.map(task => ({
+                    ...task,
+                    startTimeUTC: formatTimeUTC(task.startDate),
+                    endTimeUTC: formatTimeUTC(task.endDate),
+                    dateUTC: formatDateUTC(task.startDate),
+                    duration: calculateDuration(task.startDate, task.endDate),
+                    durationFormatted: formatDuration(calculateDuration(task.startDate, task.endDate)),
+                    subtaskProgress: calculateSubtaskProgress(task.subtasks)
+                })),
+                notes: [],
+                groupedHistory: {}
+            });
+        } else if (page === 'notes') {
+            const notes = await db.collection('notes').find()
+                .sort({ orderIndex: 1, createdAt: -1 })
+                .toArray();
+            
+            res.json({
+                tasks: [],
+                notes: notes.map(note => ({
+                    ...note,
+                    createdAtUTC: formatDateTimeUTC(note.createdAt),
+                    updatedAtUTC: note.updatedAt ? formatDateTimeUTC(note.updatedAt) : formatDateTimeUTC(note.createdAt)
+                })),
+                groupedHistory: {}
+            });
+        } else if (page === 'history') {
+            const history = await db.collection('history').find()
+                .sort({ completedAt: -1 })
+                .limit(100)
+                .toArray();
+            
+            const groupedHistory = {};
+            history.forEach(item => {
+                const dateKey = formatDateUTC(item.completedAt);
+                if (!groupedHistory[dateKey]) {
+                    groupedHistory[dateKey] = [];
+                }
+                groupedHistory[dateKey].push({
+                    ...item,
+                    completedTimeUTC: formatTimeUTC(item.completedAt),
+                    durationFormatted: formatDuration(calculateDuration(item.startDate, item.endDate))
+                });
+            });
+            
+            res.json({
+                tasks: [],
+                notes: [],
+                groupedHistory
+            });
+        } else {
+            res.status(404).json({ error: 'Page not found' });
+        }
+    } catch (error) {
+        console.error('Error in /api/page:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// API route for single task
+app.get('/api/tasks/:taskId', async (req, res) => {
+    try {
+        const taskId = req.params.taskId;
+        const task = await db.collection('tasks').findOne({ taskId });
+        
+        if (!task) {
+            return res.status(404).json({ error: 'Task not found' });
+        }
+        
+        res.json({
+            ...task,
+            startTimeUTC: formatTimeUTC(task.startDate),
+            endTimeUTC: formatTimeUTC(task.endDate),
+            dateUTC: formatDateUTC(task.startDate)
+        });
+    } catch (error) {
+        console.error('Error fetching task:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // API Routes
 app.post('/api/tasks', async (req, res) => {
     try {
-        const { title, description, startDate, startTime, duration, repeat, repeatCount } = req.body;
+        const { title, description, startDate, startTime, endTime, repeat, repeatCount } = req.body;
         
-        if (!title || !startDate || !startTime || !duration) {
+        if (!title || !startDate || !startTime || !endTime) {
             return res.status(400).send('Missing required fields');
         }
         
         const [year, month, day] = startDate.split('-').map(Number);
-        const [hour, minute] = startTime.split(':').map(Number);
+        const [startHour, startMinute] = startTime.split(':').map(Number);
+        const [endHour, endMinute] = endTime.split(':').map(Number);
         
-        const startDateUTC = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
-        const endDateUTC = new Date(startDateUTC.getTime() + (parseInt(duration) * 60 * 1000));
+        const startDateUTC = new Date(Date.UTC(year, month - 1, day, startHour, startMinute, 0));
+        const endDateUTC = new Date(Date.UTC(year, month - 1, day, endHour, endMinute, 0));
+        
+        if (endDateUTC <= startDateUTC) {
+            return res.status(400).send('End time must be after start time');
+        }
         
         const highestTask = await db.collection('tasks').findOne(
             {},
@@ -2971,11 +2795,12 @@ app.post('/api/tasks', async (req, res) => {
             nextOccurrence: startDateUTC,
             status: 'pending',
             repeat: repeat || 'none',
-            repeatCount: repeat && repeat !== 'none' ? (parseInt(repeatCount) || 10) : 0,
+            repeatCount: repeat && repeat !== 'none' ? (parseInt(repeatCount) || 7) : 0,
             subtasks: [],
             createdAt: new Date(),
             orderIndex: nextOrderIndex,
-            startTimeStr: startTime
+            startTimeStr: startTime,
+            endTimeStr: endTime
         };
         
         await db.collection('tasks').insertOne(task);
@@ -2989,6 +2814,54 @@ app.post('/api/tasks', async (req, res) => {
     } catch (error) {
         console.error('Error creating task:', error);
         res.status(500).send('Error creating task: ' + error.message);
+    }
+});
+
+app.post('/api/tasks/:taskId/update', async (req, res) => {
+    try {
+        const taskId = req.params.taskId;
+        const { title, description, startDate, startTime, endTime, repeat, repeatCount } = req.body;
+        
+        const [year, month, day] = startDate.split('-').map(Number);
+        const [startHour, startMinute] = startTime.split(':').map(Number);
+        const [endHour, endMinute] = endTime.split(':').map(Number);
+        
+        const startDateUTC = new Date(Date.UTC(year, month - 1, day, startHour, startMinute, 0));
+        const endDateUTC = new Date(Date.UTC(year, month - 1, day, endHour, endMinute, 0));
+        
+        if (endDateUTC <= startDateUTC) {
+            return res.status(400).send('End time must be after start time');
+        }
+        
+        cancelTaskSchedule(taskId);
+        
+        await db.collection('tasks').updateOne(
+            { taskId },
+            {
+                $set: {
+                    title: title.trim(),
+                    description: description ? description.trim() : '',
+                    startDate: startDateUTC,
+                    endDate: endDateUTC,
+                    nextOccurrence: startDateUTC,
+                    repeat: repeat || 'none',
+                    repeatCount: repeat && repeat !== 'none' ? (parseInt(repeatCount) || 7) : 0,
+                    startTimeStr: startTime,
+                    endTimeStr: endTime,
+                    updatedAt: new Date()
+                }
+            }
+        );
+        
+        const updatedTask = await db.collection('tasks').findOne({ taskId });
+        if (updatedTask && updatedTask.startDate > new Date()) {
+            scheduleTask(updatedTask);
+        }
+        
+        res.redirect('/tasks');
+    } catch (error) {
+        console.error('Error updating task:', error);
+        res.status(500).send('Error updating task: ' + error.message);
     }
 });
 
@@ -3144,6 +3017,34 @@ app.post('/api/tasks/:taskId/subtasks', async (req, res) => {
     } catch (error) {
         console.error('Error adding subtask:', error);
         res.status(500).send('Error adding subtask: ' + error.message);
+    }
+});
+
+app.post('/api/tasks/:taskId/subtasks/:subtaskId/update', async (req, res) => {
+    try {
+        const taskId = req.params.taskId;
+        const subtaskId = req.params.subtaskId;
+        const { title, description } = req.body;
+        
+        if (!title || title.trim() === '') {
+            return res.status(400).send('Subtask title cannot be empty');
+        }
+        
+        await db.collection('tasks').updateOne(
+            { taskId, "subtasks.id": subtaskId },
+            { 
+                $set: { 
+                    "subtasks.$.title": title.trim(),
+                    "subtasks.$.description": description ? description.trim() : '',
+                    "subtasks.$.updatedAt": new Date()
+                } 
+            }
+        );
+        
+        res.redirect('/tasks');
+    } catch (error) {
+        console.error('Error updating subtask:', error);
+        res.status(500).send('Error updating subtask: ' + error.message);
     }
 });
 
@@ -3646,41 +3547,31 @@ bot.on('text', async (ctx) => {
             ctx.session.task.startDate = startDateUTC;
             ctx.session.task.startTimeStr = text;
             ctx.session.task.nextOccurrence = startDateUTC;
-            ctx.session.step = 'task_duration';
+            ctx.session.step = 'task_end';
             
             await ctx.reply(
-                `⏱️ <b>𝗦𝗘𝗟𝗘𝗖𝗧 𝗗𝗨𝗥𝗔𝗧𝗜𝗢𝗡</b>\n` +
+                `⏱️ <b>𝗦𝗘𝗟𝗘𝗖𝗧 𝗘𝗡𝗗 𝗧𝗜𝗠𝗘</b>\n` +
                 `━━━━━━━━━━━━━━━━━━━━\n` +
                 `⏰ Start Time: ${text} UTC\n` +
-                `📝 <i>Enter task duration in minutes (e.g., 15, 30, 60, 90, 120):</i>\n` +
-                `📝 <i>Or enter end time in HH:MM format</i>`,
+                `📝 <i>Enter end time in HH:MM format (24-hour UTC):</i>`,
                 { parse_mode: 'HTML' }
             );
         }
-        else if (step === 'task_duration') {
-            let endDateUTC;
-            let endTimeStr;
-            
-            if (/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(text)) {
-                const [eh, em] = text.split(':').map(Number);
-                const { year, month, day } = ctx.session.task;
-                endDateUTC = new Date(Date.UTC(year, month - 1, day, eh, em, 0));
-                endTimeStr = text;
-            } else {
-                const duration = parseInt(text);
-                if (isNaN(duration) || duration < 1 || duration > 1440) {
-                    return ctx.reply('❌ Please enter a valid duration between 1 and 1440 minutes, or end time in HH:MM format.');
-                }
-                endDateUTC = new Date(ctx.session.task.startDate.getTime() + duration * 60000);
-                endTimeStr = endDateUTC.toISOString().split('T')[1].substring(0, 5);
+        else if (step === 'task_end') {
+            if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(text)) {
+                return ctx.reply('❌ Invalid format. Use HH:MM (24-hour).');
             }
+            
+            const [eh, em] = text.split(':').map(Number);
+            const { year, month, day } = ctx.session.task;
+            const endDateUTC = new Date(Date.UTC(year, month - 1, day, eh, em, 0));
             
             if (endDateUTC <= ctx.session.task.startDate) {
                 return ctx.reply('❌ End time must be after Start time.');
             }
             
             ctx.session.task.endDate = endDateUTC;
-            ctx.session.task.endTimeStr = endTimeStr;
+            ctx.session.task.endTimeStr = text;
             ctx.session.step = null;
 
             const duration = calculateDuration(ctx.session.task.startDate, endDateUTC);
@@ -3690,7 +3581,7 @@ bot.on('text', async (ctx) => {
                 `━━━━━━━━━━━━━━━━━━━━\n` +
                 `How should this task repeat?\n\n` +
                 `📅 Task Date: ${formatDateUTC(ctx.session.task.startDate)}\n` +
-                `⏰ Time: ${ctx.session.task.startTimeStr} - ${endTimeStr} UTC\n` +
+                `⏰ Time: ${ctx.session.task.startTimeStr} - ${text} UTC\n` +
                 `⏱️ Duration: ${formatDuration(duration)}\n\n`,
                 {
                     parse_mode: 'HTML',
@@ -3731,7 +3622,7 @@ bot.on('text', async (ctx) => {
                 return ctx.reply('❌ Too long! Keep it under 400 words.');
             }
             
-            ctx.session.note.content = content;
+            ctx.session.note.description = content;
             ctx.session.note.createdAt = new Date();
             ctx.session.note.updatedAt = new Date();
             
@@ -3744,7 +3635,7 @@ bot.on('text', async (ctx) => {
                 ctx.session.note.orderIndex = nextOrderIndex;
                 
                 const noteTitle = ctx.session.note.title;
-                const noteContent = ctx.session.note.content;
+                const noteContent = ctx.session.note.description;
                 
                 await db.collection('notes').insertOne(ctx.session.note);
                 
@@ -3779,7 +3670,7 @@ bot.on('text', async (ctx) => {
                 await ctx.reply('❌ Failed to save note. Please try again.');
             }
         }
-        else if (step === 'add_subtasks') {
+        else if (step === 'add_subtask') {
             const taskId = ctx.session.addSubtasksTaskId;
             
             const task = await db.collection('tasks').findOne({ taskId });
@@ -3798,46 +3689,47 @@ bot.on('text', async (ctx) => {
                 return ctx.reply('❌ Maximum subtasks limit (10) reached for this task.');
             }
             
-            const lines = text.split('\n')
-                .map(line => line.trim())
-                .filter(line => line.length > 0);
+            ctx.session.subtaskTitle = text;
+            ctx.session.step = 'add_subtask_desc';
             
-            if (lines.length === 0) {
-                return ctx.reply('❌ Please enter at least one subtask title.');
-            }
+            await ctx.reply(
+                `📝 <b>𝗔𝗗𝗗 𝗦𝗨𝗕𝗧𝗔𝗦𝗞 𝗗𝗘𝗦𝗖𝗥𝗜𝗣𝗧𝗜𝗢𝗡</b>\n` +
+                `━━━━━━━━━━━━━━━━━━━━\n` +
+                `Title: ${text}\n\n` +
+                `Enter description (or "-" for none):`,
+                { parse_mode: 'HTML' }
+            );
+        }
+        else if (step === 'add_subtask_desc') {
+            const taskId = ctx.session.addSubtasksTaskId;
+            const title = ctx.session.subtaskTitle;
+            const description = text === '-' ? '' : text;
             
-            if (lines.length > availableSlots) {
-                return ctx.reply(`❌ You can only add ${availableSlots} more subtask${availableSlots !== 1 ? 's' : ''}. Please enter ${availableSlots} or fewer.`);
-            }
+            const task = await db.collection('tasks').findOne({ taskId });
             
-            const newSubtasks = lines.map(title => ({
+            const newSubtask = {
                 id: generateId('sub_'),
                 title: title.substring(0, 100),
-                description: '',
+                description: description,
                 completed: false,
                 createdAt: new Date()
-            }));
+            };
             
             await db.collection('tasks').updateOne(
                 { taskId },
-                { 
-                    $push: { 
-                        subtasks: { 
-                            $each: newSubtasks 
-                        } 
-                    } 
-                }
+                { $push: { subtasks: newSubtask } }
             );
             
             ctx.session.step = null;
             delete ctx.session.addSubtasksTaskId;
+            delete ctx.session.subtaskTitle;
             
             await ctx.reply(
-                `✅ <b>𝗦𝗨𝗕𝗧𝗔𝗦𝗞𝗦 𝗔𝗗𝗗𝗘𝗗</b>\n` +
+                `✅ <b>𝗦𝗨𝗕𝗧𝗔𝗦𝗞 𝗔𝗗𝗗𝗘𝗗</b>\n` +
                 `━━━━━━━━━━━━━━━━━━━━\n` +
                 `📌 <b>${task.title}</b>\n` +
-                `➕ Added ${newSubtasks.length} new subtask${newSubtasks.length !== 1 ? 's' : ''}\n` +
-                `📊 Now has ${currentSubtasks.length + newSubtasks.length}/10 subtasks\n` +
+                `➕ Title: ${title}\n` +
+                `${description ? `📝 Description: ${description}\n` : ''}` +
                 `━━━━━━━━━━━━━━━━━━━━`,
                 { parse_mode: 'HTML' }
             );
@@ -3850,21 +3742,39 @@ bot.on('text', async (ctx) => {
             if (text.length === 0) return ctx.reply('❌ Title cannot be empty.');
             if (text.length > 100) return ctx.reply('❌ Title too long. Max 100 characters.');
             
-            try {
-                await db.collection('tasks').updateOne(
-                    { taskId, "subtasks.id": subtaskId },
-                    { $set: { "subtasks.$.title": text } }
-                );
-                
-                ctx.session.step = null;
-                delete ctx.session.editSubtask;
-                
-                await ctx.reply(`✅ <b>𝗦𝗨𝗕𝗧𝗔𝗦𝗞 𝗨𝗣𝗗𝗔𝗧𝗘𝗗!</b>`, { parse_mode: 'HTML' });
-                await showTaskDetail(ctx, taskId);
-            } catch (error) {
-                console.error('Error editing subtask:', error);
-                await ctx.reply('❌ Failed to update subtask.');
-            }
+            ctx.session.editSubtaskTitle = text;
+            ctx.session.step = 'edit_subtask_desc';
+            
+            await ctx.reply(
+                `✏️ <b>𝗘𝗗𝗜𝗧 𝗦𝗨𝗕𝗧𝗔𝗦𝗞 𝗗𝗘𝗦𝗖𝗥𝗜𝗣𝗧𝗜𝗢𝗡</b>\n` +
+                `━━━━━━━━━━━━━━━━━━━━\n` +
+                `New title: ${text}\n\n` +
+                `Enter new description (or "-" for none):`,
+                { parse_mode: 'HTML' }
+            );
+        }
+        else if (step === 'edit_subtask_desc') {
+            const { taskId, subtaskId } = ctx.session.editSubtask;
+            const title = ctx.session.editSubtaskTitle;
+            const description = text === '-' ? '' : text;
+            
+            await db.collection('tasks').updateOne(
+                { taskId, "subtasks.id": subtaskId },
+                { 
+                    $set: { 
+                        "subtasks.$.title": title,
+                        "subtasks.$.description": description,
+                        "subtasks.$.updatedAt": new Date()
+                    } 
+                }
+            );
+            
+            ctx.session.step = null;
+            delete ctx.session.editSubtask;
+            delete ctx.session.editSubtaskTitle;
+            
+            await ctx.reply(`✅ <b>𝗦𝗨𝗕𝗧𝗔𝗦𝗞 𝗨𝗣𝗗𝗔𝗧𝗘𝗗!</b>`, { parse_mode: 'HTML' });
+            await showTaskDetail(ctx, taskId);
         }
         else if (step === 'edit_task_title') {
             const taskId = ctx.session.editTaskId;
@@ -3993,8 +3903,12 @@ bot.on('text', async (ctx) => {
                 await ctx.reply('❌ Failed to update start time.');
             }
         }
-        else if (step === 'edit_task_duration') {
+        else if (step === 'edit_task_end') {
             const taskId = ctx.session.editTaskId;
+            
+            if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(text)) {
+                return ctx.reply('❌ Invalid Format. Use HH:MM (24-hour)');
+            }
             
             try {
                 const task = await db.collection('tasks').findOne({ taskId });
@@ -4004,31 +3918,26 @@ bot.on('text', async (ctx) => {
                     return ctx.reply('❌ Task not found.');
                 }
                 
-                let newEndDateUTC;
+                const utcDate = new Date(task.endDate);
+                const year = utcDate.getUTCFullYear();
+                const month = utcDate.getUTCMonth();
+                const day = utcDate.getUTCDate();
+                const [eh, em] = text.split(':').map(Number);
                 
-                if (/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(text)) {
-                    const [eh, em] = text.split(':').map(Number);
-                    const utcDate = new Date(task.endDate);
-                    const year = utcDate.getUTCFullYear();
-                    const month = utcDate.getUTCMonth();
-                    const day = utcDate.getUTCDate();
-                    
-                    newEndDateUTC = new Date(Date.UTC(year, month, day, eh, em, 0));
-                    
-                    if (newEndDateUTC <= task.startDate) {
-                        return ctx.reply('❌ End time must be after start time.');
-                    }
-                } else {
-                    const duration = parseInt(text);
-                    if (isNaN(duration) || duration < 1 || duration > 1440) {
-                        return ctx.reply('❌ Please enter a valid duration between 1 and 1440 minutes, or end time in HH:MM format.');
-                    }
-                    newEndDateUTC = new Date(task.startDate.getTime() + duration * 60000);
+                const newEndDateUTC = new Date(Date.UTC(year, month, day, eh, em, 0));
+                
+                if (newEndDateUTC <= task.startDate) {
+                    return ctx.reply('❌ End time must be after start time.');
                 }
                 
                 await db.collection('tasks').updateOne(
                     { taskId: taskId }, 
-                    { $set: { endDate: newEndDateUTC } }
+                    { 
+                        $set: { 
+                            endDate: newEndDateUTC,
+                            endTimeStr: text
+                        } 
+                    }
                 );
                 
                 await db.collection('history').updateMany(
@@ -4038,11 +3947,11 @@ bot.on('text', async (ctx) => {
                 
                 ctx.session.step = null;
                 delete ctx.session.editTaskId;
-                await ctx.reply(`✅ <b>DURATION UPDATED!</b>\n\nNew end time: ${formatTimeUTC(newEndDateUTC)} UTC`, { parse_mode: 'HTML' });
+                await ctx.reply(`✅ <b>END TIME UPDATED!</b>`, { parse_mode: 'HTML' });
                 await showTaskDetail(ctx, taskId);
             } catch (error) {
-                console.error('Error updating duration:', error);
-                await ctx.reply('❌ Failed to update duration.');
+                console.error('Error updating end time:', error);
+                await ctx.reply('❌ Failed to update end time.');
             }
         }
         else if (step === 'edit_task_repeat_count') {
@@ -4103,7 +4012,7 @@ bot.on('text', async (ctx) => {
                     `✅ <b>𝗡𝗢𝗧𝗘 𝗧𝗜𝗧𝗟𝗘 𝗨𝗣𝗗𝗔𝗧𝗘𝗗!</b>\n` +
                     `━━━━━━━━━━━━━━━━━━━━\n` +
                     `📌 <b>${updatedNote.title}</b>\n` +
-                    `${formatBlockquote(updatedNote.content)}\n` +
+                    `${formatBlockquote(updatedNote.description)}\n` +
                     `📅 Updated: ${formatDateTimeUTC(new Date())} UTC`,
                     { parse_mode: 'HTML' }
                 );
@@ -4127,7 +4036,7 @@ bot.on('text', async (ctx) => {
             try {
                 await db.collection('notes').updateOne(
                     { noteId: noteId }, 
-                    { $set: { content: content, updatedAt: new Date() } }
+                    { $set: { description: content, updatedAt: new Date() } }
                 );
                 
                 const updatedNote = await db.collection('notes').findOne({ noteId: noteId });
@@ -4139,7 +4048,7 @@ bot.on('text', async (ctx) => {
                     `✅ <b>𝗡𝗢𝗧𝗘 𝗖𝗢𝗡𝗧𝗘𝗡𝗧 𝗨𝗣𝗗𝗔𝗧𝗘𝗗!</b>\n` +
                     `━━━━━━━━━━━━━━━━━━━━\n` +
                     `📌 <b>${updatedNote.title}</b>\n` +
-                    `${formatBlockquote(updatedNote.content)}\n` +
+                    `${formatBlockquote(updatedNote.description)}\n` +
                     `📅 Updated: ${formatDateTimeUTC(new Date())} UTC`,
                     { parse_mode: 'HTML' }
                 );
@@ -4224,7 +4133,7 @@ ${formatBlockquote(task.description)}
 🔄 <b>Repeat:</b> ${task.repeat} (${task.repeatCount || 0} times)
 📊 <b>Status:</b> ⏳ Pending
 
-🔔 <i>Notifications will start 10 minutes before the task.</i>
+🔔 <i>Notifications will start 10 minutes before the task (7 reminders).</i>
 ━━━━━━━━━━━━━━━━━━━━`;
                 
         const keyboard = Markup.inlineKeyboard([
@@ -4307,7 +4216,10 @@ ${progressBar} ${progress}%
 
     const buttons = [];
     
-    subtasks.forEach((subtask, index) => {
+    subtasks.sort((a, b) => {
+        if (a.completed === b.completed) return 0;
+        return a.completed ? 1 : -1;
+    }).forEach((subtask, index) => {
         const status = subtask.completed ? '✅' : '⭕';
         let title = subtask.title;
         if (title.length > 30) title = title.substring(0, 27) + '...';
@@ -4363,6 +4275,7 @@ bot.action(/^subtask_det_(.+)_(.+)$/, async (ctx) => {
 ━━━━━━━━━━━━━━━━━━━━
 📌 <b>Task:</b> ${task.title}
 🔖 <b>Subtask:</b> ${subtask.title}
+📝 <b>Description:</b> ${subtask.description || '<i>No description</i>'}
 📊 <b>Status:</b> ${status}
 🆔 <b>ID:</b> <code>${subtask.id}</code>
 📅 <b>Created:</b> ${formatDateTimeUTC(subtask.createdAt)} UTC
@@ -4414,7 +4327,7 @@ bot.action(/^subtask_edit_(.+)_(.+)$/, async (ctx) => {
     ctx.session.editSubtask = { taskId, subtaskId };
     
     await ctx.reply(
-        `✏️ <b>𝗘𝗗𝗜𝗧 𝗦𝗨𝗕𝗧𝗔𝗦𝗞 𝗧𝗜𝗧𝗟𝗘</b>\n` +
+        `✏️ <b>𝗘𝗗𝗜𝗧 𝗦𝗨𝗕𝗧𝗔𝗦𝗞</b>\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
         `Enter new title for the subtask:`,
         Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `task_det_${taskId}`)]])
@@ -4456,16 +4369,15 @@ bot.action(/^add_subtask_(.+)$/, async (ctx) => {
         return;
     }
     
-    ctx.session.step = 'add_subtasks';
+    ctx.session.step = 'add_subtask';
     ctx.session.addSubtasksTaskId = taskId;
     
     await ctx.reply(
-        `➕ <b>𝗔𝗗𝗗 𝗦𝗨𝗕𝗧𝗔𝗦𝗞𝗦</b>\n` +
+        `➕ <b>𝗔𝗗𝗗 𝗦𝗨𝗕𝗧𝗔𝗦𝗞</b>\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
         `📌 <b>${task.title}</b>\n` +
-        `📊 Current: ${currentSubtasks.length}/10 subtasks\n` +
-        `➕ Available: ${availableSlots} more\n\n` +
-        `<i>Enter subtask titles (one per line):</i>\n`,
+        `📊 Current: ${currentSubtasks.length}/10 subtasks\n\n` +
+        `<i>Enter subtask title:</i>\n`,
         { 
             parse_mode: 'HTML',
             ...Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `task_det_${taskId}`)]])
@@ -4580,7 +4492,7 @@ bot.action(/^edit_menu_(.+)$/, async (ctx) => {
         ],
         [
             Markup.button.callback('⏰ Start Time', `edit_task_start_${taskId}`), 
-            Markup.button.callback('⏱️ Duration', `edit_task_duration_${taskId}`)
+            Markup.button.callback('⏱️ End Time', `edit_task_end_${taskId}`)
         ],
         [
             Markup.button.callback('🔄 Repeat', `edit_rep_${taskId}`), 
@@ -4633,14 +4545,14 @@ bot.action(/^edit_task_start_(.+)$/, async (ctx) => {
     await ctx.reply(
         `✏️ <b>𝗘𝗗𝗜𝗧 𝗦𝗧𝗔𝗥𝗧 𝗧𝗜𝗠𝗘</b>\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
+        `Current start time: ${formatTimeUTC(task.startDate)} UTC\n` +
         `Enter new start time (HH:MM, 24-hour UTC):\n` +
-        `📝 Current duration: ${formatDuration(calculateDuration(task.startDate, task.endDate))}\n` +
         `⚠️ Duration will be preserved`,
         Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `task_det_${taskId}`)]])
     );
 });
 
-bot.action(/^edit_task_duration_(.+)$/, async (ctx) => {
+bot.action(/^edit_task_end_(.+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     const task = await db.collection('tasks').findOne({ taskId });
     
@@ -4650,16 +4562,13 @@ bot.action(/^edit_task_duration_(.+)$/, async (ctx) => {
     }
     
     ctx.session.editTaskId = taskId;
-    ctx.session.step = 'edit_task_duration';
-    
-    const currentDuration = calculateDuration(task.startDate, task.endDate);
+    ctx.session.step = 'edit_task_end';
     
     await ctx.reply(
-        `✏️ <b>𝗘𝗗𝗜𝗧 𝗗𝗨𝗥𝗔𝗧𝗜𝗢𝗡</b>\n` +
+        `✏️ <b>𝗘𝗗𝗜𝗧 𝗘𝗡𝗗 𝗧𝗜𝗠𝗘</b>\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
-        `Current duration: ${formatDuration(currentDuration)}\n\n` +
-        `Enter new duration in minutes (e.g., 15, 30, 60, 90, 120):\n` +
-        `Or enter end time in HH:MM format:`,
+        `Current end time: ${formatTimeUTC(task.endDate)} UTC\n` +
+        `Enter new end time (HH:MM, 24-hour UTC):`,
         Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `task_det_${taskId}`)]])
     );
 });
@@ -4708,7 +4617,7 @@ bot.action(/^set_rep_(.+)_(.+)$/, async (ctx) => {
             updates.repeatCount = 0;
         } else {
             const task = await db.collection('tasks').findOne({ taskId });
-            updates.repeatCount = task?.repeatCount || 10;
+            updates.repeatCount = task?.repeatCount || 7;
         }
         
         await db.collection('tasks').updateOne({ taskId }, { $set: updates });
@@ -5460,11 +5369,17 @@ ${task.autoCompleted ? '🤖 <b>Auto-completed at 23:59 UTC</b>\n' : ''}
 
         if (task.subtasks && task.subtasks.length > 0) {
             text += `📋 <b>𝗦𝗨𝗕𝗧𝗔𝗦𝗞𝗦:</b>\n`;
-            task.subtasks.forEach((subtask, index) => {
+            task.subtasks.sort((a, b) => {
+                if (a.completed === b.completed) return 0;
+                return a.completed ? 1 : -1;
+            }).forEach((subtask, index) => {
                 const status = subtask.completed ? '✅' : '❌';
                 let title = subtask.title;
                 if (title.length > 40) title = title.substring(0, 37) + '...';
                 text += `${status} ${index + 1}. ${title}\n`;
+                if (subtask.description) {
+                    text += `   <i>${subtask.description}</i>\n`;
+                }
             });
             text += `━━━━━━━━━━━━━━━━━━━━\n`;
         }
@@ -5549,7 +5464,7 @@ async function showNoteDetail(ctx, noteId) {
         return safeEdit(ctx, text, keyboard);
     }
 
-    let contentDisplay = note.content || '<i>Empty note</i>';
+    let contentDisplay = note.description || '<i>Empty note</i>';
     
     const text = `
 📝 <b>𝗚𝗟𝗢𝗕𝗔𝗟 𝗡𝗢𝗧𝗘 𝗗𝗘𝗧𝗔𝗜𝗟𝗦</b>
