@@ -1485,7 +1485,7 @@ function writeMainEJS() {
                                                     \`}
                                                 </div>
                                                 <div class="subtask-actions">
-                                                    <button class="subtask-btn" onclick="editSubtask('\${task.taskId}', '\${subtask.id}', '\${escapeHtml(subtask.title)}', '\${escapeHtml(subtask.description || '')}')">
+                                                    <button class="subtask-btn" onclick="editSubtask('\${task.taskId}', '\${subtask.id}', \`\${escapeHtml(subtask.title).replace(/`/g, '\\`')}\`, \`\${escapeHtml(subtask.description || '').replace(/`/g, '\\`')}\`)">
                                                         <i class="fas fa-pencil-alt"></i>
                                                     </button>
                                                     <button class="subtask-btn delete" onclick="deleteSubtask('\${task.taskId}', '\${subtask.id}')">
@@ -1569,7 +1569,7 @@ function writeMainEJS() {
                                     <button class="action-btn" onclick="moveNote('\${note.noteId}', 'down')" title="Move Down">
                                         <i class="fas fa-arrow-down"></i>
                                     </button>
-                                    <button class="action-btn" onclick="openEditNoteModal('\${note.noteId}', '\${escapeHtml(note.title)}', '\${escapeHtml(note.description || '')}')">
+                                    <button class="action-btn" onclick="openEditNoteModal('\${note.noteId}', \`\${escapeHtml(note.title).replace(/`/g, '\\`')}\`, \`\${escapeHtml(note.description || '').replace(/`/g, '\\`')}\`)">
                                         <i class="fas fa-pencil-alt"></i>
                                     </button>
                                     <button class="action-btn delete" onclick="deleteNote('\${note.noteId}')">
@@ -1832,23 +1832,46 @@ function writeMainEJS() {
         }
 
         function editSubtask(taskId, subtaskId, title, description) {
-            document.getElementById('editSubtaskTaskId').value = taskId;
-            document.getElementById('editSubtaskId').value = subtaskId;
-            document.getElementById('editSubtaskTitle').value = title;
-            document.getElementById('editSubtaskDescription').value = description || '';
-            openModal('editSubtaskModal');
-        }
+    document.getElementById('editSubtaskTaskId').value = taskId;
+    document.getElementById('editSubtaskId').value = subtaskId;
+    document.getElementById('editSubtaskTitle').value = title;
+    
+    // Properly decode the description
+    let decodedDescription = description || '';
+    try {
+        // Create a textarea to decode HTML entities
+        const textarea = document.createElement('textarea');
+        textarea.innerHTML = decodedDescription;
+        decodedDescription = textarea.value;
+    } catch(e) {
+        console.error('Error decoding description:', e);
+    }
+    
+    document.getElementById('editSubtaskDescription').value = decodedDescription;
+    openModal('editSubtaskModal');
+}
 
         function openAddNoteModal() {
             openModal('addNoteModal');
         }
 
         function openEditNoteModal(noteId, title, description) {
-            document.getElementById('editNoteId').value = noteId;
-            document.getElementById('editNoteTitle').value = title;
-            document.getElementById('editNoteDescription').value = description || '';
-            openModal('editNoteModal');
-        }
+    document.getElementById('editNoteId').value = noteId;
+    document.getElementById('editNoteTitle').value = title;
+    
+    // Properly decode the description
+    let decodedDescription = description || '';
+    try {
+        const textarea = document.createElement('textarea');
+        textarea.innerHTML = decodedDescription;
+        decodedDescription = textarea.value;
+    } catch(e) {
+        console.error('Error decoding description:', e);
+    }
+    
+    document.getElementById('editNoteDescription').value = decodedDescription;
+    openModal('editNoteModal');
+}
 
         // ==========================================
         // FORM SUBMISSIONS
