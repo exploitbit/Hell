@@ -1352,10 +1352,9 @@ function writeEJSFiles() {
             const container = document.getElementById('toastContainer');
             const toast = document.createElement('div');
             toast.className = `toast ${type}`;
-            toast.innerHTML = \`
-                <i class="fas \${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'}"></i>
-                <span>\${message}</span>
-            \`;
+            toast.innerHTML = '<i class="fas ' + 
+    (type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle') + 
+    '"></i><span>' + message + '</span>';
             container.appendChild(toast);
             setTimeout(() => {
                 toast.style.animation = 'slideOutRight 0.3s ease';
