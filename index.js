@@ -51,48 +51,42 @@ function writeEJSFiles() {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TaskFlow · Global Task Manager</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <title>Global Task Manager</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
-            /* Light mode */
-            --bg-gradient-light: linear-gradient(145deg, #f9fcff 0%, #eef2f7 100%);
-            --glass-bg-light: rgba(255, 255, 255, 0.65);
-            --glass-border-light: rgba(255, 255, 255, 0.5);
-            --glass-shadow-light: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
-            --card-bg-light: rgba(255, 255, 255, 0.7);
-            --text-primary-light: #1a2639;
-            --text-secondary-light: #4a5568;
-            --accent-light: #3b82f6;
+            /* Light mode - Dark text, Light backgrounds */
+            --bg-light: #f5f7fa;
+            --card-bg-light: #ffffff;
+            --text-primary-light: #1e293b;
+            --text-secondary-light: #475569;
+            --border-light: #e2e8f0;
+            --accent-light: #2563eb;
             --accent-soft-light: #dbeafe;
-            --success-light: #10b981;
-            --warning-light: #f59e0b;
-            --danger-light: #ef4444;
-            --border-light: rgba(0,0,0,0.06);
-            --hover-light: rgba(59,130,246,0.08);
+            --success-light: #059669;
+            --warning-light: #d97706;
+            --danger-light: #dc2626;
+            --hover-light: #f1f5f9;
             --progress-bg-light: #e2e8f0;
-            --toast-bg-light: rgba(26, 32, 44, 0.9);
+            --toast-bg-light: #1e293b;
             --toast-text-light: #ffffff;
             
-            /* Dark mode */
-            --bg-gradient-dark: linear-gradient(145deg, #0f172a 0%, #1e293b 100%);
-            --glass-bg-dark: rgba(15, 23, 42, 0.7);
-            --glass-border-dark: rgba(71, 85, 105, 0.3);
-            --glass-shadow-dark: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
-            --card-bg-dark: rgba(30, 41, 59, 0.7);
-            --text-primary-dark: #f1f5f9;
-            --text-secondary-dark: #94a3b8;
+            /* Dark mode - Light text, Dark backgrounds */
+            --bg-dark: #0f172a;
+            --card-bg-dark: #1e293b;
+            --text-primary-dark: #f8fafc;
+            --text-secondary-dark: #cbd5e1;
+            --border-dark: #334155;
             --accent-dark: #60a5fa;
-            --accent-soft-dark: #1e293b;
+            --accent-soft-dark: #1e3a5f;
             --success-dark: #34d399;
             --warning-dark: #fbbf24;
             --danger-dark: #f87171;
-            --border-dark: rgba(255,255,255,0.06);
-            --hover-dark: rgba(96,165,250,0.1);
+            --hover-dark: #2d3b4f;
             --progress-bg-dark: #334155;
-            --toast-bg-dark: rgba(15, 23, 42, 0.95);
-            --toast-text-dark: #f1f5f9;
+            --toast-bg-dark: #0f172a;
+            --toast-text-dark: #f8fafc;
         }
 
         * {
@@ -102,57 +96,37 @@ function writeEJSFiles() {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
 
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
         body {
-            background: var(--bg-gradient-light);
+            background: var(--bg-light);
             color: var(--text-primary-light);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.2s ease;
             min-height: 100vh;
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            font-size: 14px;
-            line-height: 1.5;
+            font-size: 13px;
+            line-height: 1.4;
         }
 
         @media (prefers-color-scheme: dark) {
             body {
-                background: var(--bg-gradient-dark);
+                background: var(--bg-dark);
                 color: var(--text-primary-dark);
             }
         }
 
-        .glass-panel {
-            background: var(--glass-bg-light);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid var(--glass-border-light);
-            box-shadow: var(--glass-shadow-light);
-            border-radius: 24px;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            .glass-panel {
-                background: var(--glass-bg-dark);
-                border: 1px solid var(--glass-border-dark);
-                box-shadow: var(--glass-shadow-dark);
-            }
-        }
-
         .app-header {
-            background: rgba(255,255,255,0.6);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
+            background: var(--card-bg-light);
             border-bottom: 1px solid var(--border-light);
-            padding: 12px 24px;
+            padding: 10px 16px;
             position: sticky;
             top: 0;
             z-index: 100;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
 
         @media (prefers-color-scheme: dark) {
             .app-header {
-                background: rgba(15,23,42,0.8);
+                background: var(--card-bg-dark);
                 border-bottom: 1px solid var(--border-dark);
             }
         }
@@ -163,33 +137,35 @@ function writeEJSFiles() {
             display: flex;
             align-items: center;
             justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px;
         }
 
         .nav-links {
             display: flex;
-            gap: 8px;
-            background: rgba(0,0,0,0.03);
-            padding: 4px;
+            gap: 4px;
+            background: var(--hover-light);
+            padding: 3px;
             border-radius: 100px;
         }
 
         @media (prefers-color-scheme: dark) {
             .nav-links {
-                background: rgba(255,255,255,0.05);
+                background: var(--hover-dark);
             }
         }
 
         .nav-btn {
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 10px 20px;
+            gap: 6px;
+            padding: 8px 16px;
             border-radius: 100px;
             border: none;
             background: transparent;
             color: var(--text-secondary-light);
             font-weight: 600;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             cursor: pointer;
             transition: all 0.2s ease;
         }
@@ -201,97 +177,91 @@ function writeEJSFiles() {
         }
 
         .nav-btn.active {
-            background: white;
+            background: var(--card-bg-light);
             color: var(--accent-light);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
         }
 
         @media (prefers-color-scheme: dark) {
             .nav-btn.active {
-                background: var(--accent-dark);
-                color: white;
-                box-shadow: 0 4px 12px rgba(96,165,250,0.3);
+                background: var(--card-bg-dark);
+                color: var(--accent-dark);
+                box-shadow: 0 2px 6px rgba(0,0,0,0.2);
             }
         }
 
         .nav-btn i {
-            font-size: 1rem;
-        }
-
-        .main-content {
-            max-width: 1400px;
-            margin: 24px auto;
-            padding: 0 24px;
-            padding-bottom: 100px;
+            font-size: 0.9rem;
         }
 
         .time-badge {
-            display: inline-flex;
+            display: flex;
             align-items: center;
             gap: 8px;
-            padding: 10px 18px;
-            background: rgba(59,130,246,0.08);
+            padding: 6px 12px;
+            background: var(--accent-soft-light);
             border-radius: 100px;
-            font-size: 0.85rem;
+            font-size: 0.75rem;
             font-weight: 500;
             color: var(--accent-light);
-            margin-bottom: 24px;
         }
 
         @media (prefers-color-scheme: dark) {
             .time-badge {
-                background: rgba(96,165,250,0.15);
+                background: var(--accent-soft-dark);
                 color: var(--accent-dark);
             }
         }
 
+        .main-content {
+            max-width: 1400px;
+            margin: 16px auto;
+            padding: 0 16px;
+            padding-bottom: 80px;
+        }
+
         .page-title {
-            font-size: 2rem;
+            font-size: 1.5rem;
             font-weight: 700;
-            margin-bottom: 24px;
-            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            letter-spacing: -0.02em;
+            margin-bottom: 16px;
+            color: var(--text-primary-light);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .page-title {
+                color: var(--text-primary-dark);
+            }
         }
 
         .tasks-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-            gap: 20px;
-            margin-top: 20px;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
         }
 
-        .task-card {
+        .task-card, .note-card, .history-date-card {
             background: var(--card-bg-light);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
             border: 1px solid var(--border-light);
-            border-radius: 24px;
-            padding: 20px;
-            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-            overflow: hidden;
+            border-radius: 16px;
+            padding: 16px;
+            transition: all 0.2s ease;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
 
         @media (prefers-color-scheme: dark) {
-            .task-card {
+            .task-card, .note-card, .history-date-card {
                 background: var(--card-bg-dark);
                 border: 1px solid var(--border-dark);
             }
-        }
-
-        .task-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 20px 40px -12px rgba(0,0,0,0.15);
-            border-color: var(--accent-light);
         }
 
         .task-header {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            margin-bottom: 16px;
+            margin-bottom: 8px;
         }
 
         .task-title-section {
@@ -299,11 +269,12 @@ function writeEJSFiles() {
         }
 
         .task-title {
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             font-weight: 700;
             color: var(--text-primary-light);
-            margin-bottom: 6px;
+            margin-bottom: 2px;
             line-height: 1.3;
+            word-break: break-word;
         }
 
         @media (prefers-color-scheme: dark) {
@@ -312,56 +283,84 @@ function writeEJSFiles() {
             }
         }
 
+        details.task-details summary,
+        details.subtask-details summary,
+        details.history-details summary {
+            cursor: pointer;
+            list-style: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 0;
+            color: var(--text-primary-light);
+            font-weight: 500;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            details.task-details summary,
+            details.subtask-details summary,
+            details.history-details summary {
+                color: var(--text-primary-dark);
+            }
+        }
+
+        details.task-details summary::-webkit-details-marker,
+        details.subtask-details summary::-webkit-details-marker,
+        details.history-details summary::-webkit-details-marker {
+            display: none;
+        }
+
         .task-time {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 8px;
             flex-wrap: wrap;
-            margin-bottom: 4px;
+            margin-top: 4px;
+            font-size: 0.8rem;
         }
 
         .time-chip {
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            padding: 4px 12px;
-            background: rgba(59,130,246,0.1);
+            gap: 4px;
+            padding: 3px 8px;
+            background: var(--hover-light);
             border-radius: 100px;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             font-weight: 500;
-            color: var(--accent-light);
+            color: var(--text-secondary-light);
         }
 
         @media (prefers-color-scheme: dark) {
             .time-chip {
-                background: rgba(96,165,250,0.15);
-                color: var(--accent-dark);
+                background: var(--hover-dark);
+                color: var(--text-secondary-dark);
             }
         }
 
         .task-actions {
             display: flex;
-            gap: 8px;
+            gap: 4px;
         }
 
         .action-btn {
-            width: 36px;
-            height: 36px;
-            border-radius: 12px;
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
             border: none;
-            background: rgba(0,0,0,0.03);
+            background: var(--hover-light);
             color: var(--text-secondary-light);
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
             transition: all 0.2s ease;
-            font-size: 0.9rem;
+            font-size: 0.8rem;
         }
 
         @media (prefers-color-scheme: dark) {
             .action-btn {
-                background: rgba(255,255,255,0.05);
+                background: var(--hover-dark);
                 color: var(--text-secondary-dark);
             }
         }
@@ -369,7 +368,6 @@ function writeEJSFiles() {
         .action-btn:hover {
             background: var(--accent-light);
             color: white;
-            transform: scale(1.05);
         }
 
         .action-btn.delete:hover {
@@ -377,62 +375,63 @@ function writeEJSFiles() {
         }
 
         .task-description {
-            font-size: 0.95rem;
+            font-size: 0.85rem;
             color: var(--text-secondary-light);
-            margin: 16px 0;
-            line-height: 1.6;
-            padding: 12px;
-            background: rgba(0,0,0,0.02);
-            border-radius: 16px;
-            border-left: 4px solid var(--accent-light);
+            margin: 8px 0;
+            padding: 10px;
+            background: var(--hover-light);
+            border-radius: 12px;
+            border-left: 3px solid var(--accent-light);
+            word-break: break-word;
+            white-space: pre-wrap;
         }
 
         @media (prefers-color-scheme: dark) {
             .task-description {
                 color: var(--text-secondary-dark);
-                background: rgba(255,255,255,0.03);
+                background: var(--hover-dark);
             }
         }
 
         .progress-section {
             display: flex;
             align-items: center;
-            gap: 16px;
-            margin: 20px 0 16px;
+            gap: 12px;
+            margin: 12px 0;
         }
 
-        .progress-ring {
+        .progress-ring-small {
             position: relative;
-            width: 56px;
-            height: 56px;
+            width: 40px;
+            height: 40px;
         }
 
-        .progress-ring-circle {
+        .progress-ring-circle-small {
             transition: stroke-dashoffset 0.5s;
             transform: rotate(-90deg);
             transform-origin: 50% 50%;
         }
 
-        .progress-text {
+        .progress-text-small {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            font-size: 0.9rem;
+            font-size: 0.7rem;
             font-weight: 700;
             color: var(--accent-light);
         }
 
         @media (prefers-color-scheme: dark) {
-            .progress-text {
+            .progress-text-small {
                 color: var(--accent-dark);
             }
         }
 
         .subtasks-container {
-            margin-top: 16px;
+            margin-top: 12px;
             border-top: 1px solid var(--border-light);
-            padding-top: 16px;
+            padding-top: 12px;
         }
 
         @media (prefers-color-scheme: dark) {
@@ -441,70 +440,26 @@ function writeEJSFiles() {
             }
         }
 
-        details.subtask-details {
-            margin-bottom: 8px;
-        }
-
-        details.subtask-details summary {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px;
-            background: rgba(0,0,0,0.02);
-            border-radius: 14px;
-            cursor: pointer;
-            font-weight: 500;
-            color: var(--text-primary-light);
-            transition: all 0.2s ease;
-            list-style: none;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            details.subtask-details summary {
-                background: rgba(255,255,255,0.03);
-                color: var(--text-primary-dark);
-            }
-        }
-
-        details.subtask-details summary::-webkit-details-marker {
-            display: none;
-        }
-
-        details.subtask-details summary:hover {
-            background: var(--hover-light);
-        }
-
-        @media (prefers-color-scheme: dark) {
-            details.subtask-details summary:hover {
-                background: var(--hover-dark);
-            }
-        }
-
-        .subtask-content {
-            padding: 16px 16px 16px 46px;
-        }
-
         .subtask-item {
             display: flex;
             align-items: flex-start;
-            gap: 12px;
-            padding: 12px;
-            background: rgba(0,0,0,0.02);
-            border-radius: 14px;
-            margin-bottom: 8px;
-            transition: all 0.2s ease;
+            gap: 8px;
+            padding: 8px;
+            background: var(--hover-light);
+            border-radius: 10px;
+            margin-bottom: 6px;
         }
 
         @media (prefers-color-scheme: dark) {
             .subtask-item {
-                background: rgba(255,255,255,0.03);
+                background: var(--hover-dark);
             }
         }
 
         .subtask-checkbox {
-            width: 22px;
-            height: 22px;
-            border-radius: 8px;
+            width: 20px;
+            height: 20px;
+            border-radius: 6px;
             border: 2px solid var(--accent-light);
             background: transparent;
             display: flex;
@@ -513,8 +468,9 @@ function writeEJSFiles() {
             cursor: pointer;
             transition: all 0.2s ease;
             color: white;
-            font-size: 0.8rem;
-            margin-top: 2px;
+            font-size: 0.7rem;
+            flex-shrink: 0;
+            margin-top: 1px;
         }
 
         .subtask-checkbox.completed {
@@ -524,13 +480,15 @@ function writeEJSFiles() {
 
         .subtask-details {
             flex: 1;
+            min-width: 0;
         }
 
         .subtask-title {
             font-weight: 600;
             color: var(--text-primary-light);
-            margin-bottom: 4px;
-            font-size: 0.95rem;
+            margin-bottom: 2px;
+            font-size: 0.85rem;
+            word-break: break-word;
         }
 
         .subtask-title.completed {
@@ -538,34 +496,49 @@ function writeEJSFiles() {
             color: var(--text-secondary-light);
         }
 
-        .subtask-desc {
-            font-size: 0.85rem;
+        details.subtask-details .subtask-desc {
+            font-size: 0.8rem;
             color: var(--text-secondary-light);
             margin-top: 6px;
-            padding-left: 10px;
+            padding: 8px;
+            background: var(--card-bg-light);
+            border-radius: 8px;
             border-left: 2px solid var(--accent-light);
-            line-height: 1.5;
+            word-break: break-word;
+            white-space: pre-wrap;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            details.subtask-details .subtask-desc {
+                background: var(--card-bg-dark);
+                color: var(--text-secondary-dark);
+            }
         }
 
         .subtask-actions {
             display: flex;
-            gap: 6px;
+            gap: 4px;
+            flex-shrink: 0;
         }
 
         .subtask-btn {
-            width: 30px;
-            height: 30px;
-            border-radius: 8px;
+            width: 26px;
+            height: 26px;
+            border-radius: 6px;
             border: none;
-            background: rgba(0,0,0,0.03);
+            background: var(--card-bg-light);
             color: var(--text-secondary-light);
             cursor: pointer;
             transition: all 0.2s ease;
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         @media (prefers-color-scheme: dark) {
             .subtask-btn {
-                background: rgba(255,255,255,0.05);
+                background: var(--card-bg-dark);
                 color: var(--text-secondary-dark);
             }
         }
@@ -579,6 +552,224 @@ function writeEJSFiles() {
             background: var(--danger-light);
         }
 
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 3px 8px;
+            border-radius: 100px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            gap: 4px;
+            background: var(--hover-light);
+            color: var(--text-secondary-light);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .badge {
+                background: var(--hover-dark);
+                color: var(--text-secondary-dark);
+            }
+        }
+
+        .note-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+        }
+
+        .note-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-primary-light);
+            word-break: break-word;
+            flex: 1;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .note-title {
+                color: var(--text-primary-dark);
+            }
+        }
+
+        .note-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid var(--border-light);
+            font-size: 0.7rem;
+            color: var(--text-secondary-light);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .note-meta {
+                border-top-color: var(--border-dark);
+                color: var(--text-secondary-dark);
+            }
+        }
+
+        details.note-details summary {
+            cursor: pointer;
+            list-style: none;
+            padding: 4px 0;
+            color: var(--text-secondary-light);
+            font-size: 0.8rem;
+        }
+
+        .note-content {
+            font-size: 0.85rem;
+            color: var(--text-secondary-light);
+            line-height: 1.5;
+            margin: 8px 0;
+            padding: 12px;
+            background: var(--hover-light);
+            border-radius: 12px;
+            word-break: break-word;
+            white-space: pre-wrap;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .note-content {
+                color: var(--text-secondary-dark);
+                background: var(--hover-dark);
+            }
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .month-selector {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .month-btn {
+            padding: 6px 12px;
+            border-radius: 100px;
+            border: 1px solid var(--border-light);
+            background: var(--card-bg-light);
+            color: var(--text-primary-light);
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .month-btn {
+                background: var(--card-bg-dark);
+                border-color: var(--border-dark);
+                color: var(--text-primary-dark);
+            }
+        }
+
+        .history-date-card details.history-details {
+            margin-bottom: 8px;
+        }
+
+        .history-tasks-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .history-task-card {
+            background: var(--hover-light);
+            border-radius: 12px;
+            padding: 12px;
+            border-left: 3px solid var(--success-light);
+            word-break: break-word;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .history-task-card {
+                background: var(--hover-dark);
+            }
+        }
+
+        .history-task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 6px;
+        }
+
+        .history-task-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--text-primary-light);
+            cursor: pointer;
+            word-break: break-word;
+            flex: 1;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .history-task-title {
+                color: var(--text-primary-dark);
+            }
+        }
+
+        .history-task-time {
+            font-size: 0.7rem;
+            color: var(--text-secondary-light);
+            flex-shrink: 0;
+        }
+
+        .history-subtask {
+            padding: 6px 6px 6px 20px;
+            border-left: 2px solid var(--border-light);
+            margin: 6px 0;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .history-subtask {
+                border-left-color: var(--border-dark);
+            }
+        }
+
+        .fab {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            width: 56px;
+            height: 56px;
+            border-radius: 28px;
+            background: var(--accent-light);
+            color: white;
+            border: none;
+            font-size: 1.3rem;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(37,99,235,0.3);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 99;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .fab {
+                background: var(--accent-dark);
+                box-shadow: 0 4px 12px rgba(96,165,250,0.3);
+            }
+        }
+
+        .fab:hover {
+            transform: scale(1.05);
+        }
+
         .modal {
             display: none;
             position: fixed;
@@ -587,194 +778,79 @@ function writeEJSFiles() {
             width: 100%;
             height: 100%;
             background: rgba(0,0,0,0.5);
-            backdrop-filter: blur(8px);
+            backdrop-filter: blur(4px);
             align-items: center;
             justify-content: center;
             z-index: 1000;
-            animation: fadeIn 0.2s ease;
         }
 
         .modal-content {
-            background: var(--glass-bg-light);
-            backdrop-filter: blur(24px);
-            border: 1px solid var(--glass-border-light);
-            border-radius: 32px;
-            padding: 32px;
+            background: var(--card-bg-light);
+            border: 1px solid var(--border-light);
+            border-radius: 24px;
+            padding: 24px;
             width: 90%;
             max-width: 500px;
-            max-height: 90vh;
+            max-height: 85vh;
             overflow-y: auto;
-            animation: slideUp 0.3s ease;
         }
 
         @media (prefers-color-scheme: dark) {
             .modal-content {
-                background: var(--glass-bg-dark);
-                border: 1px solid var(--glass-border-dark);
-            }
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 24px;
-        }
-
-        .modal-title {
-            font-size: 1.5rem;
-            font-weight: 700;
-            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .close-btn {
-            width: 40px;
-            height: 40px;
-            border-radius: 12px;
-            border: none;
-            background: rgba(0,0,0,0.05);
-            color: var(--text-secondary-light);
-            cursor: pointer;
-            transition: all 0.2s ease;
-            font-size: 1.2rem;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            .close-btn {
-                background: rgba(255,255,255,0.05);
-                color: var(--text-secondary-dark);
-            }
-        }
-
-        .close-btn:hover {
-            background: var(--danger-light);
-            color: white;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: var(--text-primary-light);
-            font-size: 0.9rem;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            .form-label {
-                color: var(--text-primary-dark);
+                background: var(--card-bg-dark);
+                border: 1px solid var(--border-dark);
             }
         }
 
         .form-control {
             width: 100%;
-            padding: 14px 16px;
-            border-radius: 16px;
+            padding: 12px;
+            border-radius: 12px;
             border: 1px solid var(--border-light);
-            background: rgba(255,255,255,0.5);
+            background: var(--bg-light);
             color: var(--text-primary-light);
-            font-size: 0.95rem;
-            transition: all 0.2s ease;
+            font-size: 0.9rem;
         }
 
         @media (prefers-color-scheme: dark) {
             .form-control {
-                background: rgba(0,0,0,0.2);
-                border: 1px solid var(--border-dark);
-                color: var(--text-primary-dark);
-            }
-        }
-
-        .form-control:focus {
-            outline: none;
-            border-color: var(--accent-light);
-            box-shadow: 0 0 0 4px rgba(59,130,246,0.1);
-        }
-
-        .form-select {
-            width: 100%;
-            padding: 14px 16px;
-            border-radius: 16px;
-            border: 1px solid var(--border-light);
-            background: rgba(255,255,255,0.5);
-            color: var(--text-primary-light);
-            font-size: 0.95rem;
-            cursor: pointer;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            .form-select {
-                background: rgba(0,0,0,0.2);
+                background: var(--bg-dark);
                 border: 1px solid var(--border-dark);
                 color: var(--text-primary-dark);
             }
         }
 
         .btn {
-            padding: 14px 24px;
+            padding: 12px 20px;
             border-radius: 100px;
             border: none;
             font-weight: 600;
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             cursor: pointer;
             transition: all 0.2s ease;
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            background: var(--accent-light);
             color: white;
-            box-shadow: 0 8px 20px -6px rgba(59,130,246,0.4);
         }
 
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 12px 28px -6px rgba(59,130,246,0.5);
+        @media (prefers-color-scheme: dark) {
+            .btn-primary {
+                background: var(--accent-dark);
+            }
         }
 
         .btn-secondary {
-            background: rgba(0,0,0,0.05);
+            background: var(--hover-light);
             color: var(--text-secondary-light);
         }
 
         @media (prefers-color-scheme: dark) {
             .btn-secondary {
-                background: rgba(255,255,255,0.1);
+                background: var(--hover-dark);
                 color: var(--text-secondary-dark);
             }
-        }
-
-        .btn-secondary:hover {
-            background: rgba(0,0,0,0.1);
-        }
-
-        .fab {
-            position: fixed;
-            bottom: 32px;
-            right: 32px;
-            width: 64px;
-            height: 64px;
-            border-radius: 32px;
-            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-            color: white;
-            border: none;
-            font-size: 1.5rem;
-            cursor: pointer;
-            box-shadow: 0 12px 32px -6px rgba(59,130,246,0.5);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 99;
-        }
-
-        .fab:hover {
-            transform: scale(1.1) rotate(90deg);
-            box-shadow: 0 20px 40px -6px rgba(59,130,246,0.6);
         }
 
         .toast-container {
@@ -786,17 +862,15 @@ function writeEJSFiles() {
 
         .toast {
             background: var(--toast-bg-light);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255,255,255,0.1);
             color: var(--toast-text-light);
-            padding: 12px 24px;
+            padding: 10px 20px;
             border-radius: 100px;
             margin-bottom: 10px;
             display: flex;
             align-items: center;
-            gap: 12px;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
-            animation: slideInRight 0.3s ease;
+            gap: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            font-size: 0.85rem;
             font-weight: 500;
         }
 
@@ -807,29 +881,6 @@ function writeEJSFiles() {
             }
         }
 
-        .toast.success {
-            border-left: 4px solid var(--success-light);
-        }
-
-        .toast.error {
-            border-left: 4px solid var(--danger-light);
-        }
-
-        .toast.info {
-            border-left: 4px solid var(--accent-light);
-        }
-
-        @keyframes slideOutRight {
-    from {
-        opacity: 1;
-        transform: translateX(0);
-    }
-    to {
-        opacity: 0;
-        transform: translateX(30px);
-    }
-}
-
         .loader {
             position: fixed;
             top: 0;
@@ -837,200 +888,27 @@ function writeEJSFiles() {
             width: 100%;
             height: 100%;
             background: rgba(0,0,0,0.5);
-            backdrop-filter: blur(8px);
+            backdrop-filter: blur(4px);
             display: none;
             align-items: center;
             justify-content: center;
             z-index: 9998;
         }
 
-        .loader-content {
-            background: var(--glass-bg-light);
-            backdrop-filter: blur(24px);
-            padding: 40px;
-            border-radius: 32px;
-            text-align: center;
-            animation: scaleIn 0.3s ease;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            .loader-content {
-                background: var(--glass-bg-dark);
-            }
-        }
-
         .spinner {
             width: 48px;
             height: 48px;
-            border: 4px solid rgba(59,130,246,0.1);
+            border: 4px solid var(--border-light);
             border-top: 4px solid var(--accent-light);
             border-radius: 50%;
             animation: spin 1s linear infinite;
-            margin-bottom: 16px;
-        }
-
-        .history-grid {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 16px;
-        }
-
-        .history-date-card {
-            background: var(--card-bg-light);
-            backdrop-filter: blur(16px);
-            border: 1px solid var(--border-light);
-            border-radius: 24px;
-            padding: 20px;
-            margin-bottom: 16px;
         }
 
         @media (prefers-color-scheme: dark) {
-            .history-date-card {
-                background: var(--card-bg-dark);
-                border: 1px solid var(--border-dark);
+            .spinner {
+                border: 4px solid var(--border-dark);
+                border-top: 4px solid var(--accent-dark);
             }
-        }
-
-        details.history-details summary {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            padding: 12px;
-            background: rgba(59,130,246,0.05);
-            border-radius: 16px;
-            cursor: pointer;
-            font-weight: 600;
-            color: var(--text-primary-light);
-            list-style: none;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            details.history-details summary {
-                background: rgba(96,165,250,0.1);
-                color: var(--text-primary-dark);
-            }
-        }
-
-        details.history-details summary::-webkit-details-marker {
-            display: none;
-        }
-
-        .history-tasks {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 16px;
-            margin-top: 16px;
-        }
-
-        .history-task-card {
-            background: rgba(0,0,0,0.02);
-            border-radius: 20px;
-            padding: 16px;
-            border-left: 4px solid var(--success-light);
-        }
-
-        @media (prefers-color-scheme: dark) {
-            .history-task-card {
-                background: rgba(255,255,255,0.03);
-            }
-        }
-
-        .notes-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 20px;
-        }
-
-        .note-card {
-            background: linear-gradient(145deg, rgba(255,255,255,0.7), rgba(255,255,255,0.5));
-            backdrop-filter: blur(12px);
-            border: 1px solid var(--border-light);
-            border-radius: 24px;
-            padding: 20px;
-            transition: all 0.2s ease;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            .note-card {
-                background: linear-gradient(145deg, rgba(30,41,59,0.7), rgba(30,41,59,0.5));
-                border: 1px solid var(--border-dark);
-            }
-        }
-
-        .note-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 20px 40px -12px rgba(0,0,0,0.2);
-        }
-
-        .note-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 12px;
-        }
-
-        .note-title {
-            font-size: 1.2rem;
-            font-weight: 700;
-            color: var(--text-primary-light);
-        }
-
-        @media (prefers-color-scheme: dark) {
-            .note-title {
-                color: var(--text-primary-dark);
-            }
-        }
-
-        .note-content {
-            font-size: 0.95rem;
-            color: var(--text-secondary-light);
-            line-height: 1.6;
-            margin: 16px 0;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            padding: 16px;
-            background: rgba(0,0,0,0.02);
-            border-radius: 16px;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            .note-content {
-                color: var(--text-secondary-dark);
-                background: rgba(255,255,255,0.03);
-            }
-        }
-
-        .note-meta {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 16px;
-            padding-top: 16px;
-            border-top: 1px solid var(--border-light);
-            font-size: 0.8rem;
-            color: var(--text-secondary-light);
-        }
-
-        @media (prefers-color-scheme: dark) {
-            .note-meta {
-                border-top-color: var(--border-dark);
-                color: var(--text-secondary-dark);
-            }
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateY(30px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        @keyframes slideInRight {
-            from { opacity: 0; transform: translateX(30px); }
-            to { opacity: 1; transform: translateX(0); }
         }
 
         @keyframes spin {
@@ -1038,86 +916,77 @@ function writeEJSFiles() {
             100% { transform: rotate(360deg); }
         }
 
-        @keyframes scaleIn {
-            from { opacity: 0; transform: scale(0.9); }
-            to { opacity: 1; transform: scale(1); }
-        }
-
         .empty-state {
             text-align: center;
-            padding: 60px 20px;
+            padding: 40px 20px;
             color: var(--text-secondary-light);
-            background: rgba(0,0,0,0.02);
-            border-radius: 32px;
+            background: var(--hover-light);
+            border-radius: 24px;
         }
 
         @media (prefers-color-scheme: dark) {
             .empty-state {
-                background: rgba(255,255,255,0.03);
+                background: var(--hover-dark);
                 color: var(--text-secondary-dark);
             }
         }
 
-        .empty-state i {
-            font-size: 3rem;
-            margin-bottom: 16px;
-            opacity: 0.5;
-        }
-
-        .badge {
-            display: inline-flex;
-            align-items: center;
-            padding: 4px 10px;
-            border-radius: 100px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            gap: 4px;
-        }
-
-        .badge.primary {
-            background: rgba(59,130,246,0.1);
-            color: var(--accent-light);
-        }
-
         @media (max-width: 768px) {
-            .main-content {
-                padding: 0 16px;
-            }
-            
-            .tasks-grid {
-                grid-template-columns: 1fr;
-            }
-            
             .nav-container {
                 flex-direction: column;
-                gap: 12px;
+                align-items: stretch;
             }
             
             .nav-links {
                 width: 100%;
+                justify-content: stretch;
             }
             
             .nav-btn {
                 flex: 1;
                 justify-content: center;
+                padding: 8px 12px;
             }
+            
+            .time-badge {
+                justify-content: center;
+            }
+            
+            .tasks-grid,
+            .history-tasks-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .task-time {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+
+        .word-break {
+            word-break: break-word;
+            overflow-wrap: break-word;
+        }
+
+        .flex-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
         }
     </style>
 </head>
 <body>
     <div class="loader" id="loader">
-        <div class="loader-content">
-            <div class="spinner"></div>
-            <div style="font-weight: 600; color: var(--text-primary-light);">Updating...</div>
-        </div>
+        <div class="spinner"></div>
     </div>
 
     <div class="toast-container" id="toastContainer"></div>
 
     <div class="app-header">
         <div class="nav-container">
-            <div style="font-weight: 800; font-size: 1.4rem; background: linear-gradient(135deg, #3b82f6, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-                TaskFlow
+            <div style="font-weight: 700; font-size: 1.2rem; color: var(--text-primary-light);">
+                📋 Global TM
             </div>
             <div class="nav-links">
                 <button class="nav-btn <%= currentPage === 'tasks' ? 'active' : '' %>" onclick="switchPage('tasks')">
@@ -1125,7 +994,7 @@ function writeEJSFiles() {
                     <span>Tasks</span>
                 </button>
                 <button class="nav-btn <%= currentPage === 'notes' ? 'active' : '' %>" onclick="switchPage('notes')">
-                    <i class="fas fa-wand-magic-sparkles"></i>
+                    <i class="fas fa-note-sticky"></i>
                     <span>Notes</span>
                 </button>
                 <button class="nav-btn <%= currentPage === 'history' ? 'active' : '' %>" onclick="switchPage('history')">
@@ -1134,13 +1003,14 @@ function writeEJSFiles() {
                 </button>
             </div>
             <div class="time-badge">
-                <i class="fas fa-clock"></i>
-                <span id="currentTimeDisplay"><%= currentTime %></span> UTC
+                <i class="fas fa-calendar-alt"></i>
+                <span id="currentDateDisplay"><%= currentDate %></span>
+                <span style="margin-left: 4px;"><i class="fas fa-clock"></i> <span id="currentTimeDisplay"><%= currentTime %></span></span>
             </div>
         </div>
     </div>
 
-    <button class="fab" onclick="openAddModal()" title="Add New">
+    <button class="fab" id="fabButton" onclick="openAddModal()" title="Add New">
         <i class="fas fa-plus"></i>
     </button>
 
@@ -1149,234 +1019,226 @@ function writeEJSFiles() {
     <!-- Add Task Modal -->
     <div class="modal" id="addTaskModal">
         <div class="modal-content">
-            <div class="modal-header">
-                <h2 class="modal-title">Create New Task</h2>
-                <button class="close-btn" onclick="closeModal('addTaskModal')">&times;</button>
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h2 style="font-size: 1.2rem;">Create New Task</h2>
+                <button class="action-btn" onclick="closeModal('addTaskModal')">&times;</button>
             </div>
-            <div class="modal-body">
-                <form id="addTaskForm" onsubmit="submitTaskForm(event)">
-                    <div class="form-group">
-                        <label class="form-label">Title *</label>
-                        <input type="text" class="form-control" name="title" required placeholder="Enter task title" maxlength="100">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Description</label>
-                        <textarea class="form-control" name="description" placeholder="Enter task description" rows="3"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Start Date (UTC)</label>
-                        <input type="date" class="form-control" name="startDate" id="startDate" required>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Start Time (UTC)</label>
+            <form id="addTaskForm" onsubmit="submitTaskForm(event)">
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label style="font-size: 0.85rem; font-weight: 600;">Title *</label>
+                    <input type="text" class="form-control" name="title" required maxlength="100">
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label style="font-size: 0.85rem; font-weight: 600;">Description</label>
+                    <textarea class="form-control" name="description" rows="2"></textarea>
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label style="font-size: 0.85rem; font-weight: 600;">Start Date (UTC)</label>
+                    <input type="date" class="form-control" name="startDate" id="startDate" required>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                    <div>
+                        <label style="font-size: 0.85rem; font-weight: 600;">Start Time (UTC)</label>
                         <input type="time" class="form-control" name="startTime" id="startTime" required>
                     </div>
-                    <div class="form-group">
-                        <label class="form-label">End Time (UTC)</label>
+                    <div>
+                        <label style="font-size: 0.85rem; font-weight: 600;">End Time (UTC)</label>
                         <input type="time" class="form-control" name="endTime" id="endTime" required>
                     </div>
-                    <div class="form-group">
-                        <label class="form-label">Repeat</label>
-                        <select class="form-select" name="repeat" id="repeatSelect">
-                            <option value="none">No Repeat</option>
-                            <option value="daily">Daily</option>
-                            <option value="weekly">Weekly</option>
-                        </select>
-                    </div>
-                    <div class="form-group" id="repeatCountGroup" style="display: none;">
-                        <label class="form-label">Repeat Count (1-365)</label>
-                        <input type="number" class="form-control" name="repeatCount" value="7" min="1" max="365">
-                    </div>
-                    <div class="form-actions" style="display: flex; gap: 12px; margin-top: 24px;">
-                        <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('addTaskModal')">Cancel</button>
-                        <button type="submit" class="btn btn-primary" style="flex: 1;">Create Task</button>
-                    </div>
-                </form>
-            </div>
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label style="font-size: 0.85rem; font-weight: 600;">Repeat</label>
+                    <select class="form-control" name="repeat" id="repeatSelect">
+                        <option value="none">No Repeat</option>
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                    </select>
+                </div>
+                <div class="form-group" id="repeatCountGroup" style="margin-bottom: 12px; display: none;">
+                    <label style="font-size: 0.85rem; font-weight: 600;">Repeat Count (1-365)</label>
+                    <input type="number" class="form-control" name="repeatCount" value="7" min="1" max="365">
+                </div>
+                <div style="display: flex; gap: 12px; margin-top: 16px;">
+                    <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('addTaskModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">Create Task</button>
+                </div>
+            </form>
         </div>
     </div>
 
     <!-- Edit Task Modal -->
     <div class="modal" id="editTaskModal">
         <div class="modal-content">
-            <div class="modal-header">
-                <h2 class="modal-title">Edit Task</h2>
-                <button class="close-btn" onclick="closeModal('editTaskModal')">&times;</button>
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h2 style="font-size: 1.2rem;">Edit Task</h2>
+                <button class="action-btn" onclick="closeModal('editTaskModal')">&times;</button>
             </div>
-            <div class="modal-body">
-                <form id="editTaskForm" onsubmit="submitEditTaskForm(event)">
-                    <input type="hidden" name="taskId" id="editTaskId">
-                    <div class="form-group">
-                        <label class="form-label">Title *</label>
-                        <input type="text" class="form-control" name="title" id="editTitle" required maxlength="100">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Description</label>
-                        <textarea class="form-control" name="description" id="editDescription" rows="3"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Start Date (UTC)</label>
-                        <input type="date" class="form-control" name="startDate" id="editStartDate" required>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Start Time (UTC)</label>
+            <form id="editTaskForm" onsubmit="submitEditTaskForm(event)">
+                <input type="hidden" name="taskId" id="editTaskId">
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label style="font-size: 0.85rem; font-weight: 600;">Title *</label>
+                    <input type="text" class="form-control" name="title" id="editTitle" required maxlength="100">
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label style="font-size: 0.85rem; font-weight: 600;">Description</label>
+                    <textarea class="form-control" name="description" id="editDescription" rows="2"></textarea>
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label style="font-size: 0.85rem; font-weight: 600;">Start Date (UTC)</label>
+                    <input type="date" class="form-control" name="startDate" id="editStartDate" required>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                    <div>
+                        <label style="font-size: 0.85rem; font-weight: 600;">Start Time (UTC)</label>
                         <input type="time" class="form-control" name="startTime" id="editStartTime" required>
                     </div>
-                    <div class="form-group">
-                        <label class="form-label">End Time (UTC)</label>
+                    <div>
+                        <label style="font-size: 0.85rem; font-weight: 600;">End Time (UTC)</label>
                         <input type="time" class="form-control" name="endTime" id="editEndTime" required>
                     </div>
-                    <div class="form-group">
-                        <label class="form-label">Repeat</label>
-                        <select class="form-select" name="repeat" id="editRepeatSelect">
-                            <option value="none">No Repeat</option>
-                            <option value="daily">Daily</option>
-                            <option value="weekly">Weekly</option>
-                        </select>
-                    </div>
-                    <div class="form-group" id="editRepeatCountGroup" style="display: none;">
-                        <label class="form-label">Repeat Count (1-365)</label>
-                        <input type="number" class="form-control" name="repeatCount" id="editRepeatCount" min="1" max="365">
-                    </div>
-                    <div class="form-actions" style="display: flex; gap: 12px; margin-top: 24px;">
-                        <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('editTaskModal')">Cancel</button>
-                        <button type="submit" class="btn btn-primary" style="flex: 1;">Update Task</button>
-                    </div>
-                </form>
-            </div>
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label style="font-size: 0.85rem; font-weight: 600;">Repeat</label>
+                    <select class="form-control" name="repeat" id="editRepeatSelect">
+                        <option value="none">No Repeat</option>
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                    </select>
+                </div>
+                <div class="form-group" id="editRepeatCountGroup" style="margin-bottom: 12px; display: none;">
+                    <label style="font-size: 0.85rem; font-weight: 600;">Repeat Count (1-365)</label>
+                    <input type="number" class="form-control" name="repeatCount" id="editRepeatCount" min="1" max="365">
+                </div>
+                <div style="display: flex; gap: 12px; margin-top: 16px;">
+                    <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('editTaskModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">Update Task</button>
+                </div>
+            </form>
         </div>
     </div>
 
     <!-- Add Subtask Modal -->
     <div class="modal" id="addSubtaskModal">
         <div class="modal-content">
-            <div class="modal-header">
-                <h2 class="modal-title">Add Subtask</h2>
-                <button class="close-btn" onclick="closeModal('addSubtaskModal')">&times;</button>
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h2 style="font-size: 1.2rem;">Add Subtask</h2>
+                <button class="action-btn" onclick="closeModal('addSubtaskModal')">&times;</button>
             </div>
-            <div class="modal-body">
-                <form id="addSubtaskForm" onsubmit="submitSubtaskForm(event)">
-                    <input type="hidden" name="taskId" id="subtaskTaskId">
-                    <div class="form-group">
-                        <label class="form-label">Title *</label>
-                        <input type="text" class="form-control" name="title" required placeholder="Enter subtask title" maxlength="100">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Description</label>
-                        <textarea class="form-control" name="description" placeholder="Enter subtask description" rows="2"></textarea>
-                    </div>
-                    <div class="form-actions" style="display: flex; gap: 12px; margin-top: 24px;">
-                        <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('addSubtaskModal')">Cancel</button>
-                        <button type="submit" class="btn btn-primary" style="flex: 1;">Add Subtask</button>
-                    </div>
-                </form>
-            </div>
+            <form id="addSubtaskForm" onsubmit="submitSubtaskForm(event)">
+                <input type="hidden" name="taskId" id="subtaskTaskId">
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label style="font-size: 0.85rem; font-weight: 600;">Title *</label>
+                    <input type="text" class="form-control" name="title" required maxlength="100">
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label style="font-size: 0.85rem; font-weight: 600;">Description</label>
+                    <textarea class="form-control" name="description" rows="2"></textarea>
+                </div>
+                <div style="display: flex; gap: 12px; margin-top: 16px;">
+                    <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('addSubtaskModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">Add Subtask</button>
+                </div>
+            </form>
         </div>
     </div>
 
     <!-- Edit Subtask Modal -->
     <div class="modal" id="editSubtaskModal">
         <div class="modal-content">
-            <div class="modal-header">
-                <h2 class="modal-title">Edit Subtask</h2>
-                <button class="close-btn" onclick="closeModal('editSubtaskModal')">&times;</button>
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h2 style="font-size: 1.2rem;">Edit Subtask</h2>
+                <button class="action-btn" onclick="closeModal('editSubtaskModal')">&times;</button>
             </div>
-            <div class="modal-body">
-                <form id="editSubtaskForm" onsubmit="submitEditSubtaskForm(event)">
-                    <input type="hidden" name="taskId" id="editSubtaskTaskId">
-                    <input type="hidden" name="subtaskId" id="editSubtaskId">
-                    <div class="form-group">
-                        <label class="form-label">Title *</label>
-                        <input type="text" class="form-control" name="title" id="editSubtaskTitle" required maxlength="100">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Description</label>
-                        <textarea class="form-control" name="description" id="editSubtaskDescription" rows="2"></textarea>
-                    </div>
-                    <div class="form-actions" style="display: flex; gap: 12px; margin-top: 24px;">
-                        <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('editSubtaskModal')">Cancel</button>
-                        <button type="submit" class="btn btn-primary" style="flex: 1;">Update Subtask</button>
-                    </div>
-                </form>
-            </div>
+            <form id="editSubtaskForm" onsubmit="submitEditSubtaskForm(event)">
+                <input type="hidden" name="taskId" id="editSubtaskTaskId">
+                <input type="hidden" name="subtaskId" id="editSubtaskId">
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label style="font-size: 0.85rem; font-weight: 600;">Title *</label>
+                    <input type="text" class="form-control" name="title" id="editSubtaskTitle" required maxlength="100">
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label style="font-size: 0.85rem; font-weight: 600;">Description</label>
+                    <textarea class="form-control" name="description" id="editSubtaskDescription" rows="2"></textarea>
+                </div>
+                <div style="display: flex; gap: 12px; margin-top: 16px;">
+                    <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('editSubtaskModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">Update Subtask</button>
+                </div>
+            </form>
         </div>
     </div>
 
     <!-- Add Note Modal -->
     <div class="modal" id="addNoteModal">
         <div class="modal-content">
-            <div class="modal-header">
-                <h2 class="modal-title">Create Note</h2>
-                <button class="close-btn" onclick="closeModal('addNoteModal')">&times;</button>
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h2 style="font-size: 1.2rem;">Create Note</h2>
+                <button class="action-btn" onclick="closeModal('addNoteModal')">&times;</button>
             </div>
-            <div class="modal-body">
-                <form id="addNoteForm" onsubmit="submitNoteForm(event)">
-                    <div class="form-group">
-                        <label class="form-label">Title *</label>
-                        <input type="text" class="form-control" name="title" required placeholder="Enter note title" maxlength="200">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Content</label>
-                        <textarea class="form-control" name="description" placeholder="Enter note content" rows="5"></textarea>
-                    </div>
-                    <div class="form-actions" style="display: flex; gap: 12px; margin-top: 24px;">
-                        <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('addNoteModal')">Cancel</button>
-                        <button type="submit" class="btn btn-primary" style="flex: 1;">Save Note</button>
-                    </div>
-                </form>
-            </div>
+            <form id="addNoteForm" onsubmit="submitNoteForm(event)">
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label style="font-size: 0.85rem; font-weight: 600;">Title *</label>
+                    <input type="text" class="form-control" name="title" required maxlength="200">
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label style="font-size: 0.85rem; font-weight: 600;">Content</label>
+                    <textarea class="form-control" name="description" rows="3"></textarea>
+                </div>
+                <div style="display: flex; gap: 12px; margin-top: 16px;">
+                    <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('addNoteModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">Save Note</button>
+                </div>
+            </form>
         </div>
     </div>
 
     <!-- Edit Note Modal -->
     <div class="modal" id="editNoteModal">
         <div class="modal-content">
-            <div class="modal-header">
-                <h2 class="modal-title">Edit Note</h2>
-                <button class="close-btn" onclick="closeModal('editNoteModal')">&times;</button>
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h2 style="font-size: 1.2rem;">Edit Note</h2>
+                <button class="action-btn" onclick="closeModal('editNoteModal')">&times;</button>
             </div>
-            <div class="modal-body">
-                <form id="editNoteForm" onsubmit="submitEditNoteForm(event)">
-                    <input type="hidden" name="noteId" id="editNoteId">
-                    <div class="form-group">
-                        <label class="form-label">Title *</label>
-                        <input type="text" class="form-control" name="title" id="editNoteTitle" required maxlength="200">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Content</label>
-                        <textarea class="form-control" name="description" id="editNoteDescription" rows="5"></textarea>
-                    </div>
-                    <div class="form-actions" style="display: flex; gap: 12px; margin-top: 24px;">
-                        <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('editNoteModal')">Cancel</button>
-                        <button type="submit" class="btn btn-primary" style="flex: 1;">Update Note</button>
-                    </div>
-                </form>
-            </div>
+            <form id="editNoteForm" onsubmit="submitEditNoteForm(event)">
+                <input type="hidden" name="noteId" id="editNoteId">
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label style="font-size: 0.85rem; font-weight: 600;">Title *</label>
+                    <input type="text" class="form-control" name="title" id="editNoteTitle" required maxlength="200">
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label style="font-size: 0.85rem; font-weight: 600;">Content</label>
+                    <textarea class="form-control" name="description" id="editNoteDescription" rows="3"></textarea>
+                </div>
+                <div style="display: flex; gap: 12px; margin-top: 16px;">
+                    <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('editNoteModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">Update Note</button>
+                </div>
+            </form>
         </div>
     </div>
 
     <script>
         // ==========================================
-// TOAST NOTIFICATION SYSTEM - FIXED
-// ==========================================
-function showToast(message, type = 'success') {
-    const container = document.getElementById('toastContainer');
-    const toast = document.createElement('div');
-    toast.className = 'toast ' + type;
-    
-    let icon = '';
-    if (type === 'success') icon = 'fa-check-circle';
-    else if (type === 'error') icon = 'fa-exclamation-circle';
-    else icon = 'fa-info-circle';
-    
-    toast.innerHTML = '<i class="fas ' + icon + '"></i><span>' + message + '</span>';
-    container.appendChild(toast);
-    
-    setTimeout(() => {
-        toast.style.animation = 'slideOutRight 0.3s ease';
-        setTimeout(() => toast.remove(), 300);
-    }, 3000);
-}
+        // TOAST NOTIFICATION SYSTEM
+        // ==========================================
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = 'toast ' + type;
+            
+            let icon = '';
+            if (type === 'success') icon = 'fa-check-circle';
+            else if (type === 'error') icon = 'fa-exclamation-circle';
+            else icon = 'fa-info-circle';
+            
+            toast.innerHTML = '<i class="fas ' + icon + '"></i><span>' + message + '</span>';
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.animation = 'slideOutRight 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
 
         // ==========================================
         // LOADER SYSTEM
@@ -1396,6 +1258,8 @@ function showToast(message, type = 'success') {
         let tasksData = <%- JSON.stringify(tasks || []) %>;
         let notesData = <%- JSON.stringify(notes || []) %>;
         let historyData = <%- JSON.stringify(groupedHistory || {}) %>;
+        let currentMonth = new Date().getMonth();
+        let currentYear = new Date().getFullYear();
 
         function switchPage(page) {
             showLoader();
@@ -1430,17 +1294,21 @@ function showToast(message, type = 'success') {
 
         function renderPage() {
             const content = document.getElementById('mainContent');
+            const fabButton = document.getElementById('fabButton');
+            
             if (currentPage === 'tasks') {
+                fabButton.style.display = 'flex';
                 content.innerHTML = renderTasksPage();
             } else if (currentPage === 'notes') {
+                fabButton.style.display = 'flex';
                 content.innerHTML = renderNotesPage();
             } else if (currentPage === 'history') {
+                fabButton.style.display = 'none';
                 content.innerHTML = renderHistoryPage();
             }
         }
 
         function renderTasksPage() {
-            const todayUTC = '<%= formatDateUTC(new Date()) %>';
             let html = \`
                 <h1 class="page-title">Today's Tasks</h1>
                 <div class="tasks-grid">
@@ -1449,22 +1317,31 @@ function showToast(message, type = 'success') {
             if (!tasksData || tasksData.length === 0) {
                 html += \`
                     <div class="empty-state" style="grid-column: 1/-1;">
-                        <i class="fas fa-clipboard-list"></i>
-                        <h3>No tasks for today</h3>
-                        <p style="margin-top: 12px;">Click the + button to add your first task!</p>
+                        <i class="fas fa-clipboard-list" style="font-size: 2rem;"></i>
+                        <h3 style="margin-top: 12px;">No tasks for today</h3>
+                        <p style="margin-top: 8px; font-size: 0.85rem;">Click the + button to add your first task!</p>
                     </div>
                 \`;
             } else {
                 tasksData.forEach(task => {
                     const progress = task.subtaskProgress || 0;
-                    const circleCircumference = 2 * Math.PI * 25;
+                    const circleCircumference = 2 * Math.PI * 16;
                     const circleOffset = circleCircumference - (progress / 100) * circleCircumference;
+                    const completedSubtasks = task.subtasks ? task.subtasks.filter(s => s.completed).length : 0;
+                    const totalSubtasks = task.subtasks ? task.subtasks.length : 0;
                     
                     html += \`
                         <div class="task-card">
                             <div class="task-header">
                                 <div class="task-title-section">
-                                    <h3 class="task-title">\${escapeHtml(task.title)}</h3>
+                                    <details class="task-details">
+                                        <summary>
+                                            <span class="task-title">\${escapeHtml(task.title)}</span>
+                                        </summary>
+                                        <div class="task-description">
+                                            \${escapeHtml(task.description || '<i>No description</i>').replace(/\\n/g, '<br>')}
+                                        </div>
+                                    </details>
                                     <div class="task-time">
                                         <span class="time-chip">
                                             <i class="fas fa-calendar"></i> \${task.dateUTC}
@@ -1489,73 +1366,74 @@ function showToast(message, type = 'success') {
                                     </button>
                                 </div>
                             </div>
-                    \`;
 
-                    if (task.description) {
-                        html += \`<div class="task-description">\${escapeHtml(task.description).replace(/\\n/g, '<br>')}</div>\`;
-                    }
-
-                    if (task.subtasks && task.subtasks.length > 0) {
-                        const completed = task.subtasks.filter(s => s.completed).length;
-                        html += \`
-                            <div class="progress-section">
-                                <div class="progress-ring">
-                                    <svg width="56" height="56">
-                                        <circle class="progress-ring-circle" stroke="var(--progress-bg-light)" stroke-width="4" fill="transparent" r="25" cx="28" cy="28"/>
-                                        <circle class="progress-ring-circle" stroke="var(--accent-light)" stroke-width="4" fill="transparent" r="25" cx="28" cy="28"
-                                            style="stroke-dasharray: \${circleCircumference}; stroke-dashoffset: \${circleOffset};"/>
-                                    </svg>
-                                    <span class="progress-text">\${progress}%</span>
-                                </div>
-                                <div style="font-size: 0.9rem; color: var(--text-secondary-light);">
-                                    <strong>\${completed}/\${task.subtasks.length}</strong> subtasks completed
-                                </div>
-                            </div>
-                            <div class="subtasks-container">
-                        \`;
-
-                        task.subtasks.sort((a, b) => {
-                            if (a.completed === b.completed) return 0;
-                            return a.completed ? 1 : -1;
-                        }).forEach((subtask, index) => {
-                            html += \`
-                                <details class="subtask-details" \${subtask.completed ? '' : ''}>
-                                    <summary>
-                                        <div class="subtask-checkbox \${subtask.completed ? 'completed' : ''}" onclick="event.preventDefault(); toggleSubtask('\${task.taskId}', '\${subtask.id}')">
-                                            \${subtask.completed ? '<i class="fas fa-check"></i>' : ''}
-                                        </div>
-                                        <span style="flex: 1; \${subtask.completed ? 'text-decoration: line-through; color: var(--text-secondary-light);' : ''}">
-                                            \${escapeHtml(subtask.title)}
-                                        </span>
-                                    </summary>
-                                    <div class="subtask-content">
-                                        \${subtask.description ? \`
-                                            <div class="subtask-desc">\${escapeHtml(subtask.description).replace(/\\n/g, '<br>')}</div>
-                                        \` : ''}
-                                        <div style="display: flex; gap: 8px; margin-top: 12px;">
-                                            <button class="subtask-btn" onclick="editSubtask('\${task.taskId}', '\${subtask.id}', '\${escapeHtml(subtask.title)}', '\${escapeHtml(subtask.description || '')}')">
-                                                <i class="fas fa-pencil-alt"></i>
-                                            </button>
-                                            <button class="subtask-btn delete" onclick="deleteSubtask('\${task.taskId}', '\${subtask.id}')">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
-                                        </div>
+                            <div class="flex-row">
+                                \${totalSubtasks > 0 ? \`
+                                    <div class="progress-ring-small">
+                                        <svg width="40" height="40">
+                                            <circle class="progress-ring-circle-small" stroke="var(--progress-bg-light)" stroke-width="3" fill="transparent" r="16" cx="20" cy="20"/>
+                                            <circle class="progress-ring-circle-small" stroke="var(--accent-light)" stroke-width="3" fill="transparent" r="16" cx="20" cy="20"
+                                                style="stroke-dasharray: \${circleCircumference}; stroke-dashoffset: \${circleOffset};"/>
+                                        </svg>
+                                        <span class="progress-text-small">\${progress}%</span>
                                     </div>
-                                </details>
-                            \`;
-                        });
+                                    <span style="font-size: 0.8rem; color: var(--text-secondary-light);">
+                                        \${completedSubtasks}/\${totalSubtasks} subtasks
+                                    </span>
+                                \` : \`
+                                    <span style="font-size: 0.8rem; color: var(--text-secondary-light);">
+                                        <i class="fas fa-tasks"></i> No subtasks
+                                    </span>
+                                \`}
+                            </div>
 
-                        html += \`</div>\`;
-                    }
+                            \${task.subtasks && task.subtasks.length > 0 ? \`
+                                <div class="subtasks-container">
+                                    \${task.subtasks.sort((a, b) => {
+                                        if (a.completed === b.completed) return 0;
+                                        return a.completed ? 1 : -1;
+                                    }).map(subtask => \`
+                                        <div class="subtask-item">
+                                            <div class="subtask-checkbox \${subtask.completed ? 'completed' : ''}" onclick="toggleSubtask('\${task.taskId}', '\${subtask.id}')">
+                                                \${subtask.completed ? '<i class="fas fa-check"></i>' : ''}
+                                            </div>
+                                            <div class="subtask-details">
+                                                <details class="subtask-details">
+                                                    <summary>
+                                                        <span class="subtask-title \${subtask.completed ? 'completed' : ''}">
+                                                            \${escapeHtml(subtask.title)}
+                                                        </span>
+                                                    </summary>
+                                                    <div class="subtask-desc">
+                                                        \${escapeHtml(subtask.description || '<i>No description</i>').replace(/\\n/g, '<br>')}
+                                                    </div>
+                                                </details>
+                                            </div>
+                                            <div class="subtask-actions">
+                                                <button class="subtask-btn" onclick="editSubtask('\${task.taskId}', '\${subtask.id}', '\${escapeHtml(subtask.title)}', '\${escapeHtml(subtask.description || '')}')">
+                                                    <i class="fas fa-pencil-alt"></i>
+                                                </button>
+                                                <button class="subtask-btn delete" onclick="deleteSubtask('\${task.taskId}', '\${subtask.id}')">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    \`).join('')}
+                                </div>
+                            \` : ''}
 
-                    html += \`
-                            <div style="display: flex; gap: 8px; margin-top: 16px;">
-                                <span class="badge primary">
+                            <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
+                                <span class="badge">
                                     <i class="fas fa-repeat"></i> \${task.repeat && task.repeat !== 'none' ? (task.repeat === 'daily' ? 'Daily' : 'Weekly') : 'No Repeat'}
                                 </span>
-                                <span class="badge primary">
+                                <span class="badge">
                                     <i class="fas fa-hourglass-half"></i> \${task.durationFormatted}
                                 </span>
+                                \${task.repeatCount > 0 ? \`
+                                    <span class="badge">
+                                        <i class="fas fa-hashtag"></i> \${task.repeatCount} left
+                                    </span>
+                                \` : ''}
                             </div>
                         </div>
                     \`;
@@ -1575,18 +1453,24 @@ function showToast(message, type = 'success') {
             if (!notesData || notesData.length === 0) {
                 html += \`
                     <div class="empty-state" style="grid-column: 1/-1;">
-                        <i class="fas fa-wand-magic-sparkles"></i>
-                        <h3>No notes yet</h3>
-                        <p style="margin-top: 12px;">Click the + button to create your first note!</p>
+                        <i class="fas fa-note-sticky" style="font-size: 2rem;"></i>
+                        <h3 style="margin-top: 12px;">No notes yet</h3>
+                        <p style="margin-top: 8px; font-size: 0.85rem;">Click the + button to create your first note!</p>
                     </div>
                 \`;
             } else {
-                notesData.forEach(note => {
+                notesData.forEach((note, index) => {
                     html += \`
                         <div class="note-card">
                             <div class="note-header">
-                                <h3 class="note-title">\${escapeHtml(note.title)}</h3>
-                                <div style="display: flex; gap: 8px;">
+                                <span class="note-title">\${escapeHtml(note.title)}</span>
+                                <div style="display: flex; gap: 4px;">
+                                    <button class="action-btn" onclick="moveNote('\${note.noteId}', 'up')" title="Move Up">
+                                        <i class="fas fa-arrow-up"></i>
+                                    </button>
+                                    <button class="action-btn" onclick="moveNote('\${note.noteId}', 'down')" title="Move Down">
+                                        <i class="fas fa-arrow-down"></i>
+                                    </button>
                                     <button class="action-btn" onclick="openEditNoteModal('\${note.noteId}', '\${escapeHtml(note.title)}', '\${escapeHtml(note.description || '')}')">
                                         <i class="fas fa-pencil-alt"></i>
                                     </button>
@@ -1595,15 +1479,12 @@ function showToast(message, type = 'success') {
                                     </button>
                                 </div>
                             </div>
-                            \${note.description ? \`
+                            <details class="note-details">
+                                <summary><i class="fas fa-chevron-right"></i> View Content</summary>
                                 <div class="note-content">
-                                    \${escapeHtml(note.description).replace(/\\n/g, '<br>')}
+                                    \${escapeHtml(note.description || '<i>Empty note</i>').replace(/\\n/g, '<br>')}
                                 </div>
-                            \` : \`
-                                <div class="note-content" style="color: var(--text-secondary-light); font-style: italic;">
-                                    <i class="fas fa-info-circle"></i> Empty note
-                                </div>
-                            \`}
+                            </details>
                             <div class="note-meta">
                                 <span><i class="fas fa-clock"></i> \${note.createdAtUTC}</span>
                                 \${note.updatedAtUTC !== note.createdAtUTC ? \`
@@ -1622,83 +1503,104 @@ function showToast(message, type = 'success') {
         function renderHistoryPage() {
             let html = \`
                 <h1 class="page-title">Task History</h1>
+                <div class="history-header">
+                    <div class="month-selector">
+                        <button class="month-btn" onclick="changeMonth(-1)">
+                            <i class="fas fa-chevron-left"></i> Prev
+                        </button>
+                        <span style="font-weight: 600; font-size: 1rem;">
+                            \${new Date(currentYear, currentMonth).toLocaleString('default', { month: 'long' })} \${currentYear}
+                        </span>
+                        <button class="month-btn" onclick="changeMonth(1)">
+                            Next <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
                 <div class="history-grid">
             \`;
 
-            const dates = Object.keys(historyData).sort().reverse();
+            const filteredHistory = filterHistoryByMonth(historyData, currentYear, currentMonth);
+            const dates = Object.keys(filteredHistory).sort().reverse();
 
             if (dates.length === 0) {
                 html += \`
                     <div class="empty-state">
-                        <i class="fas fa-history"></i>
-                        <h3>No completed tasks yet</h3>
-                        <p style="margin-top: 12px;">Complete some tasks to see them here!</p>
+                        <i class="fas fa-history" style="font-size: 2rem;"></i>
+                        <h3 style="margin-top: 12px;">No completed tasks</h3>
+                        <p style="margin-top: 8px; font-size: 0.85rem;">No tasks completed in this month</p>
                     </div>
                 \`;
             } else {
                 dates.forEach(date => {
-                    const tasks = historyData[date];
+                    const tasks = filteredHistory[date];
                     html += \`
                         <div class="history-date-card">
                             <details class="history-details">
                                 <summary>
                                     <i class="fas fa-calendar-alt"></i>
-                                    <span style="font-size: 1.1rem;">\${date}</span>
-                                    <span class="badge primary" style="margin-left: auto;">
+                                    <span style="font-weight: 600;">\${date}</span>
+                                    <span class="badge" style="margin-left: auto;">
                                         \${tasks.length} task\${tasks.length !== 1 ? 's' : ''}
                                     </span>
                                 </summary>
-                                <div class="history-tasks">
+                                <div class="history-tasks-grid">
                     \`;
 
                     tasks.forEach(task => {
                         html += \`
                             <div class="history-task-card">
-                                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
-                                    <h4 style="font-weight: 700; color: var(--text-primary-light);">\${escapeHtml(task.title)}</h4>
-                                    <span class="badge primary" style="background: rgba(16,185,129,0.1); color: var(--success-light);">
-                                        <i class="fas fa-check-circle"></i> \${task.completedTimeUTC}
+                                <div class="history-task-header">
+                                    <details style="flex: 1;">
+                                        <summary class="history-task-title">
+                                            \${escapeHtml(task.title)}
+                                        </summary>
+                                        <div style="font-size: 0.8rem; color: var(--text-secondary-light); margin-top: 8px; padding: 8px; background: var(--card-bg-light); border-radius: 8px;">
+                                            \${escapeHtml(task.description || '<i>No description</i>').replace(/\\n/g, '<br>')}
+                                        </div>
+                                    </details>
+                                    <span class="history-task-time">
+                                        <i class="fas fa-check-circle" style="color: var(--success-light);"></i> \${task.completedTimeUTC}
                                     </span>
                                 </div>
-                                \${task.description ? \`
-                                    <div style="font-size: 0.9rem; color: var(--text-secondary-light); margin-bottom: 12px; padding: 8px; background: rgba(0,0,0,0.02); border-radius: 8px;">
-                                        \${escapeHtml(task.description)}
-                                    </div>
-                                \` : ''}
-                                <div style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">
-                                    <span class="badge primary">
-                                        <i class="fas fa-clock"></i> \${formatTime(task.startDate)} - \${formatTime(task.endDate)} UTC
+                                <div style="display: flex; gap: 6px; margin: 8px 0; flex-wrap: wrap;">
+                                    <span class="badge">
+                                        <i class="fas fa-clock"></i> \${task.startTimeUTC || formatTime(task.startDate)} - \${task.endTimeUTC || formatTime(task.endDate)}
                                     </span>
-                                    <span class="badge primary">
+                                    <span class="badge">
                                         <i class="fas fa-hourglass-half"></i> \${task.durationFormatted}
                                     </span>
-                                    \${task.autoCompleted ? \`
-                                        <span class="badge" style="background: rgba(245,158,11,0.1); color: var(--warning-light);">
-                                            <i class="fas fa-robot"></i> Auto
+                                    \${task.repeat && task.repeat !== 'none' ? \`
+                                        <span class="badge">
+                                            <i class="fas fa-repeat"></i> \${task.repeat === 'daily' ? 'Daily' : 'Weekly'}
+                                        </span>
+                                    \` : ''}
+                                    \${task.repeatCount > 0 ? \`
+                                        <span class="badge">
+                                            <i class="fas fa-hashtag"></i> \${task.repeatCount} left
                                         </span>
                                     \` : ''}
                                 </div>
                                 \${task.subtasks && task.subtasks.length > 0 ? \`
-                                    <details style="margin-top: 12px;">
-                                        <summary style="cursor: pointer; color: var(--accent-light); font-weight: 600; font-size: 0.9rem;">
+                                    <details style="margin-top: 8px;">
+                                        <summary style="cursor: pointer; color: var(--accent-light); font-weight: 600; font-size: 0.8rem;">
                                             <i class="fas fa-tasks"></i> Subtasks (\${task.subtasks.filter(s => s.completed).length}/\${task.subtasks.length})
                                         </summary>
-                                        <div style="margin-top: 12px; padding-left: 12px;">
-                                            \${task.subtasks.map((subtask, idx) => \`
-                                                <div style="margin-bottom: 8px; padding: 8px; background: rgba(0,0,0,0.02); border-radius: 8px;">
-                                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <div style="margin-top: 8px;">
+                                            \${task.subtasks.map(subtask => \`
+                                                <div class="history-subtask">
+                                                    <div style="display: flex; align-items: center; gap: 6px;">
                                                         <span style="color: \${subtask.completed ? 'var(--success-light)' : 'var(--text-secondary-light)'};">
                                                             <i class="fas fa-\${subtask.completed ? 'check-circle' : 'circle'}"></i>
                                                         </span>
-                                                        <span style="font-weight: 600; \${subtask.completed ? 'text-decoration: line-through;' : ''}">
-                                                            \${escapeHtml(subtask.title)}
-                                                        </span>
+                                                        <details style="flex: 1;">
+                                                            <summary style="font-weight: 600; font-size: 0.8rem; cursor: pointer;">
+                                                                \${escapeHtml(subtask.title)}
+                                                            </summary>
+                                                            <div style="font-size: 0.75rem; color: var(--text-secondary-light); margin-top: 4px; padding: 6px; background: var(--card-bg-light); border-radius: 6px;">
+                                                                \${escapeHtml(subtask.description || '<i>No description</i>')}
+                                                            </div>
+                                                        </details>
                                                     </div>
-                                                    \${subtask.description ? \`
-                                                        <div style="font-size: 0.85rem; color: var(--text-secondary-light); margin-top: 4px; padding-left: 24px;">
-                                                            \${escapeHtml(subtask.description)}
-                                                        </div>
-                                                    \` : ''}
                                                 </div>
                                             \`).join('')}
                                         </div>
@@ -1718,6 +1620,29 @@ function showToast(message, type = 'success') {
 
             html += \`</div>\`;
             return html;
+        }
+
+        function filterHistoryByMonth(history, year, month) {
+            const filtered = {};
+            Object.keys(history).forEach(date => {
+                const [day, monthNum, yearNum] = date.split('-').map(Number);
+                if (yearNum === year && monthNum - 1 === month) {
+                    filtered[date] = history[date];
+                }
+            });
+            return filtered;
+        }
+
+        function changeMonth(delta) {
+            currentMonth += delta;
+            if (currentMonth < 0) {
+                currentMonth = 11;
+                currentYear--;
+            } else if (currentMonth > 11) {
+                currentMonth = 0;
+                currentYear++;
+            }
+            renderPage();
         }
 
         // ==========================================
@@ -1839,7 +1764,7 @@ function showToast(message, type = 'success') {
         }
 
         // ==========================================
-        // FORM SUBMISSIONS
+        // FORM SUBMISSIONS - FIXED API ENDPOINTS
         // ==========================================
         function submitTaskForm(event) {
             event.preventDefault();
@@ -1856,12 +1781,12 @@ function showToast(message, type = 'success') {
                     showToast('Task created successfully!');
                     switchPage('tasks');
                 } else {
-                    throw new Error('Failed to create task');
+                    return res.text().then(text => { throw new Error(text); });
                 }
             })
             .catch(err => {
                 console.error(err);
-                showToast('Error creating task', 'error');
+                showToast('Error creating task: ' + err.message, 'error');
                 hideLoader();
             });
         }
@@ -1882,12 +1807,12 @@ function showToast(message, type = 'success') {
                     showToast('Task updated successfully!');
                     switchPage('tasks');
                 } else {
-                    throw new Error('Failed to update task');
+                    return res.text().then(text => { throw new Error(text); });
                 }
             })
             .catch(err => {
                 console.error(err);
-                showToast('Error updating task', 'error');
+                showToast('Error updating task: ' + err.message, 'error');
                 hideLoader();
             });
         }
@@ -1908,12 +1833,12 @@ function showToast(message, type = 'success') {
                     showToast('Subtask added successfully!');
                     switchPage('tasks');
                 } else {
-                    throw new Error('Failed to add subtask');
+                    return res.text().then(text => { throw new Error(text); });
                 }
             })
             .catch(err => {
                 console.error(err);
-                showToast('Error adding subtask', 'error');
+                showToast('Error adding subtask: ' + err.message, 'error');
                 hideLoader();
             });
         }
@@ -1935,12 +1860,12 @@ function showToast(message, type = 'success') {
                     showToast('Subtask updated successfully!');
                     switchPage('tasks');
                 } else {
-                    throw new Error('Failed to update subtask');
+                    return res.text().then(text => { throw new Error(text); });
                 }
             })
             .catch(err => {
                 console.error(err);
-                showToast('Error updating subtask', 'error');
+                showToast('Error updating subtask: ' + err.message, 'error');
                 hideLoader();
             });
         }
@@ -1960,12 +1885,12 @@ function showToast(message, type = 'success') {
                     showToast('Note created successfully!');
                     switchPage('notes');
                 } else {
-                    throw new Error('Failed to create note');
+                    return res.text().then(text => { throw new Error(text); });
                 }
             })
             .catch(err => {
                 console.error(err);
-                showToast('Error creating note', 'error');
+                showToast('Error creating note: ' + err.message, 'error');
                 hideLoader();
             });
         }
@@ -1986,12 +1911,12 @@ function showToast(message, type = 'success') {
                     showToast('Note updated successfully!');
                     switchPage('notes');
                 } else {
-                    throw new Error('Failed to update note');
+                    return res.text().then(text => { throw new Error(text); });
                 }
             })
             .catch(err => {
                 console.error(err);
-                showToast('Error updating note', 'error');
+                showToast('Error updating note: ' + err.message, 'error');
                 hideLoader();
             });
         }
@@ -2051,12 +1976,12 @@ function showToast(message, type = 'success') {
                     showToast('Task completed!');
                     switchPage('tasks');
                 } else {
-                    throw new Error('Failed to complete task');
+                    return res.text().then(text => { throw new Error(text); });
                 }
             })
             .catch(err => {
                 console.error(err);
-                showToast('Error completing task', 'error');
+                showToast('Error completing task: ' + err.message, 'error');
                 hideLoader();
             });
         }
@@ -2103,6 +2028,30 @@ function showToast(message, type = 'success') {
             });
         }
 
+        function moveNote(noteId, direction) {
+            showLoader();
+            const formData = new FormData();
+            formData.append('direction', direction);
+            
+            fetch('/api/notes/' + noteId + '/move', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => {
+                if (res.ok) {
+                    showToast('Note moved');
+                    switchPage('notes');
+                } else {
+                    throw new Error('Failed to move note');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showToast('Error moving note', 'error');
+                hideLoader();
+            });
+        }
+
         // ==========================================
         // INITIALIZATION
         // ==========================================
@@ -2114,7 +2063,11 @@ function showToast(message, type = 'success') {
                 const now = new Date();
                 const hours = String(now.getUTCHours()).padStart(2, '0');
                 const minutes = String(now.getUTCMinutes()).padStart(2, '0');
+                const day = String(now.getUTCDate()).padStart(2, '0');
+                const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+                const year = now.getUTCFullYear();
                 document.getElementById('currentTimeDisplay').innerHTML = \`\${hours}:\${minutes}\`;
+                document.getElementById('currentDateDisplay').innerHTML = \`\${day}-\${month}-\${year}\`;
             }, 1000);
             
             document.getElementById('repeatSelect').addEventListener('change', function() {
@@ -2140,9 +2093,9 @@ function showToast(message, type = 'success') {
         
         fs.writeFileSync(path.join(viewsDir, 'index.ejs'), mainEJS);
         
-        console.log('✅ EJS template files created successfully');
+        console.log('✅ EJS template file created successfully');
     } catch (error) {
-        console.error('❌ Error writing EJS files:', error.message);
+        console.error('❌ Error writing EJS file:', error.message);
     }
 }
 
@@ -2189,7 +2142,7 @@ async function connectDB() {
             return true;
         } catch (error) {
             retries--;
-            console.error(`❌ MongoDB Connection Error (${retries} retries left):`, error.message);
+            console.error(\`❌ MongoDB Connection Error (\${retries} retries left):\`, error.message);
             if (retries === 0) {
                 console.error('❌ Failed to connect to MongoDB after multiple attempts');
                 return false;
@@ -2232,7 +2185,7 @@ function generateId(prefix = '') {
         }
         return 'note_' + result;
     }
-    // Subtask ID: taskId + subtask number (total 11-12 digits)
+    // Subtask ID: taskId + subtask number
     else if (prefix === 'sub_') {
         return 'sub_' + Date.now() + Math.random().toString(36).substring(2, 5);
     }
@@ -2269,7 +2222,11 @@ async function safeEdit(ctx, text, keyboard = null) {
 
 function formatBlockquote(text) {
     if (!text || text.trim() === '') return '';
-    return `<blockquote>${text}</blockquote>`;
+    const words = text.split(/\s+/).length;
+    if (words > 100 || text.split('\\n').length > 4) {
+        return \`<blockquote expandable>\${text}</blockquote>\`;
+    }
+    return \`<blockquote>\${text}</blockquote>\`;
 }
 
 function calculateSubtaskProgress(subtasks) {
@@ -2286,9 +2243,9 @@ function formatDuration(minutes) {
     if (minutes < 0) return '0 mins';
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
-    if (hours === 0) return `${mins} min${mins !== 1 ? 's' : ''}`;
-    if (mins === 0) return `${hours} hour${hours !== 1 ? 's' : ''}`;
-    return `${hours} hour${hours !== 1 ? 's' : ''} ${mins} min${mins !== 1 ? 's' : ''}`;
+    if (hours === 0) return \`\${mins} min\${mins !== 1 ? 's' : ''}\`;
+    if (mins === 0) return \`\${hours} hour\${hours !== 1 ? 's' : ''}\`;
+    return \`\${hours} hour\${hours !== 1 ? 's' : ''} \${mins} min\${mins !== 1 ? 's' : ''}\`;
 }
 
 function formatDateUTC(utcDate) {
@@ -2300,7 +2257,7 @@ function formatTimeUTC(utcDate) {
 }
 
 function formatDateTimeUTC(utcDate) {
-    return `${formatDateUTC(utcDate)} at ${formatTimeUTC(utcDate)} UTC`;
+    return \`\${formatDateUTC(utcDate)} at \${formatTimeUTC(utcDate)} UTC\`;
 }
 
 function getTodayUTC() {
@@ -2314,7 +2271,7 @@ function getTomorrowUTC() {
 }
 
 // ==========================================
-// ⏰ SCHEDULER LOGIC
+// ⏰ SCHEDULER LOGIC - FIXED WITH 10 MINUTE CHECK
 // ==========================================
 
 function scheduleTask(task) {
@@ -2327,23 +2284,25 @@ function scheduleTask(task) {
 
         cancelTaskSchedule(taskId);
 
-        if (startTime <= now) {
-            console.log(`⏰ Skipping task ${task.title} - start time has passed`);
+        // Don't schedule if start time is in past or within 10 minutes
+        const tenMinutesFromNow = new Date(now.getTime() + 10 * 60000);
+        if (startTime <= tenMinutesFromNow) {
+            console.log(\`⏰ Not scheduling task \${task.title} - start time is within 10 minutes or in past\`);
             return;
         }
 
         const notifyTime = new Date(startTime.getTime() - 10 * 60000);
         const triggerDate = notifyTime > now ? notifyTime : now;
 
-        console.log(`⏰ Scheduled: ${task.title} for ${formatDateTimeUTC(startTime)}`);
+        console.log(\`⏰ Scheduled: \${task.title} for \${formatDateTimeUTC(startTime)}\`);
 
         const startJob = schedule.scheduleJob(triggerDate, async function() {
             if (isShuttingDown) return;
             
-            console.log(`🔔 Starting notifications for task: ${task.title}`);
+            console.log(\`🔔 Starting notifications for task: \${task.title}\`);
             
             let count = 0;
-            const maxNotifications = 7; // Changed from 10 to 7
+            const maxNotifications = 10; // Changed from 7 to 10
             
             const sendNotification = async () => {
                 if (isShuttingDown) return;
@@ -2360,9 +2319,9 @@ function scheduleTask(task) {
                     if (currentTime >= startTime) {
                         try {
                             await bot.telegram.sendMessage(CHAT_ID, 
-                                `🚀 <b>𝙏𝘼𝙎𝙆 𝙎𝙏𝘼𝙍𝙏𝙀𝘿 𝙉𝙊𝙒!</b>\n` +
-                                `📌 <b>Title: ${task.title}</b>\n\n` +
-                                `Time to work! ⏰`, 
+                                \`🚀 <b>𝙏𝘼𝙎𝙆 𝙎𝙏𝘼𝙍𝙏𝙀𝘿 𝙉𝙊𝙒!</b>\n\` +
+                                \`📌 <b>Title: \${task.title}</b>\n\n\` +
+                                \`Time to work! ⏰\`, 
                                 { parse_mode: 'HTML' }
                             );
                         } catch (e) {
@@ -2378,13 +2337,13 @@ function scheduleTask(task) {
 
                 try {
                     await bot.telegram.sendMessage(CHAT_ID, 
-                        `🔔 <b>𝗥𝗘𝗠𝗜𝗡𝗗𝗘𝗥 (${count + 1}/${maxNotifications})</b>\n` +
-                        `━━━━━━━━━━━━━━━━━━━━\n` +
-                        `📌 <b>${task.title}</b>\n` +
-                        `⏳ Starts in: <b>${minutesLeft} minute${minutesLeft !== 1 ? 's' : ''}</b>\n` +
-                        `⏰ Start Time: ${formatTimeUTC(startTime)} UTC\n` +
-                        `📅 Date: ${formatDateUTC(startTime)}\n` +
-                        `━━━━━━━━━━━━━━━━━━━━`, 
+                        \`🔔 <b>𝗥𝗘𝗠𝗜𝗡𝗗𝗘𝗥 (\${count + 1}/\${maxNotifications})</b>\n\` +
+                        \`━━━━━━━━━━━━━━━━━━━━\n\` +
+                        \`📌 <b>\${task.title}</b>\n\` +
+                        \`⏳ Starts in: <b>\${minutesLeft} minute\${minutesLeft !== 1 ? 's' : ''}</b>\n\` +
+                        \`⏰ Start Time: \${formatTimeUTC(startTime)} UTC\n\` +
+                        \`📅 Date: \${formatDateUTC(startTime)}\n\` +
+                        \`━━━━━━━━━━━━━━━━━━━━\`, 
                         { parse_mode: 'HTML' }
                     );
                 } catch (e) {
@@ -2418,7 +2377,7 @@ function scheduleTask(task) {
         }
 
     } catch (error) {
-        console.error(`❌ Scheduler Error for task ${task?.taskId}:`, error.message);
+        console.error(\`❌ Scheduler Error for task \${task?.taskId}:\`, error.message);
     }
 }
 
@@ -2432,20 +2391,21 @@ function cancelTaskSchedule(taskId) {
             try { clearInterval(s.interval); } catch (e) {}
         }
         activeSchedules.delete(taskId);
-        console.log(`🗑️ Cleared schedules for task ${taskId}`);
+        console.log(\`🗑️ Cleared schedules for task \${taskId}\`);
     }
 }
 
 async function rescheduleAllPending() {
     try {
+        const tenMinutesFromNow = new Date(Date.now() + 10 * 60000);
         const tasks = await db.collection('tasks').find({ 
             status: 'pending',
-            startDate: { $gt: new Date() }
+            startDate: { $gt: tenMinutesFromNow }
         }).toArray();
         
-        console.log(`🔄 Rescheduling ${tasks.length} pending tasks...`);
+        console.log(\`🔄 Rescheduling \${tasks.length} pending tasks...\`);
         tasks.forEach(task => scheduleTask(task));
-        console.log(`✅ Rescheduled ${tasks.length} tasks.`);
+        console.log(\`✅ Rescheduled \${tasks.length} tasks.\`);
     } catch (error) {
         console.error('❌ Error rescheduling tasks:', error.message);
     }
@@ -2456,7 +2416,7 @@ async function rescheduleAllPending() {
 // ==========================================
 
 async function autoCompletePendingTasks() {
-    console.log(`⏰ Running auto-complete for pending tasks at 23:59 UTC...`);
+    console.log(\`⏰ Running auto-complete for pending tasks at 23:59 UTC...\`);
     
     try {
         const todayUTC = getTodayUTC();
@@ -2470,13 +2430,13 @@ async function autoCompletePendingTasks() {
             }
         }).toArray();
         
-        console.log(`📋 Found ${pendingTasks.length} pending tasks to auto-complete`);
+        console.log(\`📋 Found \${pendingTasks.length} pending tasks to auto-complete\`);
         
         for (const task of pendingTasks) {
             await autoCompleteTask(task);
         }
         
-        console.log(`✅ Auto-completed ${pendingTasks.length} tasks`);
+        console.log(\`✅ Auto-completed \${pendingTasks.length} tasks\`);
     } catch (error) {
         console.error('❌ Error in auto-complete:', error.message);
     }
@@ -2521,7 +2481,8 @@ async function autoCompleteTask(task) {
             });
             
             const updatedTask = await db.collection('tasks').findOne({ taskId });
-            if (updatedTask && updatedTask.nextOccurrence > new Date()) {
+            const tenMinutesFromNow = new Date(Date.now() + 10 * 60000);
+            if (updatedTask && updatedTask.nextOccurrence > tenMinutesFromNow) {
                 scheduleTask(updatedTask);
             }
         } else {
@@ -2530,12 +2491,12 @@ async function autoCompleteTask(task) {
         
         try {
             await bot.telegram.sendMessage(CHAT_ID,
-                `⏰ <b>𝗔𝗨𝗧𝗢-𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘𝗗 𝗧𝗔𝗦𝗞</b>\n` +
-                `━━━━━━━━━━━━━━━━━━━━\n` +
-                `📌 <b>${task.title}</b>\n` +
-                `✅ Automatically completed at 23:59 UTC\n` +
-                `📅 ${formatDateUTC(completedAtUTC)}\n` +
-                `━━━━━━━━━━━━━━━━━━━━`,
+                \`⏰ <b>𝗔𝗨𝗧𝗢-𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘𝗗 𝗧𝗔𝗦𝗞</b>\n\` +
+                \`━━━━━━━━━━━━━━━━━━━━\n\` +
+                \`📌 <b>\${task.title}</b>\n\` +
+                \`✅ Automatically completed at 23:59 UTC\n\` +
+                \`📅 \${formatDateUTC(completedAtUTC)}\n\` +
+                \`━━━━━━━━━━━━━━━━━━━━\`,
                 { parse_mode: 'HTML' }
             );
         } catch (e) {
@@ -2543,7 +2504,7 @@ async function autoCompleteTask(task) {
         }
         
     } catch (error) {
-        console.error(`Error auto-completing task ${task.taskId}:`, error.message);
+        console.error(\`Error auto-completing task \${task.taskId}:\`, error.message);
     }
 }
 
@@ -2560,15 +2521,13 @@ function scheduleAutoComplete() {
 }
 
 // ==========================================
-// 📱 WEB INTERFACE ROUTES - NO SESSION, GLOBAL DATA
+// 📱 WEB INTERFACE ROUTES - FIXED FOR CRUD OPERATIONS
 // ==========================================
 
-// ✅ FIXED: Root route with error handling
 app.get('/', (req, res) => {
     res.redirect('/tasks');
 });
 
-// ✅ FIXED: Tasks route with error handling
 app.get('/tasks', async (req, res) => {
     try {
         const todayUTC = getTodayUTC();
@@ -2582,18 +2541,20 @@ app.get('/tasks', async (req, res) => {
             }
         }).sort({ orderIndex: 1, nextOccurrence: 1 }).toArray();
         
-        console.log(`📊 Tasks found: ${tasks.length}`);
+        console.log(\`📊 Tasks found: \${tasks.length}\`);
         
         res.render('index', {
             currentPage: 'tasks',
             tasks: tasks.map(task => ({
                 ...task,
+                taskId: task.taskId,
                 startTimeUTC: formatTimeUTC(task.startDate),
                 endTimeUTC: formatTimeUTC(task.endDate),
                 dateUTC: formatDateUTC(task.startDate),
                 duration: calculateDuration(task.startDate, task.endDate),
                 durationFormatted: formatDuration(calculateDuration(task.startDate, task.endDate)),
-                subtaskProgress: calculateSubtaskProgress(task.subtasks)
+                subtaskProgress: calculateSubtaskProgress(task.subtasks),
+                subtasks: task.subtasks || []
             })),
             notes: [],
             groupedHistory: {},
@@ -2608,20 +2569,20 @@ app.get('/tasks', async (req, res) => {
     }
 });
 
-// ✅ FIXED: Notes route with error handling
 app.get('/notes', async (req, res) => {
     try {
         const notes = await db.collection('notes').find()
             .sort({ orderIndex: 1, createdAt: -1 })
             .toArray();
         
-        console.log(`📝 Notes found: ${notes.length}`);
+        console.log(\`📝 Notes found: \${notes.length}\`);
         
         res.render('index', {
             currentPage: 'notes',
             tasks: [],
             notes: notes.map(note => ({
                 ...note,
+                noteId: note.noteId,
                 createdAtUTC: formatDateTimeUTC(note.createdAt),
                 updatedAtUTC: note.updatedAt ? formatDateTimeUTC(note.updatedAt) : formatDateTimeUTC(note.createdAt)
             })),
@@ -2637,12 +2598,11 @@ app.get('/notes', async (req, res) => {
     }
 });
 
-// ✅ FIXED: History route with error handling
 app.get('/history', async (req, res) => {
     try {
         const history = await db.collection('history').find()
             .sort({ completedAt: -1 })
-            .limit(100)
+            .limit(500)
             .toArray();
         
         const groupedHistory = {};
@@ -2654,11 +2614,13 @@ app.get('/history', async (req, res) => {
             groupedHistory[dateKey].push({
                 ...item,
                 completedTimeUTC: formatTimeUTC(item.completedAt),
+                startTimeUTC: formatTimeUTC(item.startDate),
+                endTimeUTC: formatTimeUTC(item.endDate),
                 durationFormatted: formatDuration(calculateDuration(item.startDate, item.endDate))
             });
         });
         
-        console.log(`📜 History entries: ${history.length}`);
+        console.log(\`📜 History entries: \${history.length}\`);
         
         res.render('index', {
             currentPage: 'history',
@@ -2676,7 +2638,6 @@ app.get('/history', async (req, res) => {
     }
 });
 
-// API route for page data
 app.get('/api/page/:page', async (req, res) => {
     try {
         const page = req.params.page;
@@ -2696,12 +2657,14 @@ app.get('/api/page/:page', async (req, res) => {
             res.json({
                 tasks: tasks.map(task => ({
                     ...task,
+                    taskId: task.taskId,
                     startTimeUTC: formatTimeUTC(task.startDate),
                     endTimeUTC: formatTimeUTC(task.endDate),
                     dateUTC: formatDateUTC(task.startDate),
                     duration: calculateDuration(task.startDate, task.endDate),
                     durationFormatted: formatDuration(calculateDuration(task.startDate, task.endDate)),
-                    subtaskProgress: calculateSubtaskProgress(task.subtasks)
+                    subtaskProgress: calculateSubtaskProgress(task.subtasks),
+                    subtasks: task.subtasks || []
                 })),
                 notes: [],
                 groupedHistory: {}
@@ -2715,6 +2678,7 @@ app.get('/api/page/:page', async (req, res) => {
                 tasks: [],
                 notes: notes.map(note => ({
                     ...note,
+                    noteId: note.noteId,
                     createdAtUTC: formatDateTimeUTC(note.createdAt),
                     updatedAtUTC: note.updatedAt ? formatDateTimeUTC(note.updatedAt) : formatDateTimeUTC(note.createdAt)
                 })),
@@ -2723,7 +2687,7 @@ app.get('/api/page/:page', async (req, res) => {
         } else if (page === 'history') {
             const history = await db.collection('history').find()
                 .sort({ completedAt: -1 })
-                .limit(100)
+                .limit(500)
                 .toArray();
             
             const groupedHistory = {};
@@ -2735,6 +2699,8 @@ app.get('/api/page/:page', async (req, res) => {
                 groupedHistory[dateKey].push({
                     ...item,
                     completedTimeUTC: formatTimeUTC(item.completedAt),
+                    startTimeUTC: formatTimeUTC(item.startDate),
+                    endTimeUTC: formatTimeUTC(item.endDate),
                     durationFormatted: formatDuration(calculateDuration(item.startDate, item.endDate))
                 });
             });
@@ -2753,7 +2719,6 @@ app.get('/api/page/:page', async (req, res) => {
     }
 });
 
-// API route for single task
 app.get('/api/tasks/:taskId', async (req, res) => {
     try {
         const taskId = req.params.taskId;
@@ -2765,6 +2730,7 @@ app.get('/api/tasks/:taskId', async (req, res) => {
         
         res.json({
             ...task,
+            taskId: task.taskId,
             startTimeUTC: formatTimeUTC(task.startDate),
             endTimeUTC: formatTimeUTC(task.endDate),
             dateUTC: formatDateUTC(task.startDate)
@@ -2775,7 +2741,7 @@ app.get('/api/tasks/:taskId', async (req, res) => {
     }
 });
 
-// API Routes
+// FIXED: Task creation endpoint
 app.post('/api/tasks', async (req, res) => {
     try {
         const { title, description, startDate, startTime, endTime, repeat, repeatCount } = req.body;
@@ -2793,6 +2759,13 @@ app.post('/api/tasks', async (req, res) => {
         
         if (endDateUTC <= startDateUTC) {
             return res.status(400).send('End time must be after start time');
+        }
+        
+        const now = new Date();
+        const tenMinutesFromNow = new Date(now.getTime() + 10 * 60000);
+        
+        if (startDateUTC <= tenMinutesFromNow) {
+            return res.status(400).send('Start time must be at least 10 minutes from now');
         }
         
         const highestTask = await db.collection('tasks').findOne(
@@ -2819,9 +2792,9 @@ app.post('/api/tasks', async (req, res) => {
         };
         
         await db.collection('tasks').insertOne(task);
-        console.log(`✅ Task created: ${task.title} (${task.taskId})`);
+        console.log(\`✅ Task created: \${task.title} (\${task.taskId})\`);
         
-        if (task.startDate > new Date()) {
+        if (task.startDate > tenMinutesFromNow) {
             scheduleTask(task);
         }
         
@@ -2848,6 +2821,13 @@ app.post('/api/tasks/:taskId/update', async (req, res) => {
             return res.status(400).send('End time must be after start time');
         }
         
+        const now = new Date();
+        const tenMinutesFromNow = new Date(now.getTime() + 10 * 60000);
+        
+        if (startDateUTC <= tenMinutesFromNow) {
+            return res.status(400).send('Start time must be at least 10 minutes from now');
+        }
+        
         cancelTaskSchedule(taskId);
         
         await db.collection('tasks').updateOne(
@@ -2869,7 +2849,7 @@ app.post('/api/tasks/:taskId/update', async (req, res) => {
         );
         
         const updatedTask = await db.collection('tasks').findOne({ taskId });
-        if (updatedTask && updatedTask.startDate > new Date()) {
+        if (updatedTask && updatedTask.startDate > tenMinutesFromNow) {
             scheduleTask(updatedTask);
         }
         
@@ -2941,18 +2921,19 @@ app.post('/api/tasks/:taskId/complete', async (req, res) => {
             });
             
             const updatedTask = await db.collection('tasks').findOne({ taskId });
-            if (updatedTask && updatedTask.nextOccurrence > new Date()) {
+            const tenMinutesFromNow = new Date(Date.now() + 10 * 60000);
+            if (updatedTask && updatedTask.nextOccurrence > tenMinutesFromNow) {
                 scheduleTask(updatedTask);
             }
             
             try {
                 await bot.telegram.sendMessage(CHAT_ID,
-                    `✅ <b>𝗧𝗔𝗦𝗞 𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘𝗗</b>\n` +
-                    `━━━━━━━━━━━━━━━━━━━━\n` +
-                    `📌 <b>${task.title}</b>\n` +
-                    `🔄 Next occurrence: ${formatDateUTC(nextOccurrence)}\n` +
-                    `📊 Remaining repeats: ${task.repeatCount - 1}\n` +
-                    `━━━━━━━━━━━━━━━━━━━━`,
+                    \`✅ <b>𝗧𝗔𝗦𝗞 𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘𝗗</b>\n\` +
+                    \`━━━━━━━━━━━━━━━━━━━━\n\` +
+                    \`📌 <b>\${task.title}</b>\n\` +
+                    \`🔄 Next occurrence: \${formatDateUTC(nextOccurrence)}\n\` +
+                    \`📊 Remaining repeats: \${task.repeatCount - 1}\n\` +
+                    \`━━━━━━━━━━━━━━━━━━━━\`,
                     { parse_mode: 'HTML' }
                 );
             } catch (e) {}
@@ -2961,11 +2942,11 @@ app.post('/api/tasks/:taskId/complete', async (req, res) => {
             
             try {
                 await bot.telegram.sendMessage(CHAT_ID,
-                    `✅ <b>𝗧𝗔𝗦𝗞 𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘𝗗</b>\n` +
-                    `━━━━━━━━━━━━━━━━━━━━\n` +
-                    `📌 <b>${task.title}</b>\n` +
-                    `📅 Completed at: ${formatDateTimeUTC(completedAtUTC)}\n` +
-                    `━━━━━━━━━━━━━━━━━━━━`,
+                    \`✅ <b>𝗧𝗔𝗦𝗞 𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘𝗗</b>\n\` +
+                    \`━━━━━━━━━━━━━━━━━━━━\n\` +
+                    \`📌 <b>\${task.title}</b>\n\` +
+                    \`📅 Completed at: \${formatDateTimeUTC(completedAtUTC)}\n\` +
+                    \`━━━━━━━━━━━━━━━━━━━━\`,
                     { parse_mode: 'HTML' }
                 );
             } catch (e) {}
@@ -2985,7 +2966,7 @@ app.post('/api/tasks/:taskId/delete', async (req, res) => {
         cancelTaskSchedule(taskId);
         await db.collection('tasks').deleteOne({ taskId });
         
-        console.log(`🗑️ Task deleted: ${taskId}`);
+        console.log(\`🗑️ Task deleted: \${taskId}\`);
         
         res.redirect('/tasks');
     } catch (error) {
@@ -3026,7 +3007,7 @@ app.post('/api/tasks/:taskId/subtasks', async (req, res) => {
             { $push: { subtasks: subtask } }
         );
         
-        console.log(`➕ Subtask added to ${task.title}: ${subtask.title}`);
+        console.log(\`➕ Subtask added to \${task.title}: \${subtask.title}\`);
         
         res.redirect('/tasks');
     } catch (error) {
@@ -3045,7 +3026,7 @@ app.post('/api/tasks/:taskId/subtasks/:subtaskId/update', async (req, res) => {
             return res.status(400).send('Subtask title cannot be empty');
         }
         
-        await db.collection('tasks').updateOne(
+        const result = await db.collection('tasks').updateOne(
             { taskId, "subtasks.id": subtaskId },
             { 
                 $set: { 
@@ -3055,6 +3036,10 @@ app.post('/api/tasks/:taskId/subtasks/:subtaskId/update', async (req, res) => {
                 } 
             }
         );
+        
+        if (result.matchedCount === 0) {
+            return res.status(404).send('Task or subtask not found');
+        }
         
         res.redirect('/tasks');
     } catch (error) {
@@ -3095,10 +3080,14 @@ app.post('/api/tasks/:taskId/subtasks/:subtaskId/delete', async (req, res) => {
         const taskId = req.params.taskId;
         const subtaskId = req.params.subtaskId;
         
-        await db.collection('tasks').updateOne(
+        const result = await db.collection('tasks').updateOne(
             { taskId },
             { $pull: { subtasks: { id: subtaskId } } }
         );
+        
+        if (result.matchedCount === 0) {
+            return res.status(404).send('Task not found');
+        }
         
         res.redirect('/tasks');
     } catch (error) {
@@ -3132,7 +3121,7 @@ app.post('/api/notes', async (req, res) => {
         
         await db.collection('notes').insertOne(note);
         
-        console.log(`📝 Note created: ${note.title} (${note.noteId})`);
+        console.log(\`📝 Note created: \${note.title} (\${note.noteId})\`);
         
         res.redirect('/notes');
     } catch (error) {
@@ -3150,7 +3139,7 @@ app.post('/api/notes/:noteId/update', async (req, res) => {
             return res.status(400).send('Note title cannot be empty');
         }
         
-        await db.collection('notes').updateOne(
+        const result = await db.collection('notes').updateOne(
             { noteId },
             { 
                 $set: { 
@@ -3161,7 +3150,11 @@ app.post('/api/notes/:noteId/update', async (req, res) => {
             }
         );
         
-        console.log(`✏️ Note updated: ${noteId}`);
+        if (result.matchedCount === 0) {
+            return res.status(404).send('Note not found');
+        }
+        
+        console.log(\`✏️ Note updated: \${noteId}\`);
         
         res.redirect('/notes');
     } catch (error) {
@@ -3174,9 +3167,13 @@ app.post('/api/notes/:noteId/delete', async (req, res) => {
     try {
         const noteId = req.params.noteId;
         
-        await db.collection('notes').deleteOne({ noteId });
+        const result = await db.collection('notes').deleteOne({ noteId });
         
-        console.log(`🗑️ Note deleted: ${noteId}`);
+        if (result.deletedCount === 0) {
+            return res.status(404).send('Note not found');
+        }
+        
+        console.log(\`🗑️ Note deleted: \${noteId}\`);
         
         res.redirect('/notes');
     } catch (error) {
@@ -3238,13 +3235,10 @@ app.post('/api/notes/:noteId/move', async (req, res) => {
 });
 
 // ==========================================
-// 🤖 BOT COMMANDS - GLOBAL, ONLY SEND TO YOUR USER ID
+// 🤖 BOT COMMANDS - FIXED SUBTASK DETAILS
 // ==========================================
 
-// Telegram Bot
 const bot = new Telegraf(BOT_TOKEN);
-
-// Map to store active jobs: key = taskId, value = { startJob, interval }
 const activeSchedules = new Map();
 let hourlySummaryJob = null;
 let autoCompleteJob = null;
@@ -3259,28 +3253,27 @@ bot.use((ctx, next) => {
     return next();
 });
 
-// ✅ FIXED: Only respond to your user ID
 bot.use((ctx, next) => {
     if (ctx.from && ctx.from.id.toString() === CHAT_ID.toString()) {
         return next();
     }
-    // Ignore messages from other users
     return;
 });
 
 bot.command('start', async (ctx) => {
     ctx.session = {};
     
-    const text = `
+    const now = new Date();
+    const text = \`
 ┌─━━━━━━━━━━━━━━━─┐
 │    ✧ 𝗚𝗟𝗢𝗕𝗔𝗟 𝗧𝗔𝗦𝗞 𝗠𝗔𝗡𝗔𝗚𝗘𝗥 ✧    │ 
 └─━━━━━━━━━━━━━━━─┘
-⏰ Current Time: ${formatTimeUTC(new Date())} UTC
-📅 Today: ${formatDateUTC(new Date())}
+⏰ Current Time: \${formatTimeUTC(now)} UTC
+📅 Today: \${formatDateUTC(now)}
 
 🌟 <b>Welcome to Global Task Manager!</b>
 🌍 Everyone sees the same tasks and notes
-📢 All notifications will be sent to you only`;
+📢 All notifications will be sent to you only\`;
 
     const keyboard = Markup.inlineKeyboard([
         [Markup.button.callback('📋 Today\'s Tasks', 'view_today_tasks_1')],
@@ -3311,14 +3304,15 @@ bot.action('main_menu', async (ctx) => {
 });
 
 async function showMainMenu(ctx) {
-    const text = `
+    const now = new Date();
+    const text = \`
 ┌─━━━━━━━━━━━━━━━─┐
 │    ✧ 𝗚𝗟𝗢𝗕𝗔𝗟 𝗧𝗔𝗦𝗞 𝗠𝗔𝗡𝗔𝗚𝗘𝗥 ✧    │ 
 └─━━━━━━━━━━━━━━━─┘
-⏰ Current Time: ${formatTimeUTC(new Date())} UTC
-📅 Today: ${formatDateUTC(new Date())}
+⏰ Current Time: \${formatTimeUTC(now)} UTC
+📅 Today: \${formatDateUTC(now)}
 
-🌟 <b>Select an option:</b>`;
+🌟 <b>Select an option:</b>\`;
 
     const keyboard = Markup.inlineKeyboard([
         [Markup.button.callback('📋 Today\'s Tasks', 'view_today_tasks_1')],
@@ -3348,7 +3342,7 @@ async function showMainMenu(ctx) {
 // 📅 TASK VIEWS - WITH PAGINATION
 // ==========================================
 
-bot.action(/^view_today_tasks_(\d+)$/, async (ctx) => {
+bot.action(/^view_today_tasks_(\\d+)$/, async (ctx) => {
     const page = parseInt(ctx.match[1]);
     const todayUTC = getTodayUTC();
     const tomorrowUTC = getTomorrowUTC();
@@ -3379,25 +3373,25 @@ bot.action(/^view_today_tasks_(\d+)$/, async (ctx) => {
         .limit(perPage)
         .toArray();
 
-    let text = `
+    let text = \`
 📋 <b>𝗧𝗢𝗗𝗔𝗬'𝗦 𝗚𝗟𝗢𝗕𝗔𝗟 𝗧𝗔𝗦𝗞𝗦</b>
 
 ━━━━━━━━━━━━━━━━━━━━
-📅 Date: ${formatDateUTC(todayUTC)}
-📊 Total: ${totalTasks} task${totalTasks !== 1 ? 's' : ''}
-📄 Page: ${page}/${totalPages}
+📅 Date: \${formatDateUTC(todayUTC)}
+📊 Total: \${totalTasks} task\${totalTasks !== 1 ? 's' : ''}
+📄 Page: \${page}/\${totalPages}
 ━━━━━━━━━━━━━━━━━━━━
 
-Select a task to view details:`;
+Select a task to view details:\`;
 
     if (tasks.length === 0) {
-        text = `
+        text = \`
 📋 <b>𝗧𝗢𝗗𝗔𝗬'𝗦 𝗚𝗟𝗢𝗕𝗔𝗟 𝗧𝗔𝗦𝗞𝗦</b>
 
 ━━━━━━━━━━━━━━━━━━━━
-📅 Date: ${formatDateUTC(todayUTC)}
+📅 Date: \${formatDateUTC(todayUTC)}
 📭 <i>No tasks scheduled for today!</i>
-━━━━━━━━━━━━━━━━━━━━`;
+━━━━━━━━━━━━━━━━━━━━\`;
     }
 
     const buttons = [];
@@ -3408,7 +3402,7 @@ Select a task to view details:`;
         
         if (t.subtasks && t.subtasks.length > 0) {
             const progress = calculateSubtaskProgress(t.subtasks);
-            taskTitle += ` [${progress}%]`;
+            taskTitle += \` [\${progress}%]\`;
         }
         
         if (taskTitle.length > 30) {
@@ -3417,8 +3411,8 @@ Select a task to view details:`;
         
         buttons.push([
             Markup.button.callback(
-                `${taskNum}. ${taskTitle}`, 
-                `task_det_${t.taskId}`
+                \`\${taskNum}. \${taskTitle}\`, 
+                \`task_det_\${t.taskId}\`
             )
         ]);
     });
@@ -3426,11 +3420,11 @@ Select a task to view details:`;
     if (totalPages > 1) {
         const paginationRow = [];
         if (page > 1) {
-            paginationRow.push(Markup.button.callback('◀️ Back', `view_today_tasks_${page - 1}`));
+            paginationRow.push(Markup.button.callback('◀️ Back', \`view_today_tasks_\${page - 1}\`));
         }
-        paginationRow.push(Markup.button.callback(`📄 ${page}/${totalPages}`, 'no_action'));
+        paginationRow.push(Markup.button.callback(\`📄 \${page}/\${totalPages}\`, 'no_action'));
         if (page < totalPages) {
-            paginationRow.push(Markup.button.callback('Next ▶️', `view_today_tasks_${page + 1}`));
+            paginationRow.push(Markup.button.callback('Next ▶️', \`view_today_tasks_\${page + 1}\`));
         }
         buttons.push(paginationRow);
     }
@@ -3444,7 +3438,7 @@ Select a task to view details:`;
 });
 
 // ==========================================
-// ➕ ADD TASK WIZARD - WITH BOT-STYLE TEXT BOXES
+// ➕ ADD TASK WIZARD
 // ==========================================
 
 bot.action('add_task', async (ctx) => {
@@ -3456,7 +3450,7 @@ bot.action('add_task', async (ctx) => {
         subtasks: []
     };
     
-    const text = `🎯 <b>𝗖𝗥𝗘𝗔𝗧𝗘 𝗡𝗘𝗪 𝗚𝗟𝗢𝗕𝗔𝗟 𝗧𝗔𝗦𝗞</b>\n━━━━━━━━━━━━━━━━━━━━\nEnter the <b>Title</b> of your task (max 100 characters):`;
+    const text = \`🎯 <b>𝗖𝗥𝗘𝗔𝗧𝗘 𝗡𝗘𝗪 𝗚𝗟𝗢𝗕𝗔𝗟 𝗧𝗔𝗦𝗞</b>\n━━━━━━━━━━━━━━━━━━━━\nEnter the <b>Title</b> of your task (max 100 characters):\`;
     const keyboard = Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', 'main_menu')]]);
     
     await safeEdit(ctx, text, keyboard);
@@ -3469,14 +3463,14 @@ bot.action('add_note', async (ctx) => {
         createdAt: new Date()
     };
     
-    const text = `📝 <b>𝗖𝗥𝗘𝗔𝗧𝗘 𝗡𝗘𝗪 𝗚𝗟𝗢𝗕𝗔𝗟 𝗡𝗢𝗧𝗘</b>\n━━━━━━━━━━━━━━━━━━━━\nEnter the <b>Title</b> for your note (max 200 characters):`;
+    const text = \`📝 <b>𝗖𝗥𝗘𝗔𝗧𝗘 𝗡𝗘𝗪 𝗚𝗟𝗢𝗕𝗔𝗟 𝗡𝗢𝗧𝗘</b>\n━━━━━━━━━━━━━━━━━━━━\nEnter the <b>Title</b> for your note (max 200 characters):\`;
     const keyboard = Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', 'main_menu')]]);
     
     await safeEdit(ctx, text, keyboard);
 });
 
 // ==========================================
-// 📨 TEXT INPUT HANDLER - BOT-STYLE VALIDATION
+// 📨 TEXT INPUT HANDLER
 // ==========================================
 
 bot.on('text', async (ctx) => {
@@ -3493,30 +3487,30 @@ bot.on('text', async (ctx) => {
             ctx.session.task.title = text;
             ctx.session.step = 'task_desc';
             await ctx.reply(
-                `📄 <b>𝗘𝗡𝗧𝗘𝗥 𝗗𝗘𝗦𝗖𝗥𝗜𝗣𝗧𝗜𝗢𝗡</b>\n\n` +
-                `━━━━━━━━━━━━━━━━━━━━\n` +
-                `📝 <i>Describe your task (Max 100 words):</i>\n` +
-                `Enter "-" for no description`,
+                \`📄 <b>𝗘𝗡𝗧𝗘𝗥 𝗗𝗘𝗦𝗖𝗥𝗜𝗣𝗧𝗜𝗢𝗡</b>\n\n\` +
+                \`━━━━━━━━━━━━━━━━━━━━\n\` +
+                \`📝 <i>Describe your task (Max 100 words):</i>\n\` +
+                \`Enter "-" for no description\`,
                 { parse_mode: 'HTML' }
             );
         }
         else if (step === 'task_desc') {
             const description = text === '-' ? '' : text;
-            if (description.length > 0 && description.split(/\s+/).length > 100) {
+            if (description.length > 0 && description.split(/\\s+/).length > 100) {
                 return ctx.reply('❌ Too long! Keep it under 100 words.');
             }
             ctx.session.task.description = description;
             ctx.session.step = 'task_date';
             await ctx.reply(
-                `📅 <b>𝗦𝗘𝗟𝗘𝗖𝗧 𝗗𝗔𝗧𝗘</b>\n` +
-                `━━━━━━━━━━━━━━━━━━━━\n` +
-                `📆 Today (UTC): ${formatDateUTC(new Date())}\n` +
-                `📝 <i>Enter the date (DD-MM-YYYY) in UTC:</i>`,
+                \`📅 <b>𝗦𝗘𝗟𝗘𝗖𝗧 𝗗𝗔𝗧𝗘</b>\n\` +
+                \`━━━━━━━━━━━━━━━━━━━━\n\` +
+                \`📆 Today (UTC): \${formatDateUTC(new Date())}\n\` +
+                \`📝 <i>Enter the date (DD-MM-YYYY) in UTC:</i>\`,
                 { parse_mode: 'HTML' }
             );
         }
         else if (step === 'task_date') {
-            if (!/^(0[1-9]|[12][0-9]|3[01])-(0[1-9]|1[0-2])-\d{4}$/.test(text)) {
+            if (!/^(0[1-9]|[12][0-9]|3[01])-(0[1-9]|1[0-2])-\\d{4}$/.test(text)) {
                 return ctx.reply('❌ Invalid date format. Use DD-MM-YYYY');
             }
             
@@ -3536,10 +3530,10 @@ bot.on('text', async (ctx) => {
             ctx.session.step = 'task_start';
             
             await ctx.reply(
-                `⏰ <b>𝗦𝗘𝗟𝗘𝗖𝗧 𝗦𝗧𝗔𝗥𝗧 𝗧𝗜𝗠𝗘</b>\n` +
-                `━━━━━━━━━━━━━━━━━━━━\n` +
-                `🕒 Current UTC Time: ${formatTimeUTC(new Date())}\n` +
-                `📝 <i>Enter start time in HH:MM (24-hour UTC):</i>`,
+                \`⏰ <b>𝗦𝗘𝗟𝗘𝗖𝗧 𝗦𝗧𝗔𝗥𝗧 𝗧𝗜𝗠𝗘</b>\n\` +
+                \`━━━━━━━━━━━━━━━━━━━━\n\` +
+                \`🕒 Current UTC Time: \${formatTimeUTC(new Date())}\n\` +
+                \`📝 <i>Enter start time in HH:MM (24-hour UTC):</i>\`,
                 { parse_mode: 'HTML' }
             );
         }
@@ -3552,11 +3546,11 @@ bot.on('text', async (ctx) => {
             const { year, month, day } = ctx.session.task;
             
             const startDateUTC = new Date(Date.UTC(year, month - 1, day, h, m, 0));
-            
             const now = new Date();
+            const tenMinutesFromNow = new Date(now.getTime() + 10 * 60000);
             
-            if (startDateUTC <= now) {
-                return ctx.reply('❌ Start time is in the past. Please enter a future time.');
+            if (startDateUTC <= tenMinutesFromNow) {
+                return ctx.reply('❌ Start time must be at least 10 minutes from now. Please enter a future time.');
             }
             
             ctx.session.task.startDate = startDateUTC;
@@ -3565,10 +3559,10 @@ bot.on('text', async (ctx) => {
             ctx.session.step = 'task_end';
             
             await ctx.reply(
-                `⏱️ <b>𝗦𝗘𝗟𝗘𝗖𝗧 𝗘𝗡𝗗 𝗧𝗜𝗠𝗘</b>\n` +
-                `━━━━━━━━━━━━━━━━━━━━\n` +
-                `⏰ Start Time: ${text} UTC\n` +
-                `📝 <i>Enter end time in HH:MM format (24-hour UTC):</i>`,
+                \`⏱️ <b>𝗦𝗘𝗟𝗘𝗖𝗧 𝗘𝗡𝗗 𝗧𝗜𝗠𝗘</b>\n\` +
+                \`━━━━━━━━━━━━━━━━━━━━\n\` +
+                \`⏰ Start Time: \${text} UTC\n\` +
+                \`📝 <i>Enter end time in HH:MM format (24-hour UTC):</i>\`,
                 { parse_mode: 'HTML' }
             );
         }
@@ -3592,12 +3586,12 @@ bot.on('text', async (ctx) => {
             const duration = calculateDuration(ctx.session.task.startDate, endDateUTC);
             
             await ctx.reply(
-                `🔄 <b>𝗥𝗘𝗣𝗘𝗔𝗧 𝗢𝗣𝗧𝗜𝗢𝗡𝗦</b>\n` +
-                `━━━━━━━━━━━━━━━━━━━━\n` +
-                `How should this task repeat?\n\n` +
-                `📅 Task Date: ${formatDateUTC(ctx.session.task.startDate)}\n` +
-                `⏰ Time: ${ctx.session.task.startTimeStr} - ${text} UTC\n` +
-                `⏱️ Duration: ${formatDuration(duration)}\n\n`,
+                \`🔄 <b>𝗥𝗘𝗣𝗘𝗔𝗧 𝗢𝗣𝗧𝗜𝗢𝗡𝗦</b>\n\` +
+                \`━━━━━━━━━━━━━━━━━━━━\n\` +
+                \`How should this task repeat?\n\n\` +
+                \`📅 Task Date: \${formatDateUTC(ctx.session.task.startDate)}\n\` +
+                \`⏰ Time: \${ctx.session.task.startTimeStr} - \${text} UTC\n\` +
+                \`⏱️ Duration: \${formatDuration(duration)}\n\n\`,
                 {
                     parse_mode: 'HTML',
                     ...Markup.inlineKeyboard([
@@ -3624,16 +3618,16 @@ bot.on('text', async (ctx) => {
             ctx.session.note.title = text;
             ctx.session.step = 'note_content';
             await ctx.reply(
-                `📝 <b>𝗘𝗡𝗧𝗘𝗥 𝗡𝗢𝗧𝗘 𝗖𝗢𝗡𝗧𝗘𝗡𝗧</b>\n` +
-                `━━━━━━━━━━━━━━━━━━━━\n` +
-                `📝 <i>Enter note content (Max 400 words)</i>\n` +
-                `Enter "-" for empty content`,
+                \`📝 <b>𝗘𝗡𝗧𝗘𝗥 𝗡𝗢𝗧𝗘 𝗖𝗢𝗡𝗧𝗘𝗡𝗧</b>\n\` +
+                \`━━━━━━━━━━━━━━━━━━━━\n\` +
+                \`📝 <i>Enter note content (Max 400 words)</i>\n\` +
+                \`Enter "-" for empty content\`,
                 { parse_mode: 'HTML' }
             );
         }
         else if (step === 'note_content') {
             const content = text === '-' ? '' : text;
-            if (content.length > 0 && content.split(/\s+/).length > 400) {
+            if (content.length > 0 && content.split(/\\s+/).length > 400) {
                 return ctx.reply('❌ Too long! Keep it under 400 words.');
             }
             
@@ -3658,11 +3652,11 @@ bot.on('text', async (ctx) => {
                 delete ctx.session.note;
                 
                 await ctx.reply(
-                    `✅ <b>𝗡𝗢𝗧𝗘 𝗦𝗔𝗩𝗘𝗗 𝗦𝗨𝗖𝗖𝗘𝗦𝗦𝗙𝗨𝗟𝗟𝗬!</b>\n` +
-                    `━━━━━━━━━━━━━━━━━━━━\n` +
-                    `📌 <b>${noteTitle}</b>\n` +
-                    `${formatBlockquote(noteContent)}\n` +
-                    `📅 Saved on: ${formatDateTimeUTC(new Date())} UTC`,
+                    \`✅ <b>𝗡𝗢𝗧𝗘 𝗦𝗔𝗩𝗘𝗗 𝗦𝗨𝗖𝗖𝗘𝗦𝗦𝗙𝗨𝗟𝗟𝗬!</b>\n\` +
+                    \`━━━━━━━━━━━━━━━━━━━━\n\` +
+                    \`📌 <b>\${noteTitle}</b>\n\` +
+                    \`\${formatBlockquote(noteContent)}\n\` +
+                    \`📅 Saved on: \${formatDateTimeUTC(new Date())} UTC\`,
                     { parse_mode: 'HTML' }
                 );
                 
@@ -3670,12 +3664,12 @@ bot.on('text', async (ctx) => {
                 
                 try {
                     await bot.telegram.sendMessage(CHAT_ID,
-                        `📝 <b>𝗡𝗘𝗪 𝗚𝗟𝗢𝗕𝗔𝗟 𝗡𝗢𝗧𝗘 𝗔𝗗𝗗𝗘𝗗</b>\n` +
-                        `━━━━━━━━━━━━━━━━━━━━\n` +
-                        `📌 <b>${noteTitle}</b>\n` +
-                        `${formatBlockquote(noteContent)}\n` +
-                        `📅 ${formatDateTimeUTC(new Date())} UTC\n` +
-                        `━━━━━━━━━━━━━━━━━━━━`,
+                        \`📝 <b>𝗡𝗘𝗪 𝗚𝗟𝗢𝗕𝗔𝗟 𝗡𝗢𝗧𝗘 𝗔𝗗𝗗𝗘𝗗</b>\n\` +
+                        \`━━━━━━━━━━━━━━━━━━━━\n\` +
+                        \`📌 <b>\${noteTitle}</b>\n\` +
+                        \`\${formatBlockquote(noteContent)}\n\` +
+                        \`📅 \${formatDateTimeUTC(new Date())} UTC\n\` +
+                        \`━━━━━━━━━━━━━━━━━━━━\`,
                         { parse_mode: 'HTML' }
                     );
                 } catch (e) {}
@@ -3708,10 +3702,10 @@ bot.on('text', async (ctx) => {
             ctx.session.step = 'add_subtask_desc';
             
             await ctx.reply(
-                `📝 <b>𝗔𝗗𝗗 𝗦𝗨𝗕𝗧𝗔𝗦𝗞 𝗗𝗘𝗦𝗖𝗥𝗜𝗣𝗧𝗜𝗢𝗡</b>\n` +
-                `━━━━━━━━━━━━━━━━━━━━\n` +
-                `Title: ${text}\n\n` +
-                `Enter description (or "-" for none):`,
+                \`📝 <b>𝗔𝗗𝗗 𝗦𝗨𝗕𝗧𝗔𝗦𝗞 𝗗𝗘𝗦𝗖𝗥𝗜𝗣𝗧𝗜𝗢𝗡</b>\n\` +
+                \`━━━━━━━━━━━━━━━━━━━━\n\` +
+                \`Title: \${text}\n\n\` +
+                \`Enter description (or "-" for none):\`,
                 { parse_mode: 'HTML' }
             );
         }
@@ -3740,12 +3734,12 @@ bot.on('text', async (ctx) => {
             delete ctx.session.subtaskTitle;
             
             await ctx.reply(
-                `✅ <b>𝗦𝗨𝗕𝗧𝗔𝗦𝗞 𝗔𝗗𝗗𝗘𝗗</b>\n` +
-                `━━━━━━━━━━━━━━━━━━━━\n` +
-                `📌 <b>${task.title}</b>\n` +
-                `➕ Title: ${title}\n` +
-                `${description ? `📝 Description: ${description}\n` : ''}` +
-                `━━━━━━━━━━━━━━━━━━━━`,
+                \`✅ <b>𝗦𝗨𝗕𝗧𝗔𝗦𝗞 𝗔𝗗𝗗𝗘𝗗</b>\n\` +
+                \`━━━━━━━━━━━━━━━━━━━━\n\` +
+                \`📌 <b>\${task.title}</b>\n\` +
+                \`➕ Title: \${title}\n\` +
+                \`\${description ? \`📝 Description: \${description}\n\` : ''}\` +
+                \`━━━━━━━━━━━━━━━━━━━━\`,
                 { parse_mode: 'HTML' }
             );
             
@@ -3761,10 +3755,10 @@ bot.on('text', async (ctx) => {
             ctx.session.step = 'edit_subtask_desc';
             
             await ctx.reply(
-                `✏️ <b>𝗘𝗗𝗜𝗧 𝗦𝗨𝗕𝗧𝗔𝗦𝗞 𝗗𝗘𝗦𝗖𝗥𝗜𝗣𝗧𝗜𝗢𝗡</b>\n` +
-                `━━━━━━━━━━━━━━━━━━━━\n` +
-                `New title: ${text}\n\n` +
-                `Enter new description (or "-" for none):`,
+                \`✏️ <b>𝗘𝗗𝗜𝗧 𝗦𝗨𝗕𝗧𝗔𝗦𝗞 𝗗𝗘𝗦𝗖𝗥𝗜𝗣𝗧𝗜𝗢𝗡</b>\n\` +
+                \`━━━━━━━━━━━━━━━━━━━━\n\` +
+                \`New title: \${text}\n\n\` +
+                \`Enter new description (or "-" for none):\`,
                 { parse_mode: 'HTML' }
             );
         }
@@ -3788,7 +3782,7 @@ bot.on('text', async (ctx) => {
             delete ctx.session.editSubtask;
             delete ctx.session.editSubtaskTitle;
             
-            await ctx.reply(`✅ <b>𝗦𝗨𝗕𝗧𝗔𝗦𝗞 𝗨𝗣𝗗𝗔𝗧𝗘𝗗!</b>`, { parse_mode: 'HTML' });
+            await ctx.reply(\`✅ <b>𝗦𝗨𝗕𝗧𝗔𝗦𝗞 𝗨𝗣𝗗𝗔𝗧𝗘𝗗!</b>\`, { parse_mode: 'HTML' });
             await showTaskDetail(ctx, taskId);
         }
         else if (step === 'edit_task_title') {
@@ -3809,15 +3803,15 @@ bot.on('text', async (ctx) => {
                 
                 ctx.session.step = null;
                 delete ctx.session.editTaskId;
-                await ctx.reply(`✅ <b>TITLE UPDATED!</b>`, { parse_mode: 'HTML' });
+                await ctx.reply(\`✅ <b>TITLE UPDATED!</b>\`, { parse_mode: 'HTML' });
                 await showTaskDetail(ctx, taskId);
                 
                 try {
                     await bot.telegram.sendMessage(CHAT_ID,
-                        `✏️ <b>𝗧𝗔𝗦𝗞 𝗧𝗜𝗧𝗟𝗘 𝗨𝗣𝗗𝗔𝗧𝗘𝗗</b>\n` +
-                        `━━━━━━━━━━━━━━━━━━━━\n` +
-                        `📌 New Title: <b>${text}</b>\n` +
-                        `━━━━━━━━━━━━━━━━━━━━`,
+                        \`✏️ <b>𝗧𝗔𝗦𝗞 𝗧𝗜𝗧𝗟𝗘 𝗨𝗣𝗗𝗔𝗧𝗘𝗗</b>\n\` +
+                        \`━━━━━━━━━━━━━━━━━━━━\n\` +
+                        \`📌 New Title: <b>\${text}</b>\n\` +
+                        \`━━━━━━━━━━━━━━━━━━━━\`,
                         { parse_mode: 'HTML' }
                     );
                 } catch (e) {}
@@ -3829,7 +3823,7 @@ bot.on('text', async (ctx) => {
         else if (step === 'edit_task_desc') {
             const taskId = ctx.session.editTaskId;
             const description = text === '-' ? '' : text;
-            if (description.length > 0 && description.split(/\s+/).length > 100) {
+            if (description.length > 0 && description.split(/\\s+/).length > 100) {
                 return ctx.reply('❌ Too long! Max 100 words.');
             }
             
@@ -3846,7 +3840,7 @@ bot.on('text', async (ctx) => {
                 
                 ctx.session.step = null;
                 delete ctx.session.editTaskId;
-                await ctx.reply(`✅ <b>DESCRIPTION UPDATED!</b>`, { parse_mode: 'HTML' });
+                await ctx.reply(\`✅ <b>DESCRIPTION UPDATED!</b>\`, { parse_mode: 'HTML' });
                 await showTaskDetail(ctx, taskId);
             } catch (error) {
                 console.error('Error updating description:', error);
@@ -3875,6 +3869,12 @@ bot.on('text', async (ctx) => {
                 const [h, m] = text.split(':').map(Number);
                 
                 const newStartDateUTC = new Date(Date.UTC(year, month, day, h, m, 0));
+                const now = new Date();
+                const tenMinutesFromNow = new Date(now.getTime() + 10 * 60000);
+                
+                if (newStartDateUTC <= tenMinutesFromNow) {
+                    return ctx.reply('❌ Start time must be at least 10 minutes from now.');
+                }
                 
                 const duration = task.endDate.getTime() - task.startDate.getTime();
                 const newEndDateUTC = new Date(newStartDateUTC.getTime() + duration);
@@ -3904,14 +3904,14 @@ bot.on('text', async (ctx) => {
                 const updatedTask = await db.collection('tasks').findOne({ taskId });
                 if (updatedTask) {
                     cancelTaskSchedule(taskId);
-                    if (updatedTask.nextOccurrence > new Date()) {
+                    if (updatedTask.nextOccurrence > tenMinutesFromNow) {
                         scheduleTask(updatedTask);
                     }
                 }
                 
                 ctx.session.step = null;
                 delete ctx.session.editTaskId;
-                await ctx.reply(`✅ <b>START TIME UPDATED!</b>\n\nEnd time adjusted to: ${formatTimeUTC(newEndDateUTC)} UTC`, { parse_mode: 'HTML' });
+                await ctx.reply(\`✅ <b>START TIME UPDATED!</b>\n\nEnd time adjusted to: \${formatTimeUTC(newEndDateUTC)} UTC\`, { parse_mode: 'HTML' });
                 await showTaskDetail(ctx, taskId);
             } catch (error) {
                 console.error('Error updating start time:', error);
@@ -3962,7 +3962,7 @@ bot.on('text', async (ctx) => {
                 
                 ctx.session.step = null;
                 delete ctx.session.editTaskId;
-                await ctx.reply(`✅ <b>END TIME UPDATED!</b>`, { parse_mode: 'HTML' });
+                await ctx.reply(\`✅ <b>END TIME UPDATED!</b>\`, { parse_mode: 'HTML' });
                 await showTaskDetail(ctx, taskId);
             } catch (error) {
                 console.error('Error updating end time:', error);
@@ -4000,7 +4000,7 @@ bot.on('text', async (ctx) => {
                 
                 ctx.session.step = null;
                 delete ctx.session.editTaskId;
-                await ctx.reply(`✅ <b>REPEAT COUNT UPDATED!</b>`, { parse_mode: 'HTML' });
+                await ctx.reply(\`✅ <b>REPEAT COUNT UPDATED!</b>\`, { parse_mode: 'HTML' });
                 await showTaskDetail(ctx, taskId);
             } catch (error) {
                 console.error('Error updating repeat count:', error);
@@ -4024,11 +4024,11 @@ bot.on('text', async (ctx) => {
                 delete ctx.session.editNoteId;
                 
                 await ctx.reply(
-                    `✅ <b>𝗡𝗢𝗧𝗘 𝗧𝗜𝗧𝗟𝗘 𝗨𝗣𝗗𝗔𝗧𝗘𝗗!</b>\n` +
-                    `━━━━━━━━━━━━━━━━━━━━\n` +
-                    `📌 <b>${updatedNote.title}</b>\n` +
-                    `${formatBlockquote(updatedNote.description)}\n` +
-                    `📅 Updated: ${formatDateTimeUTC(new Date())} UTC`,
+                    \`✅ <b>𝗡𝗢𝗧𝗘 𝗧𝗜𝗧𝗟𝗘 𝗨𝗣𝗗𝗔𝗧𝗘𝗗!</b>\n\` +
+                    \`━━━━━━━━━━━━━━━━━━━━\n\` +
+                    \`📌 <b>\${updatedNote.title}</b>\n\` +
+                    \`\${formatBlockquote(updatedNote.description)}\n\` +
+                    \`📅 Updated: \${formatDateTimeUTC(new Date())} UTC\`,
                     { parse_mode: 'HTML' }
                 );
                 
@@ -4044,7 +4044,7 @@ bot.on('text', async (ctx) => {
         else if (step === 'edit_note_content') {
             const noteId = ctx.session.editNoteId;
             const content = text === '-' ? '' : text;
-            if (content.length > 0 && content.split(/\s+/).length > 400) {
+            if (content.length > 0 && content.split(/\\s+/).length > 400) {
                 return ctx.reply('❌ Too long! Max 400 words.');
             }
             
@@ -4060,11 +4060,11 @@ bot.on('text', async (ctx) => {
                 delete ctx.session.editNoteId;
                 
                 await ctx.reply(
-                    `✅ <b>𝗡𝗢𝗧𝗘 𝗖𝗢𝗡𝗧𝗘𝗡𝗧 𝗨𝗣𝗗𝗔𝗧𝗘𝗗!</b>\n` +
-                    `━━━━━━━━━━━━━━━━━━━━\n` +
-                    `📌 <b>${updatedNote.title}</b>\n` +
-                    `${formatBlockquote(updatedNote.description)}\n` +
-                    `📅 Updated: ${formatDateTimeUTC(new Date())} UTC`,
+                    \`✅ <b>𝗡𝗢𝗧𝗘 𝗖𝗢𝗡𝗧𝗘𝗡𝗧 𝗨𝗣𝗗𝗔𝗧𝗘𝗗!</b>\n\` +
+                    \`━━━━━━━━━━━━━━━━━━━━\n\` +
+                    \`📌 <b>\${updatedNote.title}</b>\n\` +
+                    \`\${formatBlockquote(updatedNote.description)}\n\` +
+                    \`📅 Updated: \${formatDateTimeUTC(new Date())} UTC\`,
                     { parse_mode: 'HTML' }
                 );
                 
@@ -4093,9 +4093,9 @@ bot.action('repeat_daily', async (ctx) => {
     ctx.session.task.repeat = 'daily';
     ctx.session.step = 'task_repeat_count';
     await ctx.reply(
-        `🔢 <b>𝗗𝗔𝗜𝗟𝗬 𝗥𝗘𝗣𝗘𝗔𝗧</b>\n` +
-        `━━━━━━━━━━━━━━━━━━━━\n` +
-        `📝 <i>How many times should this task repeat? (1-365)</i>`,
+        \`🔢 <b>𝗗𝗔𝗜𝗟𝗬 𝗥𝗘𝗣𝗘𝗔𝗧</b>\n\` +
+        \`━━━━━━━━━━━━━━━━━━━━\n\` +
+        \`📝 <i>How many times should this task repeat? (1-365)</i>\`,
         { parse_mode: 'HTML' }
     );
 });
@@ -4104,9 +4104,9 @@ bot.action('repeat_weekly', async (ctx) => {
     ctx.session.task.repeat = 'weekly';
     ctx.session.step = 'task_repeat_count';
     await ctx.reply(
-        `🔢 <b>𝗪𝗘𝗘𝗞𝗟𝗬 𝗥𝗘𝗣𝗘𝗔𝗧</b>\n` +
-        `━━━━━━━━━━━━━━━━━━━━\n` +
-        `📝 <i>How many times should this task repeat? (1-365)</i>`,
+        \`🔢 <b>𝗪𝗘𝗘𝗞𝗟𝗬 𝗥𝗘𝗣𝗘𝗔𝗧</b>\n\` +
+        \`━━━━━━━━━━━━━━━━━━━━\n\` +
+        \`📝 <i>How many times should this task repeat? (1-365)</i>\`,
         { parse_mode: 'HTML' }
     );
 });
@@ -4130,26 +4130,30 @@ async function saveTask(ctx) {
         }
         
         await db.collection('tasks').insertOne(task);
-        scheduleTask(task);
+        
+        const tenMinutesFromNow = new Date(Date.now() + 10 * 60000);
+        if (task.startDate > tenMinutesFromNow) {
+            scheduleTask(task);
+        }
         
         ctx.session.step = null;
         delete ctx.session.task;
         
         const duration = calculateDuration(task.startDate, task.endDate);
         
-        const msg = `
+        const msg = \`
 ✅ <b>𝗚𝗟𝗢𝗕𝗔𝗟 𝗧𝗔𝗦𝗞 𝗖𝗥𝗘𝗔𝗧𝗘𝗗 𝗦𝗨𝗖𝗖𝗘𝗦𝗦𝗙𝗨𝗟𝗟𝗬!</b>
 ━━━━━━━━━━━━━━━━━━━━
-📌 <b>${task.title}</b>
-${formatBlockquote(task.description)}
-📅 <b>Date:</b> ${formatDateUTC(task.startDate)}
-⏰ <b>Time:</b> ${task.startTimeStr} - ${task.endTimeStr} UTC
-⏱️ <b>Duration:</b> ${formatDuration(duration)}
-🔄 <b>Repeat:</b> ${task.repeat} (${task.repeatCount || 0} times)
+📌 <b>\${task.title}</b>
+\${formatBlockquote(task.description)}
+📅 <b>Date:</b> \${formatDateUTC(task.startDate)}
+⏰ <b>Time:</b> \${task.startTimeStr} - \${task.endTimeStr} UTC
+⏱️ <b>Duration:</b> \${formatDuration(duration)}
+🔄 <b>Repeat:</b> \${task.repeat} (\${task.repeatCount || 0} times)
 📊 <b>Status:</b> ⏳ Pending
 
-🔔 <i>Notifications will start 10 minutes before the task (7 reminders).</i>
-━━━━━━━━━━━━━━━━━━━━`;
+🔔 <i>Notifications will start 10 minutes before the task (10 reminders).</i>
+━━━━━━━━━━━━━━━━━━━━\`;
                 
         const keyboard = Markup.inlineKeyboard([
             [
@@ -4162,13 +4166,13 @@ ${formatBlockquote(task.description)}
         
         try {
             await bot.telegram.sendMessage(CHAT_ID,
-                `✅ <b>𝗡𝗘𝗪 𝗚𝗟𝗢𝗕𝗔𝗟 𝗧𝗔𝗦𝗞 𝗔𝗗𝗗𝗘𝗗</b>\n` +
-                `━━━━━━━━━━━━━━━━━━━━\n` +
-                `📌 <b>${task.title}</b>\n` +
-                `${formatBlockquote(task.description)}\n` +
-                `📅 ${formatDateUTC(task.startDate)}\n` +
-                `⏰ ${task.startTimeStr} - ${task.endTimeStr} UTC\n` +
-                `━━━━━━━━━━━━━━━━━━━━`,
+                \`✅ <b>𝗡𝗘𝗪 𝗚𝗟𝗢𝗕𝗔𝗟 𝗧𝗔𝗦𝗞 𝗔𝗗𝗗𝗘𝗗</b>\n\` +
+                \`━━━━━━━━━━━━━━━━━━━━\n\` +
+                \`📌 <b>\${task.title}</b>\n\` +
+                \`\${formatBlockquote(task.description)}\n\` +
+                \`📅 \${formatDateUTC(task.startDate)}\n\` +
+                \`⏰ \${task.startTimeStr} - \${task.endTimeStr} UTC\n\` +
+                \`━━━━━━━━━━━━━━━━━━━━\`,
                 { parse_mode: 'HTML' }
             );
         } catch (e) {}
@@ -4199,20 +4203,20 @@ async function showTaskDetail(ctx, taskId) {
     const totalSubtasks = subtasks.length;
     const duration = calculateDuration(task.startDate, task.endDate);
     
-    let text = `
+    let text = \`
 📌 <b>𝗚𝗟𝗢𝗕𝗔𝗟 𝗧𝗔𝗦𝗞 𝗗𝗘𝗧𝗔𝗜𝗟𝗦</b>
 ━━━━━━━━━━━━━━━━━━━━
-🆔 <b>Task ID:</b> <code>${task.taskId}</code>
-📛 <b>Title:</b> ${task.title}
-${formatBlockquote(task.description)}
-📅 <b>Next Occurrence:</b> ${formatDateTimeUTC(task.nextOccurrence)}
-⏰ <b>Time:</b> ${formatTimeUTC(task.startDate)} - ${formatTimeUTC(task.endDate)} UTC
-⏱️ <b>Duration:</b> ${formatDuration(duration)}
-🔄 <b>Repeat:</b> ${task.repeat === 'none' ? 'No Repeat' : task.repeat} 
-🔢 <b>Remaining Repeats:</b> ${task.repeatCount || 0}
-🏷️ <b>Priority Order:</b> ${task.orderIndex + 1}
-📊 <b>Status:</b> ${task.status === 'pending' ? '⏳ Pending' : '✅ Completed'}
-`;
+🆔 <b>Task ID:</b> <code>\${task.taskId}</code>
+📛 <b>Title:</b> \${task.title}
+\${formatBlockquote(task.description)}
+📅 <b>Next Occurrence:</b> \${formatDateTimeUTC(task.nextOccurrence)}
+⏰ <b>Time:</b> \${formatTimeUTC(task.startDate)} - \${formatTimeUTC(task.endDate)} UTC
+⏱️ <b>Duration:</b> \${formatDuration(duration)}
+🔄 <b>Repeat:</b> \${task.repeat === 'none' ? 'No Repeat' : task.repeat} 
+🔢 <b>Remaining Repeats:</b> \${task.repeatCount || 0}
+🏷️ <b>Priority Order:</b> \${task.orderIndex + 1}
+📊 <b>Status:</b> \${task.status === 'pending' ? '⏳ Pending' : '✅ Completed'}
+\`;
 
     if (totalSubtasks > 0) {
         const barLength = 10;
@@ -4220,13 +4224,13 @@ ${formatBlockquote(task.description)}
         const emptyBars = barLength - filledBars;
         const progressBar = '█'.repeat(filledBars) + '░'.repeat(emptyBars);
         
-        text += `
-📋 <b>𝗦𝗨𝗕𝗧𝗔𝗦𝗞𝗦:</b> ${completedSubtasks}/${totalSubtasks}
-${progressBar} ${progress}%
+        text += \`
+📋 <b>𝗦𝗨𝗕𝗧𝗔𝗦𝗞𝗦:</b> \${completedSubtasks}/\${totalSubtasks}
+\${progressBar} \${progress}%
 ━━━━━━━━━━━━━━━━━━━━
-`;
+\`;
     } else {
-        text += `\n📋 <b>𝗦𝗨𝗕𝗧𝗔𝗦𝗞𝗦:</b> No subtasks yet\n━━━━━━━━━━━━━━━━━━━━\n`;
+        text += \`\n📋 <b>𝗦𝗨𝗕𝗧𝗔𝗦𝗞𝗦:</b> No subtasks yet\n━━━━━━━━━━━━━━━━━━━━\n\`;
     }
 
     const buttons = [];
@@ -4241,8 +4245,8 @@ ${progressBar} ${progress}%
         
         const buttonRow = [
             Markup.button.callback(
-                `${status} ${index + 1}. ${title}`, 
-                `subtask_det_${taskId}_${subtask.id}`
+                \`\${status} \${index + 1}. \${title}\`, 
+                \`subtask_det_\${taskId}_\${subtask.id}\`
             )
         ];
         buttons.push(buttonRow);
@@ -4251,12 +4255,12 @@ ${progressBar} ${progress}%
     const actionRow = [];
     
     if (totalSubtasks < 10) {
-        actionRow.push(Markup.button.callback('➕', `add_subtask_${taskId}`));
+        actionRow.push(Markup.button.callback('➕', \`add_subtask_\${taskId}\`));
     }
     
-    actionRow.push(Markup.button.callback('✏️', `edit_menu_${taskId}`));
-    actionRow.push(Markup.button.callback('🗑️', `delete_task_${taskId}`));
-    actionRow.push(Markup.button.callback('✅', `complete_${taskId}`));
+    actionRow.push(Markup.button.callback('✏️', \`edit_menu_\${taskId}\`));
+    actionRow.push(Markup.button.callback('🗑️', \`delete_task_\${taskId}\`));
+    actionRow.push(Markup.button.callback('✅', \`complete_\${taskId}\`));
     
     buttons.push(actionRow);
     
@@ -4268,6 +4272,7 @@ ${progressBar} ${progress}%
     await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
 }
 
+// FIXED: Subtask detail handler
 bot.action(/^subtask_det_(.+)_(.+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     const subtaskId = ctx.match[2];
@@ -4285,33 +4290,33 @@ bot.action(/^subtask_det_(.+)_(.+)$/, async (ctx) => {
     }
     
     const status = subtask.completed ? '✅ Completed' : '⭕ Pending';
-    const text = `
+    const text = \`
 📋 <b>𝗦𝗨𝗕𝗧𝗔𝗦𝗞 𝗗𝗘𝗧𝗔𝗜𝗟𝗦</b>
 ━━━━━━━━━━━━━━━━━━━━
-📌 <b>Task:</b> ${task.title}
-🔖 <b>Subtask:</b> ${subtask.title}
-📝 <b>Description:</b> ${subtask.description || '<i>No description</i>'}
-📊 <b>Status:</b> ${status}
-🆔 <b>ID:</b> <code>${subtask.id}</code>
-📅 <b>Created:</b> ${formatDateTimeUTC(subtask.createdAt)} UTC
-━━━━━━━━━━━━━━━━━━━━`;
+📌 <b>Task:</b> \${task.title}
+🔖 <b>Subtask:</b> \${subtask.title}
+📝 <b>Description:</b> \${subtask.description || '<i>No description</i>'}
+📊 <b>Status:</b> \${status}
+🆔 <b>ID:</b> <code>\${subtask.id}</code>
+📅 <b>Created:</b> \${formatDateTimeUTC(subtask.createdAt)} UTC
+━━━━━━━━━━━━━━━━━━━━\`;
 
     const buttons = [];
     
     if (!subtask.completed) {
         buttons.push([
-            Markup.button.callback('✅', `subtask_complete_${taskId}_${subtaskId}`),
-            Markup.button.callback('✏️', `subtask_edit_${taskId}_${subtaskId}`),
-            Markup.button.callback('🗑️', `subtask_delete_${taskId}_${subtaskId}`)
+            Markup.button.callback('✅', \`subtask_complete_\${taskId}_\${subtaskId}\`),
+            Markup.button.callback('✏️', \`subtask_edit_\${taskId}_\${subtaskId}\`),
+            Markup.button.callback('🗑️', \`subtask_delete_\${taskId}_\${subtaskId}\`)
         ]);
     } else {
         buttons.push([
-            Markup.button.callback('✏️', `subtask_edit_${taskId}_${subtaskId}`),
-            Markup.button.callback('🗑️', `subtask_delete_${taskId}_${subtaskId}`)
+            Markup.button.callback('✏️', \`subtask_edit_\${taskId}_\${subtaskId}\`),
+            Markup.button.callback('🗑️', \`subtask_delete_\${taskId}_\${subtaskId}\`)
         ]);
     }
     
-    buttons.push([Markup.button.callback('🔙 Back to Task', `task_det_${taskId}`)]);
+    buttons.push([Markup.button.callback('🔙 Back to Task', \`task_det_\${taskId}\`)]);
     
     await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
 });
@@ -4342,10 +4347,10 @@ bot.action(/^subtask_edit_(.+)_(.+)$/, async (ctx) => {
     ctx.session.editSubtask = { taskId, subtaskId };
     
     await ctx.reply(
-        `✏️ <b>𝗘𝗗𝗜𝗧 𝗦𝗨𝗕𝗧𝗔𝗦𝗞</b>\n` +
-        `━━━━━━━━━━━━━━━━━━━━\n` +
-        `Enter new title for the subtask:`,
-        Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `task_det_${taskId}`)]])
+        \`✏️ <b>𝗘𝗗𝗜𝗧 𝗦𝗨𝗕𝗧𝗔𝗦𝗞</b>\n\` +
+        \`━━━━━━━━━━━━━━━━━━━━\n\` +
+        \`Enter new title for the subtask:\`,
+        Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', \`task_det_\${taskId}\`)]])
     );
 });
 
@@ -4388,14 +4393,14 @@ bot.action(/^add_subtask_(.+)$/, async (ctx) => {
     ctx.session.addSubtasksTaskId = taskId;
     
     await ctx.reply(
-        `➕ <b>𝗔𝗗𝗗 𝗦𝗨𝗕𝗧𝗔𝗦𝗞</b>\n` +
-        `━━━━━━━━━━━━━━━━━━━━\n` +
-        `📌 <b>${task.title}</b>\n` +
-        `📊 Current: ${currentSubtasks.length}/10 subtasks\n\n` +
-        `<i>Enter subtask title:</i>\n`,
+        \`➕ <b>𝗔𝗗𝗗 𝗦𝗨𝗕𝗧𝗔𝗦𝗞</b>\n\` +
+        \`━━━━━━━━━━━━━━━━━━━━\n\` +
+        \`📌 <b>\${task.title}</b>\n\` +
+        \`📊 Current: \${currentSubtasks.length}/10 subtasks\n\n\` +
+        \`<i>Enter subtask title:</i>\n\`,
         { 
             parse_mode: 'HTML',
-            ...Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `task_det_${taskId}`)]])
+            ...Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', \`task_det_\${taskId}\`)]])
         }
     );
 });
@@ -4409,7 +4414,7 @@ bot.action(/^complete_(.+)$/, async (ctx) => {
     const incompleteSubtasks = subtasks.filter(s => !s.completed);
     
     if (incompleteSubtasks.length > 0) {
-        return ctx.answerCbQuery(`❌ Complete all ${incompleteSubtasks.length} pending subtasks first!`);
+        return ctx.answerCbQuery(\`❌ Complete all \${incompleteSubtasks.length} pending subtasks first!\`);
     }
 
     const completedAtUTC = new Date();
@@ -4455,8 +4460,9 @@ bot.action(/^complete_(.+)$/, async (ctx) => {
             });
             
             const updatedTask = await db.collection('tasks').findOne({ taskId });
+            const tenMinutesFromNow = new Date(Date.now() + 10 * 60000);
             
-            if (updatedTask && updatedTask.nextOccurrence > new Date()) {
+            if (updatedTask && updatedTask.nextOccurrence > tenMinutesFromNow) {
                 scheduleTask(updatedTask);
                 await ctx.answerCbQuery('✅ Completed! Next occurrence scheduled.');
             } else {
@@ -4465,12 +4471,12 @@ bot.action(/^complete_(.+)$/, async (ctx) => {
             
             try {
                 await bot.telegram.sendMessage(CHAT_ID,
-                    `✅ <b>𝗧𝗔𝗦𝗞 𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘𝗗</b>\n` +
-                    `━━━━━━━━━━━━━━━━━━━━\n` +
-                    `📌 <b>${task.title}</b>\n` +
-                    `🔄 Next: ${formatDateUTC(nextOccurrence)}\n` +
-                    `📊 Remaining: ${task.repeatCount - 1}\n` +
-                    `━━━━━━━━━━━━━━━━━━━━`,
+                    \`✅ <b>𝗧𝗔𝗦𝗞 𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘𝗗</b>\n\` +
+                    \`━━━━━━━━━━━━━━━━━━━━\n\` +
+                    \`📌 <b>\${task.title}</b>\n\` +
+                    \`🔄 Next: \${formatDateUTC(nextOccurrence)}\n\` +
+                    \`📊 Remaining: \${task.repeatCount - 1}\n\` +
+                    \`━━━━━━━━━━━━━━━━━━━━\`,
                     { parse_mode: 'HTML' }
                 );
             } catch (e) {}
@@ -4480,11 +4486,11 @@ bot.action(/^complete_(.+)$/, async (ctx) => {
             
             try {
                 await bot.telegram.sendMessage(CHAT_ID,
-                    `✅ <b>𝗧𝗔𝗦𝗞 𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘𝗗</b>\n` +
-                    `━━━━━━━━━━━━━━━━━━━━\n` +
-                    `📌 <b>${task.title}</b>\n` +
-                    `📅 Completed at: ${formatDateTimeUTC(completedAtUTC)} UTC\n` +
-                    `━━━━━━━━━━━━━━━━━━━━`,
+                    \`✅ <b>𝗧𝗔𝗦𝗞 𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘𝗗</b>\n\` +
+                    \`━━━━━━━━━━━━━━━━━━━━\n\` +
+                    \`📌 <b>\${task.title}</b>\n\` +
+                    \`📅 Completed at: \${formatDateTimeUTC(completedAtUTC)} UTC\n\` +
+                    \`━━━━━━━━━━━━━━━━━━━━\`,
                     { parse_mode: 'HTML' }
                 );
             } catch (e) {}
@@ -4499,21 +4505,21 @@ bot.action(/^complete_(.+)$/, async (ctx) => {
 
 bot.action(/^edit_menu_(.+)$/, async (ctx) => {
     const taskId = ctx.match[1];
-    const text = `✏️ <b>𝗘𝗗𝗜𝗧 𝗚𝗟𝗢𝗕𝗔𝗟 𝗧𝗔𝗦𝗞</b>\n━━━━━━━━━━━━━━━━━━━━\nSelect what you want to edit:`;
+    const text = \`✏️ <b>𝗘𝗗𝗜𝗧 𝗚𝗟𝗢𝗕𝗔𝗟 𝗧𝗔𝗦𝗞</b>\n━━━━━━━━━━━━━━━━━━━━\nSelect what you want to edit:\`;
     const keyboard = Markup.inlineKeyboard([
         [
-            Markup.button.callback('🏷 Title', `edit_task_title_${taskId}`), 
-            Markup.button.callback('📝 Description', `edit_task_desc_${taskId}`)
+            Markup.button.callback('🏷 Title', \`edit_task_title_\${taskId}\`), 
+            Markup.button.callback('📝 Description', \`edit_task_desc_\${taskId}\`)
         ],
         [
-            Markup.button.callback('⏰ Start Time', `edit_task_start_${taskId}`), 
-            Markup.button.callback('⏱️ End Time', `edit_task_end_${taskId}`)
+            Markup.button.callback('⏰ Start Time', \`edit_task_start_\${taskId}\`), 
+            Markup.button.callback('⏱️ End Time', \`edit_task_end_\${taskId}\`)
         ],
         [
-            Markup.button.callback('🔄 Repeat', `edit_rep_${taskId}`), 
-            Markup.button.callback('🔢 Count', `edit_task_count_${taskId}`)
+            Markup.button.callback('🔄 Repeat', \`edit_rep_\${taskId}\`), 
+            Markup.button.callback('🔢 Count', \`edit_task_count_\${taskId}\`)
         ],
-        [Markup.button.callback('🔙 Back', `task_det_${taskId}`)]
+        [Markup.button.callback('🔙 Back', \`task_det_\${taskId}\`)]
     ]);
     
     await safeEdit(ctx, text, keyboard);
@@ -4525,10 +4531,10 @@ bot.action(/^edit_task_title_(.+)$/, async (ctx) => {
     ctx.session.step = 'edit_task_title';
     
     await ctx.reply(
-        `✏️ <b>𝗘𝗗𝗜𝗧 𝗧𝗜𝗧𝗟𝗘</b>\n` +
-        `━━━━━━━━━━━━━━━━━━━━\n` +
-        `Enter new title:`,
-        Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `task_det_${taskId}`)]])
+        \`✏️ <b>𝗘𝗗𝗜𝗧 𝗧𝗜𝗧𝗟𝗘</b>\n\` +
+        \`━━━━━━━━━━━━━━━━━━━━\n\` +
+        \`Enter new title:\`,
+        Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', \`task_det_\${taskId}\`)]])
     );
 });
 
@@ -4538,10 +4544,10 @@ bot.action(/^edit_task_desc_(.+)$/, async (ctx) => {
     ctx.session.step = 'edit_task_desc';
     
     await ctx.reply(
-        `✏️ <b>𝗘𝗗𝗜𝗧 𝗗𝗘𝗦𝗖𝗥𝗜𝗣𝗧𝗜𝗢𝗡</b>\n` +
-        `━━━━━━━━━━━━━━━━━━━━\n` +
-        `Enter new description (Max 100 words, enter "-" for empty):`,
-        Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `task_det_${taskId}`)]])
+        \`✏️ <b>𝗘𝗗𝗜𝗧 𝗗𝗘𝗦𝗖𝗥𝗜𝗣𝗧𝗜𝗢𝗡</b>\n\` +
+        \`━━━━━━━━━━━━━━━━━━━━\n\` +
+        \`Enter new description (Max 100 words, enter "-" for empty):\`,
+        Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', \`task_det_\${taskId}\`)]])
     );
 });
 
@@ -4558,12 +4564,12 @@ bot.action(/^edit_task_start_(.+)$/, async (ctx) => {
     ctx.session.step = 'edit_task_start';
     
     await ctx.reply(
-        `✏️ <b>𝗘𝗗𝗜𝗧 𝗦𝗧𝗔𝗥𝗧 𝗧𝗜𝗠𝗘</b>\n` +
-        `━━━━━━━━━━━━━━━━━━━━\n` +
-        `Current start time: ${formatTimeUTC(task.startDate)} UTC\n` +
-        `Enter new start time (HH:MM, 24-hour UTC):\n` +
-        `⚠️ Duration will be preserved`,
-        Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `task_det_${taskId}`)]])
+        \`✏️ <b>𝗘𝗗𝗜𝗧 𝗦𝗧𝗔𝗥𝗧 𝗧𝗜𝗠𝗘</b>\n\` +
+        \`━━━━━━━━━━━━━━━━━━━━\n\` +
+        \`Current start time: \${formatTimeUTC(task.startDate)} UTC\n\` +
+        \`Enter new start time (HH:MM, 24-hour UTC):\n\` +
+        \`⚠️ Duration will be preserved\`,
+        Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', \`task_det_\${taskId}\`)]])
     );
 });
 
@@ -4580,11 +4586,11 @@ bot.action(/^edit_task_end_(.+)$/, async (ctx) => {
     ctx.session.step = 'edit_task_end';
     
     await ctx.reply(
-        `✏️ <b>𝗘𝗗𝗜𝗧 𝗘𝗡𝗗 𝗧𝗜𝗠𝗘</b>\n` +
-        `━━━━━━━━━━━━━━━━━━━━\n` +
-        `Current end time: ${formatTimeUTC(task.endDate)} UTC\n` +
-        `Enter new end time (HH:MM, 24-hour UTC):`,
-        Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `task_det_${taskId}`)]])
+        \`✏️ <b>𝗘𝗗𝗜𝗧 𝗘𝗡𝗗 𝗧𝗜𝗠𝗘</b>\n\` +
+        \`━━━━━━━━━━━━━━━━━━━━\n\` +
+        \`Current end time: \${formatTimeUTC(task.endDate)} UTC\n\` +
+        \`Enter new end time (HH:MM, 24-hour UTC):\`,
+        Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', \`task_det_\${taskId}\`)]])
     );
 });
 
@@ -4601,22 +4607,22 @@ bot.action(/^edit_task_count_(.+)$/, async (ctx) => {
     ctx.session.step = 'edit_task_repeat_count';
     
     await ctx.reply(
-        `✏️ <b>𝗘𝗗𝗜𝗧 𝗥𝗘𝗣𝗘𝗔𝗧 𝗖𝗢𝗨𝗡𝗧</b>\n` +
-        `━━━━━━━━━━━━━━━━━━━━\n` +
-        `Enter new repeat count (0-365):\n` +
-        `📝 Current count: ${task.repeatCount || 0}`,
-        Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `task_det_${taskId}`)]])
+        \`✏️ <b>𝗘𝗗𝗜𝗧 𝗥𝗘𝗣𝗘𝗔𝗧 𝗖𝗢𝗨𝗡𝗧</b>\n\` +
+        \`━━━━━━━━━━━━━━━━━━━━\n\` +
+        \`Enter new repeat count (0-365):\n\` +
+        \`📝 Current count: \${task.repeatCount || 0}\`,
+        Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', \`task_det_\${taskId}\`)]])
     );
 });
 
 bot.action(/^edit_rep_(.+)$/, async (ctx) => {
     const taskId = ctx.match[1];
-    const text = `🔄 <b>𝗖𝗛𝗔𝗡𝗚𝗘 𝗥𝗘𝗣𝗘𝗔𝗧 𝗠𝗢𝗗𝗘</b>\n━━━━━━━━━━━━━━━━━━━━\nSelect new repeat mode:`;
+    const text = \`🔄 <b>𝗖𝗛𝗔𝗡𝗚𝗘 𝗥𝗘𝗣𝗘𝗔𝗧 𝗠𝗢𝗗𝗘</b>\n━━━━━━━━━━━━━━━━━━━━\nSelect new repeat mode:\`;
     const keyboard = Markup.inlineKeyboard([
-        [Markup.button.callback('❌ No Repeat', `set_rep_${taskId}_none`)],
-        [Markup.button.callback('📅 Daily', `set_rep_${taskId}_daily`)],
-        [Markup.button.callback('📅 Weekly', `set_rep_${taskId}_weekly`)],
-        [Markup.button.callback('🔙 Back', `edit_menu_${taskId}`)]
+        [Markup.button.callback('❌ No Repeat', \`set_rep_\${taskId}_none\`)],
+        [Markup.button.callback('📅 Daily', \`set_rep_\${taskId}_daily\`)],
+        [Markup.button.callback('📅 Weekly', \`set_rep_\${taskId}_weekly\`)],
+        [Markup.button.callback('🔙 Back', \`edit_menu_\${taskId}\`)]
     ]);
     
     await safeEdit(ctx, text, keyboard);
@@ -4642,7 +4648,7 @@ bot.action(/^set_rep_(.+)_(.+)$/, async (ctx) => {
             { $set: updates }
         );
         
-        await ctx.answerCbQuery(`✅ Updated to ${mode}`);
+        await ctx.answerCbQuery(\`✅ Updated to \${mode}\`);
         await showTaskDetail(ctx, taskId);
     } catch (error) {
         console.error('Error updating repeat mode:', error);
@@ -4659,15 +4665,15 @@ bot.action(/^delete_task_(.+)$/, async (ctx) => {
         await db.collection('tasks').deleteOne({ taskId });
         await db.collection('history').deleteMany({ originalTaskId: taskId });
         cancelTaskSchedule(taskId);
-        await ctx.answerCbQuery(`✅ Task Deleted`);
+        await ctx.answerCbQuery(\`✅ Task Deleted\`);
         
         try {
             await bot.telegram.sendMessage(CHAT_ID,
-                `🗑️ <b>𝗧𝗔𝗦𝗞 𝗗𝗘𝗟𝗘𝗧𝗘𝗗</b>\n` +
-                `━━━━━━━━━━━━━━━━━━━━\n` +
-                `📌 <b>${taskTitle}</b>\n` +
-                `🗑️ Task was deleted\n` +
-                `━━━━━━━━━━━━━━━━━━━━`,
+                \`🗑️ <b>𝗧𝗔𝗦𝗞 𝗗𝗘𝗟𝗘𝗧𝗘𝗗</b>\n\` +
+                \`━━━━━━━━━━━━━━━━━━━━\n\` +
+                \`📌 <b>\${taskTitle}</b>\n\` +
+                \`🗑️ Task was deleted\n\` +
+                \`━━━━━━━━━━━━━━━━━━━━\`,
                 { parse_mode: 'HTML' }
             );
         } catch (e) {}
@@ -4712,8 +4718,8 @@ bot.action('reorder_tasks_menu', async (ctx) => {
             if (title.length > 35) title = title.substring(0, 32) + '...';
             
             keyboard.push([{ 
-                text: `${index + 1}. ${title}`, 
-                callback_data: `reorder_task_select_${task.taskId}` 
+                text: \`\${index + 1}. \${title}\`, 
+                callback_data: \`reorder_task_select_\${task.taskId}\` 
             }]);
         });
         
@@ -4760,9 +4766,9 @@ bot.action(/^reorder_task_select_(.+)$/, async (ctx) => {
             if (title.length > 30) title = title.substring(0, 27) + '...';
             
             if (index === selectedIndex) {
-                text += `<blockquote>${index + 1}. ${title}</blockquote>\n`;
+                text += \`<blockquote>\${index + 1}. \${title}</blockquote>\n\`;
             } else {
-                text += `${index + 1}. ${title}\n`;
+                text += \`\${index + 1}. \${title}\n\`;
             }
         });
         
@@ -4823,9 +4829,9 @@ bot.action('reorder_task_up', async (ctx) => {
             if (title.length > 30) title = title.substring(0, 27) + '...';
             
             if (index === ctx.session.reorderTask.selectedIndex) {
-                text += `<blockquote>${index + 1}. ${title}</blockquote>\n`;
+                text += \`<blockquote>\${index + 1}. \${title}</blockquote>\n\`;
             } else {
-                text += `${index + 1}. ${title}\n`;
+                text += \`\${index + 1}. \${title}\n\`;
             }
         });
         
@@ -4889,9 +4895,9 @@ bot.action('reorder_task_down', async (ctx) => {
             if (title.length > 30) title = title.substring(0, 27) + '...';
             
             if (index === ctx.session.reorderTask.selectedIndex) {
-                text += `<blockquote>${index + 1}. ${title}</blockquote>\n`;
+                text += \`<blockquote>\${index + 1}. \${title}</blockquote>\n\`;
             } else {
-                text += `${index + 1}. ${title}\n`;
+                text += \`\${index + 1}. \${title}\n\`;
             }
         });
         
@@ -4983,8 +4989,8 @@ bot.action('reorder_notes_menu', async (ctx) => {
             if (title.length > 35) title = title.substring(0, 32) + '...';
             
             keyboard.push([{ 
-                text: `${index + 1}. ${title}`, 
-                callback_data: `reorder_note_select_${note.noteId}` 
+                text: \`\${index + 1}. \${title}\`, 
+                callback_data: \`reorder_note_select_\${note.noteId}\` 
             }]);
         });
         
@@ -5029,9 +5035,9 @@ bot.action(/^reorder_note_select_(.+)$/, async (ctx) => {
             if (title.length > 30) title = title.substring(0, 27) + '...';
             
             if (index === selectedIndex) {
-                text += `<blockquote>${index + 1}. ${title}</blockquote>\n`;
+                text += \`<blockquote>\${index + 1}. \${title}</blockquote>\n\`;
             } else {
-                text += `${index + 1}. ${title}\n`;
+                text += \`\${index + 1}. \${title}\n\`;
             }
         });
         
@@ -5092,9 +5098,9 @@ bot.action('reorder_note_up', async (ctx) => {
             if (title.length > 30) title = title.substring(0, 27) + '...';
             
             if (index === ctx.session.reorderNote.selectedIndex) {
-                text += `<blockquote>${index + 1}. ${title}</blockquote>\n`;
+                text += \`<blockquote>\${index + 1}. \${title}</blockquote>\n\`;
             } else {
-                text += `${index + 1}. ${title}\n`;
+                text += \`\${index + 1}. \${title}\n\`;
             }
         });
         
@@ -5158,9 +5164,9 @@ bot.action('reorder_note_down', async (ctx) => {
             if (title.length > 30) title = title.substring(0, 27) + '...';
             
             if (index === ctx.session.reorderNote.selectedIndex) {
-                text += `<blockquote>${index + 1}. ${title}</blockquote>\n`;
+                text += \`<blockquote>\${index + 1}. \${title}</blockquote>\n\`;
             } else {
-                text += `${index + 1}. ${title}\n`;
+                text += \`\${index + 1}. \${title}\n\`;
             }
         });
         
@@ -5222,7 +5228,7 @@ bot.action('reorder_note_save', async (ctx) => {
 });
 
 // ==========================================
-// 📜 VIEW HISTORY - WITH PAGINATION
+// 📜 VIEW HISTORY - WITH PAGINATION AND SUBTASK BLOCKQUOTES
 // ==========================================
 
 bot.action(/^view_history_dates_(\d+)$/, async (ctx) => {
@@ -5256,7 +5262,7 @@ bot.action(/^view_history_dates_(\d+)$/, async (ctx) => {
     const dateList = dates[0]?.data || [];
     const totalPages = Math.max(1, Math.ceil(totalDates / perPage));
 
-    let text = `📜 <b>𝗚𝗟𝗢𝗕𝗔𝗟 𝗧𝗔𝗦𝗞𝗦 𝗛𝗜𝗦𝗧𝗢𝗥𝗬</b>\n━━━━━━━━━━━━━━━━━━━━\n📊 Total: ${totalDates} date${totalDates !== 1 ? 's' : ''}\n📄 Page: ${page}/${totalPages}\n━━━━━━━━━━━━━━━━━━━━\n`;
+    let text = \`📜 <b>𝗚𝗟𝗢𝗕𝗔𝗟 𝗧𝗔𝗦𝗞𝗦 𝗛𝗜𝗦𝗧𝗢𝗥𝗬</b>\n━━━━━━━━━━━━━━━━━━━━\n📊 Total: \${totalDates} date\${totalDates !== 1 ? 's' : ''}\n📄 Page: \${page}/\${totalPages}\n━━━━━━━━━━━━━━━━━━━━\n\`;
     
     if (dateList.length === 0) {
         text += '📭 No history available.';
@@ -5266,18 +5272,18 @@ bot.action(/^view_history_dates_(\d+)$/, async (ctx) => {
     
     const buttons = dateList.map(d => {
         const date = new Date(d.completedDate);
-        const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-        return [Markup.button.callback(`📅 ${formatDateUTC(date)} (${d.count})`, `hist_list_${dateStr}_1`)];
+        const dateStr = \`\${date.getFullYear()}-\${String(date.getMonth() + 1).padStart(2, '0')}-\${String(date.getDate()).padStart(2, '0')}\`;
+        return [Markup.button.callback(\`📅 \${formatDateUTC(date)} (\${d.count})\`, \`hist_list_\${dateStr}_1\`)];
     });
     
     if (totalPages > 1) {
         const paginationRow = [];
         if (page > 1) {
-            paginationRow.push(Markup.button.callback('◀️ Previous', `view_history_dates_${page - 1}`));
+            paginationRow.push(Markup.button.callback('◀️ Previous', \`view_history_dates_\${page - 1}\`));
         }
-        paginationRow.push(Markup.button.callback(`📄 ${page}/${totalPages}`, 'no_action'));
+        paginationRow.push(Markup.button.callback(\`📄 \${page}/\${totalPages}\`, 'no_action'));
         if (page < totalPages) {
-            paginationRow.push(Markup.button.callback('Next ▶️', `view_history_dates_${page + 1}`));
+            paginationRow.push(Markup.button.callback('Next ▶️', \`view_history_dates_\${page + 1}\`));
         }
         buttons.push(paginationRow);
     }
@@ -5316,7 +5322,7 @@ bot.action(/^hist_list_([\d-]+)_(\d+)$/, async (ctx) => {
     }).sort({ completedAt: -1 }).skip(skip).limit(perPage).toArray();
 
     const date = new Date(year, month - 1, day);
-    let text = `📅 <b>𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘𝗗 𝗢𝗡 ${formatDateUTC(date).toUpperCase()}</b>\n━━━━━━━━━━━━━━━━━━━━\n📊 Total: ${totalTasks} task${totalTasks !== 1 ? 's' : ''}\n📄 Page: ${page}/${totalPages}\n━━━━━━━━━━━━━━━━━━━━\n`;
+    let text = \`📅 <b>𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘𝗗 𝗢𝗡 \${formatDateUTC(date).toUpperCase()}</b>\n━━━━━━━━━━━━━━━━━━━━\n📊 Total: \${totalTasks} task\${totalTasks !== 1 ? 's' : ''}\n📄 Page: \${page}/\${totalPages}\n━━━━━━━━━━━━━━━━━━━━\n\`;
     
     if (tasks.length === 0) {
         text += '📭 No tasks completed on this date.';
@@ -5330,24 +5336,24 @@ bot.action(/^hist_list_([\d-]+)_(\d+)$/, async (ctx) => {
         
         if (t.subtasks && t.subtasks.length > 0) {
             const completed = t.subtasks.filter(s => s.completed).length;
-            taskTitle += ` [${completed}/${t.subtasks.length}]`;
+            taskTitle += \` [\${completed}/\${t.subtasks.length}]\`;
         }
         
         if (taskTitle.length > 40) taskTitle = taskTitle.substring(0, 37) + '...';
         
         return [
-            Markup.button.callback(`✅ ${taskNum}. ${taskTitle} (${formatTimeUTC(t.completedAt)} UTC)`, `hist_det_${t._id}`)
+            Markup.button.callback(\`✅ \${taskNum}. \${taskTitle} (\${formatTimeUTC(t.completedAt)} UTC)\`, \`hist_det_\${t._id}\`)
         ];
     });
     
     if (totalPages > 1) {
         const paginationRow = [];
         if (page > 1) {
-            paginationRow.push(Markup.button.callback('◀️ Previous', `hist_list_${dateStr}_${page - 1}`));
+            paginationRow.push(Markup.button.callback('◀️ Previous', \`hist_list_\${dateStr}_\${page - 1}\`));
         }
-        paginationRow.push(Markup.button.callback(`📄 ${page}/${totalPages}`, 'no_action'));
+        paginationRow.push(Markup.button.callback(\`📄 \${page}/\${totalPages}\`, 'no_action'));
         if (page < totalPages) {
-            paginationRow.push(Markup.button.callback('Next ▶️', `hist_list_${dateStr}_${page + 1}`));
+            paginationRow.push(Markup.button.callback('Next ▶️', \`hist_list_\${dateStr}_\${page + 1}\`));
         }
         buttons.push(paginationRow);
     }
@@ -5369,21 +5375,22 @@ bot.action(/^hist_det_(.+)$/, async (ctx) => {
 
         const duration = calculateDuration(task.startDate, task.endDate);
 
-        let text = `
+        let text = \`
 📜 <b>𝗚𝗟𝗢𝗕𝗔𝗟 𝗛𝗜𝗦𝗧𝗢𝗥𝗬 𝗗𝗘𝗧𝗔𝗜𝗟</b>
 ━━━━━━━━━━━━━━━━━━━━
-📌 <b>${task.title}</b>
-${formatBlockquote(task.description)}
-✅ <b>Completed At:</b> ${formatDateTimeUTC(task.completedAt)} UTC
-${task.autoCompleted ? '🤖 <b>Auto-completed at 23:59 UTC</b>\n' : ''}
-⏰ <b>Original Time:</b> ${formatTimeUTC(task.startDate)} - ${formatTimeUTC(task.endDate)} UTC
-⏱️ <b>Duration:</b> ${formatDuration(duration)}
-🔄 <b>Repeat Type:</b> ${task.repeat === 'none' ? 'No Repeat' : task.repeat}
+📌 <b>\${task.title}</b>
+\${formatBlockquote(task.description)}
+✅ <b>Completed At:</b> \${formatDateTimeUTC(task.completedAt)} UTC
+\${task.autoCompleted ? '🤖 <b>Auto-completed at 23:59 UTC</b>\n' : ''}
+⏰ <b>Original Time:</b> \${formatTimeUTC(task.startDate)} - \${formatTimeUTC(task.endDate)} UTC
+⏱️ <b>Duration:</b> \${formatDuration(duration)}
+🔄 <b>Repeat Type:</b> \${task.repeat === 'none' ? 'No Repeat' : task.repeat}
+\${task.repeatCount > 0 ? \`🔢 <b>Remaining Repeats:</b> \${task.repeatCount}\n\` : ''}
 ━━━━━━━━━━━━━━━━━━━━
-`;
+\`;
 
         if (task.subtasks && task.subtasks.length > 0) {
-            text += `📋 <b>𝗦𝗨𝗕𝗧𝗔𝗦𝗞𝗦:</b>\n`;
+            text += \`📋 <b>𝗦𝗨𝗕𝗧𝗔𝗦𝗞𝗦:</b>\n\`;
             task.subtasks.sort((a, b) => {
                 if (a.completed === b.completed) return 0;
                 return a.completed ? 1 : -1;
@@ -5391,12 +5398,12 @@ ${task.autoCompleted ? '🤖 <b>Auto-completed at 23:59 UTC</b>\n' : ''}
                 const status = subtask.completed ? '✅' : '❌';
                 let title = subtask.title;
                 if (title.length > 40) title = title.substring(0, 37) + '...';
-                text += `${status} ${index + 1}. ${title}\n`;
+                text += \`\${status} \${index + 1}. \${title}\n\`;
                 if (subtask.description) {
-                    text += `   <i>${subtask.description}</i>\n`;
+                    text += \`   \${formatBlockquote(subtask.description)}\n\`;
                 }
             });
-            text += `━━━━━━━━━━━━━━━━━━━━\n`;
+            text += \`━━━━━━━━━━━━━━━━━━━━\n\`;
         }
 
         const keyboard = Markup.inlineKeyboard([
@@ -5429,7 +5436,7 @@ bot.action(/^view_notes_(\d+)$/, async (ctx) => {
         .limit(perPage)
         .toArray();
 
-    let text = `🗒️ <b>𝗚𝗟𝗢𝗕𝗔𝗟 𝗡𝗢𝗧𝗘𝗦</b>\n━━━━━━━━━━━━━━━━━━━━\n📊 Total: ${totalNotes} note${totalNotes !== 1 ? 's' : ''}\n📄 Page: ${page}/${totalPages}\n━━━━━━━━━━━━━━━━━━━━\n`;
+    let text = \`🗒️ <b>𝗚𝗟𝗢𝗕𝗔𝗟 𝗡𝗢𝗧𝗘𝗦</b>\n━━━━━━━━━━━━━━━━━━━━\n📊 Total: \${totalNotes} note\${totalNotes !== 1 ? 's' : ''}\n📄 Page: \${page}/\${totalPages}\n━━━━━━━━━━━━━━━━━━━━\n\`;
     
     if (notes.length === 0) {
         text += '📭 No notes yet.';
@@ -5443,18 +5450,18 @@ bot.action(/^view_notes_(\d+)$/, async (ctx) => {
         if (title.length > 40) title = title.substring(0, 37) + '...';
         
         return [
-            Markup.button.callback(`📄 ${noteNum}. ${title}`, `note_det_${n.noteId}`)
+            Markup.button.callback(\`📄 \${noteNum}. \${title}\`, \`note_det_\${n.noteId}\`)
         ];
     });
     
     if (totalPages > 1) {
         const paginationRow = [];
         if (page > 1) {
-            paginationRow.push(Markup.button.callback('◀️ Previous', `view_notes_${page - 1}`));
+            paginationRow.push(Markup.button.callback('◀️ Previous', \`view_notes_\${page - 1}\`));
         }
-        paginationRow.push(Markup.button.callback(`📄 ${page}/${totalPages}`, 'no_action'));
+        paginationRow.push(Markup.button.callback(\`📄 \${page}/\${totalPages}\`, 'no_action'));
         if (page < totalPages) {
-            paginationRow.push(Markup.button.callback('Next ▶️', `view_notes_${page + 1}`));
+            paginationRow.push(Markup.button.callback('Next ▶️', \`view_notes_\${page + 1}\`));
         }
         buttons.push(paginationRow);
     }
@@ -5481,23 +5488,23 @@ async function showNoteDetail(ctx, noteId) {
 
     let contentDisplay = note.description || '<i>Empty note</i>';
     
-    const text = `
+    const text = \`
 📝 <b>𝗚𝗟𝗢𝗕𝗔𝗟 𝗡𝗢𝗧𝗘 𝗗𝗘𝗧𝗔𝗜𝗟𝗦</b>
 ━━━━━━━━━━━━━━━━━━━━
-📌 <b>${note.title}</b>
-${formatBlockquote(contentDisplay)}
-📅 <b>Created:</b> ${formatDateTimeUTC(note.createdAt)} UTC
-${note.updatedAt ? `✏️ <b>Updated:</b> ${formatDateTimeUTC(note.updatedAt)} UTC` : ''}
-🏷️ <b>Order:</b> ${note.orderIndex + 1}
-━━━━━━━━━━━━━━━━━━━━`;
+📌 <b>\${note.title}</b>
+\${formatBlockquote(contentDisplay)}
+📅 <b>Created:</b> \${formatDateTimeUTC(note.createdAt)} UTC
+\${note.updatedAt ? \`✏️ <b>Updated:</b> \${formatDateTimeUTC(note.updatedAt)} UTC\` : ''}
+🏷️ <b>Order:</b> \${note.orderIndex + 1}
+━━━━━━━━━━━━━━━━━━━━\`;
     
     const buttons = [
         [
-            Markup.button.callback('✏️ Edit Title', `edit_note_title_${note.noteId}`), 
-            Markup.button.callback('✏️ Edit Content', `edit_note_content_${note.noteId}`)
+            Markup.button.callback('✏️ Edit Title', \`edit_note_title_\${note.noteId}\`), 
+            Markup.button.callback('✏️ Edit Content', \`edit_note_content_\${note.noteId}\`)
         ],
         [
-            Markup.button.callback('🗑️ Delete', `delete_note_${note.noteId}`),
+            Markup.button.callback('🗑️ Delete', \`delete_note_\${note.noteId}\`),
             Markup.button.callback('🔙 Back to Notes', 'view_notes_1')
         ]
     ];
@@ -5522,12 +5529,12 @@ bot.action(/^edit_note_title_(.+)$/, async (ctx) => {
     ctx.session.step = 'edit_note_title';
     
     await ctx.reply(
-        `✏️ <b>𝗘𝗗𝗜𝗧 𝗡𝗢𝗧𝗘 𝗧𝗜𝗧𝗟𝗘</b>\n` +
-        `━━━━━━━━━━━━━━━━━━━━\n` +
-        `Enter new title:`,
+        \`✏️ <b>𝗘𝗗𝗜𝗧 𝗡𝗢𝗧𝗘 𝗧𝗜𝗧𝗟𝗘</b>\n\` +
+        \`━━━━━━━━━━━━━━━━━━━━\n\` +
+        \`Enter new title:\`,
         { 
             parse_mode: 'HTML',
-            ...Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `note_det_${noteId}`)]])
+            ...Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', \`note_det_\${noteId}\`)]])
         }
     );
 });
@@ -5545,12 +5552,12 @@ bot.action(/^edit_note_content_(.+)$/, async (ctx) => {
     ctx.session.step = 'edit_note_content';
     
     await ctx.reply(
-        `✏️ <b>𝗘𝗗𝗜𝗧 𝗡𝗢𝗧𝗘 𝗖𝗢𝗡𝗧𝗘𝗡𝗧</b>\n` +
-        `━━━━━━━━━━━━━━━━━━━━\n` +
-        `Enter new content (Max 400 words, enter "-" for empty):`,
+        \`✏️ <b>𝗘𝗗𝗜𝗧 𝗡𝗢𝗧𝗘 𝗖𝗢𝗡𝗧𝗘𝗡𝗧</b>\n\` +
+        \`━━━━━━━━━━━━━━━━━━━━\n\` +
+        \`Enter new content (Max 400 words, enter "-" for empty):\`,
         { 
             parse_mode: 'HTML',
-            ...Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `note_det_${noteId}`)]])
+            ...Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', \`note_det_\${noteId}\`)]])
         }
     );
 });
@@ -5566,11 +5573,11 @@ bot.action(/^delete_note_(.+)$/, async (ctx) => {
         
         try {
             await bot.telegram.sendMessage(CHAT_ID,
-                `🗑️ <b>𝗡𝗢𝗧𝗘 𝗗𝗘𝗟𝗘𝗧𝗘𝗗</b>\n` +
-                `━━━━━━━━━━━━━━━━━━━━\n` +
-                `📌 <b>${noteTitle}</b>\n` +
-                `🗑️ Note was deleted\n` +
-                `━━━━━━━━━━━━━━━━━━━━`,
+                \`🗑️ <b>𝗡𝗢𝗧𝗘 𝗗𝗘𝗟𝗘𝗧𝗘𝗗</b>\n\` +
+                \`━━━━━━━━━━━━━━━━━━━━\n\` +
+                \`📌 <b>\${noteTitle}</b>\n\` +
+                \`🗑️ Note was deleted\n\` +
+                \`━━━━━━━━━━━━━━━━━━━━\`,
                 { parse_mode: 'HTML' }
             );
         } catch (e) {}
@@ -5587,7 +5594,7 @@ bot.action(/^delete_note_(.+)$/, async (ctx) => {
 // ==========================================
 
 bot.action('download_menu', async (ctx) => {
-    const text = `📥 <b>𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗 𝗚𝗟𝗢𝗕𝗔𝗟 𝗗𝗔𝗧𝗔</b>\n━━━━━━━━━━━━━━━━━━━━\n📁 <i>Files will be sent as JSON documents</i>`;
+    const text = \`📥 <b>𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗 𝗚𝗟𝗢𝗕𝗔𝗟 𝗗𝗔𝗧𝗔</b>\n━━━━━━━━━━━━━━━━━━━━\n📁 <i>Files will be sent as JSON documents</i>\`;
     
     const keyboard = Markup.inlineKeyboard([
         [Markup.button.callback('📋 Active Tasks', 'download_tasks')],
@@ -5616,13 +5623,13 @@ bot.action('download_tasks', async (ctx) => {
         
         await ctx.replyWithDocument({
             source: tasksBuff,
-            filename: `global_tasks_${Date.now()}.json`
+            filename: \`global_tasks_\${Date.now()}.json\`
         }, {
-            caption: `📋 <b>Global Tasks Data</b>\nTotal: ${tasks.length} task${tasks.length !== 1 ? 's' : ''}\n📅 ${formatDateTimeUTC(new Date())} UTC`,
+            caption: \`📋 <b>Global Tasks Data</b>\nTotal: \${tasks.length} task\${tasks.length !== 1 ? 's' : ''}\n📅 \${formatDateTimeUTC(new Date())} UTC\`,
             parse_mode: 'HTML'
         });
         
-        await ctx.answerCbQuery(`✅ Sent ${tasks.length} tasks`);
+        await ctx.answerCbQuery(\`✅ Sent \${tasks.length} tasks\`);
     } catch (error) {
         console.error('Error downloading tasks:', error);
         await ctx.answerCbQuery('❌ Error sending tasks file');
@@ -5646,13 +5653,13 @@ bot.action('download_history', async (ctx) => {
         
         await ctx.replyWithDocument({
             source: histBuff,
-            filename: `global_history_${Date.now()}.json`
+            filename: \`global_history_\${Date.now()}.json\`
         }, {
-            caption: `📜 <b>Global History Data</b>\nTotal: ${history.length} item${history.length !== 1 ? 's' : ''}\n📅 ${formatDateTimeUTC(new Date())} UTC`,
+            caption: \`📜 <b>Global History Data</b>\nTotal: \${history.length} item\${history.length !== 1 ? 's' : ''}\n📅 \${formatDateTimeUTC(new Date())} UTC\`,
             parse_mode: 'HTML'
         });
         
-        await ctx.answerCbQuery(`✅ Sent ${history.length} history items`);
+        await ctx.answerCbQuery(\`✅ Sent \${history.length} history items\`);
     } catch (error) {
         console.error('Error downloading history:', error);
         await ctx.answerCbQuery('❌ Error sending history file');
@@ -5676,13 +5683,13 @@ bot.action('download_notes', async (ctx) => {
         
         await ctx.replyWithDocument({
             source: notesBuff,
-            filename: `global_notes_${Date.now()}.json`
+            filename: \`global_notes_\${Date.now()}.json\`
         }, {
-            caption: `🗒️ <b>Global Notes Data</b>\nTotal: ${notes.length} note${notes.length !== 1 ? 's' : ''}\n📅 ${formatDateTimeUTC(new Date())} UTC`,
+            caption: \`🗒️ <b>Global Notes Data</b>\nTotal: \${notes.length} note\${notes.length !== 1 ? 's' : ''}\n📅 \${formatDateTimeUTC(new Date())} UTC\`,
             parse_mode: 'HTML'
         });
         
-        await ctx.answerCbQuery(`✅ Sent ${notes.length} notes`);
+        await ctx.answerCbQuery(\`✅ Sent \${notes.length} notes\`);
     } catch (error) {
         console.error('Error downloading notes:', error);
         await ctx.answerCbQuery('❌ Error sending notes file');
@@ -5712,9 +5719,9 @@ bot.action('download_all', async (ctx) => {
             const tasksBuff = Buffer.from(JSON.stringify(tasksData, null, 2), 'utf-8');
             await ctx.replyWithDocument({
                 source: tasksBuff,
-                filename: `global_tasks_${timestamp}.json`
+                filename: \`global_tasks_\${timestamp}.json\`
             }, {
-                caption: `📋 <b>Tasks</b> (${tasks.length} item${tasks.length !== 1 ? 's' : ''})`,
+                caption: \`📋 <b>Tasks</b> (\${tasks.length} item\${tasks.length !== 1 ? 's' : ''})\`,
                 parse_mode: 'HTML'
             });
         }
@@ -5728,9 +5735,9 @@ bot.action('download_all', async (ctx) => {
             const histBuff = Buffer.from(JSON.stringify(historyData, null, 2), 'utf-8');
             await ctx.replyWithDocument({
                 source: histBuff,
-                filename: `global_history_${timestamp}.json`
+                filename: \`global_history_\${timestamp}.json\`
             }, {
-                caption: `📜 <b>History</b> (${history.length} item${history.length !== 1 ? 's' : ''})`,
+                caption: \`📜 <b>History</b> (\${history.length} item\${history.length !== 1 ? 's' : ''})\`,
                 parse_mode: 'HTML'
             });
         }
@@ -5744,25 +5751,25 @@ bot.action('download_all', async (ctx) => {
             const notesBuff = Buffer.from(JSON.stringify(notesData, null, 2), 'utf-8');
             await ctx.replyWithDocument({
                 source: notesBuff,
-                filename: `global_notes_${timestamp}.json`
+                filename: \`global_notes_\${timestamp}.json\`
             }, {
-                caption: `🗒️ <b>Notes</b> (${notes.length} item${notes.length !== 1 ? 's' : ''})`,
+                caption: \`🗒️ <b>Notes</b> (\${notes.length} item\${notes.length !== 1 ? 's' : ''})\`,
                 parse_mode: 'HTML'
             });
         }
         
         await ctx.reply(
-            `📦 <b>ALL GLOBAL DATA DOWNLOAD COMPLETE</b>\n━━━━━━━━━━━━━━━━━━━━\n` +
-            `📋 Tasks: ${tasks.length} item${tasks.length !== 1 ? 's' : ''}\n` +
-            `📜 History: ${history.length} item${history.length !== 1 ? 's' : ''}\n` +
-            `🗒️ Notes: ${notes.length} item${notes.length !== 1 ? 's' : ''}\n` +
-            `📊 Total: ${totalItems} items\n` +
-            `📁 ${[tasks, history, notes].filter(a => a.length > 0).length} JSON files sent\n` +
-            `📅 ${formatDateTimeUTC(new Date())} UTC\n━━━━━━━━━━━━━━━━━━━━`,
+            \`📦 <b>ALL GLOBAL DATA DOWNLOAD COMPLETE</b>\n━━━━━━━━━━━━━━━━━━━━\n\` +
+            \`📋 Tasks: \${tasks.length} item\${tasks.length !== 1 ? 's' : ''}\n\` +
+            \`📜 History: \${history.length} item\${history.length !== 1 ? 's' : ''}\n\` +
+            \`🗒️ Notes: \${notes.length} item\${notes.length !== 1 ? 's' : ''}\n\` +
+            \`📊 Total: \${totalItems} items\n\` +
+            \`📁 \${[tasks, history, notes].filter(a => a.length > 0).length} JSON files sent\n\` +
+            \`📅 \${formatDateTimeUTC(new Date())} UTC\n━━━━━━━━━━━━━━━━━━━━\`,
             { parse_mode: 'HTML' }
         );
         
-        await ctx.answerCbQuery(`✅ Sent ${totalItems} items across ${[tasks, history, notes].filter(a => a.length > 0).length} files`);
+        await ctx.answerCbQuery(\`✅ Sent \${totalItems} items across \${[tasks, history, notes].filter(a => a.length > 0).length} files\`);
     } catch (error) {
         console.error('Error downloading all data:', error);
         await ctx.answerCbQuery('❌ Error sending files');
@@ -5776,7 +5783,7 @@ bot.action('download_all', async (ctx) => {
 
 bot.action('delete_menu', async (ctx) => {
     try {
-        const text = `🗑️ <b>𝗗𝗘𝗟𝗘𝗧𝗘 𝗚𝗟𝗢𝗕𝗔𝗟 𝗗𝗔𝗧𝗔</b>\n━━━━━━━━━━━━━━━━━━━━\n⚠️ <b>⚠️ WARNING: This will delete data for EVERYONE!</b>\n━━━━━━━━━━━━━━━━━━━━\n<b>Select what to delete:</b>`;
+        const text = \`🗑️ <b>𝗗𝗘𝗟𝗘𝗧𝗘 𝗚𝗟𝗢𝗕𝗔𝗟 𝗗𝗔𝗧𝗔</b>\n━━━━━━━━━━━━━━━━━━━━\n⚠️ <b>⚠️ WARNING: This will delete data for EVERYONE!</b>\n━━━━━━━━━━━━━━━━━━━━\n<b>Select what to delete:</b>\`;
         
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback('📋 Delete All Tasks', 'delete_tasks_confirm')],
@@ -5797,7 +5804,7 @@ bot.action('delete_tasks_confirm', async (ctx) => {
     try {
         const taskCount = await db.collection('tasks').countDocuments({});
         
-        const text = `⚠️ <b>⚠️ FINAL WARNING ⚠️</b>\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Delete ALL ${taskCount} GLOBAL task${taskCount !== 1 ? 's' : ''}?\n\n<b>This will affect ALL users!</b>\n\n⚠️ <b>This action cannot be undone!</b>\n━━━━━━━━━━━━━━━━━━━━`;
+        const text = \`⚠️ <b>⚠️ FINAL WARNING ⚠️</b>\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Delete ALL \${taskCount} GLOBAL task\${taskCount !== 1 ? 's' : ''}?\n\n<b>This will affect ALL users!</b>\n\n⚠️ <b>This action cannot be undone!</b>\n━━━━━━━━━━━━━━━━━━━━\`;
         
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback('✅ YES, DELETE ALL GLOBAL TASKS', 'delete_tasks_final')],
@@ -5826,14 +5833,14 @@ bot.action('delete_tasks_final', async (ctx) => {
             try {
                 await ctx.replyWithDocument({ 
                     source: backupBuff, 
-                    filename: `global_tasks_backup_${Date.now()}.json` 
+                    filename: \`global_tasks_backup_\${Date.now()}.json\` 
                 });
             } catch (sendError) {
                 console.error('Error sending backup:', sendError);
             }
         }
         
-        const successText = `✅ <b>𝗚𝗟𝗢𝗕𝗔𝗟 𝗗𝗘𝗟𝗘𝗧𝗜𝗢𝗡 𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘</b>\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Deleted ${result.deletedCount} global task${result.deletedCount !== 1 ? 's' : ''}\n${tasks.length > 0 ? '📁 Backup file sent!\n' : ''}━━━━━━━━━━━━━━━━━━━━`;
+        const successText = \`✅ <b>𝗚𝗟𝗢𝗕𝗔𝗟 𝗗𝗘𝗟𝗘𝗧𝗜𝗢𝗡 𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘</b>\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Deleted \${result.deletedCount} global task\${result.deletedCount !== 1 ? 's' : ''}\n\${tasks.length > 0 ? '📁 Backup file sent!\n' : ''}━━━━━━━━━━━━━━━━━━━━\`;
         
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback('🔙 Back to Main Menu', 'main_menu')]
@@ -5843,10 +5850,10 @@ bot.action('delete_tasks_final', async (ctx) => {
         
         try {
             await bot.telegram.sendMessage(CHAT_ID,
-                `🗑️ <b>𝗚𝗟𝗢𝗕𝗔𝗟 𝗧𝗔𝗦𝗞𝗦 𝗗𝗘𝗟𝗘𝗧𝗘𝗗</b>\n` +
-                `━━━━━━━━━━━━━━━━━━━━\n` +
-                `🗑️ All ${result.deletedCount} tasks have been deleted\n` +
-                `━━━━━━━━━━━━━━━━━━━━`,
+                \`🗑️ <b>𝗚𝗟𝗢𝗕𝗔𝗟 𝗧𝗔𝗦𝗞𝗦 𝗗𝗘𝗟𝗘𝗧𝗘𝗗</b>\n\` +
+                \`━━━━━━━━━━━━━━━━━━━━\n\` +
+                \`🗑️ All \${result.deletedCount} tasks have been deleted\n\` +
+                \`━━━━━━━━━━━━━━━━━━━━\`,
                 { parse_mode: 'HTML' }
             );
         } catch (e) {}
@@ -5861,7 +5868,7 @@ bot.action('delete_history_confirm', async (ctx) => {
     try {
         const historyCount = await db.collection('history').countDocuments({});
         
-        const text = `⚠️ <b>⚠️ FINAL WARNING ⚠️</b>\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Delete ALL ${historyCount} GLOBAL history item${historyCount !== 1 ? 's' : ''}?\n\n<b>This will affect ALL users!</b>\n\n⚠️ <b>This action cannot be undone!</b>\n━━━━━━━━━━━━━━━━━━━━`;
+        const text = \`⚠️ <b>⚠️ FINAL WARNING ⚠️</b>\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Delete ALL \${historyCount} GLOBAL history item\${historyCount !== 1 ? 's' : ''}?\n\n<b>This will affect ALL users!</b>\n\n⚠️ <b>This action cannot be undone!</b>\n━━━━━━━━━━━━━━━━━━━━\`;
         
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback('✅ YES, DELETE ALL GLOBAL HISTORY', 'delete_history_final')],
@@ -5888,14 +5895,14 @@ bot.action('delete_history_final', async (ctx) => {
             try {
                 await ctx.replyWithDocument({ 
                     source: backupBuff, 
-                    filename: `global_history_backup_${Date.now()}.json` 
+                    filename: \`global_history_backup_\${Date.now()}.json\` 
                 });
             } catch (sendError) {
                 console.error('Error sending backup:', sendError);
             }
         }
         
-        const successText = `✅ <b>𝗚𝗟𝗢𝗕𝗔𝗟 𝗗𝗘𝗟𝗘𝗧𝗜𝗢𝗡 𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘</b>\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Deleted ${result.deletedCount} global history item${result.deletedCount !== 1 ? 's' : ''}\n${history.length > 0 ? '📁 Backup file sent!\n' : ''}━━━━━━━━━━━━━━━━━━━━`;
+        const successText = \`✅ <b>𝗚𝗟𝗢𝗕𝗔𝗟 𝗗𝗘𝗟𝗘𝗧𝗜𝗢𝗡 𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘</b>\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Deleted \${result.deletedCount} global history item\${result.deletedCount !== 1 ? 's' : ''}\n\${history.length > 0 ? '📁 Backup file sent!\n' : ''}━━━━━━━━━━━━━━━━━━━━\`;
         
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback('🔙 Back to Main Menu', 'main_menu')]
@@ -5905,10 +5912,10 @@ bot.action('delete_history_final', async (ctx) => {
         
         try {
             await bot.telegram.sendMessage(CHAT_ID,
-                `🗑️ <b>𝗚𝗟𝗢𝗕𝗔𝗟 𝗛𝗜𝗦𝗧𝗢𝗥𝗬 𝗗𝗘𝗟𝗘𝗧𝗘𝗗</b>\n` +
-                `━━━━━━━━━━━━━━━━━━━━\n` +
-                `🗑️ All ${result.deletedCount} history items have been deleted\n` +
-                `━━━━━━━━━━━━━━━━━━━━`,
+                \`🗑️ <b>𝗚𝗟𝗢𝗕𝗔𝗟 𝗛𝗜𝗦𝗧𝗢𝗥𝗬 𝗗𝗘𝗟𝗘𝗧𝗘𝗗</b>\n\` +
+                \`━━━━━━━━━━━━━━━━━━━━\n\` +
+                \`🗑️ All \${result.deletedCount} history items have been deleted\n\` +
+                \`━━━━━━━━━━━━━━━━━━━━\`,
                 { parse_mode: 'HTML' }
             );
         } catch (e) {}
@@ -5923,7 +5930,7 @@ bot.action('delete_notes_confirm', async (ctx) => {
     try {
         const notesCount = await db.collection('notes').countDocuments({});
         
-        const text = `⚠️ <b>⚠️ FINAL WARNING ⚠️</b>\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Delete ALL ${notesCount} GLOBAL note${notesCount !== 1 ? 's' : ''}?\n\n<b>This will affect ALL users!</b>\n\n⚠️ <b>This action cannot be undone!</b>\n━━━━━━━━━━━━━━━━━━━━`;
+        const text = \`⚠️ <b>⚠️ FINAL WARNING ⚠️</b>\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Delete ALL \${notesCount} GLOBAL note\${notesCount !== 1 ? 's' : ''}?\n\n<b>This will affect ALL users!</b>\n\n⚠️ <b>This action cannot be undone!</b>\n━━━━━━━━━━━━━━━━━━━━\`;
         
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback('✅ YES, DELETE ALL GLOBAL NOTES', 'delete_notes_final')],
@@ -5950,14 +5957,14 @@ bot.action('delete_notes_final', async (ctx) => {
             try {
                 await ctx.replyWithDocument({ 
                     source: backupBuff, 
-                    filename: `global_notes_backup_${Date.now()}.json` 
+                    filename: \`global_notes_backup_\${Date.now()}.json\` 
                 });
             } catch (sendError) {
                 console.error('Error sending backup:', sendError);
             }
         }
         
-        const successText = `✅ <b>𝗚𝗟𝗢𝗕𝗔𝗟 𝗗𝗘𝗟𝗘𝗧𝗜𝗢𝗡 𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘</b>\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Deleted ${result.deletedCount} global note${result.deletedCount !== 1 ? 's' : ''}\n${notes.length > 0 ? '📁 Backup file sent!\n' : ''}━━━━━━━━━━━━━━━━━━━━`;
+        const successText = \`✅ <b>𝗚𝗟𝗢𝗕𝗔𝗟 𝗗𝗘𝗟𝗘𝗧𝗜𝗢𝗡 𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘</b>\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Deleted \${result.deletedCount} global note\${result.deletedCount !== 1 ? 's' : ''}\n\${notes.length > 0 ? '📁 Backup file sent!\n' : ''}━━━━━━━━━━━━━━━━━━━━\`;
         
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback('🔙 Back to Main Menu', 'main_menu')]
@@ -5967,10 +5974,10 @@ bot.action('delete_notes_final', async (ctx) => {
         
         try {
             await bot.telegram.sendMessage(CHAT_ID,
-                `🗑️ <b>𝗚𝗟𝗢𝗕𝗔𝗟 𝗡𝗢𝗧𝗘𝗦 𝗗𝗘𝗟𝗘𝗧𝗘𝗗</b>\n` +
-                `━━━━━━━━━━━━━━━━━━━━\n` +
-                `🗑️ All ${result.deletedCount} notes have been deleted\n` +
-                `━━━━━━━━━━━━━━━━━━━━`,
+                \`🗑️ <b>𝗚𝗟𝗢𝗕𝗔𝗟 𝗡𝗢𝗧𝗘𝗦 𝗗𝗘𝗟𝗘𝗧𝗘𝗗</b>\n\` +
+                \`━━━━━━━━━━━━━━━━━━━━\n\` +
+                \`🗑️ All \${result.deletedCount} notes have been deleted\n\` +
+                \`━━━━━━━━━━━━━━━━━━━━\`,
                 { parse_mode: 'HTML' }
             );
         } catch (e) {}
@@ -5990,7 +5997,7 @@ bot.action('delete_all_confirm', async (ctx) => {
         ]);
         const totalCount = tasksCount + historyCount + notesCount;
         
-        const text = `⚠️ <b>⚠️ ⚠️ ⚠️ FINAL WARNING ⚠️ ⚠️ ⚠️</b>\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Delete ALL ${totalCount} GLOBAL items?\n\n<b>⚠️ THIS WILL DELETE EVERYTHING FOR EVERYONE!</b>\n\n📋 Tasks: ${tasksCount}\n📜 History: ${historyCount}\n🗒️ Notes: ${notesCount}\n\n<b>⚠️ THIS ACTION CANNOT BE UNDONE!</b>\n━━━━━━━━━━━━━━━━━━━━`;
+        const text = \`⚠️ <b>⚠️ ⚠️ ⚠️ FINAL WARNING ⚠️ ⚠️ ⚠️</b>\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Delete ALL \${totalCount} GLOBAL items?\n\n<b>⚠️ THIS WILL DELETE EVERYTHING FOR EVERYONE!</b>\n\n📋 Tasks: \${tasksCount}\n📜 History: \${historyCount}\n🗒️ Notes: \${notesCount}\n\n<b>⚠️ THIS ACTION CANNOT BE UNDONE!</b>\n━━━━━━━━━━━━━━━━━━━━\`;
         
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback('🔥 YES, DELETE EVERYTHING GLOBAL', 'delete_all_final')],
@@ -6029,7 +6036,7 @@ bot.action('delete_all_final', async (ctx) => {
             const tasksBuff = Buffer.from(JSON.stringify(tasks, null, 2));
             await ctx.replyWithDocument({ 
                 source: tasksBuff, 
-                filename: `global_all_backup_tasks_${timestamp}.json` 
+                filename: \`global_all_backup_tasks_\${timestamp}.json\` 
             });
         }
         
@@ -6037,7 +6044,7 @@ bot.action('delete_all_final', async (ctx) => {
             const histBuff = Buffer.from(JSON.stringify(history, null, 2));
             await ctx.replyWithDocument({ 
                 source: histBuff, 
-                filename: `global_all_backup_history_${timestamp}.json` 
+                filename: \`global_all_backup_history_\${timestamp}.json\` 
             });
         }
         
@@ -6045,11 +6052,11 @@ bot.action('delete_all_final', async (ctx) => {
             const notesBuff = Buffer.from(JSON.stringify(notes, null, 2));
             await ctx.replyWithDocument({ 
                 source: notesBuff, 
-                filename: `global_all_backup_notes_${timestamp}.json` 
+                filename: \`global_all_backup_notes_\${timestamp}.json\` 
             });
         }
         
-        const successText = `✅ <b>𝗚𝗟𝗢𝗕𝗔𝗟 𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘 𝗗𝗘𝗟𝗘𝗧𝗜𝗢𝗡</b>\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Deleted ${totalDeleted} items total\n\n📋 Tasks: ${tasksResult.deletedCount}\n📜 History: ${historyResult.deletedCount}\n🗒️ Notes: ${notesResult.deletedCount}\n\n${(tasks.length + history.length + notes.length) > 0 ? '📁 Backup files sent!\n' : ''}━━━━━━━━━━━━━━━━━━━━`;
+        const successText = \`✅ <b>𝗚𝗟𝗢𝗕𝗔𝗟 𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘 𝗗𝗘𝗟𝗘𝗧𝗜𝗢𝗡</b>\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Deleted \${totalDeleted} items total\n\n📋 Tasks: \${tasksResult.deletedCount}\n📜 History: \${historyResult.deletedCount}\n🗒️ Notes: \${notesResult.deletedCount}\n\n\${(tasks.length + history.length + notes.length) > 0 ? '📁 Backup files sent!\n' : ''}━━━━━━━━━━━━━━━━━━━━\`;
         
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback('🔙 Back to Main Menu', 'main_menu')]
@@ -6059,10 +6066,10 @@ bot.action('delete_all_final', async (ctx) => {
         
         try {
             await bot.telegram.sendMessage(CHAT_ID,
-                `🔥 <b>𝗚𝗟𝗢𝗕𝗔𝗟 𝗔𝗟𝗟 𝗗𝗔𝗧𝗔 𝗗𝗘𝗟𝗘𝗧𝗘𝗗</b>\n` +
-                `━━━━━━━━━━━━━━━━━━━━\n` +
-                `🗑️ All ${totalDeleted} items have been deleted\n` +
-                `━━━━━━━━━━━━━━━━━━━━`,
+                \`🔥 <b>𝗚𝗟𝗢𝗕𝗔𝗟 𝗔𝗟𝗟 𝗗𝗔𝗧𝗔 𝗗𝗘𝗟𝗘𝗧𝗘𝗗</b>\n\` +
+                \`━━━━━━━━━━━━━━━━━━━━\n\` +
+                \`🗑️ All \${totalDeleted} items have been deleted\n\` +
+                \`━━━━━━━━━━━━━━━━━━━━\`,
                 { parse_mode: 'HTML' }
             );
         } catch (e) {}
@@ -6079,10 +6086,10 @@ bot.action('no_action', async (ctx) => {
 });
 
 // ==========================================
-// ⏰ HOURLY SUMMARY - MODIFIED FOR YOUR USER
+// ⏰ HALF HOURLY SUMMARY
 // ==========================================
 
-async function sendHourlySummary() {
+async function sendHalfHourlySummary() {
     try {
         const todayUTC = getTodayUTC();
         const tomorrowUTC = getTomorrowUTC();
@@ -6104,58 +6111,58 @@ async function sendHourlySummary() {
             }).sort({ orderIndex: 1, nextOccurrence: 1 }).toArray()
         ]);
         
-        let summaryText = `
+        let summaryText = \`
 🕰️ <b>𝗚𝗟𝗢𝗕𝗔𝗟 𝗛𝗔𝗟𝗙 𝗛𝗢𝗨𝗥𝗟𝗬 𝗦𝗨𝗠𝗠𝗔𝗥𝗬</b>
-⏰ ${formatTimeUTC(new Date())} UTC ‧ 📅 ${formatDateUTC(new Date())}
+⏰ \${formatTimeUTC(new Date())} UTC ‧ 📅 \${formatDateUTC(new Date())}
 ━━━━━━━━━━━━━━━━━━━━
-✅ <b>𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘𝗗 𝗧𝗢𝗗𝗔𝗬:</b> (${completedTasks.length} task${completedTasks.length !== 1 ? 's' : ''})`;
-        
+✅ <b>𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘𝗗 𝗧𝗢𝗗𝗔𝗬:</b> (\${completedTasks.length} task\${completedTasks.length !== 1 ? 's' : ''})\`;
+
         if (completedTasks.length > 0) {
             completedTasks.slice(0, 5).forEach((task, index) => {
-                summaryText += `\n${index + 1}‧ ${task.title} ‧ ${formatTimeUTC(task.completedAt)} UTC`;
+                summaryText += \`\n\${index + 1}‧ \${task.title} ‧ \${formatTimeUTC(task.completedAt)} UTC\`;
             });
             if (completedTasks.length > 5) {
-                summaryText += `\n...and ${completedTasks.length - 5} more`;
+                summaryText += \`\n...and \${completedTasks.length - 5} more\`;
             }
         } else {
-            summaryText += `\n📭 No tasks completed yet.`;
+            summaryText += \`\n📭 No tasks completed yet.\`;
         }
         
-        summaryText += `\n\n⏳ <b>𝗣𝗘𝗡𝗗𝗜𝗡𝗚 𝗧𝗢𝗗𝗔𝗬:</b> (${pendingTasks.length} task${pendingTasks.length !== 1 ? 's' : ''})`;
+        summaryText += \`\n\n⏳ <b>𝗣𝗘𝗡𝗗𝗜𝗡𝗚 𝗧𝗢𝗗𝗔𝗬:</b> (\${pendingTasks.length} task\${pendingTasks.length !== 1 ? 's' : ''})\`;
         
         if (pendingTasks.length > 0) {
             pendingTasks.slice(0, 5).forEach((task, index) => {
-                summaryText += `\n${index + 1}‧ ${task.title} ‧ ${formatTimeUTC(task.nextOccurrence)} UTC`;
+                summaryText += \`\n\${index + 1}‧ \${task.title} ‧ \${formatTimeUTC(task.nextOccurrence)} UTC\`;
             });
             if (pendingTasks.length > 5) {
-                summaryText += `\n...and ${pendingTasks.length - 5} more`;
+                summaryText += \`\n...and \${pendingTasks.length - 5} more\`;
             }
         } else {
-            summaryText += `\n📭 No pending tasks for today`;
+            summaryText += \`\n📭 No pending tasks for today\`;
         }
         
-        summaryText += `\n━━━━━━━━━━━━━━━━━━━━\n⏰ Next update in 30 minutes`;
+        summaryText += \`\n━━━━━━━━━━━━━━━━━━━━\n⏰ Next update in 30 minutes\`;
         
         try {
             await bot.telegram.sendMessage(CHAT_ID, summaryText, { parse_mode: 'HTML' });
         } catch (e) {
-            console.error('Error sending hourly summary:', e.message);
+            console.error('Error sending half-hourly summary:', e.message);
         }
         
     } catch (error) {
-        console.error('Error generating hourly summary:', error.message);
+        console.error('Error generating half-hourly summary:', error.message);
     }
 }
 
-function scheduleHourlySummary() {
+function scheduleHalfHourlySummary() {
     if (hourlySummaryJob) {
         hourlySummaryJob.cancel();
     }
     
     hourlySummaryJob = schedule.scheduleJob('*/30 * * * *', async () => {
         if (isShuttingDown) return;
-        console.log(`⏰ Sending global hourly summaries at ${formatTimeUTC(new Date())} UTC...`);
-        await sendHourlySummary();
+        console.log(\`⏰ Sending global half-hourly summaries at \${formatTimeUTC(new Date())} UTC...\`);
+        await sendHalfHourlySummary();
     });
     
     console.log('✅ Global half-hourly summary scheduler started');
@@ -6169,20 +6176,20 @@ async function start() {
     try {
         if (await connectDB()) {
             await rescheduleAllPending();
-            scheduleHourlySummary();
+            scheduleHalfHourlySummary();
             scheduleAutoComplete();
             
             // Start Express server
             const server = app.listen(PORT, '0.0.0.0', () => {
-                console.log(`🌐 Web interface running on port ${PORT}`);
-                console.log(`📱 Web URL: http://localhost:${PORT}`);
-                console.log(`🌍 Public Web URL: ${WEB_APP_URL}`);
+                console.log(\`🌐 Web interface running on port \${PORT}\`);
+                console.log(\`📱 Web URL: http://localhost:\${PORT}\`);
+                console.log(\`🌍 Public Web URL: \${WEB_APP_URL}\`);
             }).on('error', (err) => {
                 if (err.code === 'EADDRINUSE') {
-                    console.error(`❌ Port ${PORT} is already in use. Trying port ${PORT + 1}...`);
+                    console.error(\`❌ Port \${PORT} is already in use. Trying port \${PORT + 1}...\`);
                     app.listen(PORT + 1, '0.0.0.0', () => {
-                        console.log(`🌐 Web interface running on port ${PORT + 1}`);
-                        console.log(`📱 Web URL: http://localhost:${PORT + 1}`);
+                        console.log(\`🌐 Web interface running on port \${PORT + 1}\`);
+                        console.log(\`📱 Web URL: http://localhost:\${PORT + 1}\`);
                     });
                 } else {
                     console.error('❌ Express server error:', err);
@@ -6192,9 +6199,9 @@ async function start() {
             // Start Telegram bot
             await bot.launch();
             console.log('🤖 Bot Started Successfully!');
-            console.log(`👤 Bot only responding to user ID: ${CHAT_ID}`);
-            console.log(`⏰ Current UTC Time: ${formatTimeUTC(new Date())}`);
-            console.log(`📊 Currently tracking ${activeSchedules.size} tasks`);
+            console.log(\`👤 Bot only responding to user ID: \${CHAT_ID}\`);
+            console.log(\`⏰ Current UTC Time: \${formatTimeUTC(new Date())}\`);
+            console.log(\`📊 Currently tracking \${activeSchedules.size} tasks\`);
             
             // Send initial summary
             setTimeout(async () => {
@@ -6208,11 +6215,11 @@ async function start() {
                     
                     if (tasks.length > 0) {
                         await bot.telegram.sendMessage(CHAT_ID,
-                            `📋 <b>𝗧𝗢𝗗𝗔𝗬'𝗦 𝗚𝗟𝗢𝗕𝗔𝗟 𝗧𝗔𝗦𝗞𝗦</b>\n` +
-                            `━━━━━━━━━━━━━━━━━━━━\n` +
-                            `📊 Total: ${tasks.length} task${tasks.length !== 1 ? 's' : ''}\n` +
-                            `📅 ${formatDateUTC(new Date())} UTC\n` +
-                            `━━━━━━━━━━━━━━━━━━━━`,
+                            \`📋 <b>𝗧𝗢𝗗𝗔𝗬'𝗦 𝗚𝗟𝗢𝗕𝗔𝗟 𝗧𝗔𝗦𝗞𝗦</b>\n\` +
+                            \`━━━━━━━━━━━━━━━━━━━━\n\` +
+                            \`📊 Total: \${tasks.length} task\${tasks.length !== 1 ? 's' : ''}\n\` +
+                            \`📅 \${formatDateUTC(new Date())} UTC\n\` +
+                            \`━━━━━━━━━━━━━━━━━━━━\`,
                             { parse_mode: 'HTML' }
                         );
                     }
@@ -6238,7 +6245,7 @@ function gracefulShutdown(signal) {
     if (isShuttingDown) return;
     isShuttingDown = true;
     
-    console.log(`🛑 ${signal} received, stopping bot gracefully...`);
+    console.log(\`🛑 \${signal} received, stopping bot gracefully...\`);
     
     // Cancel all scheduled jobs
     for (const [taskId, schedule] of activeSchedules) {
@@ -6246,7 +6253,7 @@ function gracefulShutdown(signal) {
             if (schedule.startJob) schedule.startJob.cancel();
             if (schedule.interval) clearInterval(schedule.interval);
         } catch (e) {
-            console.error(`Error cleaning up task ${taskId}:`, e.message);
+            console.error(\`Error cleaning up task \${taskId}:\`, e.message);
         }
     }
     
