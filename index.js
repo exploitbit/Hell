@@ -12,7 +12,7 @@ const fs = require('fs');
 const BOT_TOKEN = '8388773187:AAGeJLg_0U2qj9sg9awJ9aQVdF9klxEiRw4';
 const MONGODB_URI = 'mongodb+srv://sandip:9E9AISFqTfU3VI5i@cluster0.p8irtov.mongodb.net/telegram_bot';
 const PORT = process.env.PORT || 3000;
-const WEB_APP_URL = 'https://web-production-e5ea9.up.railway.app';
+const WEB_APP_URL = 'https://task-manager-bot.up.railway.app';
 const CHAT_ID = 8469993808; // Your specific user ID - now only sends to you
 
 // Initialize Express app
