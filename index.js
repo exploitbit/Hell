@@ -1,6 +1,11 @@
 const { Telegraf, session, Markup } = require('telegraf');
 const { MongoClient, ObjectId } = require('mongodb');
 const schedule = require('node-schedule');
+const express = require('express');
+const path = require('path');
+const session = require('express-session');
+const MongoStore = require('connect-mongo');
+const bodyParser = require('body-parser');
 require('dotenv').config();
 
 // ==========================================
@@ -8,8 +13,11 @@ require('dotenv').config();
 // ==========================================
 const BOT_TOKEN = process.env.BOT_TOKEN || 'YOUR_BOT_TOKEN_HERE';
 const MONGODB_URI = process.env.MONGODB_URI || 'YOUR_MONGODB_URI_HERE';
+const PORT = process.env.PORT || 3000;
+const APP_URL = process.env.APP_URL || `https://your-app.railway.app`;
 
 const bot = new Telegraf(BOT_TOKEN);
+const app = express();
 
 // MongoDB Client
 const client = new MongoClient(MONGODB_URI, {
@@ -20,16 +28,11 @@ const client = new MongoClient(MONGODB_URI, {
 let db;
 // Map to store active jobs: key = taskId, value = { startJob, interval }
 const activeSchedules = new Map();
-// For hourly summary job
 let hourlySummaryJob = null;
-// For auto-complete job at 23:59 IST
 let autoCompleteJob = null;
 
-// Initialize Session
-bot.use(session());
-
 // ==========================================
-// 🛠️ TIMEZONE UTILITY FUNCTIONS - FIXED
+// 🛠️ TIMEZONE UTILITY FUNCTIONS - IST FIXED
 // ==========================================
 
 // IST is UTC+5:30
@@ -45,9 +48,7 @@ const IST_OFFSET = 5.5 * 60 * 60 * 1000; // 5.5 hours in milliseconds
  * @returns {Date} UTC Date object
  */
 function istToUtc(year, month, day, hour = 0, minute = 0) {
-    // Create date in IST
     const istDate = new Date(year, month - 1, day, hour, minute, 0);
-    // Convert to UTC by subtracting offset
     return new Date(istDate.getTime() - IST_OFFSET);
 }
 
@@ -62,7 +63,6 @@ function utcToIst(utcDate) {
 
 /**
  * Get current time in IST as Date object
- * @returns {Date} Current IST Date object
  */
 function getCurrentIST() {
     const now = new Date();
@@ -137,7 +137,6 @@ function isSameDay(utcDate1, utcDate2) {
 function getTodayIST_UTC() {
     const istNow = getCurrentIST();
     istNow.setHours(0, 0, 0, 0);
-    // Convert IST midnight to UTC
     return new Date(istNow.getTime() - IST_OFFSET);
 }
 
@@ -158,6 +157,27 @@ function getCurrentISTDateOnly() {
     const istNow = getCurrentIST();
     istNow.setHours(0, 0, 0, 0);
     return istNow;
+}
+
+/**
+ * Calculate duration in minutes between start and end time (IST)
+ */
+function calculateDurationMinutes(startUTC, endUTC) {
+    const startIST = utcToIst(startUTC);
+    const endIST = utcToIst(endUTC);
+    return (endIST.getHours() * 60 + endIST.getMinutes()) - (startIST.getHours() * 60 + startIST.getMinutes());
+}
+
+/**
+ * Format duration for display
+ */
+function formatDuration(minutes) {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    if (hours > 0) {
+        return `${hours}h ${mins}m`;
+    }
+    return `${mins}m`;
 }
 
 // Generate ID
@@ -231,45 +251,37 @@ async function connectDB() {
 }
 
 // ==========================================
-// ⏰ SCHEDULER LOGIC - WORKS IN UTC
+// ⏰ SCHEDULER LOGIC
 // ==========================================
 
 function scheduleTask(task) {
     try {
         const taskId = task.taskId;
         const userId = task.userId;
-        const startTime = new Date(task.startDate); // Already UTC
-        const now = new Date(); // UTC now
+        const startTime = new Date(task.startDate);
+        const now = new Date();
 
-        // 1. Clear existing schedules
         cancelTaskSchedule(taskId);
 
-        // Skip if task start time has passed
         if (startTime <= now) {
             console.log(`⏰ Skipping task ${task.title} - start time has passed`);
             return;
         }
 
-        // 2. Calculate notification start time (10 mins before) in UTC
         const notifyTime = new Date(startTime.getTime() - 10 * 60000);
-        
-        // If notify time is in the past, start immediately
         const triggerDate = notifyTime > now ? notifyTime : now;
 
-        console.log(`⏰ Scheduled: ${task.title} for ${formatDateTime(startTime)} (UTC: ${startTime.toISOString()})`);
+        console.log(`⏰ Scheduled: ${task.title} for ${formatDateTime(startTime)}`);
 
-        // Schedule the main notification job
         const startJob = schedule.scheduleJob(triggerDate, async function() {
             console.log(`🔔 Starting notifications for task: ${task.title}`);
             
             let count = 0;
             const maxNotifications = 10;
             
-            // Send first notification immediately
             const sendNotification = async () => {
-                const currentTime = new Date(); // UTC
+                const currentTime = new Date();
                 
-                // Stop if task started or max notifications reached
                 if (currentTime >= startTime || count >= maxNotifications) {
                     const activeSchedule = activeSchedules.get(taskId);
                     if (activeSchedule && activeSchedule.interval) {
@@ -277,7 +289,6 @@ function scheduleTask(task) {
                         activeSchedule.interval = null;
                     }
                     
-                    // Send final "task started" message
                     if (currentTime >= startTime) {
                         try {
                             await bot.telegram.sendMessage(userId, 
@@ -290,7 +301,6 @@ function scheduleTask(task) {
                             console.error('Error sending start message:', e);
                         }
                     }
-                    
                     return;
                 }
 
@@ -303,7 +313,7 @@ function scheduleTask(task) {
                         `━━━━━━━━━━━━━━━━━━━━\n` +
                         `📌 <b>${task.title}</b>\n` +
                         `⏳ Starts in: <b>${minutesLeft} minute${minutesLeft !== 1 ? 's' : ''}</b>\n` +
-                        `⏰ Start Time: ${formatTime(startTime)}\n` +
+                        `⏰ Start Time: ${formatTime(startTime)} IST\n` +
                         `📅 Date: ${formatDate(startTime)}\n` +
                         `━━━━━━━━━━━━━━━━━━━━`, 
                         { parse_mode: 'HTML' }
@@ -316,13 +326,10 @@ function scheduleTask(task) {
                 count++;
             };
 
-            // Send first notification immediately
             await sendNotification();
             
-            // Set up interval for remaining notifications (every minute)
             const interval = setInterval(sendNotification, 60000);
             
-            // Store the interval in active schedules
             if (activeSchedules.has(taskId)) {
                 activeSchedules.get(taskId).interval = interval;
             } else {
@@ -330,7 +337,6 @@ function scheduleTask(task) {
             }
         });
 
-        // Store the job
         if (activeSchedules.has(taskId)) {
             activeSchedules.get(taskId).startJob = startJob;
         } else {
@@ -383,7 +389,6 @@ async function autoCompletePendingTasks() {
         const todayUTC = getTodayIST_UTC();
         const tomorrowUTC = getTomorrowIST_UTC();
         
-        // Find all pending tasks scheduled for today (in IST)
         const pendingTasks = await db.collection('tasks').find({
             status: 'pending',
             nextOccurrence: {
@@ -408,11 +413,9 @@ async function autoCompleteTask(task) {
     try {
         const taskId = task.taskId;
         
-        // Get current UTC time for completedAt
         const completedAtUTC = new Date();
         const completedDateIST = getCurrentISTDateOnly();
         
-        // Create history entry
         const historyItem = {
             ...task,
             _id: undefined,
@@ -426,10 +429,8 @@ async function autoCompleteTask(task) {
         
         await db.collection('history').insertOne(historyItem);
         
-        // Stop notifications
         cancelTaskSchedule(taskId);
         
-        // Handle repetition
         if (task.repeat !== 'none' && task.repeatCount > 0) {
             const nextOccurrence = new Date(task.nextOccurrence);
             const daysToAdd = task.repeat === 'weekly' ? 7 : 1;
@@ -450,17 +451,15 @@ async function autoCompleteTask(task) {
                 scheduleTask(updatedTask);
             }
         } else {
-            // Not repeating -> delete from active tasks
             await db.collection('tasks').deleteOne({ taskId });
         }
         
-        // Notify user
         try {
             await bot.telegram.sendMessage(task.userId,
                 `⏰ <b>𝗔𝗨𝗧𝗢-𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘𝗗 𝗧𝗔𝗦𝗞</b>\n` +
                 `━━━━━━━━━━━━━━━━━━━━\n` +
                 `📌 <b>${task.title}</b>\n` +
-                `✅ Automatically completed at 23:59\n` +
+                `✅ Automatically completed at 23:59 IST\n` +
                 `📅 ${formatDate(completedAtUTC)}\n` +
                 `━━━━━━━━━━━━━━━━━━━━`,
                 { parse_mode: 'HTML' }
@@ -475,17 +474,12 @@ async function autoCompleteTask(task) {
 }
 
 function scheduleAutoComplete() {
-    // Cancel existing job if any
     if (autoCompleteJob) {
         autoCompleteJob.cancel();
     }
-    
-    // Schedule at 23:59 IST daily (UTC: 23:59 - 5:30 = 18:29)
-    // Cron expression: 29 18 * * *
     autoCompleteJob = schedule.scheduleJob('29 18 * * *', async () => {
         await autoCompletePendingTasks();
     });
-    
     console.log('✅ Auto-complete scheduler started (23:59 IST = 18:29 UTC daily)');
 }
 
@@ -498,7 +492,6 @@ async function sendHourlySummary(userId) {
         const todayUTC = getTodayIST_UTC();
         const tomorrowUTC = getTomorrowIST_UTC();
         
-        // Get completed tasks today (in IST)
         const completedTasks = await db.collection('history').find({
             userId: userId,
             completedAt: {
@@ -507,7 +500,6 @@ async function sendHourlySummary(userId) {
             }
         }).sort({ completedAt: 1 }).toArray();
         
-        // Get pending tasks for today (in IST)
         const pendingTasks = await db.collection('tasks').find({
             userId: userId,
             status: 'pending',
@@ -519,13 +511,13 @@ async function sendHourlySummary(userId) {
         
         let summaryText = `
 🕰️ <b>𝗛𝗔𝗟𝗙 𝗛𝗢𝗨𝗥𝗟𝗬 𝗦𝗨𝗠𝗠𝗔𝗥𝗬</b>
-⏰ ${getCurrentISTTimeString()} ‧ 📅 ${formatDate(new Date())}
+⏰ ${getCurrentISTTimeString()} IST ‧ 📅 ${formatDate(new Date())}
 ━━━━━━━━━━━━━━━━━━━━
 ✅ <b>𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘𝗗 𝗧𝗢𝗗𝗔𝗬:</b> (${completedTasks.length} task${completedTasks.length !== 1 ? 's' : ''})`;
         
         if (completedTasks.length > 0) {
             completedTasks.forEach((task, index) => {
-                summaryText += `\n${index + 1}‧ ${task.title} ‧ ${formatTime(task.completedAt)}`;
+                summaryText += `\n${index + 1}‧ ${task.title} ‧ ${formatTime(task.completedAt)} IST`;
             });
         } else {
             summaryText += `\n📭 No tasks completed yet.`;
@@ -535,7 +527,7 @@ async function sendHourlySummary(userId) {
         
         if (pendingTasks.length > 0) {
             pendingTasks.forEach((task, index) => {
-                summaryText += `\n${index + 1}‧ ${task.title} ‧ ${formatTime(task.nextOccurrence)}`;
+                summaryText += `\n${index + 1}‧ ${task.title} ‧ ${formatTime(task.nextOccurrence)} IST`;
             });
         } else {
             summaryText += `\n📭 No pending tasks for today`;
@@ -577,8 +569,11 @@ function scheduleHourlySummary() {
 }
 
 // ==========================================
-// 📱 MAIN MENU & START
+// 🚀 TELEGRAM BOT CODE
 // ==========================================
+
+// Initialize Session
+bot.use(session());
 
 bot.command('start', async (ctx) => {
     ctx.session = {}; 
@@ -586,13 +581,17 @@ bot.command('start', async (ctx) => {
 ┌─━━━━━━━━━━━━━━━─┐
 │    ✧ 𝗧𝗔𝗦𝗞 𝗠𝗔𝗡𝗔𝗚𝗘𝗥 ✧    │ 
 └─━━━━━━━━━━━━━━━─┘
-⏰ Current Time: ${getCurrentISTTimeString()} 
+⏰ Current Time: ${getCurrentISTTimeString()} IST
 📅 Today: ${formatDate(new Date())}
 
-🌟 <b>Welcome to Task Manager!</b>`;
+🌟 <b>Welcome to Task Manager!</b>
+
+Use the buttons below or access the web app:
+🌐 <a href="${APP_URL}">Open Mini App</a>`;
 
     const keyboard = Markup.inlineKeyboard([
         [Markup.button.callback('📋 Today\'s Tasks', 'view_today_tasks_1')],
+        [Markup.button.webApp('🌐 Open Mini App', APP_URL)],
         [
             Markup.button.callback('➕ Add Task', 'add_task'),
             Markup.button.callback('📝 Add Note', 'add_note')
@@ -611,7 +610,10 @@ bot.command('start', async (ctx) => {
         ]
     ]);
 
-    await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard.reply_markup });
+    await ctx.reply(text, { 
+        parse_mode: 'HTML', 
+        reply_markup: keyboard.reply_markup 
+    });
 });
 
 bot.action('main_menu', async (ctx) => {
@@ -623,13 +625,14 @@ async function showMainMenu(ctx) {
 ┌─━━━━━━━━━━━━━━━─┐
 │    ✧ 𝗧𝗔𝗦𝗞 𝗠𝗔𝗡𝗔𝗚𝗘𝗥 ✧    │ 
 └─━━━━━━━━━━━━━━━─┘
-⏰ Current Time: ${getCurrentISTTimeString()} 
+⏰ Current Time: ${getCurrentISTTimeString()} IST
 📅 Today: ${formatDate(new Date())}
 
 🌟 <b>Select an option:</b>`;
 
     const keyboard = Markup.inlineKeyboard([
         [Markup.button.callback('📋 Today\'s Tasks', 'view_today_tasks_1')],
+        [Markup.button.webApp('🌐 Open Mini App', APP_URL)],
         [
             Markup.button.callback('➕ Add Task', 'add_task'),
             Markup.button.callback('📝 Add Note', 'add_note')
@@ -732,7 +735,7 @@ Select a task to view details:`;
     if (totalPages > 1) {
         const paginationRow = [];
         if (page > 1) {
-            paginationRow.push(Markup.button.callback('◀️ Back', `view_today_tasks_${page - 1}`));
+            paginationRow.push(Markup.button.callback('◀️ Previous', `view_today_tasks_${page - 1}`));
         }
         paginationRow.push(Markup.button.callback(`📄 ${page}/${totalPages}`, 'no_action'));
         if (page < totalPages) {
@@ -750,7 +753,7 @@ Select a task to view details:`;
 });
 
 // ==========================================
-// ➕ ADD TASK WIZARD - FIXED TIMEZONE
+// ➕ ADD TASK WIZARD
 // ==========================================
 
 bot.action('add_task', async (ctx) => {
@@ -759,7 +762,7 @@ bot.action('add_task', async (ctx) => {
         taskId: generateId(10), 
         userId: ctx.from.id,
         status: 'pending',
-        createdAt: new Date(), // UTC
+        createdAt: new Date(),
         subtasks: []
     };
     
@@ -774,7 +777,7 @@ bot.action('add_note', async (ctx) => {
     ctx.session.note = { 
         noteId: generateId(8), 
         userId: ctx.from.id,
-        createdAt: new Date() // UTC
+        createdAt: new Date()
     };
     
     const text = `📝 <b>𝗖𝗥𝗘𝗔𝗧𝗘 𝗡𝗘𝗪 𝗡𝗢𝗧𝗘</b>\n━━━━━━━━━━━━━━━━━━━━\nEnter the <b>Title</b> for your note:`;
@@ -784,7 +787,7 @@ bot.action('add_note', async (ctx) => {
 });
 
 // ==========================================
-// 📨 TEXT INPUT HANDLER - FIXED TIMEZONE
+// 📨 TEXT INPUT HANDLER
 // ==========================================
 
 bot.on('text', async (ctx) => {
@@ -825,7 +828,6 @@ bot.on('text', async (ctx) => {
         
         const [day, month, year] = text.split('-').map(Number);
         
-        // Validate date in IST
         const istNow = getCurrentIST();
         const inputIST = new Date(year, month - 1, day);
         
@@ -842,7 +844,7 @@ bot.on('text', async (ctx) => {
         await ctx.reply(
             `⏰ <b>𝗦𝗘𝗟𝗘𝗖𝗧 𝗦𝗧𝗔𝗥𝗧 𝗧𝗜𝗠𝗘</b>\n` +
             `━━━━━━━━━━━━━━━━━━━━\n` +
-            `🕒 Current Time: ${getCurrentISTTimeString()}\n` +
+            `🕒 Current Time: ${getCurrentISTTimeString()} IST\n` +
             `📝 <i>Enter start time in HH:MM (IST, 24-hour):</i>`,
             { parse_mode: 'HTML' }
         );
@@ -855,10 +857,8 @@ bot.on('text', async (ctx) => {
         const [h, m] = text.split(':').map(Number);
         const { year, month, day } = ctx.session.task;
         
-        // Convert IST input to UTC for storage
         const startDateUTC = istToUtc(year, month, day, h, m);
         
-        // Check if time is in the past for today's date (IST comparison)
         const istNow = getCurrentIST();
         const startDateIST = utcToIst(startDateUTC);
         
@@ -872,43 +872,48 @@ bot.on('text', async (ctx) => {
         }
         
         ctx.session.task.startDate = startDateUTC;
-        ctx.session.task.startTimeStr = text; // Store IST string for display
+        ctx.session.task.startTimeStr = text;
         ctx.session.task.nextOccurrence = startDateUTC;
-        ctx.session.step = 'task_end';
+        ctx.session.step = 'task_duration';
         
         await ctx.reply(
-            `🏁 <b>𝗦𝗘𝗟𝗘𝗖𝗧 𝗘𝗡𝗗 𝗧𝗜𝗠𝗘</b>\n` +
+            `⏱️ <b>𝗦𝗘𝗟𝗘𝗖𝗧 𝗗𝗨𝗥𝗔𝗧𝗜𝗢𝗡</b>\n` +
             `━━━━━━━━━━━━━━━━━━━━\n` +
             `⏰ Start Time: ${text} IST\n` +
-            `📝 <i>End time must be after start time and before 23:59 IST</i>\n` +
-            `📝 Enter end time in 24-hour format (HH:MM):`,
+            `📝 <i>Enter duration in minutes (e.g., 60 for 1 hour, 30 for 30 minutes):</i>`,
             { parse_mode: 'HTML' }
         );
     }
-    else if (step === 'task_end') {
-        if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(text)) {
-            return ctx.reply('❌ Invalid format. Use HH:MM (24-hour).');
+    else if (step === 'task_duration') {
+        const duration = parseInt(text);
+        if (isNaN(duration) || duration < 1 || duration > 1440) {
+            return ctx.reply('❌ Please enter a valid number between 1 and 1440 minutes.');
         }
         
-        const [eh, em] = text.split(':').map(Number);
-        
-        if (eh > 23 || (eh === 23 && em > 59)) {
-            return ctx.reply('❌ End time must be before 23:59 IST');
-        }
-        
-        const [sh, sm] = ctx.session.task.startTimeStr.split(':').map(Number);
         const { year, month, day } = ctx.session.task;
+        const [sh, sm] = ctx.session.task.startTimeStr.split(':').map(Number);
         
-        // Convert IST inputs to UTC
         const startDateUTC = istToUtc(year, month, day, sh, sm);
-        const endDateUTC = istToUtc(year, month, day, eh, em);
+        const startDateIST = utcToIst(startDateUTC);
         
-        if (endDateUTC <= startDateUTC) {
-            return ctx.reply('❌ End time must be after Start time.');
-        }
+        const endDateIST = new Date(startDateIST);
+        endDateIST.setMinutes(endDateIST.getMinutes() + duration);
+        
+        const endDateUTC = istToUtc(
+            endDateIST.getFullYear(),
+            endDateIST.getMonth() + 1,
+            endDateIST.getDate(),
+            endDateIST.getHours(),
+            endDateIST.getMinutes()
+        );
         
         ctx.session.task.endDate = endDateUTC;
-        ctx.session.task.endTimeStr = text; // Store IST string for display
+        ctx.session.task.endTimeStr = endDateIST.toLocaleTimeString('en-IN', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        });
+        ctx.session.task.duration = duration;
         ctx.session.step = null;
 
         const dayName = getDayName(startDateUTC);
@@ -918,7 +923,8 @@ bot.on('text', async (ctx) => {
             `━━━━━━━━━━━━━━━━━━━━\n` +
             `How should this task repeat?\n\n` +
             `📅 Task Date: ${formatDate(startDateUTC)} (${dayName})\n` +
-            `⏰ Time: ${ctx.session.task.startTimeStr} - ${text} IST\n\n`,
+            `⏰ Time: ${ctx.session.task.startTimeStr} - ${ctx.session.task.endTimeStr} IST\n` +
+            `⏱️ Duration: ${formatDuration(duration)}\n\n`,
             {
                 parse_mode: 'HTML',
                 ...Markup.inlineKeyboard([
@@ -957,7 +963,7 @@ bot.on('text', async (ctx) => {
         }
         
         ctx.session.note.content = text;
-        ctx.session.note.createdAt = new Date(); // UTC
+        ctx.session.note.createdAt = new Date();
         
         try {
             const highestNote = await db.collection('notes').findOne(
@@ -980,7 +986,7 @@ bot.on('text', async (ctx) => {
                 `━━━━━━━━━━━━━━━━━━━━\n` +
                 `📌 <b>${noteTitle}</b>\n` +
                 `${formatBlockquote(noteContent)}\n` +
-                `📅 Saved on: ${formatDateTime(new Date())}`,
+                `📅 Saved on: ${formatDateTime(new Date())} IST`,
                 { parse_mode: 'HTML' }
             );
             
@@ -1027,8 +1033,9 @@ bot.on('text', async (ctx) => {
         const newSubtasks = lines.map(title => ({
             id: generateId(8),
             title: title,
+            description: '', // Will be editable in mini app only
             completed: false,
-            createdAt: new Date() // UTC
+            createdAt: new Date()
         }));
         
         await db.collection('tasks').updateOne(
@@ -1081,7 +1088,7 @@ bot.on('text', async (ctx) => {
         }
     }
 
-    // --- EDIT TASK FLOW - FIXED TIMEZONE ---
+    // --- EDIT TASK FLOW ---
     else if (step === 'edit_task_title') {
         const taskId = ctx.session.editTaskId;
         if (text.length === 0) return ctx.reply('❌ Title cannot be empty.');
@@ -1149,23 +1156,27 @@ bot.on('text', async (ctx) => {
                 return ctx.reply('❌ Task not found.');
             }
             
-            // Get date from existing startDate (in UTC) and convert to IST for manipulation
             const istDate = utcToIst(task.startDate);
             const year = istDate.getFullYear();
             const month = istDate.getMonth() + 1;
             const day = istDate.getDate();
             const [h, m] = text.split(':').map(Number);
             
-            // Convert new IST input to UTC
             const newStartDateUTC = istToUtc(year, month, day, h, m);
             
-            // Check if new start time is after end time
-            if (newStartDateUTC >= task.endDate) {
-                return ctx.reply('❌ Start time must be before end time. Current end time is ' + formatTime(task.endDate));
-            }
+            const duration = task.duration || calculateDurationMinutes(task.startDate, task.endDate);
             
-            const duration = task.endDate.getTime() - task.startDate.getTime();
-            const newEndDateUTC = new Date(newStartDateUTC.getTime() + duration);
+            const newStartDateIST = utcToIst(newStartDateUTC);
+            const newEndDateIST = new Date(newStartDateIST);
+            newEndDateIST.setMinutes(newEndDateIST.getMinutes() + duration);
+            
+            const newEndDateUTC = istToUtc(
+                newEndDateIST.getFullYear(),
+                newEndDateIST.getMonth() + 1,
+                newEndDateIST.getDate(),
+                newEndDateIST.getHours(),
+                newEndDateIST.getMinutes()
+            );
             
             await db.collection('tasks').updateOne(
                 { taskId: taskId }, 
@@ -1174,7 +1185,13 @@ bot.on('text', async (ctx) => {
                         startDate: newStartDateUTC,
                         endDate: newEndDateUTC,
                         nextOccurrence: newStartDateUTC,
-                        startTimeStr: text // Store IST string
+                        startTimeStr: text,
+                        endTimeStr: newEndDateIST.toLocaleTimeString('en-IN', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: false
+                        }),
+                        duration: duration
                     } 
                 }
             );
@@ -1196,24 +1213,19 @@ bot.on('text', async (ctx) => {
             
             ctx.session.step = null;
             delete ctx.session.editTaskId;
-            await ctx.reply(`✅ <b>START TIME UPDATED!</b>\n\nEnd time adjusted to: ${formatTime(newEndDateUTC)}\nAlso updated ${result.modifiedCount} history entry${result.modifiedCount !== 1 ? 's' : ''}`, { parse_mode: 'HTML' });
+            await ctx.reply(`✅ <b>START TIME UPDATED!</b>\n\nNew end time: ${formatTime(newEndDateUTC)} IST\nDuration: ${formatDuration(duration)}\nAlso updated ${result.modifiedCount} history entry${result.modifiedCount !== 1 ? 's' : ''}`, { parse_mode: 'HTML' });
             await showTaskDetail(ctx, taskId);
         } catch (error) {
             console.error('Error updating start time:', error);
             await ctx.reply('❌ Failed to update start time.');
         }
     }
-    else if (step === 'edit_task_end') {
+    else if (step === 'edit_task_duration') {
         const taskId = ctx.session.editTaskId;
+        const duration = parseInt(text);
         
-        if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(text)) {
-            return ctx.reply('❌ Invalid Format. Use HH:MM (24-hour)');
-        }
-        
-        const [eh, em] = text.split(':').map(Number);
-        
-        if (eh > 23 || (eh === 23 && em > 59)) {
-            return ctx.reply('❌ End time must be before 23:59 IST');
+        if (isNaN(duration) || duration < 1 || duration > 1440) {
+            return ctx.reply('❌ Please enter a valid number between 1 and 1440 minutes.');
         }
         
         try {
@@ -1224,25 +1236,30 @@ bot.on('text', async (ctx) => {
                 return ctx.reply('❌ Task not found.');
             }
             
-            // Get date from existing endDate (in UTC) and convert to IST for manipulation
-            const istDate = utcToIst(task.endDate);
-            const year = istDate.getFullYear();
-            const month = istDate.getMonth() + 1;
-            const day = istDate.getDate();
+            const startDateIST = utcToIst(task.startDate);
             
-            // Convert new IST input to UTC
-            const newEndDateUTC = istToUtc(year, month, day, eh, em);
+            const newEndDateIST = new Date(startDateIST);
+            newEndDateIST.setMinutes(newEndDateIST.getMinutes() + duration);
             
-            if (newEndDateUTC <= task.startDate) {
-                return ctx.reply('❌ End time must be after start time. Current start time is ' + formatTime(task.startDate));
-            }
+            const newEndDateUTC = istToUtc(
+                newEndDateIST.getFullYear(),
+                newEndDateIST.getMonth() + 1,
+                newEndDateIST.getDate(),
+                newEndDateIST.getHours(),
+                newEndDateIST.getMinutes()
+            );
             
             await db.collection('tasks').updateOne(
                 { taskId: taskId }, 
                 { 
                     $set: { 
                         endDate: newEndDateUTC,
-                        endTimeStr: text // Store IST string
+                        endTimeStr: newEndDateIST.toLocaleTimeString('en-IN', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: false
+                        }),
+                        duration: duration
                     } 
                 }
             );
@@ -1260,11 +1277,11 @@ bot.on('text', async (ctx) => {
             
             ctx.session.step = null;
             delete ctx.session.editTaskId;
-            await ctx.reply(`✅ <b>END TIME UPDATED!</b>\n\nAlso updated ${result.modifiedCount} history entry${result.modifiedCount !== 1 ? 's' : ''}`, { parse_mode: 'HTML' });
+            await ctx.reply(`✅ <b>DURATION UPDATED!</b>\n\nNew end time: ${formatTime(newEndDateUTC)} IST\nNew duration: ${formatDuration(duration)}\nAlso updated ${result.modifiedCount} history entry${result.modifiedCount !== 1 ? 's' : ''}`, { parse_mode: 'HTML' });
             await showTaskDetail(ctx, taskId);
         } catch (error) {
-            console.error('Error updating end time:', error);
-            await ctx.reply('❌ Failed to update end time.');
+            console.error('Error updating duration:', error);
+            await ctx.reply('❌ Failed to update duration.');
         }
     }
     else if (step === 'edit_task_repeat_count') {
@@ -1329,7 +1346,7 @@ bot.on('text', async (ctx) => {
                 `━━━━━━━━━━━━━━━━━━━━\n` +
                 `📌 <b>${updatedNote.title}</b>\n` +
                 `${formatBlockquote(updatedNote.content)}\n` +
-                `📅 Updated: ${formatDateTime(new Date())}`,
+                `📅 Updated: ${formatDateTime(new Date())} IST`,
                 { parse_mode: 'HTML' }
             );
             
@@ -1364,7 +1381,7 @@ bot.on('text', async (ctx) => {
                 `━━━━━━━━━━━━━━━━━━━━\n` +
                 `📌 <b>${updatedNote.title}</b>\n` +
                 `${formatBlockquote(updatedNote.content)}\n` +
-                `📅 Updated: ${formatDateTime(new Date())}`,
+                `📅 Updated: ${formatDateTime(new Date())} IST`,
                 { parse_mode: 'HTML' }
             );
             
@@ -1421,7 +1438,7 @@ async function saveTask(ctx) {
     const nextOrderIndex = highestTask ? highestTask.orderIndex + 1 : 0;
     
     task.status = 'pending';
-    task.createdAt = new Date(); // UTC
+    task.createdAt = new Date();
     task.orderIndex = nextOrderIndex;
     task.subtasks = task.subtasks || [];
     if (!task.nextOccurrence) {
@@ -1441,6 +1458,7 @@ async function saveTask(ctx) {
 ${formatBlockquote(task.description)}
 📅 <b>Date:</b> ${formatDate(task.startDate)}
 ⏰ <b>Time:</b> ${task.startTimeStr} - ${task.endTimeStr || formatTime(task.endDate)} IST
+⏱️ <b>Duration:</b> ${formatDuration(task.duration || calculateDurationMinutes(task.startDate, task.endDate))}
 🔄 <b>Repeat:</b> ${task.repeat} (${task.repeatCount || 0} times)
 📊 <b>Status:</b> ⏳ Pending
 
@@ -1461,7 +1479,7 @@ ${formatBlockquote(task.description)}
     }
 }
 
-// --- TASK DETAILS (WITH SUBTASKS) ---
+// --- TASK DETAILS ---
 bot.action(/^task_det_(.+)$/, async (ctx) => {
     await showTaskDetail(ctx, ctx.match[1]);
 });
@@ -1481,6 +1499,7 @@ async function showTaskDetail(ctx, taskId) {
     const progress = calculateSubtaskProgress(subtasks);
     const completedSubtasks = subtasks.filter(s => s.completed).length;
     const totalSubtasks = subtasks.length;
+    const duration = task.duration || calculateDurationMinutes(task.startDate, task.endDate);
     
     let text = `
 📌 <b>𝗧𝗔𝗦𝗞 𝗗𝗘𝗧𝗔𝗜𝗟𝗦</b>
@@ -1488,8 +1507,9 @@ async function showTaskDetail(ctx, taskId) {
 🆔 <b>Task ID:</b> <code>${task.taskId}</code>
 📛 <b>Title:</b> ${task.title}
 ${formatBlockquote(task.description)}
-📅 <b>Next Occurrence:</b> ${formatDateTime(task.nextOccurrence)}
+📅 <b>Next Occurrence:</b> ${formatDateTime(task.nextOccurrence)} IST
 ⏰ <b>Time:</b> ${formatTime(task.startDate)} - ${formatTime(task.endDate)} IST
+⏱️ <b>Duration:</b> ${formatDuration(duration)}
 🔄 <b>Repeat:</b> ${task.repeat === 'none' ? 'No Repeat' : task.repeat} 
 🔢 <b>Remaining Repeats:</b> ${task.repeatCount || 0}
 🏷️ <b>Priority Order:</b> ${task.orderIndex + 1}
@@ -1535,9 +1555,8 @@ ${progressBar} ${progress}%
     actionRow.push(Markup.button.callback('✅', `complete_${taskId}`));
     
     buttons.push(actionRow);
-    
     buttons.push([
-        Markup.button.callback('📋 Tasks', 'view_today_tasks_1'),
+        Markup.button.webApp('🌐 Edit in Mini App', `${APP_URL}?task=${taskId}`),
         Markup.button.callback('🔙 Back', 'view_today_tasks_1')
     ]);
 
@@ -1569,21 +1588,23 @@ bot.action(/^subtask_det_(.+)_(.+)$/, async (ctx) => {
 🔖 <b>Subtask:</b> ${subtask.title}
 📊 <b>Status:</b> ${status}
 🆔 <b>ID:</b> <code>${subtask.id}</code>
-📅 <b>Created:</b> ${formatDateTime(subtask.createdAt)}
+📅 <b>Created:</b> ${formatDateTime(subtask.createdAt)} IST
+
+<i>📝 Description can be edited in the Mini App</i>
 ━━━━━━━━━━━━━━━━━━━━`;
 
     const buttons = [];
     
     if (!subtask.completed) {
         buttons.push([
-            Markup.button.callback('✅', `subtask_complete_${taskId}_${subtaskId}`),
-            Markup.button.callback('✏️', `subtask_edit_${taskId}_${subtaskId}`),
-            Markup.button.callback('🗑️', `subtask_delete_${taskId}_${subtaskId}`)
+            Markup.button.callback('✅ Complete', `subtask_complete_${taskId}_${subtaskId}`),
+            Markup.button.callback('✏️ Edit Title', `subtask_edit_${taskId}_${subtaskId}`),
+            Markup.button.callback('🗑️ Delete', `subtask_delete_${taskId}_${subtaskId}`)
         ]);
     } else {
         buttons.push([
-            Markup.button.callback('✏️', `subtask_edit_${taskId}_${subtaskId}`),
-            Markup.button.callback('🗑️', `subtask_delete_${taskId}_${subtaskId}`)
+            Markup.button.callback('✏️ Edit Title', `subtask_edit_${taskId}_${subtaskId}`),
+            Markup.button.callback('🗑️ Delete', `subtask_delete_${taskId}_${subtaskId}`)
         ]);
     }
     
@@ -1681,7 +1702,7 @@ bot.action(/^add_subtask_(.+)$/, async (ctx) => {
     );
 });
 
-// --- COMPLETE TASK (with subtask verification) ---
+// --- COMPLETE TASK ---
 bot.action(/^complete_(.+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     const task = await db.collection('tasks').findOne({ taskId });
@@ -1757,6 +1778,15 @@ bot.action(/^complete_(.+)$/, async (ctx) => {
 // --- EDIT MENU ---
 bot.action(/^edit_menu_(.+)$/, async (ctx) => {
     const taskId = ctx.match[1];
+    const task = await db.collection('tasks').findOne({ taskId });
+    
+    if (!task) {
+        await ctx.answerCbQuery('❌ Task not found');
+        return;
+    }
+    
+    const duration = task.duration || calculateDurationMinutes(task.startDate, task.endDate);
+    
     const text = `✏️ <b>𝗘𝗗𝗜𝗧 𝗧𝗔𝗦𝗞</b>\n━━━━━━━━━━━━━━━━━━━━\nSelect what you want to edit:`;
     const keyboard = Markup.inlineKeyboard([
         [
@@ -1765,12 +1795,13 @@ bot.action(/^edit_menu_(.+)$/, async (ctx) => {
         ],
         [
             Markup.button.callback('⏰ Start Time', `edit_task_start_${taskId}`), 
-            Markup.button.callback('🏁 End Time', `edit_task_end_${taskId}`)
+            Markup.button.callback('⏱️ Duration', `edit_task_duration_${taskId}`)
         ],
         [
             Markup.button.callback('🔄 Repeat', `edit_rep_${taskId}`), 
             Markup.button.callback('🔢 Count', `edit_task_count_${taskId}`)
         ],
+        [Markup.button.webApp('🌐 Edit in Mini App', `${APP_URL}?task=${taskId}`)],
         [Markup.button.callback('🔙 Back', `task_det_${taskId}`)]
     ]);
     
@@ -1820,13 +1851,13 @@ bot.action(/^edit_task_start_(.+)$/, async (ctx) => {
         `✏️ <b>𝗘𝗗𝗜𝗧 𝗦𝗧𝗔𝗥𝗧 𝗧𝗜𝗠𝗘</b>\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
         `Enter new start time (HH:MM, 24-hour IST):\n` +
-        `📝 Current end time: ${formatTime(task.endDate)} IST\n` +
-        `⚠️ New start time must be before end time`,
+        `📝 Current start: ${formatTime(task.startDate)} IST\n` +
+        `⚠️ Duration will be preserved`,
         Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `task_det_${taskId}`)]])
     );
 });
 
-bot.action(/^edit_task_end_(.+)$/, async (ctx) => {
+bot.action(/^edit_task_duration_(.+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     const task = await db.collection('tasks').findOne({ taskId });
     
@@ -1835,15 +1866,17 @@ bot.action(/^edit_task_end_(.+)$/, async (ctx) => {
         return showMainMenu(ctx);
     }
     
+    const currentDuration = task.duration || calculateDurationMinutes(task.startDate, task.endDate);
+    
     ctx.session.editTaskId = taskId;
-    ctx.session.step = 'edit_task_end';
+    ctx.session.step = 'edit_task_duration';
     
     await ctx.reply(
-        `✏️ <b>𝗘𝗗𝗜𝗧 𝗘𝗡𝗗 𝗧𝗜𝗠𝗘</b>\n` +
+        `✏️ <b>𝗘𝗗𝗜𝗧 𝗗𝗨𝗥𝗔𝗧𝗜𝗢𝗡</b>\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
-        `Enter new end time (HH:MM, 24-hour IST):\n` +
-        `📝 Current start time: ${formatTime(task.startDate)} IST\n` +
-        `⚠️ End time must be after start time and before 23:59 IST`,
+        `Enter new duration in minutes:\n` +
+        `📝 Current: ${formatDuration(currentDuration)} (${currentDuration} min)\n` +
+        `📝 Current end time: ${formatTime(task.endDate)} IST`,
         Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', `task_det_${taskId}`)]])
     );
 });
@@ -2459,7 +2492,7 @@ bot.action('reorder_note_save', async (ctx) => {
 });
 
 // ==========================================
-// 📜 VIEW HISTORY - WITH PAGINATION AND SUBTASKS
+// 📜 VIEW HISTORY - WITH PAGINATION
 // ==========================================
 
 bot.action(/^view_history_dates_(\d+)$/, async (ctx) => {
@@ -2568,7 +2601,7 @@ bot.action(/^hist_list_([\d-]+)_(\d+)$/, async (ctx) => {
         }
         
         return [
-            Markup.button.callback(`✅ ${taskNum}. ${taskTitle} (${formatTime(t.completedAt)})`, `hist_det_${t._id}`)
+            Markup.button.callback(`✅ ${taskNum}. ${taskTitle} (${formatTime(t.completedAt)} IST)`, `hist_det_${t._id}`)
         ];
     });
     
@@ -2603,6 +2636,7 @@ ${formatBlockquote(task.description)}
 ✅ <b>Completed At:</b> ${formatDateTime(task.completedAt)} IST
 ${task.autoCompleted ? '🤖 <b>Auto-completed at 23:59 IST</b>\n' : ''}
 ⏰ <b>Original Time:</b> ${formatTime(task.startDate)} - ${formatTime(task.endDate)} IST
+⏱️ <b>Duration:</b> ${formatDuration(task.duration || calculateDurationMinutes(task.startDate, task.endDate))}
 🔄 <b>Repeat Type:</b> ${task.repeat === 'none' ? 'No Repeat' : task.repeat}
 ━━━━━━━━━━━━━━━━━━━━
 `;
@@ -2807,7 +2841,7 @@ bot.action('download_tasks', async (ctx) => {
             source: tasksBuff,
             filename: `tasks_${userId}_${Date.now()}.json`
         }, {
-            caption: `📋 <b>Your Tasks Data</b>\nTotal: ${tasks.length} task${tasks.length !== 1 ? 's' : ''}\n📅 ${formatDateTime(new Date())}`,
+            caption: `📋 <b>Your Tasks Data</b>\nTotal: ${tasks.length} task${tasks.length !== 1 ? 's' : ''}\n📅 ${formatDateTime(new Date())} IST`,
             parse_mode: 'HTML'
         });
         
@@ -2839,7 +2873,7 @@ bot.action('download_history', async (ctx) => {
             source: histBuff,
             filename: `history_${userId}_${Date.now()}.json`
         }, {
-            caption: `📜 <b>Your History Data</b>\nTotal: ${history.length} item${history.length !== 1 ? 's' : ''}\n📅 ${formatDateTime(new Date())}`,
+            caption: `📜 <b>Your History Data</b>\nTotal: ${history.length} item${history.length !== 1 ? 's' : ''}\n📅 ${formatDateTime(new Date())} IST`,
             parse_mode: 'HTML'
         });
         
@@ -2871,7 +2905,7 @@ bot.action('download_notes', async (ctx) => {
             source: notesBuff,
             filename: `notes_${userId}_${Date.now()}.json`
         }, {
-            caption: `🗒️ <b>Your Notes Data</b>\nTotal: ${notes.length} note${notes.length !== 1 ? 's' : ''}\n📅 ${formatDateTime(new Date())}`,
+            caption: `🗒️ <b>Your Notes Data</b>\nTotal: ${notes.length} note${notes.length !== 1 ? 's' : ''}\n📅 ${formatDateTime(new Date())} IST`,
             parse_mode: 'HTML'
         });
         
@@ -2953,7 +2987,7 @@ bot.action('download_all', async (ctx) => {
             `🗒️ Notes: ${notes.length} item${notes.length !== 1 ? 's' : ''}\n` +
             `📊 Total: ${totalItems} items\n` +
             `📁 3 JSON files sent\n` +
-            `📅 ${formatDateTime(new Date())}\n━━━━━━━━━━━━━━━━━━━━`,
+            `📅 ${formatDateTime(new Date())} IST\n━━━━━━━━━━━━━━━━━━━━`,
             { parse_mode: 'HTML' }
         );
         
@@ -3236,6 +3270,363 @@ bot.action('no_action', async (ctx) => {
 });
 
 // ==========================================
+// 🌐 EXPRESS WEB APP SERVER
+// ==========================================
+
+// Express session setup
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json());
+
+app.use(session({
+    secret: process.env.SESSION_SECRET || 'task-manager-secret',
+    resave: false,
+    saveUninitialized: false,
+    store: MongoStore.create({
+        client: client,
+        dbName: 'telegram_task_bot',
+        collectionName: 'sessions'
+    }),
+    cookie: { maxAge: 1000 * 60 * 60 * 24 * 7 } // 1 week
+}));
+
+// Set view engine
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+
+// Serve static files
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Middleware to check if user is logged in via Telegram WebApp
+app.use(async (req, res, next) => {
+    // For this integrated version, we'll make it completely open
+    // No passcode required
+    next();
+});
+
+// ==========================================
+// 📊 API ROUTES - FOR MINI APP
+// ==========================================
+
+// GET / - Main dashboard
+app.get('/', async (req, res) => {
+    const userId = req.query.user_id || 'web_user';
+    const taskId = req.query.task;
+    
+    // Load data from MongoDB
+    const tasks = await db.collection('tasks').find({ userId }).sort({ orderIndex: 1 }).toArray();
+    const notes = await db.collection('notes').find({ userId }).sort({ orderIndex: 1 }).toArray();
+    const history = await db.collection('history').find({ userId }).sort({ completedAt: -1 }).limit(100).toArray();
+    
+    // Process tasks for display
+    const todayUTC = getTodayIST_UTC();
+    const tomorrowUTC = getTomorrowIST_UTC();
+    
+    const todayTasks = tasks.filter(t => 
+        t.status === 'pending' && 
+        t.nextOccurrence >= todayUTC && 
+        t.nextOccurrence < tomorrowUTC
+    );
+    
+    res.render('index', {
+        tasks: todayTasks,
+        allTasks: tasks,
+        notes: notes,
+        history: history,
+        selectedTaskId: taskId,
+        formatDate: formatDate,
+        formatTime: formatTime,
+        formatDateTime: formatDateTime,
+        formatDuration: formatDuration,
+        calculateSubtaskProgress: calculateSubtaskProgress
+    });
+});
+
+// API Routes for AJAX operations
+app.post('/api/tasks/complete', async (req, res) => {
+    try {
+        const { taskId, userId } = req.body;
+        const task = await db.collection('tasks').findOne({ taskId });
+        
+        if (!task) {
+            return res.status(404).json({ error: 'Task not found' });
+        }
+        
+        const completedAtUTC = new Date();
+        const completedDateIST = getCurrentISTDateOnly();
+        
+        const historyItem = {
+            ...task,
+            _id: undefined,
+            completedAt: completedAtUTC,
+            completedDate: completedDateIST,
+            originalTaskId: task.taskId,
+            status: 'completed',
+            completedFromDate: task.nextOccurrence,
+            subtasks: task.subtasks
+        };
+        
+        await db.collection('history').insertOne(historyItem);
+        
+        cancelTaskSchedule(taskId);
+        
+        if (task.repeat !== 'none' && task.repeatCount > 0) {
+            const nextOccurrence = new Date(task.nextOccurrence);
+            const daysToAdd = task.repeat === 'weekly' ? 7 : 1;
+            nextOccurrence.setDate(nextOccurrence.getDate() + daysToAdd);
+            
+            const resetSubtasks = (task.subtasks || []).map(s => ({
+                ...s,
+                completed: false
+            }));
+            
+            await db.collection('tasks').updateOne({ taskId }, {
+                $set: {
+                    nextOccurrence: nextOccurrence,
+                    repeatCount: task.repeatCount - 1,
+                    startDate: nextOccurrence,
+                    endDate: new Date(nextOccurrence.getTime() + 
+                        (task.endDate.getTime() - task.startDate.getTime())),
+                    subtasks: resetSubtasks
+                }
+            });
+            
+            const updatedTask = await db.collection('tasks').findOne({ taskId });
+            
+            if (updatedTask.nextOccurrence > new Date()) {
+                scheduleTask(updatedTask);
+            }
+        } else {
+            await db.collection('tasks').deleteOne({ taskId });
+        }
+        
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error completing task:', error);
+        res.status(500).json({ error: 'Failed to complete task' });
+    }
+});
+
+app.post('/api/tasks/update', async (req, res) => {
+    try {
+        const { taskId, title, description, startDate, startTime, duration, repeat, repeatCount } = req.body;
+        
+        const task = await db.collection('tasks').findOne({ taskId });
+        if (!task) {
+            return res.status(404).json({ error: 'Task not found' });
+        }
+        
+        const updates = {};
+        
+        if (title) updates.title = title;
+        if (description !== undefined) updates.description = description;
+        
+        if (startDate && startTime) {
+            const [year, month, day] = startDate.split('-').map(Number);
+            const [h, m] = startTime.split(':').map(Number);
+            const newStartDateUTC = istToUtc(year, month, day, h, m);
+            updates.startDate = newStartDateUTC;
+            updates.nextOccurrence = newStartDateUTC;
+            updates.startTimeStr = startTime;
+            
+            if (duration) {
+                const startDateIST = utcToIst(newStartDateUTC);
+                const newEndDateIST = new Date(startDateIST);
+                newEndDateIST.setMinutes(newEndDateIST.getMinutes() + parseInt(duration));
+                
+                updates.endDate = istToUtc(
+                    newEndDateIST.getFullYear(),
+                    newEndDateIST.getMonth() + 1,
+                    newEndDateIST.getDate(),
+                    newEndDateIST.getHours(),
+                    newEndDateIST.getMinutes()
+                );
+                updates.endTimeStr = newEndDateIST.toLocaleTimeString('en-IN', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false
+                });
+                updates.duration = parseInt(duration);
+            }
+        }
+        
+        if (repeat) updates.repeat = repeat;
+        if (repeatCount !== undefined) updates.repeatCount = parseInt(repeatCount);
+        
+        if (Object.keys(updates).length > 0) {
+            await db.collection('tasks').updateOne({ taskId }, { $set: updates });
+            
+            await db.collection('history').updateMany(
+                { originalTaskId: taskId },
+                { $set: updates }
+            );
+            
+            if (updates.startDate || updates.endDate || updates.duration) {
+                const updatedTask = await db.collection('tasks').findOne({ taskId });
+                scheduleTask(updatedTask);
+            }
+        }
+        
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error updating task:', error);
+        res.status(500).json({ error: 'Failed to update task' });
+    }
+});
+
+app.post('/api/subtasks/add', async (req, res) => {
+    try {
+        const { taskId, title, description } = req.body;
+        
+        const task = await db.collection('tasks').findOne({ taskId });
+        if (!task) {
+            return res.status(404).json({ error: 'Task not found' });
+        }
+        
+        const currentSubtasks = task.subtasks || [];
+        if (currentSubtasks.length >= 10) {
+            return res.status(400).json({ error: 'Maximum subtasks limit (10) reached' });
+        }
+        
+        const newSubtask = {
+            id: generateId(8),
+            title: title,
+            description: description || '',
+            completed: false,
+            createdAt: new Date()
+        };
+        
+        await db.collection('tasks').updateOne(
+            { taskId },
+            { $push: { subtasks: newSubtask } }
+        );
+        
+        res.json({ success: true, subtask: newSubtask });
+    } catch (error) {
+        console.error('Error adding subtask:', error);
+        res.status(500).json({ error: 'Failed to add subtask' });
+    }
+});
+
+app.post('/api/subtasks/update', async (req, res) => {
+    try {
+        const { taskId, subtaskId, title, description, completed } = req.body;
+        
+        const updates = {};
+        if (title !== undefined) updates["subtasks.$.title"] = title;
+        if (description !== undefined) updates["subtasks.$.description"] = description;
+        if (completed !== undefined) updates["subtasks.$.completed"] = completed;
+        
+        await db.collection('tasks').updateOne(
+            { taskId, "subtasks.id": subtaskId },
+            { $set: updates }
+        );
+        
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error updating subtask:', error);
+        res.status(500).json({ error: 'Failed to update subtask' });
+    }
+});
+
+app.post('/api/subtasks/delete', async (req, res) => {
+    try {
+        const { taskId, subtaskId } = req.body;
+        
+        await db.collection('tasks').updateOne(
+            { taskId },
+            { $pull: { subtasks: { id: subtaskId } } }
+        );
+        
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error deleting subtask:', error);
+        res.status(500).json({ error: 'Failed to delete subtask' });
+    }
+});
+
+app.post('/api/notes/add', async (req, res) => {
+    try {
+        const { userId, title, description } = req.body;
+        
+        const highestNote = await db.collection('notes').findOne(
+            { userId },
+            { sort: { orderIndex: -1 } }
+        );
+        const nextOrderIndex = highestNote ? highestNote.orderIndex + 1 : 0;
+        
+        const newNote = {
+            noteId: generateId(8),
+            userId: userId,
+            title: title,
+            content: description || '',
+            orderIndex: nextOrderIndex,
+            createdAt: new Date(),
+            updatedAt: new Date()
+        };
+        
+        await db.collection('notes').insertOne(newNote);
+        
+        res.json({ success: true, note: newNote });
+    } catch (error) {
+        console.error('Error adding note:', error);
+        res.status(500).json({ error: 'Failed to add note' });
+    }
+});
+
+app.post('/api/notes/update', async (req, res) => {
+    try {
+        const { noteId, title, description } = req.body;
+        
+        const updates = {
+            updatedAt: new Date()
+        };
+        if (title !== undefined) updates.title = title;
+        if (description !== undefined) updates.content = description;
+        
+        await db.collection('notes').updateOne(
+            { noteId },
+            { $set: updates }
+        );
+        
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error updating note:', error);
+        res.status(500).json({ error: 'Failed to update note' });
+    }
+});
+
+app.post('/api/notes/delete', async (req, res) => {
+    try {
+        const { noteId } = req.body;
+        
+        await db.collection('notes').deleteOne({ noteId });
+        
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error deleting note:', error);
+        res.status(500).json({ error: 'Failed to delete note' });
+    }
+});
+
+app.post('/api/notes/reorder', async (req, res) => {
+    try {
+        const { userId, noteIds } = req.body;
+        
+        for (let i = 0; i < noteIds.length; i++) {
+            await db.collection('notes').updateOne(
+                { noteId: noteIds[i], userId: userId },
+                { $set: { orderIndex: i } }
+            );
+        }
+        
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error reordering notes:', error);
+        res.status(500).json({ error: 'Failed to reorder notes' });
+    }
+});
+
+// ==========================================
 // 🚀 BOOTSTRAP
 // ==========================================
 
@@ -3246,11 +3637,19 @@ async function start() {
             scheduleHourlySummary();
             scheduleAutoComplete();
             
+            // Start Express server
+            const server = app.listen(PORT, () => {
+                console.log(`🌐 Web App running at http://localhost:${PORT}`);
+                console.log(`🌍 Public URL: ${APP_URL}`);
+            });
+            
+            // Launch Telegram bot
             await bot.launch();
-            console.log('🤖 Bot Started Successfully!');
+            console.log('🤖 Telegram Bot Started Successfully!');
             console.log(`⏰ Current IST Time: ${getCurrentISTTimeString()}`);
             console.log(`📊 Currently tracking ${activeSchedules.size} tasks`);
             
+            // Send initial hourly summary
             setTimeout(async () => {
                 try {
                     const users = await db.collection('tasks').distinct('userId');
@@ -3262,31 +3661,19 @@ async function start() {
                 }
             }, 5000);
             
-            const PORT = process.env.PORT || 3000;
-            if (process.env.RAILWAY_ENVIRONMENT || process.env.PORT) {
-                const http = require('http');
-                const server = http.createServer((req, res) => {
-                    res.writeHead(200, { 'Content-Type': 'text/plain' });
-                    res.end('✅ Task Manager Bot is running with scheduler...');
-                });
-                
-                server.listen(PORT, () => {
-                    console.log(`🚂 Server listening on port ${PORT}`);
-                });
-            }
         } else {
             console.error('❌ Failed to connect to database. Retrying in 5 seconds...');
             setTimeout(start, 5000);
         }
     } catch (error) {
-        console.error('❌ Failed to start bot:', error);
+        console.error('❌ Failed to start:', error);
         setTimeout(start, 10000);
     }
 }
 
 // Graceful Stop
 process.once('SIGINT', () => {
-    console.log('🛑 SIGINT received, stopping bot gracefully...');
+    console.log('🛑 SIGINT received, stopping gracefully...');
     
     for (const [taskId, schedule] of activeSchedules) {
         if (schedule.startJob) schedule.startJob.cancel();
@@ -3303,12 +3690,12 @@ process.once('SIGINT', () => {
     
     bot.stop('SIGINT');
     if (client) client.close();
-    console.log('👋 Bot stopped gracefully');
+    console.log('👋 Stopped gracefully');
     process.exit(0);
 });
 
 process.once('SIGTERM', () => {
-    console.log('🛑 SIGTERM received, stopping bot gracefully...');
+    console.log('🛑 SIGTERM received, stopping gracefully...');
     
     for (const [taskId, schedule] of activeSchedules) {
         if (schedule.startJob) schedule.startJob.cancel();
@@ -3325,9 +3712,9 @@ process.once('SIGTERM', () => {
     
     bot.stop('SIGTERM');
     if (client) client.close();
-    console.log('👋 Bot stopped gracefully');
+    console.log('👋 Stopped gracefully');
     process.exit(0);
 });
 
-// Start the bot
+// Start the application
 start();
