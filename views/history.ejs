@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Task Manager - History</title>
+    <title>Global Task Manager - History</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
@@ -156,6 +156,24 @@
             color: var(--dark);
         }
         
+        .global-badge {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .info-message {
+            background-color: rgba(67, 97, 238, 0.1);
+            border-left: 4px solid var(--primary);
+            padding: 12px;
+            margin-bottom: 16px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+        }
+        
         .history-date-group {
             margin-bottom: 15px;
         }
@@ -255,6 +273,16 @@
             border-radius: 12px;
             white-space: nowrap;
             margin-left: 10px;
+        }
+        
+        .utc-badge {
+            background-color: rgba(67, 97, 238, 0.1);
+            color: var(--primary);
+            padding: 2px 4px;
+            border-radius: 4px;
+            font-size: 0.6rem;
+            font-weight: 600;
+            margin-left: 4px;
         }
         
         @media (prefers-color-scheme: dark) {
@@ -377,18 +405,21 @@
     </div>
 
     <div class="main-content">
+        <div class="info-message">
+            <i class="fas fa-globe"></i> <strong>Global Mode</strong> - Everyone sees the same history
+        </div>
+        
         <div class="content-header">
-            <h1 class="page-title">Task History</h1>
+            <h1 class="page-title">Global Task History</h1>
         </div>
 
         <% if (Object.keys(groupedHistory).length === 0) { %>
             <div class="empty-state">
                 <i class="fas fa-history"></i>
-                <p>No completed tasks yet. Complete some tasks to see them here!</p>
+                <p>No completed tasks yet. Complete some global tasks to see them here!</p>
             </div>
         <% } else { %>
             <% 
-                // FIXED: Sort dates in reverse chronological order
                 const sortedDates = Object.keys(groupedHistory).sort().reverse(); 
             %>
             <% sortedDates.forEach(function(date, index) { %>
@@ -396,9 +427,9 @@
                     <details class="history-date-details" <%= index === 0 ? 'open' : '' %>>
                         <summary class="history-date-summary">
                             <i class="fas fa-calendar"></i>
-                            <%= date %>
+                            <%= date %> UTC
                             <span style="margin-left: auto; font-size: 0.8rem; color: var(--gray);">
-                                <%= groupedHistory[date].length %> task<%= groupedHistory[date].length !== 1 ? 's' : '' %>
+                                <%= groupedHistory[date].length %> global task<%= groupedHistory[date].length !== 1 ? 's' : '' %>
                             </span>
                         </summary>
                         <div class="history-date-content">
@@ -411,7 +442,7 @@
                                                 <%= task.title %>
                                             </div>
                                             <div class="history-card-time">
-                                                <i class="fas fa-clock"></i> <%= task.completedTimeIST %>
+                                                <i class="fas fa-clock"></i> <%= task.completedTimeUTC %> UTC
                                             </div>
                                         </div>
                                         
@@ -420,27 +451,26 @@
                                         <% } %>
                                         
                                         <div class="history-card-meta">
-                                            <!-- FIXED: Repeat badge -->
                                             <% if (task.repeat && task.repeat !== 'none') { %>
                                                 <span class="history-meta-item">
                                                     <i class="fas fa-repeat"></i> <%= task.repeat === 'daily' ? 'Daily' : 'Weekly' %>
                                                     <% if (task.repeatCount) { %>(<%= task.repeatCount %>)<% } %>
                                                 </span>
                                             <% } %>
-                                            <!-- FIXED: Duration -->
                                             <span class="history-meta-item">
                                                 <i class="fas fa-hourglass-half"></i> 
                                                 <%= task.durationFormatted || (task.endDate && task.startDate ? Math.round((new Date(task.endDate) - new Date(task.startDate)) / 60000) + ' min' : '30 min') %>
                                             </span>
-                                            <!-- FIXED: Auto-completed badge -->
                                             <% if (task.autoCompleted) { %>
                                                 <span class="history-meta-item">
                                                     <i class="fas fa-robot"></i> Auto
                                                 </span>
                                             <% } %>
+                                            <span class="history-meta-item">
+                                                <i class="fas fa-globe"></i> Global
+                                            </span>
                                         </div>
                                         
-                                        <!-- FIXED: Subtask display -->
                                         <% if (task.subtasks && task.subtasks.length > 0) { %>
                                             <div class="history-subitems">
                                                 <div style="font-size: 0.8rem; font-weight: 600; margin-bottom: 8px; color: var(--dark);">
