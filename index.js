@@ -1,3 +1,4 @@
+
 const { Telegraf, session: telegrafSession, Markup } = require('telegraf');
 const { MongoClient, ObjectId } = require('mongodb');
 const schedule = require('node-schedule');
@@ -245,10 +246,12 @@ function writeMainEJS() {
             justify-content: space-between;
             align-items: flex-start;
             margin-bottom: 8px;
+            width: 100%;
         }
 
         .task-title-section {
             flex: 1;
+            min-width: 0;
         }
 
         .task-title {
@@ -259,10 +262,7 @@ function writeMainEJS() {
             line-height: 1.3;
             word-break: break-word;
             cursor: pointer;
-        }
-
-        .task-title.no-description {
-            cursor: default;
+            display: inline-block;
         }
 
         @media (prefers-color-scheme: dark) {
@@ -271,43 +271,39 @@ function writeMainEJS() {
             }
         }
 
-        details.task-details summary,
-        details.subtask-details summary,
-        details.history-details summary,
-        details.task-subtasks summary {
-            cursor: pointer;
-            list-style: none;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 2px 0;
-            color: var(--text-primary-light);
-            font-weight: 500;
+        .task-description-container {
+            margin: 8px 0 4px 0;
+            width: 100%;
+        }
+
+        .task-description {
+            font-size: 0.85rem;
+            color: var(--text-secondary-light);
+            padding: 6px 12px;
+            background: var(--hover-light);
+            border-radius: 0 10px 10px 0;
+            border-left: 3px solid var(--accent-light);
+            word-break: break-word;
+            white-space: pre-wrap;
+            width: fit-content;
+            max-width: 100%;
+            box-sizing: border-box;
+            line-height: 1.4;
         }
 
         @media (prefers-color-scheme: dark) {
-            details.task-details summary,
-            details.subtask-details summary,
-            details.history-details summary,
-            details.task-subtasks summary {
-                color: var(--text-primary-dark);
+            .task-description {
+                color: var(--text-secondary-dark);
+                background: var(--hover-dark);
             }
         }
 
-        details.task-details summary::-webkit-details-marker,
-        details.subtask-details summary::-webkit-details-marker,
-        details.history-details summary::-webkit-details-marker,
-        details.task-subtasks summary::-webkit-details-marker {
-            display: none;
-        }
-
-        .task-time-container {
+        .task-time-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
             width: 100%;
-            margin-top: 6px;
-            font-size: 0.8rem;
+            margin: 8px 0 4px 0;
         }
 
         .date-chip {
@@ -320,6 +316,7 @@ function writeMainEJS() {
             font-size: 0.75rem;
             font-weight: 500;
             color: var(--text-secondary-light);
+            width: fit-content;
         }
 
         .time-chip {
@@ -332,6 +329,7 @@ function writeMainEJS() {
             font-size: 0.75rem;
             font-weight: 500;
             color: var(--text-secondary-light);
+            width: fit-content;
         }
 
         @media (prefers-color-scheme: dark) {
@@ -344,6 +342,7 @@ function writeMainEJS() {
         .task-actions {
             display: flex;
             gap: 4px;
+            flex-shrink: 0;
         }
 
         .action-btn {
@@ -375,28 +374,6 @@ function writeMainEJS() {
 
         .action-btn.delete:hover {
             background: var(--danger-light);
-        }
-
-        .task-description {
-            font-size: 0.85rem;
-            color: var(--text-secondary-light);
-            margin: 4px 0 0 0;
-            padding: 8px 12px;
-            background: var(--hover-light);
-            border-radius: 0 10px 10px 0;
-            border-left: 3px solid var(--accent-light);
-            word-break: break-word;
-            white-space: pre-wrap;
-            width: 100%;
-            box-sizing: border-box;
-            line-height: 1.4;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            .task-description {
-                color: var(--text-secondary-dark);
-                background: var(--hover-dark);
-            }
         }
 
         .progress-section {
@@ -439,6 +416,7 @@ function writeMainEJS() {
             margin-top: 12px;
             border-top: 1px solid var(--border-light);
             padding-top: 12px;
+            width: 100%;
         }
 
         @media (prefers-color-scheme: dark) {
@@ -449,12 +427,11 @@ function writeMainEJS() {
 
         .subtask-item {
             display: flex;
-            align-items: flex-start;
-            gap: 8px;
-            padding: 8px;
+            flex-direction: column;
             background: var(--hover-light);
             border-radius: 10px;
-            margin-bottom: 6px;
+            margin-bottom: 8px;
+            padding: 8px;
             width: 100%;
         }
 
@@ -462,6 +439,13 @@ function writeMainEJS() {
             .subtask-item {
                 background: var(--hover-dark);
             }
+        }
+
+        .subtask-main-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            width: 100%;
         }
 
         .subtask-checkbox {
@@ -489,7 +473,6 @@ function writeMainEJS() {
         .subtask-details {
             flex: 1;
             min-width: 0;
-            width: 100%;
         }
 
         .subtask-title {
@@ -504,32 +487,6 @@ function writeMainEJS() {
         .subtask-title.completed {
             text-decoration: line-through;
             color: var(--text-secondary-light);
-        }
-
-        .subtask-title.no-description {
-            cursor: default;
-        }
-
-        details.subtask-details .subtask-desc {
-            font-size: 0.8rem;
-            color: var(--text-secondary-light);
-            margin-top: 6px;
-            padding: 8px 12px;
-            background: var(--card-bg-light);
-            border-radius: 0 8px 8px 0;
-            border-left: 2px solid var(--accent-light);
-            word-break: break-word;
-            white-space: pre-wrap;
-            width: 100%;
-            box-sizing: border-box;
-            line-height: 1.4;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            details.subtask-details .subtask-desc {
-                background: var(--card-bg-dark);
-                color: var(--text-secondary-dark);
-            }
         }
 
         .subtask-actions {
@@ -569,6 +526,34 @@ function writeMainEJS() {
             background: var(--danger-light);
         }
 
+        .subtask-description-container {
+            margin-top: 6px;
+            margin-left: 28px;
+            width: calc(100% - 28px);
+        }
+
+        .subtask-description {
+            font-size: 0.8rem;
+            color: var(--text-secondary-light);
+            padding: 6px 12px;
+            background: var(--card-bg-light);
+            border-radius: 0 8px 8px 0;
+            border-left: 2px solid var(--accent-light);
+            word-break: break-word;
+            white-space: pre-wrap;
+            width: fit-content;
+            max-width: 100%;
+            box-sizing: border-box;
+            line-height: 1.4;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .subtask-description {
+                background: var(--card-bg-dark);
+                color: var(--text-secondary-dark);
+            }
+        }
+
         .badge {
             display: inline-flex;
             align-items: center;
@@ -579,6 +564,7 @@ function writeMainEJS() {
             gap: 4px;
             background: var(--hover-light);
             color: var(--text-secondary-light);
+            width: fit-content;
         }
 
         @media (prefers-color-scheme: dark) {
@@ -593,6 +579,7 @@ function writeMainEJS() {
             justify-content: space-between;
             align-items: flex-start;
             margin-bottom: 8px;
+            width: 100%;
         }
 
         .note-title {
@@ -604,13 +591,36 @@ function writeMainEJS() {
             cursor: pointer;
         }
 
-        .note-title.no-description {
-            cursor: default;
-        }
-
         @media (prefers-color-scheme: dark) {
             .note-title {
                 color: var(--text-primary-dark);
+            }
+        }
+
+        .note-content-container {
+            margin: 4px 0 8px 0;
+            width: 100%;
+        }
+
+        .note-content {
+            font-size: 0.85rem;
+            color: var(--text-secondary-light);
+            padding: 6px 12px;
+            background: var(--hover-light);
+            border-radius: 0 10px 10px 0;
+            border-left: 3px solid var(--accent-light);
+            word-break: break-word;
+            white-space: pre-wrap;
+            width: fit-content;
+            max-width: 100%;
+            box-sizing: border-box;
+            line-height: 1.4;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .note-content {
+                color: var(--text-secondary-dark);
+                background: var(--hover-dark);
             }
         }
 
@@ -629,36 +639,6 @@ function writeMainEJS() {
             .note-meta {
                 border-top-color: var(--border-dark);
                 color: var(--text-secondary-dark);
-            }
-        }
-
-        details.note-details summary {
-            cursor: pointer;
-            list-style: none;
-            padding: 4px 0;
-            color: var(--text-secondary-light);
-            font-size: 0.8rem;
-        }
-
-        .note-content {
-            font-size: 0.85rem;
-            color: var(--text-secondary-light);
-            line-height: 1.4;
-            margin: 4px 0 0 0;
-            padding: 8px 12px;
-            background: var(--hover-light);
-            border-radius: 0 10px 10px 0;
-            border-left: 3px solid var(--accent-light);
-            word-break: break-word;
-            white-space: pre-wrap;
-            width: 100%;
-            box-sizing: border-box;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            .note-content {
-                color: var(--text-secondary-dark);
-                background: var(--hover-dark);
             }
         }
 
@@ -699,8 +679,8 @@ function writeMainEJS() {
             }
         }
 
-        .history-date-card details.history-details {
-            margin-bottom: 8px;
+        .history-date-card {
+            margin-bottom: 16px;
         }
 
         .history-tasks-grid {
@@ -741,10 +721,6 @@ function writeMainEJS() {
             flex: 1;
         }
 
-        .history-task-title.no-description {
-            cursor: default;
-        }
-
         @media (prefers-color-scheme: dark) {
             .history-task-title {
                 color: var(--text-primary-dark);
@@ -757,6 +733,33 @@ function writeMainEJS() {
             flex-shrink: 0;
             margin-left: auto;
             padding-left: 8px;
+        }
+
+        .history-description-container {
+            margin: 6px 0 8px 0;
+            width: 100%;
+        }
+
+        .history-description {
+            font-size: 0.8rem;
+            color: var(--text-secondary-light);
+            padding: 6px 12px;
+            background: var(--card-bg-light);
+            border-radius: 0 8px 8px 0;
+            border-left: 2px solid var(--success-light);
+            word-break: break-word;
+            white-space: pre-wrap;
+            width: fit-content;
+            max-width: 100%;
+            box-sizing: border-box;
+            line-height: 1.4;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .history-description {
+                background: var(--card-bg-dark);
+                color: var(--text-secondary-dark);
+            }
         }
 
         .history-subtask {
@@ -967,6 +970,26 @@ function writeMainEJS() {
                 background: var(--hover-dark);
                 color: var(--text-secondary-dark);
             }
+        }
+
+        .task-title-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+
+        .task-title-container i {
+            font-size: 0.8rem;
+            color: var(--accent-light);
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .fit-content {
+            width: fit-content;
         }
 
         @media (max-width: 768px) {
@@ -1373,7 +1396,35 @@ function writeMainEJS() {
         }
 
         // ==========================================
-        // RENDER TASKS PAGE
+        // ESCAPE FOR JAVASCRIPT STRINGS - FIXES NEWLINES
+        // ==========================================
+        function escapeJsString(str) {
+            if (!str) return '';
+            return str
+                .replace(/\\\\/g, '\\\\\\\\')
+                .replace(/'/g, "\\\\'")
+                .replace(/"/g, '\\\\"')
+                .replace(/\\n/g, '\\\\n')
+                .replace(/\\r/g, '\\\\r')
+                .replace(/\\t/g, '\\\\t');
+        }
+
+        // ==========================================
+        // TOGGLE DESCRIPTION VISIBILITY
+        // ==========================================
+        function toggleDescription(elementId) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                if (element.classList.contains('hidden')) {
+                    element.classList.remove('hidden');
+                } else {
+                    element.classList.add('hidden');
+                }
+            }
+        }
+
+        // ==========================================
+        // RENDER TASKS PAGE - COMPLETELY FIXED
         // ==========================================
         function renderTasksPage() {
             let html = \`
@@ -1390,37 +1441,24 @@ function writeMainEJS() {
                     </div>
                 \`;
             } else {
-                tasksData.forEach(task => {
+                tasksData.forEach((task, taskIndex) => {
                     const hasDescription = hasContent(task.description);
                     const progress = task.subtaskProgress || 0;
                     const circleCircumference = 2 * Math.PI * 16;
                     const circleOffset = circleCircumference - (progress / 100) * circleCircumference;
                     const completedSubtasks = task.subtasks ? task.subtasks.filter(s => s.completed).length : 0;
                     const totalSubtasks = task.subtasks ? task.subtasks.length : 0;
+                    const descriptionId = 'task_desc_' + task.taskId;
+                    const escapedTitle = escapeHtml(task.title);
+                    const escapedDescription = escapeJsString(task.description || '');
                     
                     html += \`
                         <div class="task-card">
                             <div class="task-header">
                                 <div class="task-title-section">
-                                    \${hasDescription ? \`
-                                        <details class="task-details">
-                                            <summary>
-                                                <span class="task-title">\${escapeHtml(task.title)}</span>
-                                            </summary>
-                                            <div class="task-description">
-                                                \${preserveLineBreaks(task.description)}
-                                            </div>
-                                        </details>
-                                    \` : \`
-                                        <span class="task-title no-description">\${escapeHtml(task.title)}</span>
-                                    \`}
-                                    <div class="task-time-container">
-                                        <span class="date-chip">
-                                            <i class="fas fa-calendar-alt"></i> \${task.dateUTC}
-                                        </span>
-                                        <span class="time-chip">
-                                            <i class="fas fa-clock"></i> \${task.startTimeUTC}-\${task.endTimeUTC}
-                                        </span>
+                                    <div class="task-title-container" onclick="toggleDescription('\${descriptionId}')">
+                                        <i class="fas fa-chevron-right" id="\${descriptionId}_icon"></i>
+                                        <span class="task-title">\${escapedTitle}</span>
                                     </div>
                                 </div>
                                 <div class="task-actions">
@@ -1439,6 +1477,25 @@ function writeMainEJS() {
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 </div>
+                            </div>
+
+                            <!-- Description placed outside header, full width, fit-content -->
+                            \${hasDescription ? \`
+                                <div id="\${descriptionId}" class="task-description-container hidden">
+                                    <div class="task-description">
+                                        \${preserveLineBreaks(task.description)}
+                                    </div>
+                                </div>
+                            \` : ''}
+
+                            <!-- Date/Time row moved outside header, full width -->
+                            <div class="task-time-row">
+                                <span class="date-chip">
+                                    <i class="fas fa-calendar-alt"></i> \${task.dateUTC}
+                                </span>
+                                <span class="time-chip">
+                                    <i class="fas fa-clock"></i> \${task.startTimeUTC}-\${task.endTimeUTC}
+                                </span>
                             </div>
 
                             \${totalSubtasks > 0 ? \`
@@ -1460,39 +1517,45 @@ function writeMainEJS() {
                                         \${task.subtasks.sort((a, b) => {
                                             if (a.completed === b.completed) return 0;
                                             return a.completed ? 1 : -1;
-                                        }).map(subtask => \`
-                                            <div class="subtask-item">
-                                                <div class="subtask-checkbox \${subtask.completed ? 'completed' : ''}" onclick="toggleSubtask('\${task.taskId}', '\${subtask.id}')">
-                                                    \${subtask.completed ? '<i class="fas fa-check"></i>' : ''}
-                                                </div>
-                                                <div class="subtask-details">
-                                                    \${hasContent(subtask.description) ? \`
-                                                        <details class="subtask-details">
-                                                            <summary>
+                                        }).map((subtask, subtaskIndex) => {
+                                            const subtaskHasDesc = hasContent(subtask.description);
+                                            const subtaskDescId = 'subtask_desc_' + task.taskId + '_' + subtask.id;
+                                            const escapedSubtaskTitle = escapeHtml(subtask.title);
+                                            const escapedSubtaskDescription = escapeJsString(subtask.description || '');
+                                            
+                                            return \`
+                                                <div class="subtask-item">
+                                                    <div class="subtask-main-row">
+                                                        <div class="subtask-checkbox \${subtask.completed ? 'completed' : ''}" onclick="toggleSubtask('\${task.taskId}', '\${subtask.id}')">
+                                                            \${subtask.completed ? '<i class="fas fa-check"></i>' : ''}
+                                                        </div>
+                                                        <div class="subtask-details">
+                                                            <div class="subtask-title-container" onclick="toggleDescription('\${subtaskDescId}')">
                                                                 <span class="subtask-title \${subtask.completed ? 'completed' : ''}">
-                                                                    \${escapeHtml(subtask.title)}
+                                                                    \${escapedSubtaskTitle}
                                                                 </span>
-                                                            </summary>
-                                                            <div class="subtask-desc">
+                                                            </div>
+                                                        </div>
+                                                        <div class="subtask-actions">
+                                                            <button class="subtask-btn" onclick="editSubtask('\${task.taskId}', '\${subtask.id}', '\${escapedSubtaskTitle.replace(/'/g, "\\\\'")}', '\${escapedSubtaskDescription.replace(/'/g, "\\\\'")}')">
+                                                                <i class="fas fa-pencil-alt"></i>
+                                                            </button>
+                                                            <button class="subtask-btn delete" onclick="deleteSubtask('\${task.taskId}', '\${subtask.id}')">
+                                                                <i class="fas fa-trash"></i>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <!-- Subtask Description - NEW LINE, FULL WIDTH, FIT CONTENT -->
+                                                    \${subtaskHasDesc ? \`
+                                                        <div id="\${subtaskDescId}" class="subtask-description-container hidden">
+                                                            <div class="subtask-description">
                                                                 \${preserveLineBreaks(subtask.description)}
                                                             </div>
-                                                        </details>
-                                                    \` : \`
-                                                        <span class="subtask-title \${subtask.completed ? 'completed' : ''} \${!hasContent(subtask.description) ? 'no-description' : ''}">
-                                                            \${escapeHtml(subtask.title)}
-                                                        </span>
-                                                    \`}
+                                                        </div>
+                                                    \` : ''}
                                                 </div>
-                                                <div class="subtask-actions">
-                                                    <button class="subtask-btn" onclick="editSubtask('\${task.taskId}', '\${subtask.id}', '\${escapeHtml(subtask.title)}', '\${escapeHtml(subtask.description || '')}')">
-                                                        <i class="fas fa-pencil-alt"></i>
-                                                    </button>
-                                                    <button class="subtask-btn delete" onclick="deleteSubtask('\${task.taskId}', '\${subtask.id}')">
-                                                        <i class="fas fa-trash"></i>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        \`).join('')}
+                                            \`;
+                                        }).join('')}
                                     </div>
                                 </details>
                             \` : \`
@@ -1526,7 +1589,7 @@ function writeMainEJS() {
         }
 
         // ==========================================
-        // RENDER NOTES PAGE
+        // RENDER NOTES PAGE - FIXED WITH FIT-CONTENT
         // ==========================================
         function renderNotesPage() {
             let html = \`
@@ -1545,22 +1608,17 @@ function writeMainEJS() {
             } else {
                 notesData.forEach(note => {
                     const hasDescription = hasContent(note.description);
+                    const noteDescId = 'note_desc_' + note.noteId;
+                    const escapedNoteTitle = escapeHtml(note.title);
+                    const escapedNoteDescription = escapeJsString(note.description || '');
                     
                     html += \`
                         <div class="note-card">
                             <div class="note-header">
-                                \${hasDescription ? \`
-                                    <details class="note-details">
-                                        <summary>
-                                            <span class="note-title">\${escapeHtml(note.title)}</span>
-                                        </summary>
-                                        <div class="note-content">
-                                            \${preserveLineBreaks(note.description)}
-                                        </div>
-                                    </details>
-                                \` : \`
-                                    <span class="note-title no-description">\${escapeHtml(note.title)}</span>
-                                \`}
+                                <div class="task-title-container" onclick="toggleDescription('\${noteDescId}')">
+                                    <i class="fas fa-chevron-right" id="\${noteDescId}_icon"></i>
+                                    <span class="note-title">\${escapedNoteTitle}</span>
+                                </div>
                                 <div style="display: flex; gap: 4px;">
                                     <button class="action-btn" onclick="moveNote('\${note.noteId}', 'up')" title="Move Up">
                                         <i class="fas fa-arrow-up"></i>
@@ -1568,7 +1626,7 @@ function writeMainEJS() {
                                     <button class="action-btn" onclick="moveNote('\${note.noteId}', 'down')" title="Move Down">
                                         <i class="fas fa-arrow-down"></i>
                                     </button>
-                                    <button class="action-btn" onclick="openEditNoteModal('\${note.noteId}', '\${escapeHtml(note.title)}', '\${escapeHtml(note.description || '')}')">
+                                    <button class="action-btn" onclick="openEditNoteModal('\${note.noteId}', '\${escapedNoteTitle.replace(/'/g, "\\\\'")}', '\${escapedNoteDescription.replace(/'/g, "\\\\'")}')">
                                         <i class="fas fa-pencil-alt"></i>
                                     </button>
                                     <button class="action-btn delete" onclick="deleteNote('\${note.noteId}')">
@@ -1576,6 +1634,16 @@ function writeMainEJS() {
                                     </button>
                                 </div>
                             </div>
+                            
+                            <!-- Note Content - FIT CONTENT, REDUCED PADDING -->
+                            \${hasDescription ? \`
+                                <div id="\${noteDescId}" class="note-content-container hidden">
+                                    <div class="note-content">
+                                        \${preserveLineBreaks(note.description)}
+                                    </div>
+                                </div>
+                            \` : ''}
+                            
                             <div class="note-meta">
                                 <span><i class="fas fa-clock"></i> \${note.createdAtUTC}</span>
                                 \${note.updatedAtUTC !== note.createdAtUTC ? \`
@@ -1592,7 +1660,7 @@ function writeMainEJS() {
         }
 
         // ==========================================
-        // RENDER HISTORY PAGE
+        // RENDER HISTORY PAGE - FIXED
         // ==========================================
         function renderHistoryPage() {
             let html = \`
@@ -1642,26 +1710,30 @@ function writeMainEJS() {
 
                     tasks.forEach(task => {
                         const hasDescription = hasContent(task.description);
+                        const historyDescId = 'history_desc_' + task._id;
+                        const escapedHistoryTitle = escapeHtml(task.title);
                         
                         html += \`
                             <div class="history-task-card">
                                 <div class="history-task-header">
-                                    \${hasDescription ? \`
-                                        <details style="flex: 1;">
-                                            <summary class="history-task-title">
-                                                \${escapeHtml(task.title)}
-                                            </summary>
-                                            <div style="font-size: 0.8rem; color: var(--text-secondary-light); margin-top: 4px; padding: 8px 12px; background: var(--card-bg-light); border-radius: 0 8px 8px 0; border-left: 2px solid var(--success-light); width: 100%; box-sizing: border-box; white-space: pre-wrap; line-height: 1.4;">
-                                                \${preserveLineBreaks(task.description)}
-                                            </div>
-                                        </details>
-                                    \` : \`
-                                        <span class="history-task-title no-description">\${escapeHtml(task.title)}</span>
-                                    \`}
+                                    <div class="task-title-container" onclick="toggleDescription('\${historyDescId}')">
+                                        <i class="fas fa-chevron-right"></i>
+                                        <span class="history-task-title">\${escapedHistoryTitle}</span>
+                                    </div>
                                     <span class="history-task-time">
                                         <i class="fas fa-check-circle" style="color: var(--success-light);"></i> \${task.completedTimeUTC}
                                     </span>
                                 </div>
+                                
+                                <!-- History Description - FIT CONTENT -->
+                                \${hasDescription ? \`
+                                    <div id="\${historyDescId}" class="history-description-container hidden">
+                                        <div class="history-description">
+                                            \${preserveLineBreaks(task.description)}
+                                        </div>
+                                    </div>
+                                \` : ''}
+                                
                                 <div style="display: flex; gap: 6px; margin: 8px 0; flex-wrap: wrap;">
                                     <span class="badge">
                                         <i class="fas fa-clock"></i> \${task.startTimeUTC || formatTime(task.startDate)}-\${task.endTimeUTC || formatTime(task.endDate)}
@@ -1681,29 +1753,34 @@ function writeMainEJS() {
                                             <i class="fas fa-tasks"></i> Subtasks (\${task.subtasks.filter(s => s.completed).length}/\${task.subtasks.length})
                                         </summary>
                                         <div style="margin-top: 8px;">
-                                            \${task.subtasks.map(subtask => \`
-                                                <div class="history-subtask">
-                                                    <div style="display: flex; align-items: flex-start; gap: 6px;">
-                                                        <span style="color: \${subtask.completed ? 'var(--success-light)' : 'var(--text-secondary-light)'};">
-                                                            <i class="fas fa-\${subtask.completed ? 'check-circle' : 'circle'}"></i>
-                                                        </span>
-                                                        \${hasContent(subtask.description) ? \`
-                                                            <details style="flex: 1;">
-                                                                <summary style="font-weight: 600; font-size: 0.8rem; cursor: pointer;">
-                                                                    \${escapeHtml(subtask.title)}
-                                                                </summary>
-                                                                <div style="font-size: 0.75rem; color: var(--text-secondary-light); margin-top: 4px; padding: 6px 10px; background: var(--card-bg-light); border-radius: 0 6px 6px 0; border-left: 2px solid var(--accent-light); width: 100%; box-sizing: border-box; white-space: pre-wrap;">
-                                                                    \${preserveLineBreaks(subtask.description)}
-                                                                </div>
-                                                            </details>
-                                                        \` : \`
-                                                            <span style="font-weight: 600; font-size: 0.8rem;">
-                                                                \${escapeHtml(subtask.title)}
+                                            \${task.subtasks.map(subtask => {
+                                                const subtaskHasDesc = hasContent(subtask.description);
+                                                const historySubtaskDescId = 'history_subtask_desc_' + task._id + '_' + subtask.id;
+                                                
+                                                return \`
+                                                    <div class="history-subtask">
+                                                        <div style="display: flex; align-items: flex-start; gap: 6px;">
+                                                            <span style="color: \${subtask.completed ? 'var(--success-light)' : 'var(--text-secondary-light)'};">
+                                                                <i class="fas fa-\${subtask.completed ? 'check-circle' : 'circle'}"></i>
                                                             </span>
-                                                        \`}
+                                                            <div style="flex: 1;">
+                                                                <div class="task-title-container" onclick="toggleDescription('\${historySubtaskDescId}')">
+                                                                    <span style="font-weight: 600; font-size: 0.8rem;">
+                                                                        \${escapeHtml(subtask.title)}
+                                                                    </span>
+                                                                </div>
+                                                                \${subtaskHasDesc ? \`
+                                                                    <div id="\${historySubtaskDescId}" class="history-description-container hidden">
+                                                                        <div class="history-description" style="border-left-color: var(--accent-light);">
+                                                                            \${preserveLineBreaks(subtask.description)}
+                                                                        </div>
+                                                                    </div>
+                                                                \` : ''}
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            \`).join('')}
+                                                \`;
+                                            }).join('')}
                                         </div>
                                     </details>
                                 \` : ''}
@@ -2178,7 +2255,7 @@ function writeMainEJS() {
 </html>`;
 
     fs.writeFileSync(path.join(viewsDir, 'index.ejs'), mainEJS);
-    console.log('✅ EJS template file created successfully');
+    console.log('✅ EJS template file created successfully with all fixes');
 }
 
 writeMainEJS();
@@ -2242,7 +2319,7 @@ app.get('/health', (req, res) => {
 });
 
 // ==========================================
-// 🛠️ UTILITY FUNCTIONS - FIXED ID GENERATION (NO PREFIX)
+// 🛠️ UTILITY FUNCTIONS
 // ==========================================
 function generateId(type = 'task') {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -3331,7 +3408,7 @@ app.post('/api/notes/:noteId/move', async (req, res) => {
 });
 
 // ==========================================
-// 🤖 BOT COMMANDS - FIXED SUBTASK HANDLING
+// 🤖 BOT COMMANDS - FIXED SUBTASK HANDLING WITH LAZY REGEX
 // ==========================================
 const bot = new Telegraf(BOT_TOKEN);
 const activeSchedules = new Map();
@@ -4333,9 +4410,9 @@ ${hasContent(task.description) ? formatBlockquote(task.description) : ''}
 }
 
 // ==========================================
-// 🔍 TASK DETAIL - FIXED SUBTASK HANDLING
+// 🔍 TASK DETAIL - FIXED SUBTASK HANDLING WITH LAZY REGEX
 // ==========================================
-bot.action(/^task_det_(.+)$/, async (ctx) => {
+bot.action(/^task_det_([^_]+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     await showTaskDetail(ctx, taskId);
 });
@@ -4435,9 +4512,9 @@ ${progressBar} ${progress}%
 }
 
 // ==========================================
-// 🔍 SUBTASK DETAIL - COMPLETELY FIXED
+// 🔍 SUBTASK DETAIL - COMPLETELY FIXED WITH LAZY REGEX
 // ==========================================
-bot.action(/^subtask_det_(.+)_(.+)$/, async (ctx) => {
+bot.action(/^subtask_det_([^_]+)_(.+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     const subtaskId = ctx.match[2];
     
@@ -4489,7 +4566,7 @@ ${hasDesc ? formatBlockquote(subtask.description) : ''}
     await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
 });
 
-bot.action(/^subtask_complete_(.+)_(.+)$/, async (ctx) => {
+bot.action(/^subtask_complete_([^_]+)_(.+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     const subtaskId = ctx.match[2];
     
@@ -4513,7 +4590,7 @@ bot.action(/^subtask_complete_(.+)_(.+)$/, async (ctx) => {
     }
 });
 
-bot.action(/^subtask_edit_(.+)_(.+)$/, async (ctx) => {
+bot.action(/^subtask_edit_([^_]+)_(.+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     const subtaskId = ctx.match[2];
     
@@ -4534,7 +4611,7 @@ bot.action(/^subtask_edit_(.+)_(.+)$/, async (ctx) => {
     );
 });
 
-bot.action(/^subtask_delete_(.+)_(.+)$/, async (ctx) => {
+bot.action(/^subtask_delete_([^_]+)_(.+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     const subtaskId = ctx.match[2];
     
@@ -4558,7 +4635,7 @@ bot.action(/^subtask_delete_(.+)_(.+)$/, async (ctx) => {
     }
 });
 
-bot.action(/^add_subtask_(.+)$/, async (ctx) => {
+bot.action(/^add_subtask_([^_]+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     
     const task = await db.collection('tasks').findOne({ taskId });
@@ -4591,7 +4668,7 @@ bot.action(/^add_subtask_(.+)$/, async (ctx) => {
     );
 });
 
-bot.action(/^complete_(.+)$/, async (ctx) => {
+bot.action(/^complete_([^_]+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     const task = await db.collection('tasks').findOne({ taskId });
     if (!task) return ctx.answerCbQuery('Task not found');
@@ -4689,7 +4766,7 @@ bot.action(/^complete_(.+)$/, async (ctx) => {
     }
 });
 
-bot.action(/^edit_menu_(.+)$/, async (ctx) => {
+bot.action(/^edit_menu_([^_]+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     const text = '✏️ <b>𝗘𝗗𝗜𝗧 𝗚𝗟𝗢𝗕𝗔𝗟 𝗧𝗔𝗦𝗞</b>\n━━━━━━━━━━━━━━━━━━━━\nSelect what you want to edit:';
     const keyboard = Markup.inlineKeyboard([
@@ -4711,7 +4788,7 @@ bot.action(/^edit_menu_(.+)$/, async (ctx) => {
     await safeEdit(ctx, text, keyboard);
 });
 
-bot.action(/^edit_task_title_(.+)$/, async (ctx) => {
+bot.action(/^edit_task_title_([^_]+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     ctx.session.editTaskId = taskId;
     ctx.session.step = 'edit_task_title';
@@ -4724,7 +4801,7 @@ bot.action(/^edit_task_title_(.+)$/, async (ctx) => {
     );
 });
 
-bot.action(/^edit_task_desc_(.+)$/, async (ctx) => {
+bot.action(/^edit_task_desc_([^_]+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     ctx.session.editTaskId = taskId;
     ctx.session.step = 'edit_task_desc';
@@ -4737,7 +4814,7 @@ bot.action(/^edit_task_desc_(.+)$/, async (ctx) => {
     );
 });
 
-bot.action(/^edit_task_start_(.+)$/, async (ctx) => {
+bot.action(/^edit_task_start_([^_]+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     const task = await db.collection('tasks').findOne({ taskId });
     
@@ -4759,7 +4836,7 @@ bot.action(/^edit_task_start_(.+)$/, async (ctx) => {
     );
 });
 
-bot.action(/^edit_task_end_(.+)$/, async (ctx) => {
+bot.action(/^edit_task_end_([^_]+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     const task = await db.collection('tasks').findOne({ taskId });
     
@@ -4780,7 +4857,7 @@ bot.action(/^edit_task_end_(.+)$/, async (ctx) => {
     );
 });
 
-bot.action(/^edit_task_count_(.+)$/, async (ctx) => {
+bot.action(/^edit_task_count_([^_]+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     const task = await db.collection('tasks').findOne({ taskId });
     
@@ -4801,7 +4878,7 @@ bot.action(/^edit_task_count_(.+)$/, async (ctx) => {
     );
 });
 
-bot.action(/^edit_rep_(.+)$/, async (ctx) => {
+bot.action(/^edit_rep_([^_]+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     const text = '🔄 <b>𝗖𝗛𝗔𝗡𝗚𝗘 𝗥𝗘𝗣𝗘𝗔𝗧 𝗠𝗢𝗗𝗘</b>\n━━━━━━━━━━━━━━━━━━━━\nSelect new repeat mode:';
     const keyboard = Markup.inlineKeyboard([
@@ -4814,7 +4891,7 @@ bot.action(/^edit_rep_(.+)$/, async (ctx) => {
     await safeEdit(ctx, text, keyboard);
 });
 
-bot.action(/^set_rep_(.+)_(.+)$/, async (ctx) => {
+bot.action(/^set_rep_([^_]+)_(.+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     const mode = ctx.match[2];
     
@@ -4842,7 +4919,7 @@ bot.action(/^set_rep_(.+)_(.+)$/, async (ctx) => {
     }
 });
 
-bot.action(/^delete_task_(.+)$/, async (ctx) => {
+bot.action(/^delete_task_([^_]+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     try {
         const task = await db.collection('tasks').findOne({ taskId });
@@ -4919,7 +4996,7 @@ bot.action('reorder_tasks_menu', async (ctx) => {
     }
 });
 
-bot.action(/^reorder_task_select_(.+)$/, async (ctx) => {
+bot.action(/^reorder_task_select_([^_]+)$/, async (ctx) => {
     try {
         const taskId = ctx.match[1];
         
@@ -5189,7 +5266,7 @@ bot.action('reorder_notes_menu', async (ctx) => {
     }
 });
 
-bot.action(/^reorder_note_select_(.+)$/, async (ctx) => {
+bot.action(/^reorder_note_select_([^_]+)$/, async (ctx) => {
     try {
         const noteId = ctx.match[1];
         
@@ -5653,7 +5730,7 @@ bot.action(/^view_notes_(\d+)$/, async (ctx) => {
     await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
 });
 
-bot.action(/^note_det_(.+)$/, async (ctx) => {
+bot.action(/^note_det_([^_]+)$/, async (ctx) => {
     await showNoteDetail(ctx, ctx.match[1]);
 });
 
@@ -5702,7 +5779,7 @@ ${note.updatedAt ? '✏️ <b>Updated:</b> ' + formatDateTimeUTC(note.updatedAt)
 // ==========================================
 // ✏️ EDIT NOTE HANDLERS
 // ==========================================
-bot.action(/^edit_note_title_(.+)$/, async (ctx) => {
+bot.action(/^edit_note_title_([^_]+)$/, async (ctx) => {
     const noteId = ctx.match[1];
     
     const note = await db.collection('notes').findOne({ noteId });
@@ -5725,7 +5802,7 @@ bot.action(/^edit_note_title_(.+)$/, async (ctx) => {
     );
 });
 
-bot.action(/^edit_note_content_(.+)$/, async (ctx) => {
+bot.action(/^edit_note_content_([^_]+)$/, async (ctx) => {
     const noteId = ctx.match[1];
     
     const note = await db.collection('notes').findOne({ noteId });
@@ -5748,7 +5825,7 @@ bot.action(/^edit_note_content_(.+)$/, async (ctx) => {
     );
 });
 
-bot.action(/^delete_note_(.+)$/, async (ctx) => {
+bot.action(/^delete_note_([^_]+)$/, async (ctx) => {
     try {
         const noteId = ctx.match[1];
         const note = await db.collection('notes').findOne({ noteId });
