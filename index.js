@@ -284,8 +284,7 @@ function writeMainEJS() {
             border-left: 3px solid var(--accent-light);
             word-break: break-word;
             white-space: pre-wrap;
-            width: fit-content;
-            max-width: 100%;
+            width: 100%;
             box-sizing: border-box;
             line-height: 1.4;
         }
@@ -540,9 +539,9 @@ function writeMainEJS() {
             border-left: 2px solid var(--accent-light);
             word-break: break-word;
             white-space: pre-wrap;
-            width: fit-content;
-            max-width: 100%;
+            width: 100%;
             box-sizing: border-box;
+            max-width: 100%;
             line-height: 1.4;
         }
 
@@ -610,9 +609,9 @@ function writeMainEJS() {
             border-left: 3px solid var(--accent-light);
             word-break: break-word;
             white-space: pre-wrap;
-            width: fit-content;
-            max-width: 100%;
+            width: 100%;
             box-sizing: border-box;
+            max-width: 100%;
             line-height: 1.4;
         }
 
@@ -748,9 +747,9 @@ function writeMainEJS() {
             border-left: 2px solid var(--success-light);
             word-break: break-word;
             white-space: pre-wrap;
-            width: fit-content;
-            max-width: 100%;
+            width: 100%;
             box-sizing: border-box;
+            max-width: 100%;
             line-height: 1.4;
         }
 
@@ -3426,14 +3425,12 @@ bot.command('start', async (ctx) => {
     const now = new Date();
     const text = `
 ┌─━━━━━━━━━━━━━━━─┐
-│    ✧ 𝗚𝗟𝗢𝗕𝗔𝗟 𝗧𝗔𝗦𝗞 𝗠𝗔𝗡𝗔𝗚𝗘𝗥 ✧    │ 
+│    ✧ 𝗧𝗔𝗦𝗞 𝗠𝗔𝗡𝗔𝗚𝗘𝗥 ✧    │ 
 └─━━━━━━━━━━━━━━━─┘
 ⏰ Current Time: ${formatTimeUTC(now)}
 📅 Today: ${formatDateUTC(now)}
 
-🌟 <b>Welcome to Global Task Manager!</b>
-🌍 Everyone sees the same tasks and notes
-📢 All notifications will be sent to you only`;
+🌟 <b>Welcome to Global Task Manager!</b>`;
 
     const keyboard = Markup.inlineKeyboard([
         [Markup.button.callback('📋 Today\'s Tasks', 'view_today_tasks_1')],
@@ -3453,7 +3450,7 @@ bot.command('start', async (ctx) => {
             Markup.button.callback('📥 Download', 'download_menu'),
             Markup.button.callback('🗑️ Delete', 'delete_menu')
         ],
-        [Markup.button.url('🌐 Open Web App', WEB_APP_URL)]
+        [Markup.button.webApp('🌐 Open Web App', WEB_APP_URL)]
     ]);
 
     await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard.reply_markup });
@@ -3467,7 +3464,7 @@ async function showMainMenu(ctx) {
     const now = new Date();
     const text = `
 ┌─━━━━━━━━━━━━━━━─┐
-│    ✧ 𝗚𝗟𝗢𝗕𝗔𝗟 𝗧𝗔𝗦𝗞 𝗠𝗔𝗡𝗔𝗚𝗘𝗥 ✧    │ 
+│    ✧ 𝗧𝗔𝗦𝗞 𝗠𝗔𝗡𝗔𝗚𝗘𝗥 ✧    │ 
 └─━━━━━━━━━━━━━━━─┘
 ⏰ Current Time: ${formatTimeUTC(now)}
 📅 Today: ${formatDateUTC(now)}
@@ -3492,7 +3489,7 @@ async function showMainMenu(ctx) {
             Markup.button.callback('📥 Download', 'download_menu'),
             Markup.button.callback('🗑️ Delete', 'delete_menu')
         ],
-        [Markup.button.url('🌐 Open Web App', WEB_APP_URL)]
+        [Markup.button.webApp('🌐 Open Web App', WEB_APP_URL)]
     ]);
 
     await safeEdit(ctx, text, keyboard);
@@ -4538,19 +4535,23 @@ ${hasDesc ? formatBlockquote(subtask.description) : ''}
 ━━━━━━━━━━━━━━━━━━━━`;
 
     const buttons = [];
-    
     const actionRow = [];
-    
+
+    // 1. Only show 'Complete' button if the subtask is NOT finished yet
     if (!subtask.completed) {
-        actionRow.push(Markup.button.callback('✅ Complete', 'subtask_complete_' + taskId + '_' + subtaskId));
+        actionRow.push(Markup.button.callback('✅', 'subtask_complete_' + taskId + '_' + subtaskId));
     }
-    
-    actionRow.push(Markup.button.callback('✏️ Edit', 'subtask_edit_' + taskId + '_' + subtaskId));
-    actionRow.push(Markup.button.callback('🗑️ Delete', 'subtask_delete_' + taskId + '_' + subtaskId));
-    
+
+    // 2. Always show Edit and Delete buttons in the same row
+    actionRow.push(Markup.button.callback('✏️', 'subtask_edit_' + taskId + '_' + subtaskId));
+    actionRow.push(Markup.button.callback('🗑️', 'subtask_delete_' + taskId + '_' + subtaskId));
+
+    // 3. Push the action row (single line) to the buttons array
     buttons.push(actionRow);
+
+    // 4. Add the Back button on a new line
     buttons.push([Markup.button.callback('🔙 Back to Task', 'task_det_' + taskId)]);
-    
+
     await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
 });
 
