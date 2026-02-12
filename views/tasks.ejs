@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Task Manager - Tasks</title>
+    <title>Global Task Manager - Tasks</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
@@ -196,6 +196,15 @@
             font-size: 1.5rem;
             font-weight: 700;
             color: var(--dark);
+        }
+        
+        .global-badge {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
         }
         
         .time-header {
@@ -391,6 +400,16 @@
             font-size: 0.75rem;
             color: var(--gray);
             font-weight: 500;
+        }
+        
+        .utc-badge {
+            background-color: rgba(67, 97, 238, 0.1);
+            color: var(--primary);
+            padding: 2px 4px;
+            border-radius: 4px;
+            font-size: 0.6rem;
+            font-weight: 600;
+            margin-left: 4px;
         }
         
         .time-remaining-badge {
@@ -741,6 +760,15 @@
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
+        
+        .info-message {
+            background-color: var(--blue-bg);
+            border-left: 4px solid var(--primary);
+            padding: 12px;
+            margin-bottom: 16px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+        }
     </style>
 </head>
 <body>
@@ -764,25 +792,29 @@
     </button>
 
     <div class="main-content">
+        <div class="info-message">
+            <i class="fas fa-globe"></i> <strong>Global Mode</strong> - Everyone sees the same tasks and notes
+        </div>
+        
         <div class="time-header">
             <span class="current-time">
                 <i class="fas fa-clock"></i>
-                Current Time: <span id="currentTimeDisplay"><%= currentTime %></span> IST
+                Current UTC Time: <span id="currentTimeDisplay"><%= currentTime %></span> UTC
             </span>
             <span class="current-time">
                 <i class="fas fa-calendar"></i>
-                <%= currentDate %>
+                <%= currentDate %> UTC
             </span>
         </div>
 
         <div class="content-header">
-            <h1 class="page-title">Today's Tasks</h1>
+            <h1 class="page-title">Today's Global Tasks</h1>
         </div>
 
         <% if (tasks.length === 0 && completedTasks.length === 0) { %>
             <div class="empty-state">
                 <i class="fas fa-clipboard-list"></i>
-                <p>No tasks for today. Click the + button to add a new task!</p>
+                <p>No tasks for today. Click the + button to add a new global task!</p>
             </div>
         <% } else { %>
             <% if (tasks.length > 0) { %>
@@ -801,10 +833,10 @@
                                 <div style="flex: 1;">
                                     <h3 class="task-title"><%= task.title %></h3>
                                     <div>
-                                        <span class="task-date-range"><%= task.dateIST %></span>
-                                        <span class="task-time-range"><%= task.startTimeIST %> - <%= task.endTimeIST %></span>
+                                        <span class="task-date-range"><%= task.dateUTC %></span>
+                                        <span class="task-time-range"><%= task.startTimeUTC %> - <%= task.endTimeUTC %></span>
+                                        <span class="utc-badge">UTC</span>
                                     </div>
-                                    <!-- FIXED: Time remaining display -->
                                     <span class="time-remaining-badge" id="time-<%= task.taskId %>" 
                                           data-start="<%= new Date(task.startDate).getTime() %>" 
                                           data-end="<%= new Date(task.endDate).getTime() %>">
@@ -815,13 +847,12 @@
                                     <button class="action-btn" onclick="openAddSubtaskModal('<%= task.taskId %>')" title="Add Subtask">
                                         <i class="fas fa-plus"></i>
                                     </button>
-                                    <!-- FIXED: Complete task form -->
                                     <form method="POST" action="/api/tasks/<%= task.taskId %>/complete" style="display:inline;">
                                         <button type="submit" class="action-btn" title="Complete Task">
                                             <i class="fas fa-check"></i>
                                         </button>
                                     </form>
-                                    <form method="POST" action="/api/tasks/<%= task.taskId %>/delete" style="display:inline;" onsubmit="return confirm('Delete this task?')">
+                                    <form method="POST" action="/api/tasks/<%= task.taskId %>/delete" style="display:inline;" onsubmit="return confirm('Delete this global task? Everyone will lose it!')">
                                         <button type="submit" class="action-btn" title="Delete Task">
                                             <i class="fas fa-trash"></i>
                                         </button>
@@ -835,13 +866,11 @@
 
                             <% if (task.subtasks && task.subtasks.length > 0) { %>
                                 <% 
-                                    // FIXED: Calculate progress correctly
                                     const completedSubtasks = task.subtasks.filter(s => s.completed === true).length;
                                     const totalSubtasks = task.subtasks.length;
                                     const progress = totalSubtasks > 0 ? Math.round((completedSubtasks / totalSubtasks) * 100) : 0;
                                 %>
                                 <div class="progress-display-container">
-                                    <!-- FIXED: Progress circle -->
                                     <div class="progress-circle" style="background: conic-gradient(var(--primary) <%= progress %>%%, var(--gray-light) 0%);">
                                         <span style="font-size: 0.65rem; z-index: 1; color: var(--dark);"><%= progress %>%</span>
                                     </div>
@@ -858,7 +887,6 @@
                                     <div class="subtasks-content">
                                         <% task.subtasks.sort((a, b) => (a.completed === b.completed ? 0 : a.completed ? 1 : -1)).forEach(function(subtask, index) { %>
                                             <div class="subtask-item">
-                                                <!-- FIXED: Toggle subtask completion -->
                                                 <form method="POST" action="/api/tasks/<%= task.taskId %>/subtasks/<%= subtask.id %>/toggle" style="display:inline;">
                                                     <button type="submit" class="subtask-complete-btn">
                                                         <span class="subtask-number-badge <%= subtask.completed ? 'completed' : '' %>">
@@ -875,7 +903,6 @@
                                                     <% } %>
                                                 </div>
                                                 <div class="subtask-actions">
-                                                    <!-- FIXED: Delete subtask -->
                                                     <form method="POST" action="/api/tasks/<%= task.taskId %>/subtasks/<%= subtask.id %>/delete" style="display:inline;" onsubmit="return confirm('Delete this subtask?')">
                                                         <button type="submit" class="delete-subtask-btn" title="Delete Subtask">
                                                             <i class="fas fa-trash"></i>
@@ -887,7 +914,6 @@
                                     </div>
                                 </details>
                             <% } else { %>
-                                <!-- FIXED: Add subtask button when no subtasks -->
                                 <div style="margin-top: 10px;">
                                     <button class="action-btn" onclick="openAddSubtaskModal('<%= task.taskId %>')" style="border-radius: 20px; width: auto; padding: 0 12px;">
                                         <i class="fas fa-plus"></i> Add Subtask
@@ -903,7 +929,6 @@
                                 </span>
                                 <span class="duration-badge">
                                     <i class="fas fa-hourglass-half"></i>
-                                    <!-- FIXED: Duration fallback -->
                                     <%= task.durationFormatted || task.duration + ' min' || '30 min' %>
                                 </span>
                             </div>
@@ -928,8 +953,9 @@
                                 <div style="flex: 1;">
                                     <h3 class="task-title" style="color: var(--completed-text);"><%= task.title %></h3>
                                     <div>
-                                        <span class="task-date-range"><%= task.dateIST %></span>
-                                        <span class="task-time-range">Completed at <%= task.completedTimeIST %></span>
+                                        <span class="task-date-range"><%= task.dateUTC %></span>
+                                        <span class="task-time-range">Completed at <%= task.completedTimeUTC %> UTC</span>
+                                        <span class="utc-badge">UTC</span>
                                     </div>
                                 </div>
                             </div>
@@ -953,36 +979,38 @@
         <% } %>
     </div>
 
-    <!-- Add Task Modal -->
+    <!-- Add Task Modal - BOT STYLE FIELDS -->
     <div class="modal" id="addTaskModal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2 class="modal-title">Add New Task</h2>
+                <h2 class="modal-title">Add New Global Task</h2>
                 <button type="button" class="close-modal" onclick="closeAddTaskModal()">&times;</button>
             </div>
             <div class="modal-body">
                 <form method="POST" action="/api/tasks">
                     <div class="form-group">
-                        <label class="form-label">Title *</label>
+                        <label class="form-label">Title * (Max 100 chars)</label>
                         <input type="text" class="form-input" name="title" required placeholder="Enter task title" maxlength="100">
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Description</label>
-                        <textarea class="form-textarea" name="description" placeholder="Optional description"></textarea>
-                        <small style="color: var(--gray); font-size: 0.75rem;">Description is only visible in the web interface</small>
+                        <label class="form-label">Description (Max 100 words)</label>
+                        <textarea class="form-textarea" name="description" placeholder="Enter task description, or '-' for none"></textarea>
+                        <small style="color: var(--gray); font-size: 0.75rem;">Enter '-' if no description</small>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Start Date</label>
+                        <label class="form-label">Start Date (UTC)</label>
                         <input type="date" class="form-input" name="startDate" id="startDate" required>
+                        <small style="color: var(--gray); font-size: 0.75rem;">Format: YYYY-MM-DD (UTC)</small>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Start Time (IST)</label>
+                        <label class="form-label">Start Time (UTC)</label>
                         <input type="time" class="form-input" name="startTime" id="startTime" required>
+                        <small style="color: var(--gray); font-size: 0.75rem;">Format: HH:MM (24-hour UTC)</small>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Duration (minutes)</label>
-                        <input type="number" class="form-input" name="duration" id="duration" value="30" min="1" max="1440" required>
-                        <small style="color: var(--gray); font-size: 0.75rem;">How long will this task take?</small>
+                        <label class="form-label">Duration (minutes) or End Time</label>
+                        <input type="text" class="form-input" name="duration" id="duration" value="30" placeholder="e.g., 30 or 16:30" required>
+                        <small style="color: var(--gray); font-size: 0.75rem;">Enter minutes (15-1440) OR end time in HH:MM format</small>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Repeat</label>
@@ -993,9 +1021,9 @@
                         </select>
                     </div>
                     <div class="form-group" id="repeatCountGroup" style="display: none;">
-                        <label class="form-label">Repeat Count</label>
+                        <label class="form-label">Repeat Count (1-365)</label>
                         <input type="number" class="form-input" name="repeatCount" value="10" min="1" max="365">
-                        <small style="color: var(--gray); font-size: 0.75rem;">Number of times to repeat (max 365)</small>
+                        <small style="color: var(--gray); font-size: 0.75rem;">Number of times to repeat</small>
                     </div>
                     <div class="form-actions">
                         <button type="button" class="btn btn-secondary" onclick="closeAddTaskModal()">Cancel</button>
@@ -1016,13 +1044,12 @@
             <div class="modal-body">
                 <form method="POST" action="" id="addSubtaskForm">
                     <div class="form-group">
-                        <label class="form-label">Subtask Title *</label>
+                        <label class="form-label">Subtask Title * (Max 100 chars)</label>
                         <input type="text" class="form-input" name="title" required placeholder="Enter subtask title" maxlength="100">
                     </div>
                     <div class="form-group">
                         <label class="form-label">Description</label>
                         <textarea class="form-textarea" name="description" placeholder="Optional description"></textarea>
-                        <small style="color: var(--gray); font-size: 0.75rem;">Description is only visible in the web interface</small>
                     </div>
                     <div class="form-actions">
                         <button type="button" class="btn btn-secondary" onclick="closeAddSubtaskModal()">Cancel</button>
@@ -1034,15 +1061,15 @@
     </div>
 
     <script>
-        // FIXED: Set default date and time
+        // Set default date and time to today/now UTC
         document.addEventListener('DOMContentLoaded', function() {
             const now = new Date();
-            const year = now.getFullYear();
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            const day = String(now.getDate()).padStart(2, '0');
+            const year = now.getUTCFullYear();
+            const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+            const day = String(now.getUTCDate()).padStart(2, '0');
             const today = `${year}-${month}-${day}`;
-            const hours = String(now.getHours()).padStart(2, '0');
-            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const hours = String(now.getUTCHours()).padStart(2, '0');
+            const minutes = String(now.getUTCMinutes()).padStart(2, '0');
             const currentTime = `${hours}:${minutes}`;
             
             const startDateInput = document.getElementById('startDate');
@@ -1061,12 +1088,10 @@
                 });
             }
             
-            // FIXED: Update time remaining for all tasks
             updateAllTimeRemaining();
             setInterval(updateAllTimeRemaining, 60000);
         });
 
-        // FIXED: Function to update time remaining for all tasks
         function updateAllTimeRemaining() {
             document.querySelectorAll('[id^="time-"]').forEach(el => {
                 const startTime = parseInt(el.dataset.start);
@@ -1113,7 +1138,6 @@
             document.getElementById('addTaskModal').style.display = 'none';
         }
 
-        // FIXED: Open add subtask modal with correct form action
         function openAddSubtaskModal(taskId) {
             const form = document.getElementById('addSubtaskForm');
             form.action = `/api/tasks/${taskId}/subtasks`;
@@ -1125,7 +1149,6 @@
             document.getElementById('addSubtaskForm').reset();
         }
 
-        // Close modals when clicking outside
         window.addEventListener('click', function(event) {
             const modals = document.querySelectorAll('.modal');
             modals.forEach(modal => {
