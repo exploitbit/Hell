@@ -4,6 +4,7 @@ const schedule = require('node-schedule');
 const express = require('express');
 const path = require('path');
 const expressSession = require('express-session');
+const MongoStore = require('connect-mongo'); // ADD THIS - npm install connect-mongo
 const crypto = require('crypto');
 require('dotenv').config();
 
@@ -12,8 +13,9 @@ require('dotenv').config();
 // ==========================================
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const MONGODB_URI = process.env.MONGODB_URI;
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000; // CHANGED FROM 8080 TO 3000 TO AVOID CONFLICT
 const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
+const WEB_APP_URL = process.env.WEB_APP_URL || `http://localhost:${PORT}`; // FIXED: No more req undefined
 
 if (!BOT_TOKEN) {
     console.error('❌ BOT_TOKEN is required!');
@@ -31,259 +33,29 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Express session for web interface - FIXED: Renamed variable
-app.use(expressSession({
-    secret: SESSION_SECRET,
-    resave: false,
-    saveUninitialized: false,
-    cookie: { 
-        secure: process.env.NODE_ENV === 'production', // Auto-adapt to HTTPS in production
-        maxAge: 24 * 60 * 60 * 1000,
-        httpOnly: true,
-        sameSite: 'lax'
-    }
-}));
-
-// Set view engine
-app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'views'));
-
-// Telegram Bot
-const bot = new Telegraf(BOT_TOKEN);
-
-// MongoDB Client - FIXED: Connection options
-const client = new MongoClient(MONGODB_URI, {
-    serverSelectionTimeoutMS: 10000,
-    connectTimeoutMS: 15000,
-    socketTimeoutMS: 45000,
-    maxPoolSize: 50,
-    minPoolSize: 5
-});
-
-let db;
-// Map to store active jobs: key = taskId, value = { startJob, interval }
-const activeSchedules = new Map();
-// For hourly summary job
-let hourlySummaryJob = null;
-// For auto-complete job at 23:59 IST
-let autoCompleteJob = null;
-
-// ==========================================
-// 🛠️ TIMEZONE UTILITY FUNCTIONS - FIXED & TESTED
-// ==========================================
-
-// IST is UTC+5:30
-const IST_OFFSET_MINUTES = 330; // 5.5 hours in minutes
-const IST_OFFSET_MS = IST_OFFSET_MINUTES * 60 * 1000;
-
-/**
- * Convert IST components to UTC Date object
- */
-function istToUtc(year, month, day, hour = 0, minute = 0) {
-    const istDate = new Date(year, month - 1, day, hour, minute, 0);
-    return new Date(istDate.getTime() - IST_OFFSET_MS);
-}
-
-/**
- * Convert UTC Date to IST Date
- */
-function utcToIst(utcDate) {
-    return new Date(utcDate.getTime() + IST_OFFSET_MS);
-}
-
-/**
- * Get current time in IST
- */
-function getCurrentIST() {
-    const now = new Date();
-    return new Date(now.getTime() + IST_OFFSET_MS);
-}
-
-/**
- * Get current IST time string (HH:MM)
- */
-function getCurrentISTTimeString() {
-    const istNow = getCurrentIST();
-    return istNow.toLocaleTimeString('en-IN', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-        timeZone: 'Asia/Kolkata'
-    });
-}
-
-/**
- * Format UTC date for display in IST
- */
-function formatDate(utcDate) {
-    const istDate = utcToIst(utcDate);
-    return istDate.toLocaleDateString('en-IN', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        weekday: 'long',
-        timeZone: 'Asia/Kolkata'
-    });
-}
-
-/**
- * Format UTC time for display in IST
- */
-function formatTime(utcDate) {
-    const istDate = utcToIst(utcDate);
-    return istDate.toLocaleTimeString('en-IN', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-        timeZone: 'Asia/Kolkata'
-    });
-}
-
-function formatDateTime(utcDate) {
-    return `${formatDate(utcDate)} at ${formatTime(utcDate)}`;
-}
-
-/**
- * Get day name in IST
- */
-function getDayName(utcDate) {
-    const istDate = utcToIst(utcDate);
-    return istDate.toLocaleDateString('en-IN', {
-        weekday: 'long',
-        timeZone: 'Asia/Kolkata'
-    });
-}
-
-/**
- * Check if two dates are same day in IST
- */
-function isSameDay(utcDate1, utcDate2) {
-    const ist1 = utcToIst(utcDate1);
-    const ist2 = utcToIst(utcDate2);
-    return ist1.getFullYear() === ist2.getFullYear() &&
-           ist1.getMonth() === ist2.getMonth() &&
-           ist1.getDate() === ist2.getDate();
-}
-
-/**
- * Get today's date at 00:00:00 IST in UTC
- */
-function getTodayIST_UTC() {
-    const istNow = getCurrentIST();
-    istNow.setHours(0, 0, 0, 0);
-    return new Date(istNow.getTime() - IST_OFFSET_MS);
-}
-
-/**
- * Get tomorrow's date at 00:00:00 IST in UTC
- */
-function getTomorrowIST_UTC() {
-    const today = getTodayIST_UTC();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return tomorrow;
-}
-
-/**
- * Get current date in IST (date only, time = 00:00)
- */
-function getCurrentISTDateOnly() {
-    const istNow = getCurrentIST();
-    istNow.setHours(0, 0, 0, 0);
-    return istNow;
-}
-
-/**
- * Generate unique ID
- */
-function generateId(prefix = '', length = 8) {
-    return prefix + Math.random().toString(36).substring(2, 2 + length) + '_' + Date.now();
-}
-
-/**
- * FIXED: Safe edit with better error handling
- */
-async function safeEdit(ctx, text, keyboard = null) {
-    try {
-        const options = { 
-            parse_mode: 'HTML',
-            ...(keyboard && { reply_markup: keyboard.reply_markup })
-        };
-        await ctx.editMessageText(text, options);
-    } catch (err) {
-        if (err.description && err.description.includes("message is not modified")) {
-            return; // Silent ignore
-        }
-        if (err.description && err.description.includes("message can't be edited")) {
-            try {
-                const options = { 
-                    parse_mode: 'HTML',
-                    ...(keyboard && { reply_markup: keyboard.reply_markup })
-                };
-                await ctx.reply(text, options);
-            } catch (e) { 
-                console.error('SafeEdit Reply Error:', e.message);
-                try {
-                    await ctx.reply(text, { parse_mode: 'HTML' });
-                } catch (finalError) {
-                    console.error('SafeEdit Final Error:', finalError.message);
-                }
-            }
-            return;
-        }
-        console.error('SafeEdit Error:', err.message);
-    }
-}
-
-/**
- * Format blockquote
- */
-function formatBlockquote(text) {
-    if (!text || text.trim() === '') return '';
-    return `<blockquote>${text}</blockquote>`;
-}
-
-/**
- * Calculate subtask completion percentage
- */
-function calculateSubtaskProgress(subtasks) {
-    if (!subtasks || subtasks.length === 0) return 0;
-    const completed = subtasks.filter(s => s.completed).length;
-    return Math.round((completed / subtasks.length) * 100);
-}
-
-/**
- * Calculate duration in minutes
- */
-function calculateDuration(startDate, endDate) {
-    return Math.round((endDate - startDate) / 60000);
-}
-
-/**
- * Format minutes to hours/minutes
- */
-function formatDuration(minutes) {
-    if (minutes < 0) return '0 mins';
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    if (hours === 0) return `${mins} min${mins !== 1 ? 's' : ''}`;
-    if (mins === 0) return `${hours} hour${hours !== 1 ? 's' : ''}`;
-    return `${hours} hour${hours !== 1 ? 's' : ''} ${mins} min${mins !== 1 ? 's' : ''}`;
-}
-
 // ==========================================
 // 🗄️ DATABASE CONNECTION - FIXED
 // ==========================================
+let db;
+let client;
 
 async function connectDB() {
     let retries = 5;
     while (retries > 0) {
         try {
+            client = new MongoClient(MONGODB_URI, {
+                serverSelectionTimeoutMS: 10000,
+                connectTimeoutMS: 15000,
+                socketTimeoutMS: 45000,
+                maxPoolSize: 50,
+                minPoolSize: 5
+            });
+            
             await client.connect();
             db = client.db('telegram_task_bot');
             console.log('✅ Connected to MongoDB');
             
-            // Create indexes with proper error handling
+            // Create indexes
             try {
                 await db.collection('tasks').createIndex({ userId: 1, status: 1 });
                 await db.collection('tasks').createIndex({ taskId: 1 }, { unique: true });
@@ -297,7 +69,7 @@ async function connectDB() {
                 await db.collection('notes').createIndex({ userId: 1, orderIndex: 1 });
                 await db.collection('users').createIndex({ userId: 1 }, { unique: true });
             } catch (indexError) {
-                console.warn('⚠️ Index creation warning (may already exist):', indexError.message);
+                console.warn('⚠️ Index creation warning:', indexError.message);
             }
             
             return true;
@@ -315,10 +87,191 @@ async function connectDB() {
 }
 
 // ==========================================
+// 🔐 EXPRESS SESSION WITH MONGODB STORE - FIXED
+// ==========================================
+app.use(expressSession({
+    secret: SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    store: MongoStore.create({
+        mongoUrl: MONGODB_URI,
+        dbName: 'telegram_task_bot',
+        collectionName: 'sessions',
+        ttl: 24 * 60 * 60 // 1 day
+    }),
+    cookie: { 
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 24 * 60 * 60 * 1000,
+        httpOnly: true,
+        sameSite: 'lax'
+    }
+}));
+
+// Set view engine
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+
+// Telegram Bot
+const bot = new Telegraf(BOT_TOKEN);
+
+// Map to store active jobs: key = taskId, value = { startJob, interval }
+const activeSchedules = new Map();
+let hourlySummaryJob = null;
+let autoCompleteJob = null;
+let isShuttingDown = false; // FIXED: Prevent multiple shutdowns
+
+// ==========================================
+// 🛠️ TIMEZONE UTILITY FUNCTIONS
+// ==========================================
+const IST_OFFSET_MINUTES = 330;
+const IST_OFFSET_MS = IST_OFFSET_MINUTES * 60 * 1000;
+
+function istToUtc(year, month, day, hour = 0, minute = 0) {
+    const istDate = new Date(year, month - 1, day, hour, minute, 0);
+    return new Date(istDate.getTime() - IST_OFFSET_MS);
+}
+
+function utcToIst(utcDate) {
+    return new Date(utcDate.getTime() + IST_OFFSET_MS);
+}
+
+function getCurrentIST() {
+    const now = new Date();
+    return new Date(now.getTime() + IST_OFFSET_MS);
+}
+
+function getCurrentISTTimeString() {
+    const istNow = getCurrentIST();
+    return istNow.toLocaleTimeString('en-IN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+        timeZone: 'Asia/Kolkata'
+    });
+}
+
+function formatDate(utcDate) {
+    const istDate = utcToIst(utcDate);
+    return istDate.toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        weekday: 'long',
+        timeZone: 'Asia/Kolkata'
+    });
+}
+
+function formatTime(utcDate) {
+    const istDate = utcToIst(utcDate);
+    return istDate.toLocaleTimeString('en-IN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+        timeZone: 'Asia/Kolkata'
+    });
+}
+
+function formatDateTime(utcDate) {
+    return `${formatDate(utcDate)} at ${formatTime(utcDate)}`;
+}
+
+function getDayName(utcDate) {
+    const istDate = utcToIst(utcDate);
+    return istDate.toLocaleDateString('en-IN', {
+        weekday: 'long',
+        timeZone: 'Asia/Kolkata'
+    });
+}
+
+function isSameDay(utcDate1, utcDate2) {
+    const ist1 = utcToIst(utcDate1);
+    const ist2 = utcToIst(utcDate2);
+    return ist1.getFullYear() === ist2.getFullYear() &&
+           ist1.getMonth() === ist2.getMonth() &&
+           ist1.getDate() === ist2.getDate();
+}
+
+function getTodayIST_UTC() {
+    const istNow = getCurrentIST();
+    istNow.setHours(0, 0, 0, 0);
+    return new Date(istNow.getTime() - IST_OFFSET_MS);
+}
+
+function getTomorrowIST_UTC() {
+    const today = getTodayIST_UTC();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow;
+}
+
+function getCurrentISTDateOnly() {
+    const istNow = getCurrentIST();
+    istNow.setHours(0, 0, 0, 0);
+    return istNow;
+}
+
+function generateId(prefix = '', length = 8) {
+    return prefix + Math.random().toString(36).substring(2, 2 + length) + '_' + Date.now();
+}
+
+async function safeEdit(ctx, text, keyboard = null) {
+    try {
+        const options = { 
+            parse_mode: 'HTML',
+            ...(keyboard && { reply_markup: keyboard.reply_markup })
+        };
+        await ctx.editMessageText(text, options);
+    } catch (err) {
+        if (err.description && (
+            err.description.includes("message is not modified") || 
+            err.description.includes("message can't be edited")
+        )) {
+            try {
+                const options = { 
+                    parse_mode: 'HTML',
+                    ...(keyboard && { reply_markup: keyboard.reply_markup })
+                };
+                await ctx.reply(text, options);
+            } catch (e) { 
+                console.error('SafeEdit Reply Error:', e.message);
+            }
+            return;
+        }
+        console.error('SafeEdit Error:', err.message);
+    }
+}
+
+function formatBlockquote(text) {
+    if (!text || text.trim() === '') return '';
+    return `<blockquote>${text}</blockquote>`;
+}
+
+function calculateSubtaskProgress(subtasks) {
+    if (!subtasks || subtasks.length === 0) return 0;
+    const completed = subtasks.filter(s => s.completed).length;
+    return Math.round((completed / subtasks.length) * 100);
+}
+
+function calculateDuration(startDate, endDate) {
+    return Math.round((endDate - startDate) / 60000);
+}
+
+function formatDuration(minutes) {
+    if (minutes < 0) return '0 mins';
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    if (hours === 0) return `${mins} min${mins !== 1 ? 's' : ''}`;
+    if (mins === 0) return `${hours} hour${hours !== 1 ? 's' : ''}`;
+    return `${hours} hour${hours !== 1 ? 's' : ''} ${mins} min${mins !== 1 ? 's' : ''}`;
+}
+
+// ==========================================
 // ⏰ SCHEDULER LOGIC - FIXED MEMORY LEAKS
 // ==========================================
 
 function scheduleTask(task) {
+    if (!task || !task.taskId || !task.startDate) return;
+    
     try {
         const taskId = task.taskId;
         const userId = task.userId;
@@ -338,12 +291,16 @@ function scheduleTask(task) {
         console.log(`⏰ Scheduled: ${task.title} for ${formatDateTime(startTime)}`);
 
         const startJob = schedule.scheduleJob(triggerDate, async function() {
+            if (isShuttingDown) return;
+            
             console.log(`🔔 Starting notifications for task: ${task.title}`);
             
             let count = 0;
             const maxNotifications = 10;
             
             const sendNotification = async () => {
+                if (isShuttingDown) return;
+                
                 const currentTime = new Date();
                 
                 if (currentTime >= startTime || count >= maxNotifications) {
@@ -418,7 +375,7 @@ function scheduleTask(task) {
         }
 
     } catch (error) {
-        console.error(`❌ Scheduler Error for task ${task.taskId}:`, error.message);
+        console.error(`❌ Scheduler Error for task ${task?.taskId}:`, error.message);
     }
 }
 
@@ -426,18 +383,10 @@ function cancelTaskSchedule(taskId) {
     if (activeSchedules.has(taskId)) {
         const s = activeSchedules.get(taskId);
         if (s.startJob) {
-            try {
-                s.startJob.cancel();
-            } catch (e) {
-                console.error(`Error cancelling job for task ${taskId}:`, e.message);
-            }
+            try { s.startJob.cancel(); } catch (e) {}
         }
         if (s.interval) {
-            try {
-                clearInterval(s.interval);
-            } catch (e) {
-                console.error(`Error clearing interval for task ${taskId}:`, e.message);
-            }
+            try { clearInterval(s.interval); } catch (e) {}
         }
         activeSchedules.delete(taskId);
         console.log(`🗑️ Cleared schedules for task ${taskId}`);
@@ -460,7 +409,7 @@ async function rescheduleAllPending() {
 }
 
 // ==========================================
-// ⏰ AUTO-COMPLETE PENDING TASKS AT 23:59 IST - FIXED CRON
+// ⏰ AUTO-COMPLETE PENDING TASKS AT 23:59 IST
 // ==========================================
 
 async function autoCompletePendingTasks() {
@@ -562,17 +511,12 @@ function scheduleAutoComplete() {
         autoCompleteJob.cancel();
     }
     
-    // 23:59 IST = 18:29 UTC (since IST is UTC+5:30)
     autoCompleteJob = schedule.scheduleJob('29 18 * * *', async () => {
-        await autoCompletePendingTasks();
+        if (!isShuttingDown) await autoCompletePendingTasks();
     });
     
     console.log('✅ Auto-complete scheduler started (23:59 IST = 18:29 UTC daily)');
 }
-
-// ==========================================
-// ⏰ HOURLY SUMMARY SCHEDULER - FIXED TO 30 MINUTES
-// ==========================================
 
 async function sendHourlySummary(userId) {
     try {
@@ -642,8 +586,8 @@ function scheduleHourlySummary() {
         hourlySummaryJob.cancel();
     }
     
-    // Every 30 minutes
     hourlySummaryJob = schedule.scheduleJob('*/30 * * * *', async () => {
+        if (isShuttingDown) return;
         console.log(`⏰ Sending hourly summaries at ${getCurrentISTTimeString()} IST...`);
         try {
             const users = await db.collection('tasks').distinct('userId');
@@ -659,10 +603,9 @@ function scheduleHourlySummary() {
 }
 
 // ==========================================
-// 📱 WEB INTERFACE ROUTES - FIXED
+// 📱 WEB INTERFACE ROUTES
 // ==========================================
 
-// Middleware to check if user is registered
 async function ensureUser(req, res, next) {
     try {
         if (!req.session.userId) {
@@ -686,12 +629,10 @@ async function ensureUser(req, res, next) {
     }
 }
 
-// Home page - redirect to tasks
 app.get('/', ensureUser, (req, res) => {
     res.redirect('/tasks');
 });
 
-// Tasks view
 app.get('/tasks', ensureUser, async (req, res) => {
     try {
         const userId = req.session.userId;
@@ -741,7 +682,6 @@ app.get('/tasks', ensureUser, async (req, res) => {
     }
 });
 
-// Notes view
 app.get('/notes', ensureUser, async (req, res) => {
     try {
         const userId = req.session.userId;
@@ -762,14 +702,13 @@ app.get('/notes', ensureUser, async (req, res) => {
     }
 });
 
-// History view
 app.get('/history', ensureUser, async (req, res) => {
     try {
         const userId = req.session.userId;
         
         const history = await db.collection('history').find({ userId })
             .sort({ completedAt: -1 })
-            .limit(100) // Limit to prevent memory issues
+            .limit(100)
             .toArray();
         
         const groupedHistory = {};
@@ -791,7 +730,6 @@ app.get('/history', ensureUser, async (req, res) => {
     }
 });
 
-// API Routes
 app.post('/api/tasks', ensureUser, async (req, res) => {
     try {
         const userId = req.session.userId;
@@ -807,7 +745,6 @@ app.post('/api/tasks', ensureUser, async (req, res) => {
         const startDateUTC = istToUtc(year, month, day, hour, minute);
         const endDateUTC = new Date(startDateUTC.getTime() + (parseInt(duration) * 60 * 1000));
         
-        // FIXED: Get highest order index
         const highestTask = await db.collection('tasks').findOne(
             { userId },
             { sort: { orderIndex: -1 } }
@@ -1151,13 +1088,11 @@ app.post('/api/notes/:noteId/move', ensureUser, async (req, res) => {
 });
 
 // ==========================================
-// 📱 BOT COMMANDS - FIXED SESSION
+// 📱 BOT COMMANDS - FIXED: NO MORE 'req' ERROR
 // ==========================================
 
-// FIXED: Use proper session middleware
 bot.use(telegrafSession());
 
-// Initialize session for new users
 bot.use((ctx, next) => {
     if (!ctx.session) {
         ctx.session = {};
@@ -1211,7 +1146,7 @@ bot.command('start', async (ctx) => {
             Markup.button.callback('📥 Download', 'download_menu'),
             Markup.button.callback('🗑️ Delete', 'delete_menu')
         ],
-        [Markup.button.url('🌐 Open Web App', `${req.protocol}://${req.get('host')}`)]
+        [Markup.button.url('🌐 Open Web App', WEB_APP_URL)] // FIXED: Using WEB_APP_URL constant
     ]);
 
     await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard.reply_markup });
@@ -1249,7 +1184,7 @@ async function showMainMenu(ctx) {
             Markup.button.callback('📥 Download', 'download_menu'),
             Markup.button.callback('🗑️ Delete', 'delete_menu')
         ],
-        [Markup.button.url('🌐 Open Web App', `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` || 'http://localhost:3000')]
+        [Markup.button.url('🌐 Open Web App', WEB_APP_URL)] // FIXED: Using WEB_APP_URL constant
     ]);
 
     await safeEdit(ctx, text, keyboard);
@@ -1325,7 +1260,6 @@ Select a task to view details:`;
             taskTitle += ` [${progress}%]`;
         }
         
-        // Truncate long titles
         if (taskTitle.length > 30) {
             taskTitle = taskTitle.substring(0, 27) + '...';
         }
@@ -1359,7 +1293,7 @@ Select a task to view details:`;
 });
 
 // ==========================================
-// ➕ ADD TASK WIZARD - FIXED TIMEZONE
+// ➕ ADD TASK WIZARD
 // ==========================================
 
 bot.action('add_task', async (ctx) => {
@@ -1393,7 +1327,7 @@ bot.action('add_note', async (ctx) => {
 });
 
 // ==========================================
-// 📨 TEXT INPUT HANDLER - FIXED
+// 📨 TEXT INPUT HANDLER
 // ==========================================
 
 bot.on('text', async (ctx) => {
@@ -1403,7 +1337,6 @@ bot.on('text', async (ctx) => {
         const text = ctx.message.text.trim();
         const step = ctx.session.step;
 
-        // --- TASK FLOW ---
         if (step === 'task_title') {
             if (text.length === 0) return ctx.reply('❌ Title cannot be empty.');
             if (text.length > 100) return ctx.reply('❌ Title too long. Max 100 characters.');
@@ -1443,7 +1376,6 @@ bot.on('text', async (ctx) => {
             const istNow = getCurrentIST();
             const inputIST = new Date(year, month - 1, day);
             
-            // Compare only dates, not time
             if (inputIST < new Date(istNow.getFullYear(), istNow.getMonth(), istNow.getDate())) {
                 return ctx.reply('❌ Date cannot be in the past. Please select today or a future date.');
             }
@@ -1566,8 +1498,6 @@ bot.on('text', async (ctx) => {
             ctx.session.task.repeatCount = count;
             await saveTask(ctx);
         }
-
-        // --- NOTE FLOW ---
         else if (step === 'note_title') {
             if (text.length === 0) return ctx.reply('❌ Title cannot be empty.');
             if (text.length > 200) return ctx.reply('❌ Title too long. Max 200 characters.');
@@ -1624,8 +1554,6 @@ bot.on('text', async (ctx) => {
                 await ctx.reply('❌ Failed to save note. Please try again.');
             }
         }
-
-        // --- SUBTASK ADDITION FLOW ---
         else if (step === 'add_subtasks') {
             const taskId = ctx.session.addSubtasksTaskId;
             
@@ -1659,7 +1587,7 @@ bot.on('text', async (ctx) => {
             
             const newSubtasks = lines.map(title => ({
                 id: generateId('sub_'),
-                title: title.substring(0, 100), // Limit length
+                title: title.substring(0, 100),
                 description: '',
                 completed: false,
                 createdAt: new Date()
@@ -1691,8 +1619,6 @@ bot.on('text', async (ctx) => {
             
             await showTaskDetail(ctx, taskId);
         }
-
-        // --- EDIT SUBTASK FLOW ---
         else if (step === 'edit_subtask_title') {
             const { taskId, subtaskId } = ctx.session.editSubtask;
             
@@ -1715,8 +1641,6 @@ bot.on('text', async (ctx) => {
                 await ctx.reply('❌ Failed to update subtask.');
             }
         }
-
-        // --- EDIT TASK FLOW ---
         else if (step === 'edit_task_title') {
             const taskId = ctx.session.editTaskId;
             if (text.length === 0) return ctx.reply('❌ Title cannot be empty.');
@@ -1924,8 +1848,6 @@ bot.on('text', async (ctx) => {
                 await ctx.reply('❌ Failed to update repeat count.');
             }
         }
-        
-        // --- EDIT NOTE FLOW ---
         else if (step === 'edit_note_title') {
             const noteId = ctx.session.editNoteId;
             if (text.length === 0) return ctx.reply('❌ Title cannot be empty.');
@@ -2001,10 +1923,6 @@ bot.on('text', async (ctx) => {
         await ctx.reply('❌ An error occurred. Please try again.');
     }
 });
-
-// ==========================================
-// 🕹️ BUTTON ACTIONS - CONTINUED
-// ==========================================
 
 bot.action('repeat_none', async (ctx) => {
     ctx.session.task.repeat = 'none';
@@ -2088,7 +2006,6 @@ ${formatBlockquote(task.description)}
     }
 }
 
-// --- TASK DETAILS (WITH SUBTASKS) ---
 bot.action(/^task_det_(.+)$/, async (ctx) => {
     await showTaskDetail(ctx, ctx.match[1]);
 });
@@ -2176,7 +2093,6 @@ ${progressBar} ${progress}%
     await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
 }
 
-// --- SUBTASK DETAILS ---
 bot.action(/^subtask_det_(.+)_(.+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     const subtaskId = ctx.match[2];
@@ -2224,7 +2140,6 @@ bot.action(/^subtask_det_(.+)_(.+)$/, async (ctx) => {
     await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
 });
 
-// --- SUBTASK COMPLETE ---
 bot.action(/^subtask_complete_(.+)_(.+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     const subtaskId = ctx.match[2];
@@ -2243,7 +2158,6 @@ bot.action(/^subtask_complete_(.+)_(.+)$/, async (ctx) => {
     }
 });
 
-// --- SUBTASK EDIT ---
 bot.action(/^subtask_edit_(.+)_(.+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     const subtaskId = ctx.match[2];
@@ -2259,7 +2173,6 @@ bot.action(/^subtask_edit_(.+)_(.+)$/, async (ctx) => {
     );
 });
 
-// --- SUBTASK DELETE ---
 bot.action(/^subtask_delete_(.+)_(.+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     const subtaskId = ctx.match[2];
@@ -2278,7 +2191,6 @@ bot.action(/^subtask_delete_(.+)_(.+)$/, async (ctx) => {
     }
 });
 
-// --- ADD SUBTASK ---
 bot.action(/^add_subtask_(.+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     
@@ -2313,7 +2225,6 @@ bot.action(/^add_subtask_(.+)$/, async (ctx) => {
     );
 });
 
-// --- COMPLETE TASK (with subtask verification) ---
 bot.action(/^complete_(.+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     const task = await db.collection('tasks').findOne({ taskId });
@@ -2388,7 +2299,6 @@ bot.action(/^complete_(.+)$/, async (ctx) => {
     }
 });
 
-// --- EDIT MENU ---
 bot.action(/^edit_menu_(.+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     const text = `✏️ <b>𝗘𝗗𝗜𝗧 𝗧𝗔𝗦𝗞</b>\n━━━━━━━━━━━━━━━━━━━━\nSelect what you want to edit:`;
@@ -2411,7 +2321,6 @@ bot.action(/^edit_menu_(.+)$/, async (ctx) => {
     await safeEdit(ctx, text, keyboard);
 });
 
-// Direct edit action handlers
 bot.action(/^edit_task_title_(.+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     ctx.session.editTaskId = taskId;
@@ -2546,7 +2455,6 @@ bot.action(/^set_rep_(.+)_(.+)$/, async (ctx) => {
     }
 });
 
-// --- DELETE TASK ---
 bot.action(/^delete_task_(.+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     try {
@@ -3947,10 +3855,20 @@ async function start() {
             scheduleHourlySummary();
             scheduleAutoComplete();
             
-            // Start Express server
-            app.listen(PORT, () => {
+            // Start Express server - FIXED: Check if already listening
+            const server = app.listen(PORT, () => {
                 console.log(`🌐 Web interface running on port ${PORT}`);
                 console.log(`📱 Web URL: http://localhost:${PORT}`);
+            }).on('error', (err) => {
+                if (err.code === 'EADDRINUSE') {
+                    console.error(`❌ Port ${PORT} is already in use. Trying port ${PORT + 1}...`);
+                    app.listen(PORT + 1, () => {
+                        console.log(`🌐 Web interface running on port ${PORT + 1}`);
+                        console.log(`📱 Web URL: http://localhost:${PORT + 1}`);
+                    });
+                } else {
+                    console.error('❌ Express server error:', err);
+                }
             });
             
             // Start Telegram bot
@@ -3981,8 +3899,11 @@ async function start() {
     }
 }
 
-// Graceful Stop - FIXED
+// Graceful Shutdown - FIXED: No more undefined catch error
 function gracefulShutdown(signal) {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
+    
     console.log(`🛑 ${signal} received, stopping bot gracefully...`);
     
     // Cancel all scheduled jobs
@@ -4018,7 +3939,8 @@ process.once('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
 // Handle uncaught errors
 process.on('uncaughtException', (error) => {
-    console.error('❌ Uncaught Exception:', error);
+    console.error('❌ Uncaught Exception:', error.message);
+    console.error(error.stack);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
