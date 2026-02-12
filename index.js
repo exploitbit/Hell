@@ -52,6 +52,7 @@ function writeMainEJS() {
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
     <title>Global Task Manager</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         :root {
             --bg-light: #f5f7fa;
@@ -253,6 +254,10 @@ function writeMainEJS() {
             }
         }
 
+        .note-card {
+            margin-bottom: 12px;
+        }
+
         .task-header {
             display: flex;
             justify-content: space-between;
@@ -281,7 +286,8 @@ function writeMainEJS() {
 
         details.task-details summary,
         details.subtask-details summary,
-        details.history-details summary {
+        details.history-details summary,
+        details.task-subtasks summary {
             cursor: pointer;
             list-style: none;
             display: flex;
@@ -295,24 +301,37 @@ function writeMainEJS() {
         @media (prefers-color-scheme: dark) {
             details.task-details summary,
             details.subtask-details summary,
-            details.history-details summary {
+            details.history-details summary,
+            details.task-subtasks summary {
                 color: var(--text-primary-dark);
             }
         }
 
         details.task-details summary::-webkit-details-marker,
         details.subtask-details summary::-webkit-details-marker,
-        details.history-details summary::-webkit-details-marker {
+        details.history-details summary::-webkit-details-marker,
+        details.task-subtasks summary::-webkit-details-marker {
             display: none;
         }
 
         .task-time {
             display: flex;
+            justify-content: space-between;
             align-items: center;
-            gap: 8px;
-            flex-wrap: wrap;
             margin-top: 4px;
             font-size: 0.8rem;
+        }
+
+        .date-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            background: var(--hover-light);
+            border-radius: 100px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--text-secondary-light);
         }
 
         .time-chip {
@@ -328,7 +347,7 @@ function writeMainEJS() {
         }
 
         @media (prefers-color-scheme: dark) {
-            .time-chip {
+            .date-chip, .time-chip {
                 background: var(--hover-dark);
                 color: var(--text-secondary-dark);
             }
@@ -376,10 +395,11 @@ function writeMainEJS() {
             margin: 8px 0;
             padding: 10px;
             background: var(--hover-light);
-            border-radius: 12px;
+            border-radius: 0 12px 12px 0;
             border-left: 3px solid var(--accent-light);
             word-break: break-word;
             white-space: pre-wrap;
+            width: 100%;
         }
 
         @media (prefers-color-scheme: dark) {
@@ -394,6 +414,7 @@ function writeMainEJS() {
             align-items: center;
             gap: 12px;
             margin: 12px 0;
+            cursor: pointer;
         }
 
         .progress-ring-small {
@@ -498,10 +519,11 @@ function writeMainEJS() {
             margin-top: 6px;
             padding: 8px;
             background: var(--card-bg-light);
-            border-radius: 8px;
+            border-radius: 0 8px 8px 0;
             border-left: 2px solid var(--accent-light);
             word-break: break-word;
             white-space: pre-wrap;
+            width: 100%;
         }
 
         @media (prefers-color-scheme: dark) {
@@ -621,9 +643,11 @@ function writeMainEJS() {
             margin: 8px 0;
             padding: 12px;
             background: var(--hover-light);
-            border-radius: 12px;
+            border-radius: 0 12px 12px 0;
+            border-left: 3px solid var(--accent-light);
             word-break: break-word;
             white-space: pre-wrap;
+            width: 100%;
         }
 
         @media (prefers-color-scheme: dark) {
@@ -721,6 +745,8 @@ function writeMainEJS() {
             font-size: 0.7rem;
             color: var(--text-secondary-light);
             flex-shrink: 0;
+            margin-left: auto;
+            padding-left: 8px;
         }
 
         .history-subtask {
@@ -981,9 +1007,6 @@ function writeMainEJS() {
 
     <div class="app-header">
         <div class="nav-container">
-            <div style="font-weight: 700; font-size: 1.2rem; color: var(--text-primary-light);">
-                📋 Global TM
-            </div>
             <div class="nav-links">
                 <button class="nav-btn <%= currentPage === 'tasks' ? 'active' : '' %>" onclick="switchPage('tasks')">
                     <i class="fas fa-tasks"></i>
@@ -1029,16 +1052,16 @@ function writeMainEJS() {
                     <textarea class="form-control" name="description" rows="2"></textarea>
                 </div>
                 <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Start Date (UTC)</label>
+                    <label style="font-size: 0.85rem; font-weight: 600;">Start Date</label>
                     <input type="date" class="form-control" name="startDate" id="startDate" required>
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
                     <div>
-                        <label style="font-size: 0.85rem; font-weight: 600;">Start Time (UTC)</label>
+                        <label style="font-size: 0.85rem; font-weight: 600;">Start Time</label>
                         <input type="time" class="form-control" name="startTime" id="startTime" required>
                     </div>
                     <div>
-                        <label style="font-size: 0.85rem; font-weight: 600;">End Time (UTC)</label>
+                        <label style="font-size: 0.85rem; font-weight: 600;">End Time</label>
                         <input type="time" class="form-control" name="endTime" id="endTime" required>
                     </div>
                 </div>
@@ -1080,16 +1103,16 @@ function writeMainEJS() {
                     <textarea class="form-control" name="description" id="editDescription" rows="2"></textarea>
                 </div>
                 <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Start Date (UTC)</label>
+                    <label style="font-size: 0.85rem; font-weight: 600;">Start Date</label>
                     <input type="date" class="form-control" name="startDate" id="editStartDate" required>
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
                     <div>
-                        <label style="font-size: 0.85rem; font-weight: 600;">Start Time (UTC)</label>
+                        <label style="font-size: 0.85rem; font-weight: 600;">Start Time</label>
                         <input type="time" class="form-control" name="startTime" id="editStartTime" required>
                     </div>
                     <div>
-                        <label style="font-size: 0.85rem; font-weight: 600;">End Time (UTC)</label>
+                        <label style="font-size: 0.85rem; font-weight: 600;">End Time</label>
                         <input type="time" class="form-control" name="endTime" id="editEndTime" required>
                     </div>
                 </div>
@@ -1215,6 +1238,17 @@ function writeMainEJS() {
 
     <script>
         // ==========================================
+        // TELEGRAM WEB APP INTEGRATION
+        // ==========================================
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+
+        function openWebApp() {
+            window.location.href = 'https://task-manager-bot.up.railway.app' + window.location.pathname;
+        }
+
+        // ==========================================
         // TOAST NOTIFICATION SYSTEM
         // ==========================================
         function showToast(message, type = 'success') {
@@ -1335,15 +1369,15 @@ function writeMainEJS() {
                                             <span class="task-title">\${escapeHtml(task.title)}</span>
                                         </summary>
                                         <div class="task-description">
-                                            \${escapeHtml(task.description || '<i>No description</i>').replace(/\\n/g, '<br>')}
+                                            \${task.description ? escapeHtml(task.description).replace(/\\n/g, '<br>') : ''}
                                         </div>
                                     </details>
                                     <div class="task-time">
-                                        <span class="time-chip">
+                                        <span class="date-chip">
                                             <i class="fas fa-calendar"></i> \${task.dateUTC}
                                         </span>
                                         <span class="time-chip">
-                                            <i class="fas fa-clock"></i> \${task.startTimeUTC} - \${task.endTimeUTC}
+                                            <i class="fas fa-clock"></i> \${task.startTimeUTC}-\${task.endTimeUTC}
                                         </span>
                                     </div>
                                 </div>
@@ -1363,60 +1397,61 @@ function writeMainEJS() {
                                 </div>
                             </div>
 
-                            <div class="flex-row">
-                                \${totalSubtasks > 0 ? \`
-                                    <div class="progress-ring-small">
-                                        <svg width="40" height="40">
-                                            <circle class="progress-ring-circle-small" stroke="var(--progress-bg-light)" stroke-width="3" fill="transparent" r="16" cx="20" cy="20"/>
-                                            <circle class="progress-ring-circle-small" stroke="var(--accent-light)" stroke-width="3" fill="transparent" r="16" cx="20" cy="20"
-                                                style="stroke-dasharray: \${circleCircumference}; stroke-dashoffset: \${circleOffset};"/>
-                                        </svg>
-                                        <span class="progress-text-small">\${progress}%</span>
+                            \${totalSubtasks > 0 ? \`
+                                <details class="task-subtasks" onclick="event.stopPropagation()">
+                                    <summary class="flex-row" style="cursor: pointer;">
+                                        <div class="progress-ring-small">
+                                            <svg width="40" height="40">
+                                                <circle class="progress-ring-circle-small" stroke="var(--progress-bg-light)" stroke-width="3" fill="transparent" r="16" cx="20" cy="20"/>
+                                                <circle class="progress-ring-circle-small" stroke="var(--accent-light)" stroke-width="3" fill="transparent" r="16" cx="20" cy="20"
+                                                    style="stroke-dasharray: \${circleCircumference}; stroke-dashoffset: \${circleOffset};"/>
+                                            </svg>
+                                            <span class="progress-text-small">\${progress}%</span>
+                                        </div>
+                                        <span style="font-size: 0.8rem; color: var(--text-secondary-light);">
+                                            \${completedSubtasks}/\${totalSubtasks} subtasks
+                                        </span>
+                                    </summary>
+                                    <div class="subtasks-container">
+                                        \${task.subtasks.sort((a, b) => {
+                                            if (a.completed === b.completed) return 0;
+                                            return a.completed ? 1 : -1;
+                                        }).map(subtask => \`
+                                            <div class="subtask-item">
+                                                <div class="subtask-checkbox \${subtask.completed ? 'completed' : ''}" onclick="toggleSubtask('\${task.taskId}', '\${subtask.id}')">
+                                                    \${subtask.completed ? '<i class="fas fa-check"></i>' : ''}
+                                                </div>
+                                                <div class="subtask-details">
+                                                    <details class="subtask-details">
+                                                        <summary>
+                                                            <span class="subtask-title \${subtask.completed ? 'completed' : ''}">
+                                                                \${escapeHtml(subtask.title)}
+                                                            </span>
+                                                        </summary>
+                                                        <div class="subtask-desc">
+                                                            \${subtask.description ? escapeHtml(subtask.description).replace(/\\n/g, '<br>') : ''}
+                                                        </div>
+                                                    </details>
+                                                </div>
+                                                <div class="subtask-actions">
+                                                    <button class="subtask-btn" onclick="editSubtask('\${task.taskId}', '\${subtask.id}', '\${escapeHtml(subtask.title)}', '\${escapeHtml(subtask.description || '')}')">
+                                                        <i class="fas fa-pencil-alt"></i>
+                                                    </button>
+                                                    <button class="subtask-btn delete" onclick="deleteSubtask('\${task.taskId}', '\${subtask.id}')">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        \`).join('')}
                                     </div>
-                                    <span style="font-size: 0.8rem; color: var(--text-secondary-light);">
-                                        \${completedSubtasks}/\${totalSubtasks} subtasks
-                                    </span>
-                                \` : \`
+                                </details>
+                            \` : \`
+                                <div class="flex-row">
                                     <span style="font-size: 0.8rem; color: var(--text-secondary-light);">
                                         <i class="fas fa-tasks"></i> No subtasks
                                     </span>
-                                \`}
-                            </div>
-
-                            \${task.subtasks && task.subtasks.length > 0 ? \`
-                                <div class="subtasks-container">
-                                    \${task.subtasks.sort((a, b) => {
-                                        if (a.completed === b.completed) return 0;
-                                        return a.completed ? 1 : -1;
-                                    }).map(subtask => \`
-                                        <div class="subtask-item">
-                                            <div class="subtask-checkbox \${subtask.completed ? 'completed' : ''}" onclick="toggleSubtask('\${task.taskId}', '\${subtask.id}')">
-                                                \${subtask.completed ? '<i class="fas fa-check"></i>' : ''}
-                                            </div>
-                                            <div class="subtask-details">
-                                                <details class="subtask-details">
-                                                    <summary>
-                                                        <span class="subtask-title \${subtask.completed ? 'completed' : ''}">
-                                                            \${escapeHtml(subtask.title)}
-                                                        </span>
-                                                    </summary>
-                                                    <div class="subtask-desc">
-                                                        \${escapeHtml(subtask.description || '<i>No description</i>').replace(/\\n/g, '<br>')}
-                                                    </div>
-                                                </details>
-                                            </div>
-                                            <div class="subtask-actions">
-                                                <button class="subtask-btn" onclick="editSubtask('\${task.taskId}', '\${subtask.id}', '\${escapeHtml(subtask.title)}', '\${escapeHtml(subtask.description || '')}')">
-                                                    <i class="fas fa-pencil-alt"></i>
-                                                </button>
-                                                <button class="subtask-btn delete" onclick="deleteSubtask('\${task.taskId}', '\${subtask.id}')">
-                                                    <i class="fas fa-trash"></i>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    \`).join('')}
                                 </div>
-                            \` : ''}
+                            \`}
 
                             <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
                                 <span class="badge">
@@ -1475,12 +1510,14 @@ function writeMainEJS() {
                                     </button>
                                 </div>
                             </div>
-                            <details class="note-details">
-                                <summary><i class="fas fa-chevron-right"></i> View Content</summary>
-                                <div class="note-content">
-                                    \${escapeHtml(note.description || '<i>Empty note</i>').replace(/\\n/g, '<br>')}
-                                </div>
-                            </details>
+                            \${note.description ? \`
+                                <details class="note-details">
+                                    <summary><i class="fas fa-chevron-right"></i> View Content</summary>
+                                    <div class="note-content">
+                                        \${escapeHtml(note.description).replace(/\\n/g, '<br>')}
+                                    </div>
+                                </details>
+                            \` : ''}
                             <div class="note-meta">
                                 <span><i class="fas fa-clock"></i> \${note.createdAtUTC}</span>
                                 \${note.updatedAtUTC !== note.createdAtUTC ? \`
@@ -1550,8 +1587,8 @@ function writeMainEJS() {
                                         <summary class="history-task-title">
                                             \${escapeHtml(task.title)}
                                         </summary>
-                                        <div style="font-size: 0.8rem; color: var(--text-secondary-light); margin-top: 8px; padding: 8px; background: var(--card-bg-light); border-radius: 8px;">
-                                            \${escapeHtml(task.description || '<i>No description</i>').replace(/\\n/g, '<br>')}
+                                        <div style="font-size: 0.8rem; color: var(--text-secondary-light); margin-top: 8px; padding: 8px; background: var(--card-bg-light); border-radius: 0 8px 8px 0; border-left: 2px solid var(--success-light); width: 100%;">
+                                            \${task.description ? escapeHtml(task.description).replace(/\\n/g, '<br>') : ''}
                                         </div>
                                     </details>
                                     <span class="history-task-time">
@@ -1560,7 +1597,7 @@ function writeMainEJS() {
                                 </div>
                                 <div style="display: flex; gap: 6px; margin: 8px 0; flex-wrap: wrap;">
                                     <span class="badge">
-                                        <i class="fas fa-clock"></i> \${task.startTimeUTC || formatTime(task.startDate)} - \${task.endTimeUTC || formatTime(task.endDate)}
+                                        <i class="fas fa-clock"></i> \${task.startTimeUTC || formatTime(task.startDate)}-\${task.endTimeUTC || formatTime(task.endDate)}
                                     </span>
                                     <span class="badge">
                                         <i class="fas fa-hourglass-half"></i> \${task.durationFormatted}
@@ -1592,8 +1629,8 @@ function writeMainEJS() {
                                                             <summary style="font-weight: 600; font-size: 0.8rem; cursor: pointer;">
                                                                 \${escapeHtml(subtask.title)}
                                                             </summary>
-                                                            <div style="font-size: 0.75rem; color: var(--text-secondary-light); margin-top: 4px; padding: 6px; background: var(--card-bg-light); border-radius: 6px;">
-                                                                \${escapeHtml(subtask.description || '<i>No description</i>')}
+                                                            <div style="font-size: 0.75rem; color: var(--text-secondary-light); margin-top: 4px; padding: 6px; background: var(--card-bg-light); border-radius: 0 6px 6px 0; border-left: 2px solid var(--accent-light); width: 100%;">
+                                                                \${subtask.description ? escapeHtml(subtask.description) : ''}
                                                             </div>
                                                         </details>
                                                     </div>
@@ -2215,7 +2252,7 @@ async function safeEdit(ctx, text, keyboard = null) {
 function formatBlockquote(text) {
     if (!text || text.trim() === '') return '';
     const words = text.split(/\s+/).length;
-    if (words > 100 || text.split('\\n').length > 4) {
+    if (words > 100 || text.split('\n').length > 4) {
         return '<blockquote expandable>' + text + '</blockquote>';
     }
     return '<blockquote>' + text + '</blockquote>';
@@ -2249,7 +2286,7 @@ function formatTimeUTC(utcDate) {
 }
 
 function formatDateTimeUTC(utcDate) {
-    return formatDateUTC(utcDate) + ' at ' + formatTimeUTC(utcDate) + ' UTC';
+    return formatDateUTC(utcDate) + ' at ' + formatTimeUTC(utcDate);
 }
 
 function getTodayUTC() {
@@ -2294,7 +2331,7 @@ function scheduleTask(task) {
             console.log('🔔 Starting notifications for task: ' + task.title);
             
             let count = 0;
-            const maxNotifications = 10; // Changed from 7 to 10
+            const maxNotifications = 10;
             
             const sendNotification = async () => {
                 if (isShuttingDown) return;
@@ -2333,7 +2370,7 @@ function scheduleTask(task) {
                         '━━━━━━━━━━━━━━━━━━━━\n' +
                         '📌 <b>' + task.title + '</b>\n' +
                         '⏳ Starts in: <b>' + minutesLeft + ' minute' + (minutesLeft !== 1 ? 's' : '') + '</b>\n' +
-                        '⏰ Start Time: ' + formatTimeUTC(startTime) + ' UTC\n' +
+                        '⏰ Start Time: ' + formatTimeUTC(startTime) + '\n' +
                         '📅 Date: ' + formatDateUTC(startTime) + '\n' +
                         '━━━━━━━━━━━━━━━━━━━━', 
                         { parse_mode: 'HTML' }
@@ -2408,7 +2445,7 @@ async function rescheduleAllPending() {
 // ==========================================
 
 async function autoCompletePendingTasks() {
-    console.log('⏰ Running auto-complete for pending tasks at 23:59 UTC...');
+    console.log('⏰ Running auto-complete for pending tasks at 23:59...');
     
     try {
         const todayUTC = getTodayUTC();
@@ -2486,7 +2523,7 @@ async function autoCompleteTask(task) {
                 '⏰ <b>𝗔𝗨𝗧𝗢-𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘𝗗 𝗧𝗔𝗦𝗞</b>\n' +
                 '━━━━━━━━━━━━━━━━━━━━\n' +
                 '📌 <b>' + task.title + '</b>\n' +
-                '✅ Automatically completed at 23:59 UTC\n' +
+                '✅ Automatically completed at 23:59\n' +
                 '📅 ' + formatDateUTC(completedAtUTC) + '\n' +
                 '━━━━━━━━━━━━━━━━━━━━',
                 { parse_mode: 'HTML' }
@@ -2509,7 +2546,7 @@ function scheduleAutoComplete() {
         if (!isShuttingDown) await autoCompletePendingTasks();
     });
     
-    console.log('✅ Auto-complete scheduler started (23:59 UTC daily)');
+    console.log('✅ Auto-complete scheduler started (23:59 daily)');
 }
 
 // ==========================================
@@ -2805,6 +2842,12 @@ app.post('/api/tasks/:taskId/update', async (req, res) => {
         const [year, month, day] = startDate.split('-').map(Number);
         const [startHour, startMinute] = startTime.split(':').map(Number);
         const [endHour, endMinute] = endTime.split(':').map(Number);
+        
+        // Validate times are within 00:00-23:59 range
+        if (startHour < 0 || startHour > 23 || startMinute < 0 || startMinute > 59 ||
+            endHour < 0 || endHour > 23 || endMinute < 0 || endMinute > 59) {
+            return res.status(400).send('Time must be between 00:00 and 23:59');
+        }
         
         const startDateUTC = new Date(Date.UTC(year, month - 1, day, startHour, startMinute, 0));
         const endDateUTC = new Date(Date.UTC(year, month - 1, day, endHour, endMinute, 0));
@@ -3260,7 +3303,7 @@ bot.command('start', async (ctx) => {
 ┌─━━━━━━━━━━━━━━━─┐
 │    ✧ 𝗚𝗟𝗢𝗕𝗔𝗟 𝗧𝗔𝗦𝗞 𝗠𝗔𝗡𝗔𝗚𝗘𝗥 ✧    │ 
 └─━━━━━━━━━━━━━━━─┘
-⏰ Current Time: ${formatTimeUTC(now)} UTC
+⏰ Current Time: ${formatTimeUTC(now)}
 📅 Today: ${formatDateUTC(now)}
 
 🌟 <b>Welcome to Global Task Manager!</b>
@@ -3301,7 +3344,7 @@ async function showMainMenu(ctx) {
 ┌─━━━━━━━━━━━━━━━─┐
 │    ✧ 𝗚𝗟𝗢𝗕𝗔𝗟 𝗧𝗔𝗦𝗞 𝗠𝗔𝗡𝗔𝗚𝗘𝗥 ✧    │ 
 └─━━━━━━━━━━━━━━━─┘
-⏰ Current Time: ${formatTimeUTC(now)} UTC
+⏰ Current Time: ${formatTimeUTC(now)}
 📅 Today: ${formatDateUTC(now)}
 
 🌟 <b>Select an option:</b>`;
@@ -3496,8 +3539,8 @@ bot.on('text', async (ctx) => {
             await ctx.reply(
                 '📅 <b>𝗦𝗘𝗟𝗘𝗖𝗧 𝗗𝗔𝗧𝗘</b>\n' +
                 '━━━━━━━━━━━━━━━━━━━━\n' +
-                '📆 Today (UTC): ' + formatDateUTC(new Date()) + '\n' +
-                '📝 <i>Enter the date (DD-MM-YYYY) in UTC:</i>',
+                '📆 Today: ' + formatDateUTC(new Date()) + '\n' +
+                '📝 <i>Enter the date (DD-MM-YYYY):</i>',
                 { parse_mode: 'HTML' }
             );
         }
@@ -3524,8 +3567,8 @@ bot.on('text', async (ctx) => {
             await ctx.reply(
                 '⏰ <b>𝗦𝗘𝗟𝗘𝗖𝗧 𝗦𝗧𝗔𝗥𝗧 𝗧𝗜𝗠𝗘</b>\n' +
                 '━━━━━━━━━━━━━━━━━━━━\n' +
-                '🕒 Current UTC Time: ' + formatTimeUTC(new Date()) + '\n' +
-                '📝 <i>Enter start time in HH:MM (24-hour UTC):</i>',
+                '🕒 Current Time: ' + formatTimeUTC(new Date()) + '\n' +
+                '📝 <i>Enter start time in HH:MM (24-hour):</i>',
                 { parse_mode: 'HTML' }
             );
         }
@@ -3553,8 +3596,8 @@ bot.on('text', async (ctx) => {
             await ctx.reply(
                 '⏱️ <b>𝗦𝗘𝗟𝗘𝗖𝗧 𝗘𝗡𝗗 𝗧𝗜𝗠𝗘</b>\n' +
                 '━━━━━━━━━━━━━━━━━━━━\n' +
-                '⏰ Start Time: ' + text + ' UTC\n' +
-                '📝 <i>Enter end time in HH:MM format (24-hour UTC):</i>',
+                '⏰ Start Time: ' + text + '\n' +
+                '📝 <i>Enter end time in HH:MM format (24-hour):</i>',
                 { parse_mode: 'HTML' }
             );
         }
@@ -3582,7 +3625,7 @@ bot.on('text', async (ctx) => {
                 '━━━━━━━━━━━━━━━━━━━━\n' +
                 'How should this task repeat?\n\n' +
                 '📅 Task Date: ' + formatDateUTC(ctx.session.task.startDate) + '\n' +
-                '⏰ Time: ' + ctx.session.task.startTimeStr + ' - ' + text + ' UTC\n' +
+                '⏰ Time: ' + ctx.session.task.startTimeStr + ' - ' + text + '\n' +
                 '⏱️ Duration: ' + formatDuration(duration) + '\n\n',
                 {
                     parse_mode: 'HTML',
@@ -3647,8 +3690,8 @@ bot.on('text', async (ctx) => {
                     '✅ <b>𝗡𝗢𝗧𝗘 𝗦𝗔𝗩𝗘𝗗 𝗦𝗨𝗖𝗖𝗘𝗦𝗦𝗙𝗨𝗟𝗟𝗬!</b>\n' +
                     '━━━━━━━━━━━━━━━━━━━━\n' +
                     '📌 <b>' + noteTitle + '</b>\n' +
-                    formatBlockquote(noteContent) + '\n' +
-                    '📅 Saved on: ' + formatDateTimeUTC(new Date()) + ' UTC',
+                    (noteContent ? formatBlockquote(noteContent) : '') + '\n' +
+                    '📅 Saved on: ' + formatDateTimeUTC(new Date()),
                     { parse_mode: 'HTML' }
                 );
                 
@@ -3659,8 +3702,8 @@ bot.on('text', async (ctx) => {
                         '📝 <b>𝗡𝗘𝗪 𝗚𝗟𝗢𝗕𝗔𝗟 𝗡𝗢𝗧𝗘 𝗔𝗗𝗗𝗘𝗗</b>\n' +
                         '━━━━━━━━━━━━━━━━━━━━\n' +
                         '📌 <b>' + noteTitle + '</b>\n' +
-                        formatBlockquote(noteContent) + '\n' +
-                        '📅 ' + formatDateTimeUTC(new Date()) + ' UTC\n' +
+                        (noteContent ? formatBlockquote(noteContent) : '') + '\n' +
+                        '📅 ' + formatDateTimeUTC(new Date()) + '\n' +
                         '━━━━━━━━━━━━━━━━━━━━',
                         { parse_mode: 'HTML' }
                     );
@@ -3846,6 +3889,8 @@ bot.on('text', async (ctx) => {
                 return ctx.reply('❌ Invalid Format. Use HH:MM (24-hour)');
             }
             
+            const [h, m] = text.split(':').map(Number);
+            
             try {
                 const task = await db.collection('tasks').findOne({ taskId });
                 if (!task) {
@@ -3858,7 +3903,6 @@ bot.on('text', async (ctx) => {
                 const year = utcDate.getUTCFullYear();
                 const month = utcDate.getUTCMonth();
                 const day = utcDate.getUTCDate();
-                const [h, m] = text.split(':').map(Number);
                 
                 const newStartDateUTC = new Date(Date.UTC(year, month, day, h, m, 0));
                 const now = new Date();
@@ -3903,7 +3947,7 @@ bot.on('text', async (ctx) => {
                 
                 ctx.session.step = null;
                 delete ctx.session.editTaskId;
-                await ctx.reply('✅ <b>START TIME UPDATED!</b>\n\nEnd time adjusted to: ' + formatTimeUTC(newEndDateUTC) + ' UTC', { parse_mode: 'HTML' });
+                await ctx.reply('✅ <b>START TIME UPDATED!</b>\n\nEnd time adjusted to: ' + formatTimeUTC(newEndDateUTC), { parse_mode: 'HTML' });
                 await showTaskDetail(ctx, taskId);
             } catch (error) {
                 console.error('Error updating start time:', error);
@@ -3915,6 +3959,12 @@ bot.on('text', async (ctx) => {
             
             if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(text)) {
                 return ctx.reply('❌ Invalid Format. Use HH:MM (24-hour)');
+            }
+            
+            const [eh, em] = text.split(':').map(Number);
+            
+            if (eh < 0 || eh > 23 || em < 0 || em > 59) {
+                return ctx.reply('❌ Time must be between 00:00 and 23:59');
             }
             
             try {
@@ -3929,7 +3979,6 @@ bot.on('text', async (ctx) => {
                 const year = utcDate.getUTCFullYear();
                 const month = utcDate.getUTCMonth();
                 const day = utcDate.getUTCDate();
-                const [eh, em] = text.split(':').map(Number);
                 
                 const newEndDateUTC = new Date(Date.UTC(year, month, day, eh, em, 0));
                 
@@ -4019,8 +4068,8 @@ bot.on('text', async (ctx) => {
                     '✅ <b>𝗡𝗢𝗧𝗘 𝗧𝗜𝗧𝗟𝗘 𝗨𝗣𝗗𝗔𝗧𝗘𝗗!</b>\n' +
                     '━━━━━━━━━━━━━━━━━━━━\n' +
                     '📌 <b>' + updatedNote.title + '</b>\n' +
-                    formatBlockquote(updatedNote.description) + '\n' +
-                    '📅 Updated: ' + formatDateTimeUTC(new Date()) + ' UTC',
+                    (updatedNote.description ? formatBlockquote(updatedNote.description) : '') + '\n' +
+                    '📅 Updated: ' + formatDateTimeUTC(new Date()),
                     { parse_mode: 'HTML' }
                 );
                 
@@ -4055,8 +4104,8 @@ bot.on('text', async (ctx) => {
                     '✅ <b>𝗡𝗢𝗧𝗘 𝗖𝗢𝗡𝗧𝗘𝗡𝗧 𝗨𝗣𝗗𝗔𝗧𝗘𝗗!</b>\n' +
                     '━━━━━━━━━━━━━━━━━━━━\n' +
                     '📌 <b>' + updatedNote.title + '</b>\n' +
-                    formatBlockquote(updatedNote.description) + '\n' +
-                    '📅 Updated: ' + formatDateTimeUTC(new Date()) + ' UTC',
+                    (updatedNote.description ? formatBlockquote(updatedNote.description) : '') + '\n' +
+                    '📅 Updated: ' + formatDateTimeUTC(new Date()),
                     { parse_mode: 'HTML' }
                 );
                 
@@ -4137,9 +4186,9 @@ async function saveTask(ctx) {
 ✅ <b>𝗚𝗟𝗢𝗕𝗔𝗟 𝗧𝗔𝗦𝗞 𝗖𝗥𝗘𝗔𝗧𝗘𝗗 𝗦𝗨𝗖𝗖𝗘𝗦𝗦𝗙𝗨𝗟𝗟𝗬!</b>
 ━━━━━━━━━━━━━━━━━━━━
 📌 <b>${task.title}</b>
-${formatBlockquote(task.description)}
+${task.description ? formatBlockquote(task.description) : ''}
 📅 <b>Date:</b> ${formatDateUTC(task.startDate)}
-⏰ <b>Time:</b> ${task.startTimeStr} - ${task.endTimeStr} UTC
+⏰ <b>Time:</b> ${task.startTimeStr} - ${task.endTimeStr}
 ⏱️ <b>Duration:</b> ${formatDuration(duration)}
 🔄 <b>Repeat:</b> ${task.repeat} (${task.repeatCount || 0} times)
 📊 <b>Status:</b> ⏳ Pending
@@ -4161,9 +4210,9 @@ ${formatBlockquote(task.description)}
                 '✅ <b>𝗡𝗘𝗪 𝗚𝗟𝗢𝗕𝗔𝗟 𝗧𝗔𝗦𝗞 𝗔𝗗𝗗𝗘𝗗</b>\n' +
                 '━━━━━━━━━━━━━━━━━━━━\n' +
                 '📌 <b>' + task.title + '</b>\n' +
-                formatBlockquote(task.description) + '\n' +
+                (task.description ? formatBlockquote(task.description) : '') + '\n' +
                 '📅 ' + formatDateUTC(task.startDate) + '\n' +
-                '⏰ ' + task.startTimeStr + ' - ' + task.endTimeStr + ' UTC\n' +
+                '⏰ ' + task.startTimeStr + ' - ' + task.endTimeStr + '\n' +
                 '━━━━━━━━━━━━━━━━━━━━',
                 { parse_mode: 'HTML' }
             );
@@ -4200,9 +4249,9 @@ async function showTaskDetail(ctx, taskId) {
 ━━━━━━━━━━━━━━━━━━━━
 🆔 <b>Task ID:</b> <code>${task.taskId}</code>
 📛 <b>Title:</b> ${task.title}
-${formatBlockquote(task.description)}
+${task.description ? formatBlockquote(task.description) : ''}
 📅 <b>Next Occurrence:</b> ${formatDateTimeUTC(task.nextOccurrence)}
-⏰ <b>Time:</b> ${formatTimeUTC(task.startDate)} - ${formatTimeUTC(task.endDate)} UTC
+⏰ <b>Time:</b> ${formatTimeUTC(task.startDate)} - ${formatTimeUTC(task.endDate)}
 ⏱️ <b>Duration:</b> ${formatDuration(duration)}
 🔄 <b>Repeat:</b> ${task.repeat === 'none' ? 'No Repeat' : task.repeat} 
 🔢 <b>Remaining Repeats:</b> ${task.repeatCount || 0}
@@ -4290,10 +4339,10 @@ bot.action(/^subtask_det_(.+)_(.+)$/, async (ctx) => {
 ━━━━━━━━━━━━━━━━━━━━
 📌 <b>Task:</b> ${task.title}
 🔖 <b>Subtask:</b> ${subtask.title}
-📝 <b>Description:</b> ${subtask.description || '<i>No description</i>'}
+${subtask.description ? formatBlockquote(subtask.description) : ''}
 📊 <b>Status:</b> ${status}
 🆔 <b>ID:</b> <code>${subtask.id}</code>
-📅 <b>Created:</b> ${formatDateTimeUTC(subtask.createdAt)} UTC
+📅 <b>Created:</b> ${formatDateTimeUTC(subtask.createdAt)}
 ━━━━━━━━━━━━━━━━━━━━`;
 
     const buttons = [];
@@ -4484,7 +4533,7 @@ bot.action(/^complete_(.+)$/, async (ctx) => {
                     '✅ <b>𝗧𝗔𝗦𝗞 𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘𝗗</b>\n' +
                     '━━━━━━━━━━━━━━━━━━━━\n' +
                     '📌 <b>' + task.title + '</b>\n' +
-                    '📅 Completed at: ' + formatDateTimeUTC(completedAtUTC) + ' UTC\n' +
+                    '📅 Completed at: ' + formatDateTimeUTC(completedAtUTC) + '\n' +
                     '━━━━━━━━━━━━━━━━━━━━',
                     { parse_mode: 'HTML' }
                 );
@@ -4561,8 +4610,8 @@ bot.action(/^edit_task_start_(.+)$/, async (ctx) => {
     await ctx.reply(
         '✏️ <b>𝗘𝗗𝗜𝗧 𝗦𝗧𝗔𝗥𝗧 𝗧𝗜𝗠𝗘</b>\n' +
         '━━━━━━━━━━━━━━━━━━━━\n' +
-        'Current start time: ' + formatTimeUTC(task.startDate) + ' UTC\n' +
-        'Enter new start time (HH:MM, 24-hour UTC):\n' +
+        'Current start time: ' + formatTimeUTC(task.startDate) + '\n' +
+        'Enter new start time (HH:MM, 24-hour):\n' +
         '⚠️ Duration will be preserved',
         Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', 'task_det_' + taskId)]])
     );
@@ -4583,8 +4632,8 @@ bot.action(/^edit_task_end_(.+)$/, async (ctx) => {
     await ctx.reply(
         '✏️ <b>𝗘𝗗𝗜𝗧 𝗘𝗡𝗗 𝗧𝗜𝗠𝗘</b>\n' +
         '━━━━━━━━━━━━━━━━━━━━\n' +
-        'Current end time: ' + formatTimeUTC(task.endDate) + ' UTC\n' +
-        'Enter new end time (HH:MM, 24-hour UTC):',
+        'Current end time: ' + formatTimeUTC(task.endDate) + '\n' +
+        'Enter new end time (HH:MM, 24-hour, max 23:59):',
         Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', 'task_det_' + taskId)]])
     );
 });
@@ -5317,7 +5366,7 @@ bot.action(/^hist_list_([\d-]+)_(\d+)$/, async (ctx) => {
     }).sort({ completedAt: -1 }).skip(skip).limit(perPage).toArray();
 
     const date = new Date(year, month - 1, day);
-    let text = '📅 <b>𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘𝗗 𝗢𝗡 ' + formatDateUTC(date).toUpperCase() + '</b>\n━━━━━━━━━━━━━━━━━━━━\n📊 Total: ' + totalTasks + ' task' + (totalTasks !== 1 ? 's' : '') + '\n📄 Page: ' + page + '/' + totalPages + '\n━━━━━━━━━━━━━━━━━━━━\n';
+        let text = '📅 <b>𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘𝗗 𝗢𝗡 ' + formatDateUTC(date).toUpperCase() + '</b>\n━━━━━━━━━━━━━━━━━━━━\n📊 Total: ' + totalTasks + ' task' + (totalTasks !== 1 ? 's' : '') + '\n📄 Page: ' + page + '/' + totalPages + '\n━━━━━━━━━━━━━━━━━━━━\n';
     
     if (tasks.length === 0) {
         text += '📭 No tasks completed on this date.';
@@ -5337,7 +5386,7 @@ bot.action(/^hist_list_([\d-]+)_(\d+)$/, async (ctx) => {
         if (taskTitle.length > 40) taskTitle = taskTitle.substring(0, 37) + '...';
         
         return [
-            Markup.button.callback('✅ ' + taskNum + '. ' + taskTitle + ' (' + formatTimeUTC(t.completedAt) + ' UTC)', 'hist_det_' + t._id)
+            Markup.button.callback('✅ ' + taskNum + '. ' + taskTitle + ' (' + formatTimeUTC(t.completedAt) + ')', 'hist_det_' + t._id)
         ];
     });
     
@@ -5374,10 +5423,10 @@ bot.action(/^hist_det_(.+)$/, async (ctx) => {
 📜 <b>𝗚𝗟𝗢𝗕𝗔𝗟 𝗛𝗜𝗦𝗧𝗢𝗥𝗬 𝗗𝗘𝗧𝗔𝗜𝗟</b>
 ━━━━━━━━━━━━━━━━━━━━
 📌 <b>${task.title}</b>
-${formatBlockquote(task.description)}
-✅ <b>Completed At:</b> ${formatDateTimeUTC(task.completedAt)} UTC
-${task.autoCompleted ? '🤖 <b>Auto-completed at 23:59 UTC</b>\n' : ''}
-⏰ <b>Original Time:</b> ${formatTimeUTC(task.startDate)} - ${formatTimeUTC(task.endDate)} UTC
+${task.description ? formatBlockquote(task.description) : ''}
+✅ <b>Completed At:</b> ${formatDateTimeUTC(task.completedAt)}
+${task.autoCompleted ? '🤖 <b>Auto-completed at 23:59</b>\n' : ''}
+⏰ <b>Original Time:</b> ${formatTimeUTC(task.startDate)} - ${formatTimeUTC(task.endDate)}
 ⏱️ <b>Duration:</b> ${formatDuration(duration)}
 🔄 <b>Repeat Type:</b> ${task.repeat === 'none' ? 'No Repeat' : task.repeat}
 ${task.repeatCount > 0 ? '🔢 <b>Remaining Repeats:</b> ' + task.repeatCount + '\n' : ''}
@@ -5481,15 +5530,15 @@ async function showNoteDetail(ctx, noteId) {
         return safeEdit(ctx, text, keyboard);
     }
 
-    let contentDisplay = note.description || '<i>Empty note</i>';
+    let contentDisplay = note.description || '';
     
     const text = `
 📝 <b>𝗚𝗟𝗢𝗕𝗔𝗟 𝗡𝗢𝗧𝗘 𝗗𝗘𝗧𝗔𝗜𝗟𝗦</b>
 ━━━━━━━━━━━━━━━━━━━━
 📌 <b>${note.title}</b>
-${formatBlockquote(contentDisplay)}
-📅 <b>Created:</b> ${formatDateTimeUTC(note.createdAt)} UTC
-${note.updatedAt ? '✏️ <b>Updated:</b> ' + formatDateTimeUTC(note.updatedAt) + ' UTC' : ''}
+${contentDisplay ? formatBlockquote(contentDisplay) : ''}
+📅 <b>Created:</b> ${formatDateTimeUTC(note.createdAt)}
+${note.updatedAt ? '✏️ <b>Updated:</b> ' + formatDateTimeUTC(note.updatedAt) : ''}
 🏷️ <b>Order:</b> ${note.orderIndex + 1}
 ━━━━━━━━━━━━━━━━━━━━`;
     
@@ -5620,7 +5669,7 @@ bot.action('download_tasks', async (ctx) => {
             source: tasksBuff,
             filename: 'global_tasks_' + Date.now() + '.json'
         }, {
-            caption: '📋 <b>Global Tasks Data</b>\nTotal: ' + tasks.length + ' task' + (tasks.length !== 1 ? 's' : '') + '\n📅 ' + formatDateTimeUTC(new Date()) + ' UTC',
+            caption: '📋 <b>Global Tasks Data</b>\nTotal: ' + tasks.length + ' task' + (tasks.length !== 1 ? 's' : '') + '\n📅 ' + formatDateTimeUTC(new Date()),
             parse_mode: 'HTML'
         });
         
@@ -5650,7 +5699,7 @@ bot.action('download_history', async (ctx) => {
             source: histBuff,
             filename: 'global_history_' + Date.now() + '.json'
         }, {
-            caption: '📜 <b>Global History Data</b>\nTotal: ' + history.length + ' item' + (history.length !== 1 ? 's' : '') + '\n📅 ' + formatDateTimeUTC(new Date()) + ' UTC',
+            caption: '📜 <b>Global History Data</b>\nTotal: ' + history.length + ' item' + (history.length !== 1 ? 's' : '') + '\n📅 ' + formatDateTimeUTC(new Date()),
             parse_mode: 'HTML'
         });
         
@@ -5680,7 +5729,7 @@ bot.action('download_notes', async (ctx) => {
             source: notesBuff,
             filename: 'global_notes_' + Date.now() + '.json'
         }, {
-            caption: '🗒️ <b>Global Notes Data</b>\nTotal: ' + notes.length + ' note' + (notes.length !== 1 ? 's' : '') + '\n📅 ' + formatDateTimeUTC(new Date()) + ' UTC',
+            caption: '🗒️ <b>Global Notes Data</b>\nTotal: ' + notes.length + ' note' + (notes.length !== 1 ? 's' : '') + '\n📅 ' + formatDateTimeUTC(new Date()),
             parse_mode: 'HTML'
         });
         
@@ -5760,7 +5809,7 @@ bot.action('download_all', async (ctx) => {
             '🗒️ Notes: ' + notes.length + ' item' + (notes.length !== 1 ? 's' : '') + '\n' +
             '📊 Total: ' + totalItems + ' items\n' +
             '📁 ' + [tasks, history, notes].filter(a => a.length > 0).length + ' JSON files sent\n' +
-            '📅 ' + formatDateTimeUTC(new Date()) + ' UTC\n━━━━━━━━━━━━━━━━━━━━',
+            '📅 ' + formatDateTimeUTC(new Date()) + '\n━━━━━━━━━━━━━━━━━━━━',
             { parse_mode: 'HTML' }
         );
         
@@ -6108,13 +6157,13 @@ async function sendHalfHourlySummary() {
         
         let summaryText = `
 🕰️ <b>𝗚𝗟𝗢𝗕𝗔𝗟 𝗛𝗔𝗟𝗙 𝗛𝗢𝗨𝗥𝗟𝗬 𝗦𝗨𝗠𝗠𝗔𝗥𝗬</b>
-⏰ ${formatTimeUTC(new Date())} UTC ‧ 📅 ${formatDateUTC(new Date())}
+⏰ ${formatTimeUTC(new Date())} ‧ 📅 ${formatDateUTC(new Date())}
 ━━━━━━━━━━━━━━━━━━━━
 ✅ <b>𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘𝗗 𝗧𝗢𝗗𝗔𝗬:</b> (${completedTasks.length} task${completedTasks.length !== 1 ? 's' : ''})`;
 
         if (completedTasks.length > 0) {
             completedTasks.slice(0, 5).forEach((task, index) => {
-                summaryText += '\n' + (index + 1) + '‧ ' + task.title + ' ‧ ' + formatTimeUTC(task.completedAt) + ' UTC';
+                summaryText += '\n' + (index + 1) + '‧ ' + task.title + ' ‧ ' + formatTimeUTC(task.completedAt);
             });
             if (completedTasks.length > 5) {
                 summaryText += '\n...and ' + (completedTasks.length - 5) + ' more';
@@ -6127,7 +6176,7 @@ async function sendHalfHourlySummary() {
         
         if (pendingTasks.length > 0) {
             pendingTasks.slice(0, 5).forEach((task, index) => {
-                summaryText += '\n' + (index + 1) + '‧ ' + task.title + ' ‧ ' + formatTimeUTC(task.nextOccurrence) + ' UTC';
+                summaryText += '\n' + (index + 1) + '‧ ' + task.title + ' ‧ ' + formatTimeUTC(task.nextOccurrence);
             });
             if (pendingTasks.length > 5) {
                 summaryText += '\n...and ' + (pendingTasks.length - 5) + ' more';
@@ -6156,7 +6205,7 @@ function scheduleHalfHourlySummary() {
     
     hourlySummaryJob = schedule.scheduleJob('*/30 * * * *', async () => {
         if (isShuttingDown) return;
-        console.log('⏰ Sending global half-hourly summaries at ' + formatTimeUTC(new Date()) + ' UTC...');
+        console.log('⏰ Sending global half-hourly summaries at ' + formatTimeUTC(new Date()) + '...');
         await sendHalfHourlySummary();
     });
     
@@ -6195,7 +6244,7 @@ async function start() {
             await bot.launch();
             console.log('🤖 Bot Started Successfully!');
             console.log('👤 Bot only responding to user ID: ' + CHAT_ID);
-            console.log('⏰ Current UTC Time: ' + formatTimeUTC(new Date()));
+            console.log('⏰ Current Time: ' + formatTimeUTC(new Date()));
             console.log('📊 Currently tracking ' + activeSchedules.size + ' tasks');
             
             // Send initial summary
@@ -6213,7 +6262,7 @@ async function start() {
                             '📋 <b>𝗧𝗢𝗗𝗔𝗬\'S 𝗚𝗟𝗢𝗕𝗔𝗟 𝗧𝗔𝗦𝗞𝗦</b>\n' +
                             '━━━━━━━━━━━━━━━━━━━━\n' +
                             '📊 Total: ' + tasks.length + ' task' + (tasks.length !== 1 ? 's' : '') + '\n' +
-                            '📅 ' + formatDateUTC(new Date()) + ' UTC\n' +
+                            '📅 ' + formatDateUTC(new Date()) + '\n' +
                             '━━━━━━━━━━━━━━━━━━━━',
                             { parse_mode: 'HTML' }
                         );
