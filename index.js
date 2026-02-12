@@ -197,6 +197,18 @@ function getCurrentISTDisplay() {
 // ==========================================
 // 🎨 EJS TEMPLATE - FIXED WITH ALL IMPROVEMENTS
 // ==========================================
+
+/**
+ * 🔴 FIX: Add these wrapper functions so the Routes can find them
+ */
+function formatDateUTC(dateObj) {
+    return formatISTDate(dateObj);
+}
+
+function formatTimeUTC(dateObj) {
+    return formatISTTime(dateObj);
+}
+
 function writeMainEJS() {
     const mainEJS = `<!DOCTYPE html>
 <html lang="en">
