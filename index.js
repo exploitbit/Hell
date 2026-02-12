@@ -819,6 +819,17 @@ function writeEJSFiles() {
             border-left: 4px solid var(--accent-light);
         }
 
+        @keyframes slideOutRight {
+    from {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateX(30px);
+    }
+}
+
         .loader {
             position: fixed;
             top: 0;
@@ -1346,21 +1357,26 @@ function writeEJSFiles() {
 
     <script>
         // ==========================================
-        // TOAST NOTIFICATION SYSTEM
-        // ==========================================
-        function showToast(message, type = 'success') {
-            const container = document.getElementById('toastContainer');
-            const toast = document.createElement('div');
-            toast.className = `toast ${type}`;
-            toast.innerHTML = '<i class="fas ' + 
-    (type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle') + 
-    '"></i><span>' + message + '</span>';
-            container.appendChild(toast);
-            setTimeout(() => {
-                toast.style.animation = 'slideOutRight 0.3s ease';
-                setTimeout(() => toast.remove(), 300);
-            }, 3000);
-        }
+// TOAST NOTIFICATION SYSTEM - FIXED
+// ==========================================
+function showToast(message, type = 'success') {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = 'toast ' + type;
+    
+    let icon = '';
+    if (type === 'success') icon = 'fa-check-circle';
+    else if (type === 'error') icon = 'fa-exclamation-circle';
+    else icon = 'fa-info-circle';
+    
+    toast.innerHTML = '<i class="fas ' + icon + '"></i><span>' + message + '</span>';
+    container.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.animation = 'slideOutRight 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
 
         // ==========================================
         // LOADER SYSTEM
