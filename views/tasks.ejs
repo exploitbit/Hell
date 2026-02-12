@@ -394,12 +394,12 @@
         }
         
         .time-remaining-badge {
-            background-color: rgba(67, 97, 238, 0.1);
-            color: var(--primary);
             padding: 4px 8px;
             border-radius: 12px;
             font-size: 0.7rem;
             font-weight: 600;
+            display: inline-block;
+            margin-top: 8px;
         }
         
         .time-remaining-badge.upcoming {
@@ -741,24 +741,6 @@
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        
-        .success-message {
-            background-color: rgba(76, 201, 240, 0.2);
-            color: var(--success);
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 16px;
-            border: 1px solid var(--success);
-        }
-        
-        .error-message {
-            background-color: rgba(247, 37, 133, 0.2);
-            color: var(--danger);
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 16px;
-            border: 1px solid var(--danger);
-        }
     </style>
 </head>
 <body>
@@ -822,17 +804,24 @@
                                         <span class="task-date-range"><%= task.dateIST %></span>
                                         <span class="task-time-range"><%= task.startTimeIST %> - <%= task.endTimeIST %></span>
                                     </div>
+                                    <!-- FIXED: Time remaining display -->
+                                    <span class="time-remaining-badge" id="time-<%= task.taskId %>" 
+                                          data-start="<%= new Date(task.startDate).getTime() %>" 
+                                          data-end="<%= new Date(task.endDate).getTime() %>">
+                                        Calculating...
+                                    </span>
                                 </div>
                                 <div class="task-actions">
                                     <button class="action-btn" onclick="openAddSubtaskModal('<%= task.taskId %>')" title="Add Subtask">
                                         <i class="fas fa-plus"></i>
                                     </button>
+                                    <!-- FIXED: Complete task form -->
                                     <form method="POST" action="/api/tasks/<%= task.taskId %>/complete" style="display:inline;">
                                         <button type="submit" class="action-btn" title="Complete Task">
                                             <i class="fas fa-check"></i>
                                         </button>
                                     </form>
-                                    <form method="POST" action="/api/tasks/<%= task.taskId %>/delete" style="display:inline;">
+                                    <form method="POST" action="/api/tasks/<%= task.taskId %>/delete" style="display:inline;" onsubmit="return confirm('Delete this task?')">
                                         <button type="submit" class="action-btn" title="Delete Task">
                                             <i class="fas fa-trash"></i>
                                         </button>
@@ -844,20 +833,17 @@
                                 <p class="task-description"><%= task.description %></p>
                             <% } %>
 
-                            <div class="task-time-display" 
-                                 data-start-time="<%= new Date(task.startDate).getTime() / 1000 %>"
-                                 data-end-time="<%= new Date(task.endDate).getTime() / 1000 %>">
-                            </div>
-
                             <% if (task.subtasks && task.subtasks.length > 0) { %>
                                 <% 
-                                    const completedSubtasks = task.subtasks.filter(s => s.completed).length;
+                                    // FIXED: Calculate progress correctly
+                                    const completedSubtasks = task.subtasks.filter(s => s.completed === true).length;
                                     const totalSubtasks = task.subtasks.length;
-                                    const progress = Math.round((completedSubtasks / totalSubtasks) * 100);
+                                    const progress = totalSubtasks > 0 ? Math.round((completedSubtasks / totalSubtasks) * 100) : 0;
                                 %>
                                 <div class="progress-display-container">
+                                    <!-- FIXED: Progress circle -->
                                     <div class="progress-circle" style="background: conic-gradient(var(--primary) <%= progress %>%%, var(--gray-light) 0%);">
-                                        <span style="font-size: 0.65rem; z-index: 1;"><%= progress %>%</span>
+                                        <span style="font-size: 0.65rem; z-index: 1; color: var(--dark);"><%= progress %>%</span>
                                     </div>
                                     <div class="progress-text">
                                         <%= completedSubtasks %> of <%= totalSubtasks %> subtasks completed
@@ -870,8 +856,9 @@
                                         Subtasks (<%= completedSubtasks %>/<%= totalSubtasks %>)
                                     </summary>
                                     <div class="subtasks-content">
-                                        <% task.subtasks.sort((a, b) => a.completed - b.completed).forEach(function(subtask, index) { %>
+                                        <% task.subtasks.sort((a, b) => (a.completed === b.completed ? 0 : a.completed ? 1 : -1)).forEach(function(subtask, index) { %>
                                             <div class="subtask-item">
+                                                <!-- FIXED: Toggle subtask completion -->
                                                 <form method="POST" action="/api/tasks/<%= task.taskId %>/subtasks/<%= subtask.id %>/toggle" style="display:inline;">
                                                     <button type="submit" class="subtask-complete-btn">
                                                         <span class="subtask-number-badge <%= subtask.completed ? 'completed' : '' %>">
@@ -879,16 +866,17 @@
                                                         </span>
                                                     </button>
                                                 </form>
-                                                <details class="subtask-details-container">
-                                                    <summary class="subtask-title <%= subtask.completed ? 'subtask-completed' : '' %>">
+                                                <div class="subtask-details-container">
+                                                    <div class="subtask-title <%= subtask.completed ? 'subtask-completed' : '' %>">
                                                         <%= subtask.title %>
-                                                    </summary>
+                                                    </div>
                                                     <% if (subtask.description) { %>
                                                         <div class="subtask-description"><%= subtask.description %></div>
                                                     <% } %>
-                                                </details>
+                                                </div>
                                                 <div class="subtask-actions">
-                                                    <form method="POST" action="/api/tasks/<%= task.taskId %>/subtasks/<%= subtask.id %>/delete" style="display:inline;">
+                                                    <!-- FIXED: Delete subtask -->
+                                                    <form method="POST" action="/api/tasks/<%= task.taskId %>/subtasks/<%= subtask.id %>/delete" style="display:inline;" onsubmit="return confirm('Delete this subtask?')">
                                                         <button type="submit" class="delete-subtask-btn" title="Delete Subtask">
                                                             <i class="fas fa-trash"></i>
                                                         </button>
@@ -898,17 +886,25 @@
                                         <% }); %>
                                     </div>
                                 </details>
+                            <% } else { %>
+                                <!-- FIXED: Add subtask button when no subtasks -->
+                                <div style="margin-top: 10px;">
+                                    <button class="action-btn" onclick="openAddSubtaskModal('<%= task.taskId %>')" style="border-radius: 20px; width: auto; padding: 0 12px;">
+                                        <i class="fas fa-plus"></i> Add Subtask
+                                    </button>
+                                </div>
                             <% } %>
 
                             <div class="task-meta">
                                 <span class="repeat-badge">
                                     <i class="fas fa-repeat"></i>
-                                    <%= task.repeat !== 'none' ? (task.repeat === 'daily' ? 'Daily' : 'Weekly') : 'No Repeat' %>
-                                    <% if (task.repeatCount > 0) { %>(<%= task.repeatCount %> left)<% } %>
+                                    <%= task.repeat && task.repeat !== 'none' ? (task.repeat === 'daily' ? 'Daily' : 'Weekly') : 'No Repeat' %>
+                                    <% if (task.repeatCount && task.repeatCount > 0) { %>(<%= task.repeatCount %> left)<% } %>
                                 </span>
                                 <span class="duration-badge">
                                     <i class="fas fa-hourglass-half"></i>
-                                    <%= task.durationFormatted %>
+                                    <!-- FIXED: Duration fallback -->
+                                    <%= task.durationFormatted || task.duration + ' min' || '30 min' %>
                                 </span>
                             </div>
                         </div>
@@ -937,6 +933,9 @@
                                     </div>
                                 </div>
                             </div>
+                            <% if (task.description) { %>
+                                <p class="task-description" style="color: var(--completed-text);"><%= task.description %></p>
+                            <% } %>
                             <div class="task-meta" style="margin-top: 8px;">
                                 <span style="color: var(--completed-text);">
                                     <i class="fas fa-check-circle"></i> Completed
@@ -965,11 +964,11 @@
                 <form method="POST" action="/api/tasks">
                     <div class="form-group">
                         <label class="form-label">Title *</label>
-                        <input type="text" class="form-input" name="title" required placeholder="Enter task title">
+                        <input type="text" class="form-input" name="title" required placeholder="Enter task title" maxlength="100">
                     </div>
                     <div class="form-group">
                         <label class="form-label">Description</label>
-                        <textarea class="form-textarea" name="description" placeholder="Optional description (will be visible in web app)"></textarea>
+                        <textarea class="form-textarea" name="description" placeholder="Optional description"></textarea>
                         <small style="color: var(--gray); font-size: 0.75rem;">Description is only visible in the web interface</small>
                     </div>
                     <div class="form-group">
@@ -982,7 +981,7 @@
                     </div>
                     <div class="form-group">
                         <label class="form-label">Duration (minutes)</label>
-                        <input type="number" class="form-input" name="duration" id="duration" value="60" min="1" max="1440" required>
+                        <input type="number" class="form-input" name="duration" id="duration" value="30" min="1" max="1440" required>
                         <small style="color: var(--gray); font-size: 0.75rem;">How long will this task take?</small>
                     </div>
                     <div class="form-group">
@@ -1015,15 +1014,14 @@
                 <button type="button" class="close-modal" onclick="closeAddSubtaskModal()">&times;</button>
             </div>
             <div class="modal-body">
-                <form method="POST" id="addSubtaskForm">
-                    <input type="hidden" name="taskId" id="subtaskTaskId">
+                <form method="POST" action="" id="addSubtaskForm">
                     <div class="form-group">
                         <label class="form-label">Subtask Title *</label>
-                        <input type="text" class="form-input" name="title" required placeholder="Enter subtask title">
+                        <input type="text" class="form-input" name="title" required placeholder="Enter subtask title" maxlength="100">
                     </div>
                     <div class="form-group">
                         <label class="form-label">Description</label>
-                        <textarea class="form-textarea" name="description" placeholder="Optional description (visible in web app)"></textarea>
+                        <textarea class="form-textarea" name="description" placeholder="Optional description"></textarea>
                         <small style="color: var(--gray); font-size: 0.75rem;">Description is only visible in the web interface</small>
                     </div>
                     <div class="form-actions">
@@ -1036,11 +1034,16 @@
     </div>
 
     <script>
-        // Set default date and time
+        // FIXED: Set default date and time
         document.addEventListener('DOMContentLoaded', function() {
             const now = new Date();
-            const today = now.toISOString().split('T')[0];
-            const currentTime = now.toTimeString().split(':').slice(0, 2).join(':');
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const today = `${year}-${month}-${day}`;
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const currentTime = `${hours}:${minutes}`;
             
             const startDateInput = document.getElementById('startDate');
             const startTimeInput = document.getElementById('startTime');
@@ -1058,43 +1061,47 @@
                 });
             }
             
-            // Update time displays every minute
-            updateTimeRemaining();
-            setInterval(updateTimeRemaining, 60000);
+            // FIXED: Update time remaining for all tasks
+            updateAllTimeRemaining();
+            setInterval(updateAllTimeRemaining, 60000);
         });
 
-        function updateTimeRemaining() {
-            document.querySelectorAll('.task-time-display').forEach(el => {
-                const startTime = parseInt(el.dataset.startTime) * 1000;
-                const endTime = parseInt(el.dataset.endTime) * 1000;
+        // FIXED: Function to update time remaining for all tasks
+        function updateAllTimeRemaining() {
+            document.querySelectorAll('[id^="time-"]').forEach(el => {
+                const startTime = parseInt(el.dataset.start);
+                const endTime = parseInt(el.dataset.end);
                 const now = Date.now();
                 
-                let timeInfo = { text: '', class: '' };
+                let text = '';
+                let className = '';
                 
                 if (now < startTime) {
                     const minutesLeft = Math.ceil((startTime - now) / 60000);
                     if (minutesLeft > 120) {
-                        timeInfo.text = 'Upcoming';
-                        timeInfo.class = 'upcoming';
+                        text = 'Upcoming';
+                        className = 'upcoming';
                     } else {
-                        timeInfo.text = `Starts in ${minutesLeft}m`;
-                        timeInfo.class = 'starting_soon';
+                        text = `Starts in ${minutesLeft}m`;
+                        className = 'starting_soon';
                     }
                 } else if (now >= startTime && now <= endTime) {
                     const minutesLeft = Math.ceil((endTime - now) / 60000);
-                    timeInfo.text = `${minutesLeft}m left`;
-                    timeInfo.class = 'active';
-                } else if (now > endTime && now <= endTime + (2 * 60 * 60 * 1000)) {
+                    text = `${minutesLeft}m left`;
+                    className = 'active';
+                } else if (now > endTime) {
                     const minutesOver = Math.ceil((now - endTime) / 60000);
-                    timeInfo.text = `Due ${minutesOver}m ago`;
-                    timeInfo.class = 'due';
-                } else if (now > endTime + (2 * 60 * 60 * 1000)) {
-                    timeInfo.text = 'Overdue';
-                    timeInfo.class = 'overdue';
+                    if (minutesOver < 120) {
+                        text = `Due ${minutesOver}m ago`;
+                        className = 'due';
+                    } else {
+                        text = 'Overdue';
+                        className = 'overdue';
+                    }
                 }
                 
-                el.innerHTML = timeInfo.text;
-                el.className = 'task-time-display time-remaining-badge ' + timeInfo.class;
+                el.textContent = text;
+                el.className = 'time-remaining-badge ' + className;
             });
         }
 
@@ -1106,13 +1113,16 @@
             document.getElementById('addTaskModal').style.display = 'none';
         }
 
+        // FIXED: Open add subtask modal with correct form action
         function openAddSubtaskModal(taskId) {
-            document.getElementById('subtaskTaskId').value = taskId;
+            const form = document.getElementById('addSubtaskForm');
+            form.action = `/api/tasks/${taskId}/subtasks`;
             document.getElementById('addSubtaskModal').style.display = 'flex';
         }
 
         function closeAddSubtaskModal() {
             document.getElementById('addSubtaskModal').style.display = 'none';
+            document.getElementById('addSubtaskForm').reset();
         }
 
         // Close modals when clicking outside
@@ -1121,6 +1131,9 @@
             modals.forEach(modal => {
                 if (event.target === modal) {
                     modal.style.display = 'none';
+                    if (modal.id === 'addSubtaskModal') {
+                        document.getElementById('addSubtaskForm').reset();
+                    }
                 }
             });
         });
