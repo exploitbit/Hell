@@ -2427,11 +2427,11 @@ async function connectDB() {
     while (retries > 0) {
         try {
             client = new MongoClient(MONGODB_URI, {
-                serverSelectionTimeoutMS: 10000,
+                serverSelectionTimeoutMS: 5000,
                 connectTimeoutMS: 15000,
                 socketTimeoutMS: 45000,
-                maxPoolSize: 50,
-                minPoolSize: 5
+                maxPoolSize: 10,
+                minPoolSize: 2
             });
             
             await client.connect();
