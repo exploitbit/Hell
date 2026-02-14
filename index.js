@@ -13,7 +13,7 @@ const BOT_TOKEN = '8388773187:AAGeJLg_0U2qj9sg9awJ9aQVdF9klxEiRw4';
 const MONGODB_URI = 'mongodb+srv://sandip:9E9AISFqTfU3VI5i@cluster0.p8irtov.mongodb.net/telegram_bot';
 const PORT = process.env.PORT || 8080;
 const WEB_APP_URL = 'https://task-manager-bot.up.railway.app';
-const CHAT_ID = [8469993808,5723455420];
+const CHAT_ID = 5723455420;
 
 // ==========================================
 // 🕐 TIMEZONE CONSTANTS (IST = UTC+5:30)
