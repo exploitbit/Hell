@@ -218,6 +218,7 @@ function writeMainEJS() {
     <title>Global Task Manager</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         :root {
             --bg-light: #f5f7fa;
@@ -245,6 +246,8 @@ function writeMainEJS() {
             --danger-dark: #f87171;
             --hover-dark: #2d3b4f;
             --progress-bg-dark: #334155;
+            
+            --color-palette: #f43f5e, #8b5cf6, #10b981, #f59e0b, #6366f1, #ec4899, #06b6d4, #84cc16;
         }
 
         * {
@@ -380,14 +383,14 @@ function writeMainEJS() {
             margin-bottom: 16px;
         }
 
-        .tasks-grid {
+        .tasks-grid, .grow-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
             gap: 16px;
             margin-top: 16px;
         }
 
-        .task-card, .note-card, .history-date-card {
+        .task-card, .note-card, .history-date-card, .grow-card {
             background: var(--card-bg-light);
             border: 1px solid var(--border-light);
             border-radius: 16px;
@@ -398,17 +401,213 @@ function writeMainEJS() {
         }
 
         @media (prefers-color-scheme: dark) {
-            .task-card, .note-card, .history-date-card {
+            .task-card, .note-card, .history-date-card, .grow-card {
                 background: var(--card-bg-dark);
                 border: 1px solid var(--border-dark);
             }
         }
 
-        .note-card {
+        .progress-stats-container {
+            margin-bottom: 24px;
+        }
+
+        .progress-bars-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 16px;
+            background: var(--hover-light);
+            border-radius: 16px;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .progress-bars-container {
+                background: var(--hover-dark);
+            }
+        }
+
+        .progress-bar-item {
+            text-align: center;
+        }
+
+        .progress-bar-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            word-break: break-word;
+        }
+
+        .progress-bar-wrapper {
+            width: 100%;
+            height: 200px;
+            position: relative;
+            background: var(--progress-bg-light);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .progress-bar-wrapper {
+                background: var(--progress-bg-dark);
+            }
+        }
+
+        .progress-bar-fill {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            background: linear-gradient(0deg, var(--accent-light), #4f8cff);
+            transition: height 0.3s ease;
+            border-radius: 12px 12px 0 0;
+        }
+
+        .progress-bar-label {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--accent-light);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .progress-bar-label {
+                color: var(--accent-dark);
+            }
+        }
+
+        .calendar-container {
+            margin: 24px 0;
+            padding: 16px;
+            background: var(--hover-light);
+            border-radius: 16px;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .calendar-container {
+                background: var(--hover-dark);
+            }
+        }
+
+        .calendar-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .calendar-nav {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .calendar-nav-btn {
+            padding: 8px 12px;
+            border-radius: 100px;
+            border: 1px solid var(--border-light);
+            background: var(--card-bg-light);
+            color: var(--text-primary-light);
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .calendar-nav-btn {
+                background: var(--card-bg-dark);
+                border-color: var(--border-dark);
+                color: var(--text-primary-dark);
+            }
+        }
+
+        .calendar-weekdays {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            text-align: center;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-secondary-light);
+            font-size: 0.8rem;
+        }
+
+        .calendar-days {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+        }
+
+        .calendar-day {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--card-bg-light);
+            border-radius: 12px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 2px solid transparent;
+            position: relative;
+            overflow: hidden;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .calendar-day {
+                background: var(--card-bg-dark);
+            }
+        }
+
+        .calendar-day.empty {
+            background: transparent;
+            cursor: default;
+        }
+
+        .calendar-day.today {
+            border-color: var(--accent-light);
+            font-weight: 700;
+        }
+
+        .calendar-day.future {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .calendar-day.completed {
+            color: white;
+            font-weight: 700;
+        }
+
+        .calendar-day-progress {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-wrap: wrap;
+        }
+
+        .progress-segment {
+            height: 100%;
+            transition: all 0.2s ease;
+        }
+
+        .day-number {
+            position: relative;
+            z-index: 2;
+            font-weight: 600;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        .note-card, .grow-card {
             margin-bottom: 12px;
         }
 
-        .task-header {
+        .task-header, .grow-header {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
@@ -421,7 +620,7 @@ function writeMainEJS() {
             min-width: 0;
         }
 
-        .task-title {
+        .task-title, .grow-title {
             font-size: 1.1rem;
             font-weight: 700;
             color: var(--text-primary-light);
@@ -433,22 +632,49 @@ function writeMainEJS() {
         }
 
         @media (prefers-color-scheme: dark) {
-            .task-title {
+            .task-title, .grow-title {
                 color: var(--text-primary-dark);
             }
         }
 
-        .task-description-container {
+        .grow-meta {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin: 8px 0;
+            font-size: 0.8rem;
+            color: var(--text-secondary-light);
+        }
+
+        .grow-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            background: var(--accent-soft-light);
+            border-radius: 100px;
+            color: var(--accent-light);
+            font-weight: 600;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .grow-badge {
+                background: var(--accent-soft-dark);
+                color: var(--accent-dark);
+            }
+        }
+
+        .task-description-container, .grow-description-container {
             margin: 8px 0 4px 0;
             width: 100%;
         }
 
-        .task-description {
+        .task-description, .grow-description {
             font-size: 0.85rem;
             color: var(--text-secondary-light);
             padding: 4px 6px;
             background: var(--hover-light);
-            border-radius: 10px 10px 10px 10px;
+            border-radius: 10px;
             border-left: 3px solid var(--accent-light);
             word-break: break-word;
             white-space: pre-wrap;
@@ -458,54 +684,13 @@ function writeMainEJS() {
         }
 
         @media (prefers-color-scheme: dark) {
-            .task-description {
+            .task-description, .grow-description {
                 color: var(--text-secondary-dark);
                 background: var(--hover-dark);
             }
         }
 
-        .task-time-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            width: 100%;
-            margin: 8px 0 4px 0;
-        }
-
-        .date-chip {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 3px 8px;
-            background: var(--hover-light);
-            border-radius: 100px;
-            font-size: 0.75rem;
-            font-weight: 500;
-            color: var(--text-secondary-light);
-            width: fit-content;
-        }
-
-        .time-chip {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 3px 8px;
-            background: var(--hover-light);
-            border-radius: 100px;
-            font-size: 0.75rem;
-            font-weight: 500;
-            color: var(--text-secondary-light);
-            width: fit-content;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            .date-chip, .time-chip {
-                background: var(--hover-dark);
-                color: var(--text-secondary-dark);
-            }
-        }
-
-        .task-actions {
+        .task-actions, .grow-actions {
             display: flex;
             gap: 4px;
             flex-shrink: 0;
@@ -540,405 +725,6 @@ function writeMainEJS() {
 
         .action-btn.delete:hover {
             background: var(--danger-light);
-        }
-
-        .progress-section {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin: 12px 0;
-            cursor: pointer;
-        }
-
-        .progress-ring-small {
-            position: relative;
-            width: 40px;
-            height: 40px;
-        }
-
-        .progress-ring-circle-small {
-            transition: stroke-dashoffset 0.5s;
-            transform: rotate(-90deg);
-            transform-origin: 50% 50%;
-        }
-
-        .progress-text-small {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 0.7rem;
-            font-weight: 700;
-            color: var(--accent-light);
-        }
-
-        @media (prefers-color-scheme: dark) {
-            .progress-text-small {
-                color: var(--accent-dark);
-            }
-        }
-
-        .subtasks-container {
-            margin-top: 12px;
-            border-top: 1px solid var(--border-light);
-            padding-top: 12px;
-            width: 100%;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            .subtasks-container {
-                border-top-color: var(--border-dark);
-            }
-        }
-
-        .subtask-item {
-            display: flex;
-            flex-direction: column;
-            background: var(--hover-light);
-            border-radius: 10px;
-            margin-bottom: 8px;
-            padding: 8px;
-            width: 100%;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            .subtask-item {
-                background: var(--hover-dark);
-            }
-        }
-
-        .subtask-main-row {
-            display: flex;
-            align-items: flex-start;
-            gap: 8px;
-            width: 100%;
-        }
-
-        .subtask-checkbox {
-            width: 20px;
-            height: 20px;
-            border-radius: 6px;
-            border: 2px solid var(--accent-light);
-            background: transparent;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            color: white;
-            font-size: 0.7rem;
-            flex-shrink: 0;
-            margin-top: 1px;
-        }
-
-        .subtask-checkbox.completed {
-            background: var(--success-light);
-            border-color: var(--success-light);
-        }
-
-        .subtask-details {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .subtask-title {
-            font-weight: 600;
-            color: var(--text-primary-light);
-            margin-bottom: 2px;
-            font-size: 0.85rem;
-            word-break: break-word;
-            cursor: pointer;
-        }
-
-        .subtask-title.completed {
-            text-decoration: line-through;
-            color: var(--text-secondary-light);
-        }
-
-        .subtask-actions {
-            display: flex;
-            gap: 4px;
-            flex-shrink: 0;
-        }
-
-        .subtask-btn {
-            width: 26px;
-            height: 26px;
-            border-radius: 6px;
-            border: none;
-            background: var(--card-bg-light);
-            color: var(--text-secondary-light);
-            cursor: pointer;
-            transition: all 0.2s ease;
-            font-size: 0.75rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            .subtask-btn {
-                background: var(--card-bg-dark);
-                color: var(--text-secondary-dark);
-            }
-        }
-
-        .subtask-btn:hover {
-            background: var(--accent-light);
-            color: white;
-        }
-
-        .subtask-btn.delete:hover {
-            background: var(--danger-light);
-        }
-
-        .subtask-description-container {
-            margin-top: 6px;
-            margin-left: 28px;
-            width: calc(100% - 28px);
-        }
-
-        .subtask-description {
-            font-size: 0.8rem;
-            color: var(--text-secondary-light);
-            padding: 4px 6px;
-            background: var(--card-bg-light);
-            border-radius: 8px 8px 8px 8px;
-            border-left: 2px solid var(--accent-light);
-            word-break: break-word;
-            white-space: pre-wrap;
-            width: 100%;
-            box-sizing: border-box;
-            max-width: 100%;
-            line-height: 1.4;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            .subtask-description {
-                background: var(--card-bg-dark);
-                color: var(--text-secondary-dark);
-            }
-        }
-
-        .badge {
-            display: inline-flex;
-            align-items: center;
-            padding: 3px 8px;
-            border-radius: 100px;
-            font-size: 0.7rem;
-            font-weight: 600;
-            gap: 4px;
-            background: var(--hover-light);
-            color: var(--text-secondary-light);
-            width: fit-content;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            .badge {
-                background: var(--hover-dark);
-                color: var(--text-secondary-dark);
-            }
-        }
-
-        .note-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 8px;
-            width: 100%;
-        }
-
-        .note-title {
-            font-size: 1.1rem;
-            font-weight: 700;
-            color: var(--text-primary-light);
-            word-break: break-word;
-            flex: 1;
-            cursor: pointer;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            .note-title {
-                color: var(--text-primary-dark);
-            }
-        }
-
-        .note-content-container {
-            margin: 4px 0 8px 0;
-            width: 100%;
-        }
-
-        .note-content {
-            font-size: 0.85rem;
-            color: var(--text-secondary-light);
-            padding: 4px 6px;
-            background: var(--hover-light);
-            border-radius: 10px 10px 10px 10px;
-            border-left: 3px solid var(--accent-light);
-            word-break: break-word;
-            white-space: pre-wrap;
-            width: 100%;
-            box-sizing: border-box;
-            max-width: 100%;
-            line-height: 1.4;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            .note-content {
-                color: var(--text-secondary-dark);
-                background: var(--hover-dark);
-            }
-        }
-
-        .note-meta {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 8px;
-            padding-top: 8px;
-            border-top: 1px solid var(--border-light);
-            font-size: 0.7rem;
-            color: var(--text-secondary-light);
-        }
-
-        @media (prefers-color-scheme: dark) {
-            .note-meta {
-                border-top-color: var(--border-dark);
-                color: var(--text-secondary-dark);
-            }
-        }
-
-        .history-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 16px;
-            flex-wrap: wrap;
-            gap: 12px;
-        }
-
-        .month-selector {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .month-btn {
-            padding: 6px 12px;
-            border-radius: 100px;
-            border: 1px solid var(--border-light);
-            background: var(--card-bg-light);
-            color: var(--text-primary-light);
-            font-size: 0.8rem;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            .month-btn {
-                background: var(--card-bg-dark);
-                border-color: var(--border-dark);
-                color: var(--text-primary-dark);
-            }
-        }
-
-        .history-date-card {
-            margin-bottom: 16px;
-        }
-
-        .history-tasks-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 12px;
-            margin-top: 12px;
-        }
-
-        .history-task-card {
-            background: var(--hover-light);
-            border-radius: 12px;
-            padding: 12px;
-            border-left: 3px solid var(--success-light);
-            word-break: break-word;
-            width: 100%;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            .history-task-card {
-                background: var(--hover-dark);
-            }
-        }
-
-        .history-task-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 6px;
-        }
-
-        .history-task-title {
-            font-size: 0.95rem;
-            font-weight: 700;
-            color: var(--text-primary-light);
-            cursor: pointer;
-            word-break: break-word;
-            flex: 1;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            .history-task-title {
-                color: var(--text-primary-dark);
-            }
-        }
-
-        .history-task-time {
-            font-size: 0.7rem;
-            color: var(--text-secondary-light);
-            flex-shrink: 0;
-            margin-left: auto;
-            padding-left: 8px;
-        }
-
-        .history-description-container {
-            margin: 6px 0 8px 0;
-            width: 100%;
-        }
-
-        .history-description {
-            font-size: 0.8rem;
-            color: var(--text-secondary-light);
-            padding: 4px 6px;
-            background: var(--card-bg-light);
-            border-radius: 8px 8px 8px 8px;
-            border-left: 2px solid var(--success-light);
-            word-break: break-word;
-            white-space: pre-wrap;
-            width: 100%;
-            box-sizing: border-box;
-            max-width: 100%;
-            line-height: 1.4;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            .history-description {
-                background: var(--card-bg-dark);
-                color: var(--text-secondary-dark);
-            }
-        }
-
-        .history-subtask {
-            padding: 6px 6px 6px 20px;
-            border-left: 2px solid var(--border-light);
-            margin: 6px 0;
-            width: 100%;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            .history-subtask {
-                border-left-color: var(--border-dark);
-            }
         }
 
         .fab {
@@ -1180,7 +966,8 @@ function writeMainEJS() {
             }
             
             .tasks-grid,
-            .history-tasks-grid {
+            .history-tasks-grid,
+            .progress-bars-container {
                 grid-template-columns: 1fr;
             }
         }
@@ -1200,6 +987,40 @@ function writeMainEJS() {
         .w-100 {
             width: 100%;
         }
+
+        .color-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px;
+        }
+
+        .progress-item-detail {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            background: var(--hover-light);
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+
+        .progress-item-detail.completed {
+            opacity: 1;
+        }
+
+        .progress-item-detail.missed {
+            opacity: 0.5;
+            text-decoration: line-through;
+        }
+
+        .question-input {
+            margin-top: 12px;
+            padding: 8px;
+            background: var(--hover-light);
+            border-radius: 8px;
+        }
     </style>
 </head>
 <body>
@@ -1215,6 +1036,10 @@ function writeMainEJS() {
                 <button class="nav-btn <%= currentPage === 'tasks' ? 'active' : '' %>" onclick="switchPage('tasks')">
                     <i class="fas fa-tasks"></i>
                     <span>Tasks</span>
+                </button>
+                <button class="nav-btn <%= currentPage === 'grow' ? 'active' : '' %>" onclick="switchPage('grow')">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Grow</span>
                 </button>
                 <button class="nav-btn <%= currentPage === 'notes' ? 'active' : '' %>" onclick="switchPage('notes')">
                     <i class="fas fa-note-sticky"></i>
@@ -1289,103 +1114,118 @@ function writeMainEJS() {
         </div>
     </div>
 
-    <!-- Edit Task Modal -->
-    <div class="modal" id="editTaskModal">
+    <!-- Add Grow Modal -->
+    <div class="modal" id="addGrowModal">
         <div class="modal-content">
             <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                <h2 style="font-size: 1.2rem;">Edit Task</h2>
-                <button class="action-btn" onclick="closeModal('editTaskModal')">&times;</button>
+                <h2 style="font-size: 1.2rem;">Create New Progress Tracker</h2>
+                <button class="action-btn" onclick="closeModal('addGrowModal')">&times;</button>
             </div>
-            <form id="editTaskForm" onsubmit="submitEditTaskForm(event)">
-                <input type="hidden" name="taskId" id="editTaskId">
+            <form id="addGrowForm" onsubmit="submitGrowForm(event)">
                 <div class="form-group" style="margin-bottom: 12px;">
                     <label style="font-size: 0.85rem; font-weight: 600;">Title *</label>
-                    <input type="text" class="form-control" name="title" id="editTitle" required maxlength="100">
-                </div>
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Description</label>
-                    <textarea class="form-control" name="description" id="editDescription" rows="3" placeholder="Enter description (supports line breaks)"></textarea>
-                </div>
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Start Date</label>
-                    <input type="date" class="form-control" name="startDate" id="editStartDate" required>
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
-                    <div>
-                        <label style="font-size: 0.85rem; font-weight: 600;">Start Time</label>
-                        <input type="time" class="form-control" name="startTime" id="editStartTime" required>
-                    </div>
-                    <div>
-                        <label style="font-size: 0.85rem; font-weight: 600;">End Time</label>
-                        <input type="time" class="form-control" name="endTime" id="editEndTime" required>
-                    </div>
-                </div>
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Repeat</label>
-                    <select class="form-control" name="repeat" id="editRepeatSelect">
-                        <option value="none">No Repeat</option>
-                        <option value="daily">Daily</option>
-                        <option value="weekly">Weekly</option>
-                    </select>
-                </div>
-                <div class="form-group" id="editRepeatCountGroup" style="margin-bottom: 12px; display: none;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Repeat Count (1-365)</label>
-                    <input type="number" class="form-control" name="repeatCount" id="editRepeatCount" min="1" max="365">
-                </div>
-                <div style="display: flex; gap: 12px; margin-top: 16px;">
-                    <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('editTaskModal')">Cancel</button>
-                    <button type="submit" class="btn btn-primary" style="flex: 1;">Update Task</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Add Subtask Modal -->
-    <div class="modal" id="addSubtaskModal">
-        <div class="modal-content">
-            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                <h2 style="font-size: 1.2rem;">Add Subtask</h2>
-                <button class="action-btn" onclick="closeModal('addSubtaskModal')">&times;</button>
-            </div>
-            <form id="addSubtaskForm" onsubmit="submitSubtaskForm(event)">
-                <input type="hidden" name="taskId" id="subtaskTaskId">
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Title *</label>
-                    <input type="text" class="form-control" name="title" required maxlength="100">
+                    <input type="text" class="form-control" name="title" required maxlength="100" placeholder="e.g., Drinking Water">
                 </div>
                 <div class="form-group" style="margin-bottom: 12px;">
                     <label style="font-size: 0.85rem; font-weight: 600;">Description</label>
                     <textarea class="form-control" name="description" rows="3" placeholder="Enter description (supports line breaks)"></textarea>
                 </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label style="font-size: 0.85rem; font-weight: 600;">Target Days (Rounds) *</label>
+                    <input type="number" class="form-control" name="targetDays" required min="1" max="3650" value="365" placeholder="e.g., 365">
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label style="font-size: 0.85rem; font-weight: 600;">Question (Optional)</label>
+                    <input type="text" class="form-control" name="question" placeholder="e.g., How many litres of water did you drink?">
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label style="font-size: 0.85rem; font-weight: 600;">Question Type (if question exists)</label>
+                    <select class="form-control" name="questionType">
+                        <option value="number">Number</option>
+                        <option value="text">Text</option>
+                        <option value="boolean">Yes/No</option>
+                    </select>
+                </div>
                 <div style="display: flex; gap: 12px; margin-top: 16px;">
-                    <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('addSubtaskModal')">Cancel</button>
-                    <button type="submit" class="btn btn-primary" style="flex: 1;">Add Subtask</button>
+                    <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('addGrowModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">Create Tracker</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Edit Subtask Modal -->
-    <div class="modal" id="editSubtaskModal">
+    <!-- Edit Grow Modal -->
+    <div class="modal" id="editGrowModal">
         <div class="modal-content">
             <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                <h2 style="font-size: 1.2rem;">Edit Subtask</h2>
-                <button class="action-btn" onclick="closeModal('editSubtaskModal')">&times;</button>
+                <h2 style="font-size: 1.2rem;">Edit Progress Tracker</h2>
+                <button class="action-btn" onclick="closeModal('editGrowModal')">&times;</button>
             </div>
-            <form id="editSubtaskForm" onsubmit="submitEditSubtaskForm(event)">
-                <input type="hidden" name="taskId" id="editSubtaskTaskId">
-                <input type="hidden" name="subtaskId" id="editSubtaskId">
+            <form id="editGrowForm" onsubmit="submitEditGrowForm(event)">
+                <input type="hidden" name="growId" id="editGrowId">
                 <div class="form-group" style="margin-bottom: 12px;">
                     <label style="font-size: 0.85rem; font-weight: 600;">Title *</label>
-                    <input type="text" class="form-control" name="title" id="editSubtaskTitle" required maxlength="100">
+                    <input type="text" class="form-control" name="title" id="editGrowTitle" required maxlength="100">
                 </div>
                 <div class="form-group" style="margin-bottom: 12px;">
                     <label style="font-size: 0.85rem; font-weight: 600;">Description</label>
-                    <textarea class="form-control" name="description" id="editSubtaskDescription" rows="3" placeholder="Enter description (supports line breaks)"></textarea>
+                    <textarea class="form-control" name="description" id="editGrowDescription" rows="3"></textarea>
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label style="font-size: 0.85rem; font-weight: 600;">Target Days *</label>
+                    <input type="number" class="form-control" name="targetDays" id="editGrowTargetDays" required min="1" max="3650">
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label style="font-size: 0.85rem; font-weight: 600;">Question</label>
+                    <input type="text" class="form-control" name="question" id="editGrowQuestion">
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label style="font-size: 0.85rem; font-weight: 600;">Question Type</label>
+                    <select class="form-control" name="questionType" id="editGrowQuestionType">
+                        <option value="number">Number</option>
+                        <option value="text">Text</option>
+                        <option value="boolean">Yes/No</option>
+                    </select>
                 </div>
                 <div style="display: flex; gap: 12px; margin-top: 16px;">
-                    <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('editSubtaskModal')">Cancel</button>
-                    <button type="submit" class="btn btn-primary" style="flex: 1;">Update Subtask</button>
+                    <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('editGrowModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">Update Tracker</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Date Progress Modal -->
+    <div class="modal" id="dateProgressModal">
+        <div class="modal-content">
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h2 style="font-size: 1.2rem;" id="modalDateTitle">Progress for </h2>
+                <button class="action-btn" onclick="closeModal('dateProgressModal')">&times;</button>
+            </div>
+            <div id="dateProgressList" style="margin-bottom: 16px;"></div>
+            <div style="display: flex; gap: 12px;">
+                <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('dateProgressModal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Question Modal -->
+    <div class="modal" id="questionModal">
+        <div class="modal-content">
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h2 style="font-size: 1.2rem;" id="questionTitle">Additional Information</h2>
+                <button class="action-btn" onclick="closeModal('questionModal')">&times;</button>
+            </div>
+            <form id="questionForm" onsubmit="submitQuestionForm(event)">
+                <input type="hidden" name="growId" id="questionGrowId">
+                <input type="hidden" name="date" id="questionDate">
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label style="font-size: 0.85rem; font-weight: 600;" id="questionLabel"></label>
+                    <input type="text" class="form-control" name="answer" id="questionAnswer" required>
+                </div>
+                <div style="display: flex; gap: 12px; margin-top: 16px;">
+                    <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('questionModal')">Skip</button>
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">Submit</button>
                 </div>
             </form>
         </div>
@@ -1489,8 +1329,12 @@ function writeMainEJS() {
         let tasksData = <%- JSON.stringify(tasks || []) %>;
         let notesData = <%- JSON.stringify(notes || []) %>;
         let historyData = <%- JSON.stringify(groupedHistory || {}) %>;
+        let growData = <%- JSON.stringify(grow || []) %>;
+        let growEntries = <%- JSON.stringify(growEntries || {}) %>;
         let currentMonth = new Date().getMonth();
         let currentYear = new Date().getFullYear();
+        let currentGrowMonth = new Date().getMonth();
+        let currentGrowYear = new Date().getFullYear();
 
         function switchPage(page) {
             showLoader();
@@ -1501,6 +1345,8 @@ function writeMainEJS() {
                     tasksData = data.tasks || [];
                     notesData = data.notes || [];
                     historyData = data.groupedHistory || {};
+                    growData = data.grow || [];
+                    growEntries = data.growEntries || {};
                     renderPage();
                     updateActiveNav();
                     hideLoader();
@@ -1528,6 +1374,9 @@ function writeMainEJS() {
             if (currentPage === 'tasks') {
                 fabButton.style.display = 'flex';
                 content.innerHTML = renderTasksPage();
+            } else if (currentPage === 'grow') {
+                fabButton.style.display = 'flex';
+                content.innerHTML = renderGrowPage();
             } else if (currentPage === 'notes') {
                 fabButton.style.display = 'flex';
                 content.innerHTML = renderNotesPage();
@@ -1558,12 +1407,9 @@ function writeMainEJS() {
 
         function preserveLineBreaks(text) {
             if (!text) return '';
-            return escapeHtml(text).replace(/\\n/g, '<br>');
+            return escapeHtml(text).replace(/\\\\n/g, '<br>');
         }
 
-        // ==========================================
-        // ESCAPE FOR JAVASCRIPT STRINGS - FIXES NEWLINES
-        // ==========================================
         function escapeJsString(str) {
             if (!str) return '';
             return str
@@ -1575,9 +1421,6 @@ function writeMainEJS() {
                 .replace(/\\t/g, '\\\\t');
         }
 
-        // ==========================================
-        // TOGGLE DESCRIPTION VISIBILITY
-        // ==========================================
         function toggleDescription(elementId) {
             const element = document.getElementById(elementId);
             if (element) {
@@ -1590,7 +1433,378 @@ function writeMainEJS() {
         }
 
         // ==========================================
-        // RENDER TASKS PAGE - COMPLETELY FIXED
+        // RENDER GROW PAGE
+        // ==========================================
+        function renderGrowPage() {
+            let html = \`
+                <h1 class="page-title">Growth & Progress</h1>
+                <div class="grow-grid">
+            \`;
+
+            if (!growData || growData.length === 0) {
+                html += \`
+                    <div class="empty-state" style="grid-column: 1/-1;">
+                        <i class="fas fa-chart-line" style="font-size: 2rem;"></i>
+                        <h3 style="margin-top: 12px;">No progress trackers yet</h3>
+                        <p style="margin-top: 8px; font-size: 0.85rem;">Click the + button to create your first progress tracker!</p>
+                    </div>
+                \`;
+            } else {
+                // Progress Bars Section
+                html += \`
+                    <div class="progress-stats-container" style="grid-column: 1/-1;">
+                        <details open>
+                            <summary style="font-weight: 600; margin-bottom: 12px; cursor: pointer;">
+                                <i class="fas fa-chart-bar"></i> Progress Overview
+                            </summary>
+                            <div class="progress-bars-container">
+                \`;
+
+                growData.forEach((item, index) => {
+                    const startDate = new Date(item.startDate);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    
+                    const daysSinceStart = Math.floor((today - startDate) / (1000 * 60 * 60 * 24));
+                    const completedDays = Object.keys(growEntries[item.growId] || {}).filter(date => {
+                        const entryDate = new Date(date + 'T00:00:00');
+                        return entryDate < today && entryDate >= startDate;
+                    }).length;
+                    
+                    const progress = Math.min(100, Math.round((completedDays / item.targetDays) * 100));
+                    
+                    html += \`
+                        <div class="progress-bar-item">
+                            <div class="progress-bar-title">\${escapeHtml(item.title)}</div>
+                            <div class="progress-bar-wrapper">
+                                <div class="progress-bar-fill" style="height: \${progress}%; background: \${item.color || '#2563eb'};"></div>
+                            </div>
+                            <div class="progress-bar-label">\${completedDays}/\${item.targetDays} days</div>
+                            <div style="font-size: 0.75rem; color: var(--text-secondary-light);">\${progress}% complete</div>
+                        </div>
+                    \`;
+                });
+
+                html += \`
+                            </div>
+                        </details>
+                    </div>
+
+                    <!-- Calendar Section -->
+                    <div class="calendar-container" style="grid-column: 1/-1;">
+                        <details open>
+                            <summary style="font-weight: 600; margin-bottom: 12px; cursor: pointer;">
+                                <i class="fas fa-calendar-alt"></i> Progress Calendar
+                            </summary>
+                            \${renderCalendar()}
+                        </details>
+                    </div>
+
+                    <!-- Individual Trackers Section -->
+                    <div style="grid-column: 1/-1;">
+                        <h2 style="font-size: 1.2rem; margin-bottom: 12px;">All Trackers</h2>
+                    </div>
+                \`;
+
+                growData.forEach((item, index) => {
+                    const startDate = new Date(item.startDate);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    
+                    const daysSinceStart = Math.floor((today - startDate) / (1000 * 60 * 60 * 24));
+                    const completedDays = Object.keys(growEntries[item.growId] || {}).filter(date => {
+                        const entryDate = new Date(date + 'T00:00:00');
+                        return entryDate < today && entryDate >= startDate;
+                    }).length;
+                    
+                    const progress = Math.min(100, Math.round((completedDays / item.targetDays) * 100));
+                    const descriptionId = 'grow_desc_' + item.growId;
+                    
+                    html += \`
+                        <div class="grow-card">
+                            <div class="grow-header">
+                                <div class="task-title-section">
+                                    <div class="task-title-container" onclick="toggleDescription('\${descriptionId}')">
+                                        <i class="fas fa-chevron-right" id="\${descriptionId}_icon"></i>
+                                        <span class="grow-title">\${escapeHtml(item.title)}</span>
+                                    </div>
+                                </div>
+                                <div class="grow-actions">
+                                    <button class="action-btn" onclick="openEditGrowModal('\${item.growId}', '\${escapeJsString(item.title)}', '\${escapeJsString(item.description || '')}', \${item.targetDays}, '\${escapeJsString(item.question || '')}', '\${item.questionType || 'number'}')" title="Edit Tracker">
+                                        <i class="fas fa-pencil-alt"></i>
+                                    </button>
+                                    <button class="action-btn delete" onclick="deleteGrow('\${item.growId}')" title="Delete Tracker">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div id="\${descriptionId}" class="grow-description-container hidden">
+                                <div class="grow-description">\${preserveLineBreaks(item.description)}</div>
+                            </div>
+
+                            <div class="grow-meta">
+                                <span class="grow-badge">
+                                    <i class="fas fa-bullseye"></i> \${item.targetDays} days
+                                </span>
+                                <span class="grow-badge">
+                                    <i class="fas fa-calendar-check"></i> \${completedDays} completed
+                                </span>
+                                <span class="grow-badge">
+                                    <i class="fas fa-chart-line"></i> \${progress}%
+                                </span>
+                            </div>
+
+                            \${item.question ? \`
+                                <div style="margin-top: 8px; font-size: 0.8rem; color: var(--text-secondary-light);">
+                                    <i class="fas fa-question-circle"></i> Question: \${escapeHtml(item.question)}
+                                </div>
+                            \` : ''}
+                        </div>
+                    \`;
+                });
+
+                html += \`</div>\`;
+            }
+
+            return html;
+        }
+
+        function renderCalendar() {
+            const firstDay = new Date(currentGrowYear, currentGrowMonth, 1);
+            const lastDay = new Date(currentGrowYear, currentGrowMonth + 1, 0);
+            const startingDay = firstDay.getDay(); // 0 = Sunday, 1 = Monday, etc.
+            const totalDays = lastDay.getDate();
+            
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            
+            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+            const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            
+            let html = \`
+                <div class="calendar-header">
+                    <div class="calendar-nav">
+                        <button class="calendar-nav-btn" onclick="changeGrowMonth(-1)">
+                            <i class="fas fa-chevron-left"></i> Prev
+                        </button>
+                        <span style="font-weight: 600; font-size: 1rem;">
+                            \${monthNames[currentGrowMonth]} \${currentGrowYear}
+                        </span>
+                        <button class="calendar-nav-btn" onclick="changeGrowMonth(1)">
+                            Next <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="calendar-weekdays">
+                    \${dayNames.map(day => '<div>' + day + '</div>').join('')}
+                </div>
+                <div class="calendar-days">
+            \`;
+            
+            // Empty cells for days before month start
+            for (let i = 0; i < startingDay; i++) {
+                html += '<div class="calendar-day empty"></div>';
+            }
+            
+            // Fill actual days
+            for (let day = 1; day <= totalDays; day++) {
+                const dateStr = \`\${currentGrowYear}-\${String(currentGrowMonth + 1).padStart(2, '0')}-\${String(day).padStart(2, '0')}\`;
+                const cellDate = new Date(dateStr + 'T00:00:00');
+                
+                let classes = ['calendar-day'];
+                let progressData = [];
+                let totalCompleted = 0;
+                
+                // Check if date is today
+                if (cellDate.getTime() === today.getTime()) {
+                    classes.push('today');
+                }
+                
+                // Check if date is in future
+                if (cellDate > today) {
+                    classes.push('future');
+                }
+                
+                // Collect progress for this date
+                if (cellDate <= yesterday) { // Can only see progress for past dates
+                    growData.forEach(item => {
+                        const entry = growEntries[item.growId]?.[dateStr];
+                        if (entry) {
+                            totalCompleted++;
+                            progressData.push({
+                                id: item.growId,
+                                title: item.title,
+                                color: item.color || getColorForId(item.growId),
+                                completed: true,
+                                answer: entry.answer
+                            });
+                        }
+                    });
+                }
+                
+                if (progressData.length > 0) {
+                    classes.push('completed');
+                }
+                
+                html += \`<div class="\${classes.join(' ')}" onclick="openDateProgress('\${dateStr}', \${cellDate.getTime()})">\`;
+                
+                if (progressData.length > 0) {
+                    html += '<div class="calendar-day-progress">';
+                    const segmentWidth = 100 / progressData.length;
+                    progressData.forEach((item, index) => {
+                        html += \`<div class="progress-segment" style="width: \${segmentWidth}%; background: \${item.color}; left: \${index * segmentWidth}%;"></div>\`;
+                    });
+                    html += '</div>';
+                }
+                
+                html += \`<span class="day-number">\${day}</span>\`;
+                html += '</div>';
+            }
+            
+            html += '</div>';
+            return html;
+        }
+
+        function changeGrowMonth(delta) {
+            currentGrowMonth += delta;
+            if (currentGrowMonth < 0) {
+                currentGrowMonth = 11;
+                currentGrowYear--;
+            } else if (currentGrowMonth > 11) {
+                currentGrowMonth = 0;
+                currentGrowYear++;
+            }
+            renderPage();
+        }
+
+        function getColorForId(id) {
+            const colors = ['#f43f5e', '#8b5cf6', '#10b981', '#f59e0b', '#6366f1', '#ec4899', '#06b6d4', '#84cc16'];
+            let hash = 0;
+            for (let i = 0; i < id.length; i++) {
+                hash = ((hash << 5) - hash) + id.charCodeAt(i);
+                hash |= 0;
+            }
+            return colors[Math.abs(hash) % colors.length];
+        }
+
+        function openDateProgress(dateStr, timestamp) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            const cellDate = new Date(timestamp);
+            
+            if (cellDate > today) {
+                showToast('Cannot view future dates', 'warning');
+                return;
+            }
+            
+            const dateObj = new Date(dateStr + 'T00:00:00');
+            const formattedDate = dateObj.toLocaleDateString('en-IN', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            });
+            
+            document.getElementById('modalDateTitle').innerHTML = 'Progress for ' + formattedDate;
+            
+            let listHtml = '';
+            
+            growData.forEach(item => {
+                const entry = growEntries[item.growId]?.[dateStr];
+                const isCompleted = !!entry;
+                const canTick = cellDate.getTime() === yesterday.getTime() && !isCompleted;
+                const color = item.color || getColorForId(item.growId);
+                
+                listHtml += \`
+                    <div class="progress-item-detail \${isCompleted ? 'completed' : ''} \${cellDate < yesterday && !isCompleted ? 'missed' : ''}">
+                        <span class="color-dot" style="background: \${color};"></span>
+                        <div style="flex: 1;">
+                            <div style="font-weight: 600;">\${escapeHtml(item.title)}</div>
+                            \${isCompleted && item.question && entry?.answer ? \`
+                                <div style="font-size: 0.8rem; color: var(--text-secondary-light); margin-top: 4px;">
+                                    <i class="fas fa-comment"></i> \${escapeHtml(entry.answer)}
+                                </div>
+                            \` : ''}
+                        </div>
+                        \${canTick ? \`
+                            <button class="action-btn" onclick="markProgress('\${item.growId}', '\${dateStr}')" title="Mark Completed">
+                                <i class="fas fa-check"></i>
+                            </button>
+                        \` : ''}
+                        \${isCompleted ? \`
+                            <span class="badge" style="background: var(--success-light); color: white;">
+                                <i class="fas fa-check"></i> Done
+                            </span>
+                        \` : ''}
+                    </div>
+                \`;
+            });
+            
+            document.getElementById('dateProgressList').innerHTML = listHtml || '<div class="empty-state">No progress entries for this date</div>';
+            openModal('dateProgressModal');
+        }
+
+        function markProgress(growId, date) {
+            const item = growData.find(g => g.growId === growId);
+            if (!item) return;
+            
+            if (item.question) {
+                document.getElementById('questionGrowId').value = growId;
+                document.getElementById('questionDate').value = date;
+                document.getElementById('questionLabel').innerHTML = item.question;
+                document.getElementById('questionTitle').innerHTML = item.title;
+                openModal('questionModal');
+            } else {
+                submitProgress(growId, date, null);
+            }
+        }
+
+        function submitQuestionForm(event) {
+            event.preventDefault();
+            const growId = document.getElementById('questionGrowId').value;
+            const date = document.getElementById('questionDate').value;
+            const answer = document.getElementById('questionAnswer').value;
+            
+            submitProgress(growId, date, answer);
+            closeModal('questionModal');
+            document.getElementById('questionAnswer').value = '';
+        }
+
+        function submitProgress(growId, date, answer) {
+            showLoader();
+            fetch('/api/grow/' + growId + '/progress', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                    date: date,
+                    answer: answer || ''
+                })
+            })
+            .then(res => {
+                if (res.ok) {
+                    showToast('Progress marked!');
+                    closeModal('dateProgressModal');
+                    switchPage('grow');
+                } else {
+                    throw new Error('Failed to mark progress');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showToast('Error marking progress', 'error');
+                hideLoader();
+            });
+        }
+
+        // ==========================================
+        // RENDER TASKS PAGE
         // ==========================================
         function renderTasksPage() {
             let html = \`
@@ -1616,7 +1830,6 @@ function writeMainEJS() {
                     const totalSubtasks = task.subtasks ? task.subtasks.length : 0;
                     const descriptionId = 'task_desc_' + task.taskId;
                     const escapedTitle = escapeHtml(task.title);
-                    const escapedDescription = escapeJsString(task.description || '');
                     
                     html += \`
                         <div class="task-card">
@@ -1645,14 +1858,12 @@ function writeMainEJS() {
                                 </div>
                             </div>
 
-                            <!-- Description placed outside header, full width, fit-content - NO INDENTATION -->
                             \${hasDescription ? \`
                                 <div id="\${descriptionId}" class="task-description-container hidden">
                                     <div class="task-description">\${preserveLineBreaks(task.description)}</div>
                                 </div>
                             \` : ''}
 
-                            <!-- Date/Time row moved outside header, full width - DISPLAYING IN IST -->
                             <div class="task-time-row">
                                 <span class="date-chip">
                                     <i class="fas fa-calendar-alt"></i> \${task.dateIST}
@@ -1685,7 +1896,6 @@ function writeMainEJS() {
                                             const subtaskHasDesc = hasContent(subtask.description);
                                             const subtaskDescId = 'subtask_desc_' + task.taskId + '_' + subtask.id;
                                             const escapedSubtaskTitle = escapeHtml(subtask.title);
-                                            const escapedSubtaskDescription = escapeJsString(subtask.description || '');
                                             
                                             return \`
                                                 <div class="subtask-item">
@@ -1701,7 +1911,7 @@ function writeMainEJS() {
                                                             </div>
                                                         </div>
                                                         <div class="subtask-actions">
-                                                            <button class="subtask-btn" onclick="editSubtask('\${task.taskId}', '\${subtask.id}', '\${escapedSubtaskTitle.replace(/'/g, "\\\\'")}', '\${escapedSubtaskDescription.replace(/'/g, "\\\\'")}')">
+                                                            <button class="subtask-btn" onclick="editSubtask('\${task.taskId}', '\${subtask.id}', '\${escapeJsString(subtask.title)}', '\${escapeJsString(subtask.description || '')}')">
                                                                 <i class="fas fa-pencil-alt"></i>
                                                             </button>
                                                             <button class="subtask-btn delete" onclick="deleteSubtask('\${task.taskId}', '\${subtask.id}')">
@@ -1709,7 +1919,6 @@ function writeMainEJS() {
                                                             </button>
                                                         </div>
                                                     </div>
-                                                    <!-- Subtask Description - NEW LINE, FULL WIDTH, FIT CONTENT - NO INDENTATION -->
                                                     \${subtaskHasDesc ? \`
                                                         <div id="\${subtaskDescId}" class="subtask-description-container hidden">
                                                             <div class="subtask-description">\${preserveLineBreaks(subtask.description)}</div>
@@ -1751,7 +1960,7 @@ function writeMainEJS() {
         }
 
         // ==========================================
-        // RENDER NOTES PAGE - FIXED WITH FIT-CONTENT
+        // RENDER NOTES PAGE
         // ==========================================
         function renderNotesPage() {
             let html = \`
@@ -1772,7 +1981,6 @@ function writeMainEJS() {
                     const hasDescription = hasContent(note.description);
                     const noteDescId = 'note_desc_' + note.noteId;
                     const escapedNoteTitle = escapeHtml(note.title);
-                    const escapedNoteDescription = escapeJsString(note.description || '');
                     
                     html += \`
                         <div class="note-card">
@@ -1788,7 +1996,7 @@ function writeMainEJS() {
                                     <button class="action-btn" onclick="moveNote('\${note.noteId}', 'down')" title="Move Down">
                                         <i class="fas fa-arrow-down"></i>
                                     </button>
-                                    <button class="action-btn" onclick="openEditNoteModal('\${note.noteId}', '\${escapedNoteTitle.replace(/'/g, "\\\\'")}', '\${escapedNoteDescription.replace(/'/g, "\\\\'")}')">
+                                    <button class="action-btn" onclick="openEditNoteModal('\${note.noteId}', '\${escapeJsString(note.title)}', '\${escapeJsString(note.description || '')}')">
                                         <i class="fas fa-pencil-alt"></i>
                                     </button>
                                     <button class="action-btn delete" onclick="deleteNote('\${note.noteId}')">
@@ -1797,7 +2005,6 @@ function writeMainEJS() {
                                 </div>
                             </div>
                             
-                            <!-- Note Content - FIT CONTENT, REDUCED PADDING - NO INDENTATION -->
                             \${hasDescription ? \`
                                 <div id="\${noteDescId}" class="note-content-container hidden">
                                     <div class="note-content">\${preserveLineBreaks(note.description)}</div>
@@ -1820,7 +2027,7 @@ function writeMainEJS() {
         }
 
         // ==========================================
-        // RENDER HISTORY PAGE - FIXED
+        // RENDER HISTORY PAGE
         // ==========================================
         function renderHistoryPage() {
             let html = \`
@@ -1885,7 +2092,6 @@ function writeMainEJS() {
                                     </span>
                                 </div>
                                 
-                                <!-- History Description - FIT CONTENT - NO INDENTATION -->
                                 \${hasDescription ? \`
                                     <div id="\${historyDescId}" class="history-description-container hidden">
                                         <div class="history-description">\${preserveLineBreaks(task.description)}</div>
@@ -2000,16 +2206,15 @@ function writeMainEJS() {
         function openAddModal() {
             if (currentPage === 'tasks') {
                 openAddTaskModal();
+            } else if (currentPage === 'grow') {
+                openAddGrowModal();
             } else if (currentPage === 'notes') {
                 openAddNoteModal();
             }
         }
 
         function openAddTaskModal() {
-            // Set default values to current IST time
             const now = new Date();
-            
-            // Add 5:30 to get IST
             const istOffset = 5.5 * 60 * 60 * 1000;
             const istNow = new Date(now.getTime() + istOffset);
             
@@ -2028,6 +2233,20 @@ function writeMainEJS() {
             openModal('addTaskModal');
         }
 
+        function openAddGrowModal() {
+            openModal('addGrowModal');
+        }
+
+        function openEditGrowModal(growId, title, description, targetDays, question, questionType) {
+            document.getElementById('editGrowId').value = growId;
+            document.getElementById('editGrowTitle').value = title;
+            document.getElementById('editGrowDescription').value = description;
+            document.getElementById('editGrowTargetDays').value = targetDays;
+            document.getElementById('editGrowQuestion').value = question || '';
+            document.getElementById('editGrowQuestionType').value = questionType || 'number';
+            openModal('editGrowModal');
+        }
+
         function openEditTaskModal(taskId) {
             fetch('/api/tasks/' + taskId)
                 .then(res => res.json())
@@ -2035,17 +2254,13 @@ function writeMainEJS() {
                     document.getElementById('editTaskId').value = task.taskId;
                     document.getElementById('editTitle').value = task.title;
                     document.getElementById('editDescription').value = task.description || '';
-                    
-                    // Use the IST date and time strings from the task object
                     document.getElementById('editStartDate').value = task.startDateIST || task.startDate;
                     document.getElementById('editStartTime').value = task.startTimeIST || task.startTime;
                     document.getElementById('editEndTime').value = task.endTimeIST || task.endTime;
-                    
                     document.getElementById('editRepeatSelect').value = task.repeat || 'none';
                     document.getElementById('editRepeatCount').value = task.repeatCount || 7;
                     document.getElementById('editRepeatCountGroup').style.display = 
                         task.repeat !== 'none' ? 'block' : 'none';
-                    
                     openModal('editTaskModal');
                 })
                 .catch(err => {
@@ -2102,6 +2317,57 @@ function writeMainEJS() {
             .catch(err => {
                 console.error(err);
                 showToast('Error creating task: ' + err.message, 'error');
+                hideLoader();
+            });
+        }
+
+        function submitGrowForm(event) {
+            event.preventDefault();
+            showLoader();
+            const formData = new FormData(event.target);
+            
+            fetch('/api/grow', {
+                method: 'POST',
+                body: new URLSearchParams(formData)
+            })
+            .then(res => {
+                if (res.ok) {
+                    closeModal('addGrowModal');
+                    showToast('Progress tracker created!');
+                    switchPage('grow');
+                } else {
+                    return res.text().then(text => { throw new Error(text); });
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showToast('Error creating tracker: ' + err.message, 'error');
+                hideLoader();
+            });
+        }
+
+        function submitEditGrowForm(event) {
+            event.preventDefault();
+            showLoader();
+            const formData = new FormData(event.target);
+            const growId = formData.get('growId');
+            
+            fetch('/api/grow/' + growId + '/update', {
+                method: 'POST',
+                body: new URLSearchParams(formData)
+            })
+            .then(res => {
+                if (res.ok) {
+                    closeModal('editGrowModal');
+                    showToast('Tracker updated!');
+                    switchPage('grow');
+                } else {
+                    return res.text().then(text => { throw new Error(text); });
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showToast('Error updating tracker: ' + err.message, 'error');
                 hideLoader();
             });
         }
@@ -2322,6 +2588,27 @@ function writeMainEJS() {
             });
         }
 
+        function deleteGrow(growId) {
+            if (!confirm('Delete this progress tracker? This will affect all users!')) return;
+            showLoader();
+            fetch('/api/grow/' + growId + '/delete', {
+                method: 'POST'
+            })
+            .then(res => {
+                if (res.ok) {
+                    showToast('Tracker deleted');
+                    switchPage('grow');
+                } else {
+                    throw new Error('Failed to delete tracker');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showToast('Error deleting tracker', 'error');
+                hideLoader();
+            });
+        }
+
         function deleteNote(noteId) {
             if (!confirm('Delete this note? This will affect all users!')) return;
             showLoader();
@@ -2374,7 +2661,6 @@ function writeMainEJS() {
             renderPage();
             updateActiveNav();
             
-            // Update clock in IST
             setInterval(() => {
                 const now = new Date();
                 const istOffset = 5.5 * 60 * 60 * 1000;
@@ -2412,9 +2698,8 @@ function writeMainEJS() {
 </html>`;
 
     fs.writeFileSync(path.join(viewsDir, 'index.ejs'), mainEJS);
-    console.log('✅ EJS template file created successfully with all CSS padding and indentation fixes');
+    console.log('✅ EJS template file created successfully with Grow tab and all features');
 }
-writeMainEJS();
 
 // ==========================================
 // 🗄️ DATABASE CONNECTION
