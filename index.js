@@ -9,7 +9,7 @@ const fs = require('fs');
 // ==========================================
 // ⚙️ CONFIGURATION - DIRECT HARDCODED VALUES
 // ==========================================
-const BOT_TOKEN = '8388773187:AAGeJLg_0U2qj9sg9awJ9aQVdF9klxEiRw4';
+const BOT_TOKEN = '8388773187:AAFMJNTpVDEJD4BcQl4tjCyZCjF7QxeAUdQ';
 const MONGODB_URI = 'mongodb+srv://sandip:9E9AISFqTfU3VI5i@cluster0.p8irtov.mongodb.net/telegram_bot';
 const PORT = process.env.PORT || 8080;
 const WEB_APP_URL = 'https://web-production-820965.up.railway.app';
@@ -6682,16 +6682,6 @@ async function start() {
                 console.log('🌍 Public Web URL: ' + WEB_APP_URL);
                 console.log('🕐 Server Time (UTC): ' + new Date().toISOString());
                 console.log('🕐 IST Time: ' + nowIST.dateTime);
-            }).on('error', (err) => {
-                if (err.code === 'EADDRINUSE') {
-                    console.error('❌ Port ' + PORT + ' is already in use. Trying port ' + (PORT + 1) + '...');
-                    app.listen(PORT + 1, '0.0.0.0', () => {
-                        console.log('🌐 Web interface running on port ' + (PORT + 1));
-                        console.log('📱 Web URL: http://localhost:' + (PORT + 1));
-                    });
-                } else {
-                    console.error('❌ Express server error:', err);
-                }
             });
             
             await bot.launch();
