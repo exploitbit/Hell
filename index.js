@@ -13,14 +13,14 @@ const BOT_TOKEN = '8388773187:AAGeJLg_0U2qj9sg9awJ9aQVdF9klxEiRw4';
 const MONGODB_URI = 'mongodb+srv://sandip:9E9AISFqTfU3VI5i@cluster0.p8irtov.mongodb.net/telegram_bot';
 const PORT = process.env.PORT || 8080;
 const WEB_APP_URL = 'https://task-manager-bot.up.railway.app';
-const CHAT_ID = 8469993808;
+const CHAT_ID = 5723455420;
 
 // ==========================================
 // 🕐 TIMEZONE CONSTANTS (IST = UTC+5:30)
 // ==========================================
 const IST_OFFSET_HOURS = 5;
 const IST_OFFSET_MINUTES = 30;
-const IST_OFFSET_MS = (IST_OFFSET_HOURS * 60 + IST_OFFSET_MINUTES) * 60 * 1000;
+const IST_OFFSET_MS = (IST_OFFSET_HOURS * 60 + IST_OFFSET_MINUTES) * 60 * 1000; // 5.5 hours in milliseconds
 
 const app = express();
 
@@ -49,18 +49,29 @@ if (!fs.existsSync(publicDir)) {
 // 🕐 TIMEZONE UTILITY FUNCTIONS
 // ==========================================
 
+/**
+ * Converts IST date string to UTC Date object for DATABASE STORAGE
+ * "Door In" - User inputs IST, we subtract 5:30 to store as UTC
+ */
 function istToUTC(istDate, istTime) {
     if (!istDate || !istTime) return null;
     
     const [year, month, day] = istDate.split('-').map(Number);
     const [hour, minute] = istTime.split(':').map(Number);
     
+    // Create IST date (this is the time the user meant in IST)
     const istDateObj = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
+    
+    // Subtract 5:30 to get UTC equivalent
     const utcDateObj = new Date(istDateObj.getTime() - IST_OFFSET_MS);
     
     return utcDateObj;
 }
 
+/**
+ * Converts UTC Date object to IST display string for USER INTERFACE
+ * "Door Out" - Database gives UTC, we add 5:30 to show IST
+ */
 function utcToISTDisplay(utcDate) {
     if (!utcDate) return { date: '', time: '', dateTime: '' };
     
@@ -81,15 +92,22 @@ function utcToISTDisplay(utcDate) {
     };
 }
 
+/**
+ * Gets current IST time as Date object
+ */
 function getCurrentIST() {
     const now = new Date();
     return new Date(now.getTime() + IST_OFFSET_MS);
 }
 
+/**
+ * Gets today's start in IST as UTC for database queries
+ */
 function getTodayStartUTC() {
     const now = new Date();
     const istNow = new Date(now.getTime() + IST_OFFSET_MS);
     
+    // Start of day in IST (00:00:00)
     const istStartOfDay = new Date(Date.UTC(
         istNow.getUTCFullYear(),
         istNow.getUTCMonth(),
@@ -97,18 +115,26 @@ function getTodayStartUTC() {
         0, 0, 0
     ));
     
+    // Convert to UTC for database
     return new Date(istStartOfDay.getTime() - IST_OFFSET_MS);
 }
 
+/**
+ * Gets tomorrow's start in IST as UTC for database queries
+ */
 function getTomorrowStartUTC() {
     const tomorrow = new Date(getTodayStartUTC().getTime() + 24 * 60 * 60 * 1000);
     return tomorrow;
 }
 
+/**
+ * Gets the UTC equivalent of 23:59 IST for auto-complete scheduler
+ */
 function getAutoCompleteTimeUTC() {
     const now = new Date();
     const istNow = new Date(now.getTime() + IST_OFFSET_MS);
     
+    // 23:59 in IST
     const istMidnight = new Date(Date.UTC(
         istNow.getUTCFullYear(),
         istNow.getUTCMonth(),
@@ -116,9 +142,13 @@ function getAutoCompleteTimeUTC() {
         23, 59, 0
     ));
     
+    // Convert to UTC for scheduler
     return new Date(istMidnight.getTime() - IST_OFFSET_MS);
 }
 
+/**
+ * Validates if IST time is at least 10 minutes from now
+ */
 function isValidFutureISTTime(istDate, istTime) {
     const targetUTC = istToUTC(istDate, istTime);
     if (!targetUTC) return false;
@@ -129,29 +159,48 @@ function isValidFutureISTTime(istDate, istTime) {
     return targetUTC > tenMinutesFromNowUTC;
 }
 
+/**
+ * Format UTC date to IST display string
+ */
 function formatISTDate(utcDate) {
     if (!utcDate) return '';
     const ist = utcToISTDisplay(utcDate);
     return ist.displayDate;
 }
 
+/**
+ * Format UTC time to IST display string
+ */
 function formatISTTime(utcDate) {
     if (!utcDate) return '';
     const ist = utcToISTDisplay(utcDate);
     return ist.displayTime;
 }
 
+/**
+ * Format UTC datetime to IST display string
+ */
 function formatISTDateTime(utcDate) {
     if (!utcDate) return '';
     const ist = utcToISTDisplay(utcDate);
     return ist.dateTime;
 }
 
+/**
+ * Get current IST time for display
+ */
 function getCurrentISTDisplay() {
     const ist = getCurrentIST();
     return utcToISTDisplay(ist);
 }
 
+// ==========================================
+// 🎨 EJS TEMPLATE - FIXED WITH ALL IMPROVEMENTS
+// ==========================================
+
+/**
+ * 🔴 FIX: Add these wrapper functions so the Routes can find them
+ */
 function formatDateUTC(dateObj) {
     return formatISTDate(dateObj);
 }
@@ -159,10 +208,6 @@ function formatDateUTC(dateObj) {
 function formatTimeUTC(dateObj) {
     return formatISTTime(dateObj);
 }
-
-// ==========================================
-// 🎨 EJS TEMPLATE - WITH GROW TAB AND PROGRESS TRACKING
-// ==========================================
 
 function writeMainEJS() {
     const mainEJS = `<!DOCTYPE html>
@@ -342,7 +387,7 @@ function writeMainEJS() {
             margin-top: 16px;
         }
 
-        .task-card, .note-card, .history-date-card, .progress-card {
+        .task-card, .note-card, .history-date-card {
             background: var(--card-bg-light);
             border: 1px solid var(--border-light);
             border-radius: 16px;
@@ -353,298 +398,547 @@ function writeMainEJS() {
         }
 
         @media (prefers-color-scheme: dark) {
-            .task-card, .note-card, .history-date-card, .progress-card {
+            .task-card, .note-card, .history-date-card {
                 background: var(--card-bg-dark);
                 border: 1px solid var(--border-dark);
             }
         }
 
-        .progress-bar-container {
+        .note-card {
+            margin-bottom: 12px;
+        }
+
+        .task-header {
             display: flex;
-            align-items: center;
-            gap: 12px;
-            margin: 12px 0;
-            padding: 8px;
-            background: var(--hover-light);
-            border-radius: 12px;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+            width: 100%;
+        }
+
+        .task-title-section {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .task-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-primary-light);
+            margin-bottom: 4px;
+            line-height: 1.3;
+            word-break: break-word;
+            cursor: pointer;
+            display: inline-block;
         }
 
         @media (prefers-color-scheme: dark) {
-            .progress-bar-container {
+            .task-title {
+                color: var(--text-primary-dark);
+            }
+        }
+
+        .task-description-container {
+            margin: 8px 0 4px 0;
+            width: 100%;
+        }
+
+        .task-description {
+            font-size: 0.85rem;
+            color: var(--text-secondary-light);
+            padding: 4px 6px;
+            background: var(--hover-light);
+            border-radius: 10px 10px 10px 10px;
+            border-left: 3px solid var(--accent-light);
+            word-break: break-word;
+            white-space: pre-wrap;
+            width: 100%;
+            box-sizing: border-box;
+            line-height: 1.4;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .task-description {
+                color: var(--text-secondary-dark);
                 background: var(--hover-dark);
             }
         }
 
-        .vertical-progress {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            width: 60px;
-        }
-
-        .progress-bar-vertical {
-            width: 40px;
-            height: 120px;
-            background: var(--progress-bg-light);
-            border-radius: 20px;
-            position: relative;
-            overflow: hidden;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            .progress-bar-vertical {
-                background: var(--progress-bg-dark);
-            }
-        }
-
-        .progress-fill {
-            position: absolute;
-            bottom: 0;
-            width: 100%;
-            background: var(--accent-light);
-            transition: height 0.3s ease;
-        }
-
-        .progress-info {
-            flex: 1;
-        }
-
-        .progress-title {
-            font-weight: 700;
-            font-size: 0.95rem;
-            margin-bottom: 4px;
-            cursor: pointer;
-        }
-
-        .progress-stats {
-            font-size: 0.75rem;
-            color: var(--text-secondary-light);
-        }
-
-        .calendar-container {
-            margin-top: 20px;
-            background: var(--card-bg-light);
-            border-radius: 16px;
-            padding: 16px;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            .calendar-container {
-                background: var(--card-bg-dark);
-            }
-        }
-
-        .calendar-header {
+        .task-time-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 16px;
+            width: 100%;
+            margin: 8px 0 4px 0;
         }
 
-        .calendar-month {
-            font-weight: 700;
-            font-size: 1.1rem;
+        .date-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            background: var(--hover-light);
+            border-radius: 100px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--text-secondary-light);
+            width: fit-content;
         }
 
-        .calendar-nav {
+        .time-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            background: var(--hover-light);
+            border-radius: 100px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--text-secondary-light);
+            width: fit-content;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .date-chip, .time-chip {
+                background: var(--hover-dark);
+                color: var(--text-secondary-dark);
+            }
+        }
+
+        .task-actions {
             display: flex;
-            gap: 8px;
+            gap: 4px;
+            flex-shrink: 0;
         }
 
-        .calendar-nav-btn {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            border: 1px solid var(--border-light);
-            background: transparent;
-            color: var(--text-primary-light);
+        .action-btn {
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            border: none;
+            background: var(--hover-light);
+            color: var(--text-secondary-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
             cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.8rem;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .action-btn {
+                background: var(--hover-dark);
+                color: var(--text-secondary-dark);
+            }
+        }
+
+        .action-btn:hover {
+            background: var(--accent-light);
+            color: white;
+        }
+
+        .action-btn.delete:hover {
+            background: var(--danger-light);
+        }
+
+        .progress-section {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 12px 0;
+            cursor: pointer;
+        }
+
+        .progress-ring-small {
+            position: relative;
+            width: 40px;
+            height: 40px;
+        }
+
+        .progress-ring-circle-small {
+            transition: stroke-dashoffset 0.5s;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+
+        .progress-text-small {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--accent-light);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .progress-text-small {
+                color: var(--accent-dark);
+            }
+        }
+
+        .subtasks-container {
+            margin-top: 12px;
+            border-top: 1px solid var(--border-light);
+            padding-top: 12px;
+            width: 100%;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .subtasks-container {
+                border-top-color: var(--border-dark);
+            }
+        }
+
+        .subtask-item {
+            display: flex;
+            flex-direction: column;
+            background: var(--hover-light);
+            border-radius: 10px;
+            margin-bottom: 8px;
+            padding: 8px;
+            width: 100%;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .subtask-item {
+                background: var(--hover-dark);
+            }
+        }
+
+        .subtask-main-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .subtask-checkbox {
+            width: 20px;
+            height: 20px;
+            border-radius: 6px;
+            border: 2px solid var(--accent-light);
+            background: transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: white;
+            font-size: 0.7rem;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+
+        .subtask-checkbox.completed {
+            background: var(--success-light);
+            border-color: var(--success-light);
+        }
+
+        .subtask-details {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .subtask-title {
+            font-weight: 600;
+            color: var(--text-primary-light);
+            margin-bottom: 2px;
+            font-size: 0.85rem;
+            word-break: break-word;
+            cursor: pointer;
+        }
+
+        .subtask-title.completed {
+            text-decoration: line-through;
+            color: var(--text-secondary-light);
+        }
+
+        .subtask-actions {
+            display: flex;
+            gap: 4px;
+            flex-shrink: 0;
+        }
+
+        .subtask-btn {
+            width: 26px;
+            height: 26px;
+            border-radius: 6px;
+            border: none;
+            background: var(--card-bg-light);
+            color: var(--text-secondary-light);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.75rem;
             display: flex;
             align-items: center;
             justify-content: center;
         }
 
         @media (prefers-color-scheme: dark) {
-            .calendar-nav-btn {
+            .subtask-btn {
+                background: var(--card-bg-dark);
+                color: var(--text-secondary-dark);
+            }
+        }
+
+        .subtask-btn:hover {
+            background: var(--accent-light);
+            color: white;
+        }
+
+        .subtask-btn.delete:hover {
+            background: var(--danger-light);
+        }
+
+        .subtask-description-container {
+            margin-top: 6px;
+            margin-left: 28px;
+            width: calc(100% - 28px);
+        }
+
+        .subtask-description {
+            font-size: 0.8rem;
+            color: var(--text-secondary-light);
+            padding: 4px 6px;
+            background: var(--card-bg-light);
+            border-radius: 8px 8px 8px 8px;
+            border-left: 2px solid var(--accent-light);
+            word-break: break-word;
+            white-space: pre-wrap;
+            width: 100%;
+            box-sizing: border-box;
+            max-width: 100%;
+            line-height: 1.4;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .subtask-description {
+                background: var(--card-bg-dark);
+                color: var(--text-secondary-dark);
+            }
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 3px 8px;
+            border-radius: 100px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            gap: 4px;
+            background: var(--hover-light);
+            color: var(--text-secondary-light);
+            width: fit-content;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .badge {
+                background: var(--hover-dark);
+                color: var(--text-secondary-dark);
+            }
+        }
+
+        .note-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+            width: 100%;
+        }
+
+        .note-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-primary-light);
+            word-break: break-word;
+            flex: 1;
+            cursor: pointer;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .note-title {
+                color: var(--text-primary-dark);
+            }
+        }
+
+        .note-content-container {
+            margin: 4px 0 8px 0;
+            width: 100%;
+        }
+
+        .note-content {
+            font-size: 0.85rem;
+            color: var(--text-secondary-light);
+            padding: 4px 6px;
+            background: var(--hover-light);
+            border-radius: 10px 10px 10px 10px;
+            border-left: 3px solid var(--accent-light);
+            word-break: break-word;
+            white-space: pre-wrap;
+            width: 100%;
+            box-sizing: border-box;
+            max-width: 100%;
+            line-height: 1.4;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .note-content {
+                color: var(--text-secondary-dark);
+                background: var(--hover-dark);
+            }
+        }
+
+        .note-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid var(--border-light);
+            font-size: 0.7rem;
+            color: var(--text-secondary-light);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .note-meta {
+                border-top-color: var(--border-dark);
+                color: var(--text-secondary-dark);
+            }
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .month-selector {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .month-btn {
+            padding: 6px 12px;
+            border-radius: 100px;
+            border: 1px solid var(--border-light);
+            background: var(--card-bg-light);
+            color: var(--text-primary-light);
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .month-btn {
+                background: var(--card-bg-dark);
                 border-color: var(--border-dark);
                 color: var(--text-primary-dark);
             }
         }
 
-        .calendar-weekdays {
-            display: grid;
-            grid-template-columns: repeat(7, 1fr);
-            gap: 4px;
-            margin-bottom: 8px;
-            font-weight: 600;
-            font-size: 0.7rem;
-            text-align: center;
-            color: var(--text-secondary-light);
+        .history-date-card {
+            margin-bottom: 16px;
         }
 
-        .calendar-days {
+        .history-tasks-grid {
             display: grid;
-            grid-template-columns: repeat(7, 1fr);
-            gap: 4px;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 12px;
+            margin-top: 12px;
         }
 
-        .calendar-day {
-            aspect-ratio: 1;
-            border-radius: 8px;
+        .history-task-card {
             background: var(--hover-light);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.75rem;
-            cursor: pointer;
-            position: relative;
-            overflow: hidden;
+            border-radius: 12px;
+            padding: 12px;
+            border-left: 3px solid var(--success-light);
+            word-break: break-word;
+            width: 100%;
         }
 
         @media (prefers-color-scheme: dark) {
-            .calendar-day {
+            .history-task-card {
                 background: var(--hover-dark);
             }
         }
 
-        .calendar-day.today {
-            border: 2px solid var(--accent-light);
-        }
-
-        .calendar-day.future {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .calendar-day-number {
-            font-weight: 600;
-            z-index: 2;
-        }
-
-        .calendar-day-progress {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+        .history-task-header {
             display: flex;
-            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 6px;
         }
 
-        .progress-segment {
-            height: 100%;
-            transition: all 0.2s ease;
-        }
-
-        .calendar-day.completed .calendar-day-number {
-            color: white;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-        }
-
-        .progress-detail-modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            backdrop-filter: blur(4px);
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-        }
-
-        .progress-detail-content {
-            background: var(--card-bg-light);
-            border-radius: 24px;
-            padding: 24px;
-            width: 90%;
-            max-width: 400px;
-            max-height: 70vh;
-            overflow-y: auto;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            .progress-detail-content {
-                background: var(--card-bg-dark);
-            }
-        }
-
-        .progress-item-detail {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 12px;
-            border-bottom: 1px solid var(--border-light);
-        }
-
-        @media (prefers-color-scheme: dark) {
-            .progress-item-detail {
-                border-bottom-color: var(--border-dark);
-            }
-        }
-
-        .progress-color-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            flex-shrink: 0;
-        }
-
-        .progress-item-info {
+        .history-task-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--text-primary-light);
+            cursor: pointer;
+            word-break: break-word;
             flex: 1;
         }
 
-        .progress-item-title {
-            font-weight: 600;
-            font-size: 0.85rem;
+        @media (prefers-color-scheme: dark) {
+            .history-task-title {
+                color: var(--text-primary-dark);
+            }
         }
 
-        .progress-item-question {
-            font-size: 0.75rem;
+        .history-task-time {
+            font-size: 0.7rem;
             color: var(--text-secondary-light);
-            margin-top: 2px;
+            flex-shrink: 0;
+            margin-left: auto;
+            padding-left: 8px;
         }
 
-        .progress-item-value {
-            font-weight: 700;
-            font-size: 0.85rem;
+        .history-description-container {
+            margin: 6px 0 8px 0;
+            width: 100%;
         }
 
-        .progress-item-answer {
-            font-size: 0.75rem;
-            color: var(--accent-light);
-            font-weight: 600;
+        .history-description {
+            font-size: 0.8rem;
+            color: var(--text-secondary-light);
+            padding: 4px 6px;
+            background: var(--card-bg-light);
+            border-radius: 8px 8px 8px 8px;
+            border-left: 2px solid var(--success-light);
+            word-break: break-word;
+            white-space: pre-wrap;
+            width: 100%;
+            box-sizing: border-box;
+            max-width: 100%;
+            line-height: 1.4;
         }
 
-        .progress-item-actions {
-            display: flex;
-            gap: 4px;
+        @media (prefers-color-scheme: dark) {
+            .history-description {
+                background: var(--card-bg-dark);
+                color: var(--text-secondary-dark);
+            }
         }
 
-        .progress-complete-btn {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            background: var(--success-light);
-            color: white;
-            border: none;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        .history-subtask {
+            padding: 6px 6px 6px 20px;
+            border-left: 2px solid var(--border-light);
+            margin: 6px 0;
+            width: 100%;
         }
 
-        .progress-complete-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .progress-strikethrough {
-            text-decoration: line-through;
-            opacity: 0.6;
+        @media (prefers-color-scheme: dark) {
+            .history-subtask {
+                border-left-color: var(--border-dark);
+            }
         }
 
         .fab {
@@ -672,6 +966,10 @@ function writeMainEJS() {
                 background: var(--accent-dark);
                 box-shadow: 0 4px 12px rgba(96,165,250,0.3);
             }
+        }
+
+        .fab:hover {
+            transform: scale(1.05);
         }
 
         .modal {
@@ -813,6 +1111,13 @@ function writeMainEJS() {
             animation: spin 1s linear infinite;
         }
 
+        @media (prefers-color-scheme: dark) {
+            .spinner {
+                border: 4px solid var(--border-dark);
+                border-top: 4px solid var(--accent-dark);
+            }
+        }
+
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
@@ -833,34 +1138,67 @@ function writeMainEJS() {
             }
         }
 
-        details {
-            margin-bottom: 16px;
-        }
-
-        summary {
+        .task-title-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
             cursor: pointer;
-            padding: 8px;
-            background: var(--hover-light);
-            border-radius: 8px;
-            font-weight: 600;
         }
 
-        @media (prefers-color-scheme: dark) {
-            summary {
-                background: var(--hover-dark);
-            }
-        }
-
-        .color-picker {
-            width: 40px;
-            height: 40px;
-            border-radius: 8px;
-            border: 2px solid var(--border-light);
-            cursor: pointer;
+        .task-title-container i {
+            font-size: 0.8rem;
+            color: var(--accent-light);
         }
 
         .hidden {
             display: none;
+        }
+
+        .fit-content {
+            width: fit-content;
+        }
+
+        @media (max-width: 768px) {
+            .nav-container {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .nav-links {
+                width: 100%;
+                justify-content: stretch;
+            }
+            
+            .nav-btn {
+                flex: 1;
+                justify-content: center;
+                padding: 8px 12px;
+            }
+            
+            .time-badge {
+                justify-content: center;
+            }
+            
+            .tasks-grid,
+            .history-tasks-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .word-break {
+            word-break: break-word;
+            overflow-wrap: break-word;
+        }
+
+        .flex-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .w-100 {
+            width: 100%;
         }
     </style>
 </head>
@@ -877,10 +1215,6 @@ function writeMainEJS() {
                 <button class="nav-btn <%= currentPage === 'tasks' ? 'active' : '' %>" onclick="switchPage('tasks')">
                     <i class="fas fa-tasks"></i>
                     <span>Tasks</span>
-                </button>
-                <button class="nav-btn <%= currentPage === 'grow' ? 'active' : '' %>" onclick="switchPage('grow')">
-                    <i class="fas fa-chart-line"></i>
-                    <span>Grow</span>
                 </button>
                 <button class="nav-btn <%= currentPage === 'notes' ? 'active' : '' %>" onclick="switchPage('notes')">
                     <i class="fas fa-note-sticky"></i>
@@ -1106,132 +1440,6 @@ function writeMainEJS() {
         </div>
     </div>
 
-    <!-- Add Progress Modal -->
-    <div class="modal" id="addProgressModal">
-        <div class="modal-content">
-            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                <h2 style="font-size: 1.2rem;">Create Progress Tracker</h2>
-                <button class="action-btn" onclick="closeModal('addProgressModal')">&times;</button>
-            </div>
-            <form id="addProgressForm" onsubmit="submitProgressForm(event)">
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Title *</label>
-                    <input type="text" class="form-control" name="title" required maxlength="100">
-                </div>
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Description</label>
-                    <textarea class="form-control" name="description" rows="2" placeholder="Enter description"></textarea>
-                </div>
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Total Rounds (Days) *</label>
-                    <input type="number" class="form-control" name="totalRounds" required min="1" max="3650" value="365">
-                </div>
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Question (Optional)</label>
-                    <input type="text" class="form-control" name="question" placeholder="e.g., How many kgs did you lose?">
-                </div>
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Question Type</label>
-                    <select class="form-control" name="questionType">
-                        <option value="number">Number</option>
-                        <option value="text">Text</option>
-                        <option value="boolean">Yes/No</option>
-                    </select>
-                </div>
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Color</label>
-                    <input type="color" class="form-control" name="color" value="#2563eb" style="height: 40px;">
-                </div>
-                <div style="display: flex; gap: 12px; margin-top: 16px;">
-                    <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('addProgressModal')">Cancel</button>
-                    <button type="submit" class="btn btn-primary" style="flex: 1;">Create Tracker</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Edit Progress Modal -->
-    <div class="modal" id="editProgressModal">
-        <div class="modal-content">
-            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                <h2 style="font-size: 1.2rem;">Edit Progress Tracker</h2>
-                <button class="action-btn" onclick="closeModal('editProgressModal')">&times;</button>
-            </div>
-            <form id="editProgressForm" onsubmit="submitEditProgressForm(event)">
-                <input type="hidden" name="progressId" id="editProgressId">
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Title *</label>
-                    <input type="text" class="form-control" name="title" id="editProgressTitle" required maxlength="100">
-                </div>
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Description</label>
-                    <textarea class="form-control" name="description" id="editProgressDescription" rows="2"></textarea>
-                </div>
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Total Rounds (Days) *</label>
-                    <input type="number" class="form-control" name="totalRounds" id="editProgressTotalRounds" required min="1" max="3650">
-                </div>
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Question</label>
-                    <input type="text" class="form-control" name="question" id="editProgressQuestion">
-                </div>
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Question Type</label>
-                    <select class="form-control" name="questionType" id="editProgressQuestionType">
-                        <option value="number">Number</option>
-                        <option value="text">Text</option>
-                        <option value="boolean">Yes/No</option>
-                    </select>
-                </div>
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Color</label>
-                    <input type="color" class="form-control" name="color" id="editProgressColor" style="height: 40px;">
-                </div>
-                <div style="display: flex; gap: 12px; margin-top: 16px;">
-                    <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('editProgressModal')">Cancel</button>
-                    <button type="submit" class="btn btn-primary" style="flex: 1;">Update Tracker</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Progress Detail Modal -->
-    <div class="modal" id="progressDetailModal">
-        <div class="modal-content">
-            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                <h2 style="font-size: 1.2rem;" id="progressDetailDate"></h2>
-                <button class="action-btn" onclick="closeModal('progressDetailModal')">&times;</button>
-            </div>
-            <div id="progressDetailList"></div>
-            <div style="margin-top: 16px;">
-                <button class="btn btn-secondary" style="width: 100%;" onclick="closeModal('progressDetailModal')">Close</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Answer Question Modal -->
-    <div class="modal" id="answerQuestionModal">
-        <div class="modal-content">
-            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                <h2 style="font-size: 1.2rem;" id="answerQuestionTitle"></h2>
-                <button class="action-btn" onclick="closeModal('answerQuestionModal')">&times;</button>
-            </div>
-            <form id="answerQuestionForm" onsubmit="submitAnswerForm(event)">
-                <input type="hidden" name="progressId" id="answerProgressId">
-                <input type="hidden" name="date" id="answerDate">
-                <input type="hidden" name="questionType" id="answerQuestionType">
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 0.85rem; font-weight: 600;" id="answerQuestionLabel"></label>
-                    <input type="text" class="form-control" name="answer" id="answerInput" required>
-                </div>
-                <div style="display: flex; gap: 12px; margin-top: 16px;">
-                    <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('answerQuestionModal')">Cancel</button>
-                    <button type="submit" class="btn btn-primary" style="flex: 1;">Save Answer</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
     <script>
         // ==========================================
         // TELEGRAM WEB APP INTEGRATION
@@ -1263,6 +1471,9 @@ function writeMainEJS() {
             }, 3000);
         }
 
+        // ==========================================
+        // LOADER SYSTEM
+        // ==========================================
         function showLoader() {
             document.getElementById('loader').style.display = 'flex';
         }
@@ -1278,11 +1489,8 @@ function writeMainEJS() {
         let tasksData = <%- JSON.stringify(tasks || []) %>;
         let notesData = <%- JSON.stringify(notes || []) %>;
         let historyData = <%- JSON.stringify(groupedHistory || {}) %>;
-        let progressData = <%- JSON.stringify(progress || []) %>;
-        let progressEntriesData = <%- JSON.stringify(progressEntries || {}) %>;
         let currentMonth = new Date().getMonth();
         let currentYear = new Date().getFullYear();
-        let selectedProgressDate = null;
 
         function switchPage(page) {
             showLoader();
@@ -1293,8 +1501,6 @@ function writeMainEJS() {
                     tasksData = data.tasks || [];
                     notesData = data.notes || [];
                     historyData = data.groupedHistory || {};
-                    progressData = data.progress || [];
-                    progressEntriesData = data.progressEntries || {};
                     renderPage();
                     updateActiveNav();
                     hideLoader();
@@ -1322,9 +1528,6 @@ function writeMainEJS() {
             if (currentPage === 'tasks') {
                 fabButton.style.display = 'flex';
                 content.innerHTML = renderTasksPage();
-            } else if (currentPage === 'grow') {
-                fabButton.style.display = 'flex';
-                content.innerHTML = renderGrowPage();
             } else if (currentPage === 'notes') {
                 fabButton.style.display = 'flex';
                 content.innerHTML = renderNotesPage();
@@ -1358,6 +1561,9 @@ function writeMainEJS() {
             return escapeHtml(text).replace(/\\n/g, '<br>');
         }
 
+        // ==========================================
+        // ESCAPE FOR JAVASCRIPT STRINGS - FIXES NEWLINES
+        // ==========================================
         function escapeJsString(str) {
             if (!str) return '';
             return str
@@ -1369,6 +1575,9 @@ function writeMainEJS() {
                 .replace(/\\t/g, '\\\\t');
         }
 
+        // ==========================================
+        // TOGGLE DESCRIPTION VISIBILITY
+        // ==========================================
         function toggleDescription(elementId) {
             const element = document.getElementById(elementId);
             if (element) {
@@ -1381,7 +1590,7 @@ function writeMainEJS() {
         }
 
         // ==========================================
-        // RENDER TASKS PAGE
+        // RENDER TASKS PAGE - COMPLETELY FIXED
         // ==========================================
         function renderTasksPage() {
             let html = \`
@@ -1407,13 +1616,14 @@ function writeMainEJS() {
                     const totalSubtasks = task.subtasks ? task.subtasks.length : 0;
                     const descriptionId = 'task_desc_' + task.taskId;
                     const escapedTitle = escapeHtml(task.title);
+                    const escapedDescription = escapeJsString(task.description || '');
                     
                     html += \`
                         <div class="task-card">
                             <div class="task-header">
                                 <div class="task-title-section">
                                     <div class="task-title-container" onclick="toggleDescription('\${descriptionId}')">
-                                        <i class="fas fa-chevron-right"></i>
+                                        <i class="fas fa-chevron-right" id="\${descriptionId}_icon"></i>
                                         <span class="task-title">\${escapedTitle}</span>
                                     </div>
                                 </div>
@@ -1435,12 +1645,14 @@ function writeMainEJS() {
                                 </div>
                             </div>
 
+                            <!-- Description placed outside header, full width, fit-content - NO INDENTATION -->
                             \${hasDescription ? \`
                                 <div id="\${descriptionId}" class="task-description-container hidden">
                                     <div class="task-description">\${preserveLineBreaks(task.description)}</div>
                                 </div>
                             \` : ''}
 
+                            <!-- Date/Time row moved outside header, full width - DISPLAYING IN IST -->
                             <div class="task-time-row">
                                 <span class="date-chip">
                                     <i class="fas fa-calendar-alt"></i> \${task.dateIST}
@@ -1451,8 +1663,8 @@ function writeMainEJS() {
                             </div>
 
                             \${totalSubtasks > 0 ? \`
-                                <details class="task-subtasks" open>
-                                    <summary class="flex-row">
+                                <details class="task-subtasks">
+                                    <summary class="flex-row" style="cursor: pointer;">
                                         <div class="progress-ring-small">
                                             <svg width="40" height="40">
                                                 <circle class="progress-ring-circle-small" stroke="var(--progress-bg-light)" stroke-width="3" fill="transparent" r="16" cx="20" cy="20"/>
@@ -1473,6 +1685,7 @@ function writeMainEJS() {
                                             const subtaskHasDesc = hasContent(subtask.description);
                                             const subtaskDescId = 'subtask_desc_' + task.taskId + '_' + subtask.id;
                                             const escapedSubtaskTitle = escapeHtml(subtask.title);
+                                            const escapedSubtaskDescription = escapeJsString(subtask.description || '');
                                             
                                             return \`
                                                 <div class="subtask-item">
@@ -1488,7 +1701,7 @@ function writeMainEJS() {
                                                             </div>
                                                         </div>
                                                         <div class="subtask-actions">
-                                                            <button class="subtask-btn" onclick="editSubtask('\${task.taskId}', '\${subtask.id}', '\${escapeJsString(subtask.title)}', '\${escapeJsString(subtask.description || '')}')">
+                                                            <button class="subtask-btn" onclick="editSubtask('\${task.taskId}', '\${subtask.id}', '\${escapedSubtaskTitle.replace(/'/g, "\\\\'")}', '\${escapedSubtaskDescription.replace(/'/g, "\\\\'")}')">
                                                                 <i class="fas fa-pencil-alt"></i>
                                                             </button>
                                                             <button class="subtask-btn delete" onclick="deleteSubtask('\${task.taskId}', '\${subtask.id}')">
@@ -1496,6 +1709,7 @@ function writeMainEJS() {
                                                             </button>
                                                         </div>
                                                     </div>
+                                                    <!-- Subtask Description - NEW LINE, FULL WIDTH, FIT CONTENT - NO INDENTATION -->
                                                     \${subtaskHasDesc ? \`
                                                         <div id="\${subtaskDescId}" class="subtask-description-container hidden">
                                                             <div class="subtask-description">\${preserveLineBreaks(subtask.description)}</div>
@@ -1537,374 +1751,7 @@ function writeMainEJS() {
         }
 
         // ==========================================
-        // RENDER GROW PAGE - PROGRESS TRACKING
-        // ==========================================
-        function renderGrowPage() {
-            let html = \`
-                <h1 class="page-title">Growth & Progress</h1>
-            \`;
-
-            if (!progressData || progressData.length === 0) {
-                html += \`
-                    <div class="empty-state">
-                        <i class="fas fa-chart-line" style="font-size: 2rem;"></i>
-                        <h3 style="margin-top: 12px;">No progress trackers yet</h3>
-                        <p style="margin-top: 8px; font-size: 0.85rem;">Click the + button to create your first tracker!</p>
-                    </div>
-                \`;
-            } else {
-                const today = new Date();
-                const todayStr = today.toISOString().split('T')[0];
-                const yesterday = new Date(today);
-                yesterday.setDate(yesterday.getDate() - 1);
-                const yesterdayStr = yesterday.toISOString().split('T')[0];
-
-                // Progress Bars Section
-                html += \`
-                    <details open>
-                        <summary><i class="fas fa-chart-bar"></i> Progress Overview</summary>
-                        <div class="tasks-grid" style="margin-top: 12px;">
-                \`;
-
-                progressData.forEach(progress => {
-                    const progressId = progress.progressId;
-                    const totalRounds = progress.totalRounds || 365;
-                    const entries = progressEntriesData[progressId] || [];
-                    const completedDays = entries.length;
-                    const percentage = Math.round((completedDays / totalRounds) * 100);
-                    
-                    const escapedTitle = escapeHtml(progress.title);
-                    const escapedDescription = escapeHtml(progress.description || '');
-                    const hasDesc = hasContent(escapedDescription);
-                    const descriptionId = 'progress_desc_' + progressId;
-                    
-                    html += \`
-                        <div class="progress-card">
-                            <div class="progress-bar-container">
-                                <div class="vertical-progress">
-                                    <div class="progress-bar-vertical">
-                                        <div class="progress-fill" style="height: \${percentage}%; background: \${progress.color || '#2563eb'};"></div>
-                                    </div>
-                                    <span style="font-size: 0.7rem; font-weight: 700; margin-top: 4px;">\${percentage}%</span>
-                                </div>
-                                <div class="progress-info">
-                                    <div class="progress-title" onclick="toggleDescription('\${descriptionId}')">
-                                        \${escapedTitle}
-                                    </div>
-                                    <div class="progress-stats">
-                                        \${completedDays}/\${totalRounds} days completed
-                                    </div>
-                                    \${progress.question ? \`
-                                        <div style="font-size: 0.7rem; color: var(--accent-light); margin-top: 4px;">
-                                            <i class="fas fa-question-circle"></i> \${escapeHtml(progress.question)}
-                                        </div>
-                                    \` : ''}
-                                </div>
-                                <div style="display: flex; gap: 4px;">
-                                    <button class="action-btn" onclick="openEditProgressModal('\${progressId}')" title="Edit">
-                                        <i class="fas fa-pencil-alt"></i>
-                                    </button>
-                                    <button class="action-btn delete" onclick="deleteProgress('\${progressId}')" title="Delete">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            \${hasDesc ? \`
-                                <div id="\${descriptionId}" class="task-description-container hidden" style="margin-top: 8px;">
-                                    <div class="task-description">\${preserveLineBreaks(escapedDescription)}</div>
-                                </div>
-                            \` : ''}
-                        </div>
-                    \`;
-                });
-
-                html += \`
-                        </div>
-                    </details>
-                \`;
-
-                // Calendar Section
-                html += \`
-                    <div style="margin-top: 24px;">
-                        <details open>
-                            <summary><i class="fas fa-calendar-alt"></i> Progress Calendar</summary>
-                            <div class="calendar-container">
-                                <div class="calendar-header">
-                                    <span class="calendar-month">\${new Date(currentYear, currentMonth).toLocaleString('default', { month: 'long' })} \${currentYear}</span>
-                                    <div class="calendar-nav">
-                                        <button class="calendar-nav-btn" onclick="changeProgressMonth(-1)">
-                                            <i class="fas fa-chevron-left"></i>
-                                        </button>
-                                        <button class="calendar-nav-btn" onclick="changeProgressMonth(1)">
-                                            <i class="fas fa-chevron-right"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                                <div class="calendar-weekdays">
-                                    <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
-                                </div>
-                                <div class="calendar-days" id="progressCalendarDays"></div>
-                            </div>
-                        </details>
-                    </div>
-                \`;
-            }
-
-            return html;
-        }
-
-        function renderCalendar() {
-            const calendarEl = document.getElementById('progressCalendarDays');
-            if (!calendarEl) return;
-
-            const today = new Date();
-            const todayStr = today.toISOString().split('T')[0];
-            const yesterday = new Date(today);
-            yesterday.setDate(yesterday.getDate() - 1);
-            const yesterdayStr = yesterday.toISOString().split('T')[0];
-
-            const firstDay = new Date(currentYear, currentMonth, 1);
-            const lastDay = new Date(currentYear, currentMonth + 1, 0);
-            const startOffset = firstDay.getDay();
-            
-            let days = '';
-            const progressColors = progressData.reduce((acc, p) => {
-                acc[p.progressId] = p.color || '#2563eb';
-                return acc;
-            }, {});
-
-            for (let i = 0; i < startOffset; i++) {
-                days += '<div class="calendar-day" style="background: transparent;"></div>';
-            }
-
-            for (let d = 1; d <= lastDay.getDate(); d++) {
-                const dateStr = \`\${currentYear}-\${String(currentMonth + 1).padStart(2, '0')}-\${String(d).padStart(2, '0')}\`;
-                const dateObj = new Date(currentYear, currentMonth, d);
-                const isToday = dateStr === todayStr;
-                const isFuture = dateObj > today;
-                const isPast = dateObj < today;
-                const isYesterday = dateStr === yesterdayStr;
-                
-                let dayClass = 'calendar-day';
-                if (isToday) dayClass += ' today';
-                if (isFuture) dayClass += ' future';
-                
-                const completedProgresses = [];
-                const incompleteProgresses = [];
-                
-                progressData.forEach(progress => {
-                    const entries = progressEntriesData[progress.progressId] || [];
-                    const entry = entries.find(e => e.date === dateStr);
-                    
-                    if (entry) {
-                        completedProgresses.push({
-                            id: progress.progressId,
-                            color: progress.color || '#2563eb',
-                            title: progress.title,
-                            question: progress.question,
-                            answer: entry.answer,
-                            questionType: progress.questionType
-                        });
-                    } else if (isPast && dateObj < today && !isFuture) {
-                        incompleteProgresses.push({
-                            id: progress.progressId,
-                            color: progress.color || '#2563eb',
-                            title: progress.title,
-                            question: progress.question,
-                            questionType: progress.questionType
-                        });
-                    }
-                });
-
-                const totalProgresses = completedProgresses.length;
-                
-                let progressSegments = '';
-                if (totalProgresses > 0) {
-                    const segmentWidth = 100 / totalProgresses;
-                    completedProgresses.forEach((p, index) => {
-                        progressSegments += \`<div class="progress-segment" style="width: \${segmentWidth}%; background: \${p.color};"></div>\`;
-                    });
-                }
-
-                days += \`
-                    <div class="\${dayClass}" onclick="openProgressDayDetail('\${dateStr}')">
-                        <span class="calendar-day-number">\${d}</span>
-                        \${totalProgresses > 0 ? \`
-                            <div class="calendar-day-progress">
-                                \${progressSegments}
-                            </div>
-                        \` : ''}
-                    </div>
-                \`;
-            }
-
-            calendarEl.innerHTML = days;
-        }
-
-        function changeProgressMonth(delta) {
-            currentMonth += delta;
-            if (currentMonth < 0) {
-                currentMonth = 11;
-                currentYear--;
-            } else if (currentMonth > 11) {
-                currentMonth = 0;
-                currentYear++;
-            }
-            renderPage();
-        }
-
-        function openProgressDayDetail(dateStr) {
-            const today = new Date();
-            const todayStr = today.toISOString().split('T')[0];
-            const selectedDate = new Date(dateStr);
-            const isFuture = selectedDate > today;
-            
-            if (isFuture) {
-                showToast('Cannot view future dates', 'warning');
-                return;
-            }
-
-            selectedProgressDate = dateStr;
-            
-            const modal = document.getElementById('progressDetailModal');
-            document.getElementById('progressDetailDate').innerHTML = \`Progress for \${formatDateDisplay(dateStr)}\`;
-            
-            const completedList = [];
-            const incompleteList = [];
-            
-            progressData.forEach(progress => {
-                const entries = progressEntriesData[progress.progressId] || [];
-                const entry = entries.find(e => e.date === dateStr);
-                
-                if (entry) {
-                    completedList.push({
-                        id: progress.progressId,
-                        title: progress.title,
-                        color: progress.color || '#2563eb',
-                        question: progress.question,
-                        answer: entry.answer,
-                        questionType: progress.questionType
-                    });
-                } else if (selectedDate < today && dateStr !== todayStr) {
-                    incompleteList.push({
-                        id: progress.progressId,
-                        title: progress.title,
-                        color: progress.color || '#2563eb',
-                        question: progress.question,
-                        questionType: progress.questionType
-                    });
-                }
-            });
-
-            let detailHtml = '';
-            
-            if (completedList.length > 0) {
-                detailHtml += '<h3 style="margin-bottom: 12px;">Completed</h3>';
-                completedList.forEach(p => {
-                    const answerDisplay = p.answer ? 
-                        \`<div class="progress-item-answer">\${escapeHtml(p.answer)}</div>\` : '';
-                    
-                    detailHtml += \`
-                        <div class="progress-item-detail">
-                            <div class="progress-color-dot" style="background: \${p.color};"></div>
-                            <div class="progress-item-info">
-                                <div class="progress-item-title">\${escapeHtml(p.title)}</div>
-                                \${p.question ? \`<div class="progress-item-question">\${escapeHtml(p.question)}</div>\` : ''}
-                                \${answerDisplay}
-                            </div>
-                        </div>
-                    \`;
-                });
-            }
-
-            if (incompleteList.length > 0) {
-                detailHtml += '<h3 style="margin: 16px 0 12px;">Incomplete</h3>';
-                incompleteList.forEach(p => {
-                    const isYesterday = dateStr === new Date(today.getTime() - 86400000).toISOString().split('T')[0];
-                    
-                    detailHtml += \`
-                        <div class="progress-item-detail">
-                            <div class="progress-color-dot" style="background: \${p.color};"></div>
-                            <div class="progress-item-info">
-                                <div class="progress-item-title progress-strikethrough">\${escapeHtml(p.title)}</div>
-                                \${p.question ? \`<div class="progress-item-question">\${escapeHtml(p.question)}</div>\` : ''}
-                            </div>
-                            \${isYesterday ? \`
-                                <button class="progress-complete-btn" onclick="completeProgressForDate('\${p.id}', '\${dateStr}')">
-                                    <i class="fas fa-check"></i>
-                                </button>
-                            \` : ''}
-                        </div>
-                    \`;
-                });
-            }
-
-            if (completedList.length === 0 && incompleteList.length === 0) {
-                detailHtml = '<p class="empty-state">No progress entries for this date</p>';
-            }
-
-            document.getElementById('progressDetailList').innerHTML = detailHtml;
-            modal.style.display = 'flex';
-        }
-
-        function completeProgressForDate(progressId, dateStr) {
-            const progress = progressData.find(p => p.progressId === progressId);
-            if (!progress) return;
-
-            if (progress.question && progress.question.trim() !== '') {
-                document.getElementById('answerProgressId').value = progressId;
-                document.getElementById('answerDate').value = dateStr;
-                document.getElementById('answerQuestionType').value = progress.questionType || 'number';
-                document.getElementById('answerQuestionTitle').innerHTML = escapeHtml(progress.title);
-                document.getElementById('answerQuestionLabel').innerHTML = progress.question;
-                
-                const input = document.getElementById('answerInput');
-                input.type = progress.questionType === 'number' ? 'number' : 'text';
-                input.placeholder = progress.questionType === 'number' ? 'Enter number' : 
-                                   progress.questionType === 'boolean' ? 'Enter yes/no' : 'Enter answer';
-                
-                closeModal('progressDetailModal');
-                openModal('answerQuestionModal');
-            } else {
-                submitProgressCompletion(progressId, dateStr, '');
-            }
-        }
-
-        function submitProgressCompletion(progressId, dateStr, answer) {
-            showLoader();
-            const formData = new FormData();
-            formData.append('progressId', progressId);
-            formData.append('date', dateStr);
-            formData.append('answer', answer);
-            
-            fetch('/api/progress/complete', {
-                method: 'POST',
-                body: new URLSearchParams(formData)
-            })
-            .then(res => {
-                if (res.ok) {
-                    showToast('Progress marked as completed!');
-                    closeModal('answerQuestionModal');
-                    closeModal('progressDetailModal');
-                    switchPage('grow');
-                } else {
-                    return res.text().then(text => { throw new Error(text); });
-                }
-            })
-            .catch(err => {
-                console.error(err);
-                showToast('Error: ' + err.message, 'error');
-                hideLoader();
-            });
-        }
-
-        function formatDateDisplay(dateStr) {
-            const [year, month, day] = dateStr.split('-');
-            return \`\${day}-\${month}-\${year}\`;
-        }
-
-        // ==========================================
-        // RENDER NOTES PAGE
+        // RENDER NOTES PAGE - FIXED WITH FIT-CONTENT
         // ==========================================
         function renderNotesPage() {
             let html = \`
@@ -1925,12 +1772,13 @@ function writeMainEJS() {
                     const hasDescription = hasContent(note.description);
                     const noteDescId = 'note_desc_' + note.noteId;
                     const escapedNoteTitle = escapeHtml(note.title);
+                    const escapedNoteDescription = escapeJsString(note.description || '');
                     
                     html += \`
                         <div class="note-card">
                             <div class="note-header">
                                 <div class="task-title-container" onclick="toggleDescription('\${noteDescId}')">
-                                    <i class="fas fa-chevron-right"></i>
+                                    <i class="fas fa-chevron-right" id="\${noteDescId}_icon"></i>
                                     <span class="note-title">\${escapedNoteTitle}</span>
                                 </div>
                                 <div style="display: flex; gap: 4px;">
@@ -1940,7 +1788,7 @@ function writeMainEJS() {
                                     <button class="action-btn" onclick="moveNote('\${note.noteId}', 'down')" title="Move Down">
                                         <i class="fas fa-arrow-down"></i>
                                     </button>
-                                    <button class="action-btn" onclick="openEditNoteModal('\${note.noteId}', '\${escapeJsString(note.title)}', '\${escapeJsString(note.description || '')}')">
+                                    <button class="action-btn" onclick="openEditNoteModal('\${note.noteId}', '\${escapedNoteTitle.replace(/'/g, "\\\\'")}', '\${escapedNoteDescription.replace(/'/g, "\\\\'")}')">
                                         <i class="fas fa-pencil-alt"></i>
                                     </button>
                                     <button class="action-btn delete" onclick="deleteNote('\${note.noteId}')">
@@ -1949,6 +1797,7 @@ function writeMainEJS() {
                                 </div>
                             </div>
                             
+                            <!-- Note Content - FIT CONTENT, REDUCED PADDING - NO INDENTATION -->
                             \${hasDescription ? \`
                                 <div id="\${noteDescId}" class="note-content-container hidden">
                                     <div class="note-content">\${preserveLineBreaks(note.description)}</div>
@@ -1971,7 +1820,7 @@ function writeMainEJS() {
         }
 
         // ==========================================
-        // RENDER HISTORY PAGE
+        // RENDER HISTORY PAGE - FIXED
         // ==========================================
         function renderHistoryPage() {
             let html = \`
@@ -2008,7 +1857,7 @@ function writeMainEJS() {
                     const tasks = filteredHistory[date];
                     html += \`
                         <div class="history-date-card">
-                            <details class="history-details" open>
+                            <details class="history-details">
                                 <summary>
                                     <i class="fas fa-calendar-alt"></i>
                                     <span style="font-weight: 600;">\${date}</span>
@@ -2036,6 +1885,7 @@ function writeMainEJS() {
                                     </span>
                                 </div>
                                 
+                                <!-- History Description - FIT CONTENT - NO INDENTATION -->
                                 \${hasDescription ? \`
                                     <div id="\${historyDescId}" class="history-description-container hidden">
                                         <div class="history-description">\${preserveLineBreaks(task.description)}</div>
@@ -2150,15 +2000,16 @@ function writeMainEJS() {
         function openAddModal() {
             if (currentPage === 'tasks') {
                 openAddTaskModal();
-            } else if (currentPage === 'grow') {
-                openAddProgressModal();
             } else if (currentPage === 'notes') {
                 openAddNoteModal();
             }
         }
 
         function openAddTaskModal() {
+            // Set default values to current IST time
             const now = new Date();
+            
+            // Add 5:30 to get IST
             const istOffset = 5.5 * 60 * 60 * 1000;
             const istNow = new Date(now.getTime() + istOffset);
             
@@ -2185,6 +2036,7 @@ function writeMainEJS() {
                     document.getElementById('editTitle').value = task.title;
                     document.getElementById('editDescription').value = task.description || '';
                     
+                    // Use the IST date and time strings from the task object
                     document.getElementById('editStartDate').value = task.startDateIST || task.startDate;
                     document.getElementById('editStartTime').value = task.startTimeIST || task.startTime;
                     document.getElementById('editEndTime').value = task.endTimeIST || task.endTime;
@@ -2224,30 +2076,6 @@ function writeMainEJS() {
             document.getElementById('editNoteTitle').value = title;
             document.getElementById('editNoteDescription').value = description || '';
             openModal('editNoteModal');
-        }
-
-        function openAddProgressModal() {
-            openModal('addProgressModal');
-        }
-
-        function openEditProgressModal(progressId) {
-            fetch('/api/progress/' + progressId)
-                .then(res => res.json())
-                .then(progress => {
-                    document.getElementById('editProgressId').value = progress.progressId;
-                    document.getElementById('editProgressTitle').value = progress.title;
-                    document.getElementById('editProgressDescription').value = progress.description || '';
-                    document.getElementById('editProgressTotalRounds').value = progress.totalRounds || 365;
-                    document.getElementById('editProgressQuestion').value = progress.question || '';
-                    document.getElementById('editProgressQuestionType').value = progress.questionType || 'number';
-                    document.getElementById('editProgressColor').value = progress.color || '#2563eb';
-                    
-                    openModal('editProgressModal');
-                })
-                .catch(err => {
-                    console.error(err);
-                    showToast('Error loading progress details', 'error');
-                });
         }
 
         // ==========================================
@@ -2408,75 +2236,6 @@ function writeMainEJS() {
             });
         }
 
-        function submitProgressForm(event) {
-            event.preventDefault();
-            showLoader();
-            const formData = new FormData(event.target);
-            
-            fetch('/api/progress', {
-                method: 'POST',
-                body: new URLSearchParams(formData)
-            })
-            .then(res => {
-                if (res.ok) {
-                    closeModal('addProgressModal');
-                    showToast('Progress tracker created!');
-                    switchPage('grow');
-                } else {
-                    return res.text().then(text => { throw new Error(text); });
-                }
-            })
-            .catch(err => {
-                console.error(err);
-                showToast('Error creating tracker: ' + err.message, 'error');
-                hideLoader();
-            });
-        }
-
-        function submitEditProgressForm(event) {
-            event.preventDefault();
-            showLoader();
-            const formData = new FormData(event.target);
-            const progressId = formData.get('progressId');
-            
-            fetch('/api/progress/' + progressId + '/update', {
-                method: 'POST',
-                body: new URLSearchParams(formData)
-            })
-            .then(res => {
-                if (res.ok) {
-                    closeModal('editProgressModal');
-                    showToast('Progress tracker updated!');
-                    switchPage('grow');
-                } else {
-                    return res.text().then(text => { throw new Error(text); });
-                }
-            })
-            .catch(err => {
-                console.error(err);
-                showToast('Error updating tracker: ' + err.message, 'error');
-                hideLoader();
-            });
-        }
-
-        function submitAnswerForm(event) {
-            event.preventDefault();
-            const progressId = document.getElementById('answerProgressId').value;
-            const date = document.getElementById('answerDate').value;
-            const answer = document.getElementById('answerInput').value;
-            const questionType = document.getElementById('answerQuestionType').value;
-            
-            if (questionType === 'boolean') {
-                const normalized = answer.toLowerCase();
-                if (normalized !== 'yes' && normalized !== 'no' && normalized !== 'y' && normalized !== 'n') {
-                    showToast('Please enter yes or no', 'warning');
-                    return;
-                }
-            }
-            
-            submitProgressCompletion(progressId, date, answer);
-        }
-
         // ==========================================
         // ACTION FUNCTIONS
         // ==========================================
@@ -2563,27 +2322,6 @@ function writeMainEJS() {
             });
         }
 
-        function deleteProgress(progressId) {
-            if (!confirm('Delete this progress tracker?')) return;
-            showLoader();
-            fetch('/api/progress/' + progressId + '/delete', {
-                method: 'POST'
-            })
-            .then(res => {
-                if (res.ok) {
-                    showToast('Progress tracker deleted');
-                    switchPage('grow');
-                } else {
-                    throw new Error('Failed to delete progress');
-                }
-            })
-            .catch(err => {
-                console.error(err);
-                showToast('Error deleting progress', 'error');
-                hideLoader();
-            });
-        }
-
         function deleteNote(noteId) {
             if (!confirm('Delete this note? This will affect all users!')) return;
             showLoader();
@@ -2636,6 +2374,7 @@ function writeMainEJS() {
             renderPage();
             updateActiveNav();
             
+            // Update clock in IST
             setInterval(() => {
                 const now = new Date();
                 const istOffset = 5.5 * 60 * 60 * 1000;
@@ -2673,7 +2412,7 @@ function writeMainEJS() {
 </html>`;
 
     fs.writeFileSync(path.join(viewsDir, 'index.ejs'), mainEJS);
-    console.log('✅ EJS template file created successfully with Grow tab and progress tracking');
+    console.log('✅ EJS template file created successfully with all CSS padding and indentation fixes');
 }
 writeMainEJS();
 
@@ -2709,8 +2448,6 @@ async function connectDB() {
                 await db.collection('history').createIndex({ completedDate: -1 });
                 await db.collection('notes').createIndex({ noteId: 1 }, { unique: true });
                 await db.collection('notes').createIndex({ orderIndex: 1 });
-                await db.collection('progress').createIndex({ progressId: 1 }, { unique: true });
-                await db.collection('progressEntries').createIndex({ progressId: 1, date: 1 }, { unique: true });
                 console.log('✅ Indexes created');
             } catch (indexError) {
                 console.warn('⚠️ Index creation warning:', indexError.message);
@@ -2747,7 +2484,7 @@ app.get('/health', (req, res) => {
 function generateId(type = 'task') {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let result = '';
-    const length = type === 'task' ? 10 : type === 'progress' ? 10 : 8;
+    const length = type === 'task' ? 10 : 8;
     for (let i = 0; i < length; i++) {
         result += chars.charAt(Math.floor(Math.random() * chars.length));
     }
@@ -2837,7 +2574,7 @@ function formatDuration(minutes) {
 }
 
 // ==========================================
-// ⏰ SCHEDULER LOGIC
+// ⏰ SCHEDULER LOGIC - NOW USES IST TRANSLATION
 // ==========================================
 function scheduleTask(task) {
     if (!task || !task.taskId || !task.startDate) return;
@@ -2858,6 +2595,7 @@ function scheduleTask(task) {
         const notifyTimeUTC = new Date(startTimeUTC.getTime() - 10 * 60000);
         const triggerDateUTC = notifyTimeUTC > nowUTC ? notifyTimeUTC : nowUTC;
 
+        // Display start time in IST for logging
         const startTimeIST = utcToISTDisplay(startTimeUTC);
         console.log('⏰ Scheduled: ' + task.title + ' for IST: ' + startTimeIST.dateTime + ' | UTC: ' + startTimeUTC.toISOString());
 
@@ -2977,6 +2715,9 @@ async function rescheduleAllPending() {
     }
 }
 
+// ==========================================
+// ⏰ AUTO-COMPLETE PENDING TASKS AT 23:59 IST (18:29 UTC)
+// ==========================================
 async function autoCompletePendingTasks() {
     console.log('⏰ Running auto-complete for pending tasks at 23:59 IST...');
     
@@ -3075,6 +2816,8 @@ function scheduleAutoComplete() {
         autoCompleteJob.cancel();
     }
     
+    // Schedule for 23:59 IST which is 18:29 UTC
+    // Using cron: 29 18 * * * (18:29 UTC)
     autoCompleteJob = schedule.scheduleJob('29 18 * * *', async () => {
         if (!isShuttingDown) await autoCompletePendingTasks();
     });
@@ -3083,7 +2826,7 @@ function scheduleAutoComplete() {
 }
 
 // ==========================================
-// 📱 WEB INTERFACE ROUTES
+// 📱 WEB INTERFACE ROUTES - WITH IST TRANSLATION
 // ==========================================
 app.get('/', (req, res) => {
     res.redirect('/tasks');
@@ -3129,8 +2872,6 @@ app.get('/tasks', async (req, res) => {
             }),
             notes: [],
             groupedHistory: {},
-            progress: [],
-            progressEntries: {},
             currentTime: currentIST.displayTime,
             currentDate: currentIST.displayDate,
             formatDateUTC: formatDateUTC,
@@ -3139,47 +2880,6 @@ app.get('/tasks', async (req, res) => {
     } catch (error) {
         console.error('Error loading tasks:', error);
         res.status(500).send('Error loading tasks: ' + error.message);
-    }
-});
-
-app.get('/grow', async (req, res) => {
-    try {
-        const progress = await db.collection('progress')
-            .find()
-            .sort({ createdAt: -1 })
-            .toArray();
-        
-        const progressEntries = {};
-        const entries = await db.collection('progressEntries')
-            .find()
-            .toArray();
-        
-        entries.forEach(entry => {
-            if (!progressEntries[entry.progressId]) {
-                progressEntries[entry.progressId] = [];
-            }
-            progressEntries[entry.progressId].push(entry);
-        });
-        
-        console.log('📊 Progress trackers found: ' + progress.length);
-        
-        const currentIST = getCurrentISTDisplay();
-        
-        res.render('index', {
-            currentPage: 'grow',
-            tasks: [],
-            notes: [],
-            groupedHistory: {},
-            progress: progress,
-            progressEntries: progressEntries,
-            currentTime: currentIST.displayTime,
-            currentDate: currentIST.displayDate,
-            formatDateUTC: formatDateUTC,
-            formatTimeUTC: formatTimeUTC
-        });
-    } catch (error) {
-        console.error('Error loading progress:', error);
-        res.status(500).send('Error loading progress: ' + error.message);
     }
 });
 
@@ -3203,8 +2903,6 @@ app.get('/notes', async (req, res) => {
                 updatedAtIST: note.updatedAt ? utcToISTDisplay(note.updatedAt).dateTime : utcToISTDisplay(note.createdAt).dateTime
             })),
             groupedHistory: {},
-            progress: [],
-            progressEntries: {},
             currentTime: currentIST.displayTime,
             currentDate: currentIST.displayDate,
             formatDateUTC: formatDateUTC,
@@ -3253,8 +2951,6 @@ app.get('/history', async (req, res) => {
             tasks: [],
             notes: [],
             groupedHistory: groupedHistory,
-            progress: [],
-            progressEntries: {},
             currentTime: currentIST.displayTime,
             currentDate: currentIST.displayDate,
             formatDateUTC: formatDateUTC,
@@ -3303,34 +2999,7 @@ app.get('/api/page/:page', async (req, res) => {
                     };
                 }),
                 notes: [],
-                groupedHistory: {},
-                progress: [],
-                progressEntries: {}
-            });
-        } else if (page === 'grow') {
-            const progress = await db.collection('progress')
-                .find()
-                .sort({ createdAt: -1 })
-                .toArray();
-            
-            const progressEntries = {};
-            const entries = await db.collection('progressEntries')
-                .find()
-                .toArray();
-            
-            entries.forEach(entry => {
-                if (!progressEntries[entry.progressId]) {
-                    progressEntries[entry.progressId] = [];
-                }
-                progressEntries[entry.progressId].push(entry);
-            });
-            
-            res.json({
-                tasks: [],
-                notes: [],
-                groupedHistory: {},
-                progress: progress,
-                progressEntries: progressEntries
+                groupedHistory: {}
             });
         } else if (page === 'notes') {
             const notes = await db.collection('notes').find()
@@ -3345,9 +3014,7 @@ app.get('/api/page/:page', async (req, res) => {
                     createdAtIST: utcToISTDisplay(note.createdAt).dateTime,
                     updatedAtIST: note.updatedAt ? utcToISTDisplay(note.updatedAt).dateTime : utcToISTDisplay(note.createdAt).dateTime
                 })),
-                groupedHistory: {},
-                progress: [],
-                progressEntries: {}
+                groupedHistory: {}
             });
         } else if (page === 'history') {
             const history = await db.collection('history').find()
@@ -3379,9 +3046,7 @@ app.get('/api/page/:page', async (req, res) => {
             res.json({
                 tasks: [],
                 notes: [],
-                groupedHistory,
-                progress: [],
-                progressEntries: {}
+                groupedHistory
             });
         } else {
             res.status(404).json({ error: 'Page not found' });
@@ -3420,22 +3085,6 @@ app.get('/api/tasks/:taskId', async (req, res) => {
     }
 });
 
-app.get('/api/progress/:progressId', async (req, res) => {
-    try {
-        const progressId = req.params.progressId;
-        const progress = await db.collection('progress').findOne({ progressId });
-        
-        if (!progress) {
-            return res.status(404).json({ error: 'Progress tracker not found' });
-        }
-        
-        res.json(progress);
-    } catch (error) {
-        console.error('Error fetching progress:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
 app.post('/api/tasks', async (req, res) => {
     try {
         const { title, description, startDate, startTime, endTime, repeat, repeatCount } = req.body;
@@ -3444,6 +3093,7 @@ app.post('/api/tasks', async (req, res) => {
             return res.status(400).send('Missing required fields');
         }
         
+        // Convert IST input to UTC for storage (Door In - subtract 5.5 hours)
         const startDateUTC = istToUTC(startDate, startTime);
         const endDateUTC = istToUTC(startDate, endTime);
         
@@ -3488,6 +3138,8 @@ app.post('/api/tasks', async (req, res) => {
         
         await db.collection('tasks').insertOne(task);
         console.log('✅ Task created: ' + task.title + ' (' + task.taskId + ')');
+        console.log('   IST: ' + startDate + ' ' + startTime + ' - ' + endTime);
+        console.log('   UTC: ' + startDateUTC.toISOString() + ' - ' + endDateUTC.toISOString());
         
         if (task.startDate > tenMinutesFromNowUTC) {
             scheduleTask(task);
@@ -3510,6 +3162,7 @@ app.post('/api/tasks/:taskId/update', async (req, res) => {
             return res.status(404).send('Task not found');
         }
         
+        // Convert IST input to UTC for storage (Door In - subtract 5.5 hours)
         const startDateUTC = istToUTC(startDate, startTime);
         const endDateUTC = istToUTC(startDate, endTime);
         
@@ -3555,6 +3208,8 @@ app.post('/api/tasks/:taskId/update', async (req, res) => {
         }
         
         console.log('✅ Task updated: ' + updatedTask.title + ' (' + taskId + ')');
+        console.log('   IST: ' + startDate + ' ' + startTime + ' - ' + endTime);
+        console.log('   UTC: ' + startDateUTC.toISOString() + ' - ' + endDateUTC.toISOString());
         
         res.redirect('/tasks');
     } catch (error) {
@@ -3943,146 +3598,8 @@ app.post('/api/notes/:noteId/move', async (req, res) => {
     }
 });
 
-app.post('/api/progress', async (req, res) => {
-    try {
-        const { title, description, totalRounds, question, questionType, color } = req.body;
-        
-        if (!title || title.trim() === '') {
-            return res.status(400).send('Title cannot be empty');
-        }
-        
-        const progress = {
-            progressId: generateId('progress'),
-            title: title.trim(),
-            description: description ? description.trim() : '',
-            totalRounds: parseInt(totalRounds) || 365,
-            question: question ? question.trim() : '',
-            questionType: questionType || 'number',
-            color: color || '#2563eb',
-            createdAt: new Date(),
-            updatedAt: new Date()
-        };
-        
-        await db.collection('progress').insertOne(progress);
-        
-        console.log('📊 Progress tracker created: ' + progress.title + ' (' + progress.progressId + ')');
-        
-        res.redirect('/grow');
-    } catch (error) {
-        console.error('Error creating progress:', error);
-        res.status(500).send('Error creating progress: ' + error.message);
-    }
-});
-
-app.post('/api/progress/:progressId/update', async (req, res) => {
-    try {
-        const progressId = req.params.progressId;
-        const { title, description, totalRounds, question, questionType, color } = req.body;
-        
-        if (!title || title.trim() === '') {
-            return res.status(400).send('Title cannot be empty');
-        }
-        
-        const result = await db.collection('progress').updateOne(
-            { progressId },
-            { 
-                $set: { 
-                    title: title.trim(),
-                    description: description ? description.trim() : '',
-                    totalRounds: parseInt(totalRounds) || 365,
-                    question: question ? question.trim() : '',
-                    questionType: questionType || 'number',
-                    color: color || '#2563eb',
-                    updatedAt: new Date()
-                } 
-            }
-        );
-        
-        if (result.matchedCount === 0) {
-            return res.status(404).send('Progress tracker not found');
-        }
-        
-        console.log('✏️ Progress tracker updated: ' + progressId);
-        
-        res.redirect('/grow');
-    } catch (error) {
-        console.error('Error updating progress:', error);
-        res.status(500).send('Error updating progress: ' + error.message);
-    }
-});
-
-app.post('/api/progress/:progressId/delete', async (req, res) => {
-    try {
-        const progressId = req.params.progressId;
-        
-        await db.collection('progress').deleteOne({ progressId });
-        await db.collection('progressEntries').deleteMany({ progressId });
-        
-        console.log('🗑️ Progress tracker deleted: ' + progressId);
-        
-        res.redirect('/grow');
-    } catch (error) {
-        console.error('Error deleting progress:', error);
-        res.status(500).send('Error deleting progress: ' + error.message);
-    }
-});
-
-app.post('/api/progress/complete', async (req, res) => {
-    try {
-        const { progressId, date, answer } = req.body;
-        
-        if (!progressId || !date) {
-            return res.status(400).send('Missing required fields');
-        }
-        
-        const today = new Date();
-        const todayStr = today.toISOString().split('T')[0];
-        const yesterday = new Date(today);
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = yesterday.toISOString().split('T')[0];
-        
-        if (date === todayStr) {
-            return res.status(400).send('Cannot mark progress for today');
-        }
-        
-        if (date > todayStr) {
-            return res.status(400).send('Cannot mark progress for future dates');
-        }
-        
-        const progress = await db.collection('progress').findOne({ progressId });
-        if (!progress) {
-            return res.status(404).send('Progress tracker not found');
-        }
-        
-        const existing = await db.collection('progressEntries').findOne({
-            progressId: progressId,
-            date: date
-        });
-        
-        if (existing) {
-            return res.status(400).send('Progress already marked for this date');
-        }
-        
-        const entry = {
-            progressId: progressId,
-            date: date,
-            answer: answer || '',
-            createdAt: new Date()
-        };
-        
-        await db.collection('progressEntries').insertOne(entry);
-        
-        console.log('✅ Progress completed for ' + progress.title + ' on ' + date);
-        
-        res.json({ success: true });
-    } catch (error) {
-        console.error('Error completing progress:', error);
-        res.status(500).send('Error completing progress: ' + error.message);
-    }
-});
-
 // ==========================================
-// 🤖 BOT COMMANDS - UPDATED WITH REARRANGED BUTTONS
+// 🤖 BOT COMMANDS - FIXED WITH IST TRANSLATION
 // ==========================================
 const bot = new Telegraf(BOT_TOKEN);
 const activeSchedules = new Map();
@@ -4122,13 +3639,18 @@ bot.command('start', async (ctx) => {
 🌟 <b>Welcome to Global Task Manager!</b>`;
 
     const keyboard = Markup.inlineKeyboard([
+        [Markup.button.callback('📋 Today\'s Tasks', 'view_today_tasks_1')],
         [
-            Markup.button.callback('📋 Tasks', 'tasks_menu'),
-            Markup.button.callback('🌱 Grow', 'grow_menu')
+            Markup.button.callback('➕ Add Task', 'add_task'),
+            Markup.button.callback('📝 Add Note', 'add_note')
         ],
         [
-            Markup.button.callback('🗒️ Notes', 'notes_menu'),
-            Markup.button.callback('📜 History', 'history_menu')
+            Markup.button.callback('📜 History', 'view_history_dates_1'),
+            Markup.button.callback('🗒️ Notes', 'view_notes_1')
+        ],
+        [
+            Markup.button.callback('🔄 Reorder Tasks', 'reorder_tasks_menu'),
+            Markup.button.callback('🔄 Reorder Notes', 'reorder_notes_menu')
         ],
         [
             Markup.button.callback('📥 Download', 'download_menu'),
@@ -4158,13 +3680,18 @@ async function showMainMenu(ctx) {
 🌟 <b>Select an option:</b>`;
 
     const keyboard = Markup.inlineKeyboard([
+        [Markup.button.callback('📋 Today\'s Tasks', 'view_today_tasks_1')],
         [
-            Markup.button.callback('📋 Tasks', 'tasks_menu'),
-            Markup.button.callback('🌱 Grow', 'grow_menu')
+            Markup.button.callback('➕ Add Task', 'add_task'),
+            Markup.button.callback('📝 Add Note', 'add_note')
         ],
         [
-            Markup.button.callback('🗒️ Notes', 'notes_menu'),
-            Markup.button.callback('📜 History', 'history_menu')
+            Markup.button.callback('📜 History', 'view_history_dates_1'),
+            Markup.button.callback('🗒️ Notes', 'view_notes_1')
+        ],
+        [
+            Markup.button.callback('🔄 Reorder Tasks', 'reorder_tasks_menu'),
+            Markup.button.callback('🔄 Reorder Notes', 'reorder_notes_menu')
         ],
         [
             Markup.button.callback('📥 Download', 'download_menu'),
@@ -4177,21 +3704,8 @@ async function showMainMenu(ctx) {
 }
 
 // ==========================================
-// 📋 TASKS MENU
+// 📅 TASK VIEWS - WITH PAGINATION AND IST
 // ==========================================
-bot.action('tasks_menu', async (ctx) => {
-    const text = '📋 <b>𝗧𝗔𝗦𝗞𝗦 𝗠𝗘𝗡𝗨</b>\n━━━━━━━━━━━━━━━━━━━━\nSelect an option:';
-    
-    const keyboard = Markup.inlineKeyboard([
-        [Markup.button.callback('📋 Today\'s Tasks', 'view_today_tasks_1')],
-        [Markup.button.callback('➕ Add Task', 'add_task')],
-        [Markup.button.callback('🔄 Reorder Tasks', 'reorder_tasks_menu')],
-        [Markup.button.callback('🔙 Back to Main Menu', 'main_menu')]
-    ]);
-    
-    await safeEdit(ctx, text, keyboard);
-});
-
 bot.action(/^view_today_tasks_(\d+)$/, async (ctx) => {
     const page = parseInt(ctx.match[1]);
     const todayStartUTC = getTodayStartUTC();
@@ -4285,153 +3799,14 @@ Select a task to view details:`;
 
     buttons.push([
         Markup.button.callback('➕ Add Task', 'add_task'),
-        Markup.button.callback('🔙 Back to Tasks', 'tasks_menu')
+        Markup.button.callback('🔙 Back', 'main_menu')
     ]);
 
     await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
 });
 
 // ==========================================
-// 🌱 GROW MENU
-// ==========================================
-bot.action('grow_menu', async (ctx) => {
-    const text = '🌱 <b>𝗚𝗥𝗢𝗪 𝗠𝗘𝗡𝗨</b>\n━━━━━━━━━━━━━━━━━━━━\nSelect an option:';
-    
-    const keyboard = Markup.inlineKeyboard([
-        [Markup.button.webApp('🌱 Open Grow Dashboard', WEB_APP_URL + '/grow')],
-        [Markup.button.callback('➕ Add Progress Tracker', 'add_progress')],
-        [Markup.button.callback('📊 View Progress', 'view_progress')],
-        [Markup.button.callback('🔄 Reorder Progress', 'reorder_progress_menu')],
-        [Markup.button.callback('🔙 Back to Main Menu', 'main_menu')]
-    ]);
-    
-    await safeEdit(ctx, text, keyboard);
-});
-
-bot.action('add_progress', async (ctx) => {
-    ctx.session.step = 'progress_title';
-    ctx.session.progress = { 
-        progressId: generateId('progress'), 
-        createdAt: new Date(),
-        color: '#2563eb'
-    };
-    
-    const text = '🌱 <b>𝗖𝗥𝗘𝗔𝗧𝗘 𝗡𝗘𝗪 𝗣𝗥𝗢𝗚𝗥𝗘𝗦𝗦 𝗧𝗥𝗔𝗖𝗞𝗘𝗥</b>\n━━━━━━━━━━━━━━━━━━━━\nEnter the <b>Title</b> (max 100 characters):';
-    const keyboard = Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', 'grow_menu')]]);
-    
-    await safeEdit(ctx, text, keyboard);
-});
-
-bot.action('view_progress', async (ctx) => {
-    try {
-        const progress = await db.collection('progress')
-            .find()
-            .sort({ createdAt: -1 })
-            .toArray();
-
-        if (progress.length === 0) {
-            const text = '📊 <b>𝗡𝗢 𝗣𝗥𝗢𝗚𝗥𝗘𝗦𝗦 𝗧𝗥𝗔𝗖𝗞𝗘𝗥𝗦</b>\n━━━━━━━━━━━━━━━━━━━━\nNo progress trackers found.';
-            const keyboard = Markup.inlineKeyboard([
-                [Markup.button.callback('➕ Create One', 'add_progress')],
-                [Markup.button.callback('🔙 Back to Grow', 'grow_menu')]
-            ]);
-            return safeEdit(ctx, text, keyboard);
-        }
-
-        let text = '📊 <b>𝗣𝗥𝗢𝗚𝗥𝗘𝗦𝗦 𝗧𝗥𝗔𝗖𝗞𝗘𝗥𝗦</b>\n━━━━━━━━━━━━━━━━━━━━\n\n';
-        
-        for (const p of progress) {
-            const entries = await db.collection('progressEntries').countDocuments({ progressId: p.progressId });
-            const percentage = Math.round((entries / p.totalRounds) * 100);
-            text += `📌 <b>${p.title}</b>\n`;
-            text += `📊 Progress: ${entries}/${p.totalRounds} days (${percentage}%)\n`;
-            if (p.question) text += `❓ Question: ${p.question}\n`;
-            text += '━━━━━━━━━━━━━━━━━━━━\n\n';
-        }
-
-        const keyboard = Markup.inlineKeyboard([
-            [Markup.button.webApp('📊 View in Web App', WEB_APP_URL + '/grow')],
-            [Markup.button.callback('🔙 Back to Grow', 'grow_menu')]
-        ]);
-
-        await safeEdit(ctx, text, keyboard);
-    } catch (error) {
-        console.error('Error viewing progress:', error);
-        await ctx.answerCbQuery('❌ Error loading progress');
-    }
-});
-
-// ==========================================
-// 🗒️ NOTES MENU
-// ==========================================
-bot.action('notes_menu', async (ctx) => {
-    const text = '🗒️ <b>𝗡𝗢𝗧𝗘𝗦 𝗠𝗘𝗡𝗨</b>\n━━━━━━━━━━━━━━━━━━━━\nSelect an option:';
-    
-    const keyboard = Markup.inlineKeyboard([
-        [Markup.button.callback('🗒️ View Notes', 'view_notes_1')],
-        [Markup.button.callback('➕ Add Note', 'add_note')],
-        [Markup.button.callback('🔄 Reorder Notes', 'reorder_notes_menu')],
-        [Markup.button.callback('🔙 Back to Main Menu', 'main_menu')]
-    ]);
-    
-    await safeEdit(ctx, text, keyboard);
-});
-
-// ==========================================
-// 📜 HISTORY MENU
-// ==========================================
-bot.action('history_menu', async (ctx) => {
-    const text = '📜 <b>𝗛𝗜𝗦𝗧𝗢𝗥𝗬 𝗠𝗘𝗡𝗨</b>\n━━━━━━━━━━━━━━━━━━━━\nSelect an option:';
-    
-    const keyboard = Markup.inlineKeyboard([
-        [Markup.button.callback('📜 View History', 'view_history_dates_1')],
-        [Markup.button.callback('📊 Summary', 'history_summary')],
-        [Markup.button.callback('🔙 Back to Main Menu', 'main_menu')]
-    ]);
-    
-    await safeEdit(ctx, text, keyboard);
-});
-
-bot.action('history_summary', async (ctx) => {
-    try {
-        const todayStartUTC = getTodayStartUTC();
-        const weekAgoUTC = new Date(todayStartUTC.getTime() - 7 * 24 * 60 * 60 * 1000);
-        
-        const history = await db.collection('history').find({
-            completedAt: { $gte: weekAgoUTC }
-        }).toArray();
-        
-        const todayIST = utcToISTDisplay(todayStartUTC);
-        const weekAgoIST = utcToISTDisplay(weekAgoUTC);
-        
-        let text = `📊 <b>𝗛𝗜𝗦𝗧𝗢𝗥𝗬 𝗦𝗨𝗠𝗠𝗔𝗥𝗬</b>\n━━━━━━━━━━━━━━━━━━━━\n`;
-        text += `📅 ${weekAgoIST.displayDate} - ${todayIST.displayDate} IST\n`;
-        text += `📊 Total Completed: ${history.length}\n`;
-        text += '━━━━━━━━━━━━━━━━━━━━\n';
-        
-        const tasksByDate = {};
-        history.forEach(h => {
-            const date = utcToISTDisplay(h.completedAt).displayDate;
-            tasksByDate[date] = (tasksByDate[date] || 0) + 1;
-        });
-        
-        Object.keys(tasksByDate).sort().reverse().forEach(date => {
-            text += `${date}: ${tasksByDate[date]} task${tasksByDate[date] !== 1 ? 's' : ''}\n`;
-        });
-        
-        const keyboard = Markup.inlineKeyboard([
-            [Markup.button.callback('🔙 Back to History', 'history_menu')]
-        ]);
-        
-        await safeEdit(ctx, text, keyboard);
-    } catch (error) {
-        console.error('Error in history summary:', error);
-        await ctx.answerCbQuery('❌ Error loading summary');
-    }
-});
-
-// ==========================================
-// ➕ ADD TASK WIZARD
+// ➕ ADD TASK WIZARD - WITH IST TRANSLATION
 // ==========================================
 bot.action('add_task', async (ctx) => {
     ctx.session.step = 'task_title';
@@ -4443,7 +3818,7 @@ bot.action('add_task', async (ctx) => {
     };
     
     const text = '🎯 <b>𝗖𝗥𝗘𝗔𝗧𝗘 𝗡𝗘𝗪 𝗚𝗟𝗢𝗕𝗔𝗟 𝗧𝗔𝗦𝗞</b>\n━━━━━━━━━━━━━━━━━━━━\nEnter the <b>Title</b> of your task (max 100 characters):';
-    const keyboard = Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', 'tasks_menu')]]);
+    const keyboard = Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', 'main_menu')]]);
     
     await safeEdit(ctx, text, keyboard);
 });
@@ -4456,13 +3831,13 @@ bot.action('add_note', async (ctx) => {
     };
     
     const text = '📝 <b>𝗖𝗥𝗘𝗔𝗧𝗘 𝗡𝗘𝗪 𝗚𝗟𝗢𝗕𝗔𝗟 𝗡𝗢𝗧𝗘</b>\n━━━━━━━━━━━━━━━━━━━━\nEnter the <b>Title</b> for your note (max 200 characters):';
-    const keyboard = Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', 'notes_menu')]]);
+    const keyboard = Markup.inlineKeyboard([[Markup.button.callback('🔙 Cancel', 'main_menu')]]);
     
     await safeEdit(ctx, text, keyboard);
 });
 
 // ==========================================
-// 📨 TEXT INPUT HANDLER (ADD PROGRESS)
+// 📨 TEXT INPUT HANDLER - WITH IST TRANSLATION
 // ==========================================
 bot.on('text', async (ctx) => {
     if (!ctx.session || !ctx.session.step) return;
@@ -4471,71 +3846,7 @@ bot.on('text', async (ctx) => {
         const text = ctx.message.text.trim();
         const step = ctx.session.step;
 
-        if (step === 'progress_title') {
-            if (text.length === 0) return ctx.reply('❌ Title cannot be empty.');
-            if (text.length > 100) return ctx.reply('❌ Title too long. Max 100 characters.');
-            
-            ctx.session.progress.title = text;
-            ctx.session.step = 'progress_desc';
-            await ctx.reply(
-                '📄 <b>𝗘𝗡𝗧𝗘𝗥 𝗗𝗘𝗦𝗖𝗥𝗜𝗣𝗧𝗜𝗢𝗡</b>\n\n' +
-                '━━━━━━━━━━━━━━━━━━━━\n' +
-                '📝 <i>Describe your progress tracker:</i>\n' +
-                'Enter "-" for no description',
-                { parse_mode: 'HTML' }
-            );
-        }
-        else if (step === 'progress_desc') {
-            const description = text === '-' ? '' : text;
-            ctx.session.progress.description = description;
-            ctx.session.step = 'progress_rounds';
-            
-            await ctx.reply(
-                '🔢 <b>𝗘𝗡𝗧𝗘𝗥 𝗧𝗢𝗧𝗔𝗟 𝗥𝗢𝗨𝗡𝗗𝗦</b>\n' +
-                '━━━━━━━━━━━━━━━━━━━━\n' +
-                'Enter the total number of days/rounds (1-3650):',
-                { parse_mode: 'HTML' }
-            );
-        }
-        else if (step === 'progress_rounds') {
-            const rounds = parseInt(text);
-            if (isNaN(rounds) || rounds < 1 || rounds > 3650) {
-                return ctx.reply('❌ Invalid number. Please enter a number between 1 and 3650.');
-            }
-            
-            ctx.session.progress.totalRounds = rounds;
-            ctx.session.step = 'progress_question';
-            
-            await ctx.reply(
-                '❓ <b>𝗔𝗗𝗗 𝗔 𝗤𝗨𝗘𝗦𝗧𝗜𝗢𝗡</b>\n' +
-                '━━━━━━━━━━━━━━━━━━━━\n' +
-                'Enter a question to ask when marking progress (e.g., "How many kgs lost?")\n' +
-                'Enter "-" for no question',
-                { parse_mode: 'HTML' }
-            );
-        }
-        else if (step === 'progress_question') {
-            const question = text === '-' ? '' : text;
-            ctx.session.progress.question = question;
-            ctx.session.step = 'progress_question_type';
-            
-            await ctx.reply(
-                '❓ <b>𝗤𝗨𝗘𝗦𝗧𝗜𝗢𝗡 𝗧𝗬𝗣𝗘</b>\n' +
-                '━━━━━━━━━━━━━━━━━━━━\n' +
-                'Select question type:',
-                Markup.inlineKeyboard([
-                    [Markup.button.callback('🔢 Number', 'progress_type_number')],
-                    [Markup.button.callback('📝 Text', 'progress_type_text')],
-                    [Markup.button.callback('✅ Yes/No', 'progress_type_boolean')],
-                    [Markup.button.callback('🔙 Cancel', 'grow_menu')]
-                ])
-            );
-        }
-        else if (step === 'progress_color') {
-            ctx.session.progress.color = text;
-            await saveProgress(ctx);
-        }
-        else if (step === 'task_title') {
+        if (step === 'task_title') {
             if (text.length === 0) return ctx.reply('❌ Title cannot be empty.');
             if (text.length > 100) return ctx.reply('❌ Title too long. Max 100 characters.');
             
@@ -4573,17 +3884,20 @@ bot.on('text', async (ctx) => {
             }
             
             const [day, month, year] = text.split('-').map(Number);
+            
+            // Convert DD-MM-YYYY to YYYY-MM-DD for internal processing
             const istDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
             
             const todayIST = getCurrentIST();
             const inputDateIST = new Date(Date.UTC(year, month - 1, day));
             
+            // Compare dates in IST
             if (inputDateIST < new Date(Date.UTC(todayIST.getUTCFullYear(), todayIST.getUTCMonth(), todayIST.getUTCDate()))) {
                 return ctx.reply('❌ Date cannot be in the past (IST). Please select today or a future date.');
             }
             
             ctx.session.task.dateStr = istDateStr;
-            ctx.session.task.dateDDMMYY = text;
+            ctx.session.task.dateDDMMYY = text; // Store original DD-MM-YYYY for display
             ctx.session.step = 'task_start';
             
             await ctx.reply(
@@ -4599,7 +3913,12 @@ bot.on('text', async (ctx) => {
                 return ctx.reply('❌ Invalid format. Use HH:MM (24-hour).');
             }
             
+            const [h, m] = text.split(':').map(Number);
+            
+            // Check if time is at least 10 minutes from now in IST
             const istDateStr = ctx.session.task.dateStr;
+            const fullISTDateTime = `${istDateStr}T${text}:00`;
+            
             const targetUTC = istToUTC(istDateStr, text);
             const nowUTC = new Date();
             const tenMinutesFromNowUTC = new Date(nowUTC.getTime() + 10 * 60000);
@@ -4625,6 +3944,8 @@ bot.on('text', async (ctx) => {
             if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(text)) {
                 return ctx.reply('❌ Invalid format. Use HH:MM (24-hour).');
             }
+            
+            const [eh, em] = text.split(':').map(Number);
             
             const istDateStr = ctx.session.task.dateStr;
             const endDateUTC = istToUTC(istDateStr, text);
@@ -4653,7 +3974,7 @@ bot.on('text', async (ctx) => {
                         [Markup.button.callback('❌ No Repeat', 'repeat_none')],
                         [Markup.button.callback('📅 Daily', 'repeat_daily')],
                         [Markup.button.callback('📅 Weekly', 'repeat_weekly')],
-                        [Markup.button.callback('🔙 Cancel', 'tasks_menu')]
+                        [Markup.button.callback('🔙 Cancel', 'main_menu')]
                     ])
                 }
             );
@@ -4734,84 +4055,487 @@ bot.on('text', async (ctx) => {
                 await ctx.reply('❌ Failed to save note. Please try again.');
             }
         }
+        else if (step === 'add_subtask') {
+            const taskId = ctx.session.addSubtasksTaskId;
+            
+            const task = await db.collection('tasks').findOne({ taskId });
+            if (!task) {
+                ctx.session.step = null;
+                delete ctx.session.addSubtasksTaskId;
+                return ctx.reply('❌ Task not found.');
+            }
+            
+            const currentSubtasks = task.subtasks || [];
+            const availableSlots = 10 - currentSubtasks.length;
+            
+            if (availableSlots <= 0) {
+                ctx.session.step = null;
+                delete ctx.session.addSubtasksTaskId;
+                return ctx.reply('❌ Maximum subtasks limit (10) reached for this task.');
+            }
+            
+            ctx.session.subtaskTitle = text;
+            ctx.session.step = 'add_subtask_desc';
+            
+            await ctx.reply(
+                '📝 <b>𝗔𝗗𝗗 𝗦𝗨𝗕𝗧𝗔𝗦𝗞 𝗗𝗘𝗦𝗖𝗥𝗜𝗣𝗧𝗜𝗢𝗡</b>\n' +
+                '━━━━━━━━━━━━━━━━━━━━\n' +
+                'Title: ' + text + '\n\n' +
+                'Enter description (or "-" for none):',
+                { parse_mode: 'HTML' }
+            );
+        }
+        else if (step === 'add_subtask_desc') {
+            const taskId = ctx.session.addSubtasksTaskId;
+            const title = ctx.session.subtaskTitle;
+            const description = text === '-' ? '' : text;
+            
+            const task = await db.collection('tasks').findOne({ taskId });
+            
+            if (!task) {
+                ctx.session.step = null;
+                delete ctx.session.addSubtasksTaskId;
+                delete ctx.session.subtaskTitle;
+                return ctx.reply('❌ Task not found.');
+            }
+            
+            const newSubtask = {
+                id: generateSubtaskId(),
+                title: title.substring(0, 100),
+                description: description,
+                completed: false,
+                createdAt: new Date()
+            };
+            
+            await db.collection('tasks').updateOne(
+                { taskId },
+                { $push: { subtasks: newSubtask } }
+            );
+            
+            ctx.session.step = null;
+            delete ctx.session.addSubtasksTaskId;
+            delete ctx.session.subtaskTitle;
+            
+            await ctx.reply(
+                '✅ <b>𝗦𝗨𝗕𝗧𝗔𝗦𝗞 𝗔𝗗𝗗𝗘𝗗</b>\n' +
+                '━━━━━━━━━━━━━━━━━━━━\n' +
+                '📌 <b>' + task.title + '</b>\n' +
+                '➕ Title: ' + title + '\n' +
+                (hasContent(description) ? '📝 Description: ' + description + '\n' : '') +
+                '━━━━━━━━━━━━━━━━━━━━',
+                { parse_mode: 'HTML' }
+            );
+            
+            await showTaskDetail(ctx, taskId);
+        }
+        else if (step === 'edit_subtask_title') {
+            const { taskId, subtaskId } = ctx.session.editSubtask;
+            
+            if (!taskId || !subtaskId) {
+                ctx.session.step = null;
+                return ctx.reply('❌ Invalid session data.');
+            }
+            
+            if (text.length === 0) return ctx.reply('❌ Title cannot be empty.');
+            if (text.length > 100) return ctx.reply('❌ Title too long. Max 100 characters.');
+            
+            ctx.session.editSubtaskTitle = text;
+            ctx.session.step = 'edit_subtask_desc';
+            
+            await ctx.reply(
+                '✏️ <b>𝗘𝗗𝗜𝗧 𝗦𝗨𝗕𝗧𝗔𝗦𝗞 𝗗𝗘𝗦𝗖𝗥𝗜𝗣𝗧𝗜𝗢𝗡</b>\n' +
+                '━━━━━━━━━━━━━━━━━━━━\n' +
+                'New title: ' + text + '\n\n' +
+                'Enter new description (or "-" for none):',
+                { parse_mode: 'HTML' }
+            );
+        }
+        else if (step === 'edit_subtask_desc') {
+            const { taskId, subtaskId } = ctx.session.editSubtask;
+            const title = ctx.session.editSubtaskTitle;
+            const description = text === '-' ? '' : text;
+            
+            if (!taskId || !subtaskId) {
+                ctx.session.step = null;
+                return ctx.reply('❌ Invalid session data.');
+            }
+            
+            const task = await db.collection('tasks').findOne({ taskId });
+            if (!task) {
+                ctx.session.step = null;
+                delete ctx.session.editSubtask;
+                return ctx.reply('❌ Task not found.');
+            }
+            
+            await db.collection('tasks').updateOne(
+                { taskId, "subtasks.id": subtaskId },
+                { 
+                    $set: { 
+                        "subtasks.$.title": title,
+                        "subtasks.$.description": description,
+                        "subtasks.$.updatedAt": new Date()
+                    } 
+                }
+            );
+            
+            ctx.session.step = null;
+            delete ctx.session.editSubtask;
+            delete ctx.session.editSubtaskTitle;
+            
+            await ctx.reply('✅ <b>𝗦𝗨𝗕𝗧𝗔𝗦𝗞 𝗨𝗣𝗗𝗔𝗧𝗘𝗗!</b>', { parse_mode: 'HTML' });
+            await showTaskDetail(ctx, taskId);
+        }
+        else if (step === 'edit_task_title') {
+            const taskId = ctx.session.editTaskId;
+            if (!taskId) {
+                ctx.session.step = null;
+                return ctx.reply('❌ No task selected.');
+            }
+            
+            if (text.length === 0) return ctx.reply('❌ Title cannot be empty.');
+            if (text.length > 100) return ctx.reply('❌ Title too long. Max 100 characters.');
+            
+            try {
+                await db.collection('tasks').updateOne(
+                    { taskId: taskId }, 
+                    { $set: { title: text } }
+                );
+                
+                await db.collection('history').updateMany(
+                    { originalTaskId: taskId }, 
+                    { $set: { title: text } }
+                );
+                
+                ctx.session.step = null;
+                delete ctx.session.editTaskId;
+                await ctx.reply('✅ <b>TITLE UPDATED!</b>', { parse_mode: 'HTML' });
+                await showTaskDetail(ctx, taskId);
+                
+                try {
+                    await bot.telegram.sendMessage(CHAT_ID,
+                        '✏️ <b>𝗧𝗔𝗦𝗞 𝗧𝗜𝗧𝗟𝗘 𝗨𝗣𝗗𝗔𝗧𝗘𝗗</b>\n' +
+                        '━━━━━━━━━━━━━━━━━━━━\n' +
+                        '📌 New Title: <b>' + text + '</b>\n' +
+                        '━━━━━━━━━━━━━━━━━━━━',
+                        { parse_mode: 'HTML' }
+                    );
+                } catch (e) {}
+            } catch (error) {
+                console.error('Error updating title:', error);
+                await ctx.reply('❌ Failed to update title.');
+            }
+        }
+        else if (step === 'edit_task_desc') {
+            const taskId = ctx.session.editTaskId;
+            if (!taskId) {
+                ctx.session.step = null;
+                return ctx.reply('❌ No task selected.');
+            }
+            
+            const description = text === '-' ? '' : text;
+            if (description.length > 0 && description.split(/\s+/).length > 100) {
+                return ctx.reply('❌ Too long! Max 100 words.');
+            }
+            
+            try {
+                await db.collection('tasks').updateOne(
+                    { taskId: taskId }, 
+                    { $set: { description: description } }
+                );
+                
+                await db.collection('history').updateMany(
+                    { originalTaskId: taskId }, 
+                    { $set: { description: description } }
+                );
+                
+                ctx.session.step = null;
+                delete ctx.session.editTaskId;
+                await ctx.reply('✅ <b>DESCRIPTION UPDATED!</b>', { parse_mode: 'HTML' });
+                await showTaskDetail(ctx, taskId);
+            } catch (error) {
+                console.error('Error updating description:', error);
+                await ctx.reply('❌ Failed to update description.');
+            }
+        }
+        else if (step === 'edit_task_start') {
+            const taskId = ctx.session.editTaskId;
+            if (!taskId) {
+                ctx.session.step = null;
+                return ctx.reply('❌ No task selected.');
+            }
+            
+            if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(text)) {
+                return ctx.reply('❌ Invalid Format. Use HH:MM (24-hour)');
+            }
+            
+            try {
+                const task = await db.collection('tasks').findOne({ taskId });
+                if (!task) {
+                    ctx.session.step = null;
+                    delete ctx.session.editTaskId;
+                    return ctx.reply('❌ Task not found.');
+                }
+                
+                // Get the date from the task's start date in IST
+                const taskIST = utcToISTDisplay(task.startDate);
+                const istDateStr = taskIST.date;
+                
+                // Convert new IST time to UTC
+                const newStartDateUTC = istToUTC(istDateStr, text);
+                
+                const duration = task.endDate.getTime() - task.startDate.getTime();
+                const newEndDateUTC = new Date(newStartDateUTC.getTime() + duration);
+                
+                await db.collection('tasks').updateOne(
+                    { taskId: taskId }, 
+                    { 
+                        $set: { 
+                            startDate: newStartDateUTC,
+                            endDate: newEndDateUTC,
+                            nextOccurrence: newStartDateUTC,
+                            startTimeStr: text
+                        } 
+                    }
+                );
+                
+                await db.collection('history').updateMany(
+                    { originalTaskId: taskId }, 
+                    { 
+                        $set: { 
+                            startDate: newStartDateUTC,
+                            endDate: newEndDateUTC
+                        } 
+                    }
+                );
+                
+                const updatedTask = await db.collection('tasks').findOne({ taskId });
+                if (updatedTask) {
+                    cancelTaskSchedule(taskId);
+                    const tenMinutesFromNowUTC = new Date(Date.now() + 10 * 60000);
+                    if (updatedTask.nextOccurrence > tenMinutesFromNowUTC) {
+                        scheduleTask(updatedTask);
+                    }
+                }
+                
+                ctx.session.step = null;
+                delete ctx.session.editTaskId;
+                await ctx.reply('✅ <b>START TIME UPDATED!</b>\n\nEnd time adjusted to: ' + utcToISTDisplay(newEndDateUTC).displayTime + ' IST', { parse_mode: 'HTML' });
+                await showTaskDetail(ctx, taskId);
+            } catch (error) {
+                console.error('Error updating start time:', error);
+                await ctx.reply('❌ Failed to update start time.');
+            }
+        }
+        else if (step === 'edit_task_end') {
+            const taskId = ctx.session.editTaskId;
+            if (!taskId) {
+                ctx.session.step = null;
+                return ctx.reply('❌ No task selected.');
+            }
+            
+            if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(text)) {
+                return ctx.reply('❌ Invalid Format. Use HH:MM (24-hour)');
+            }
+            
+            try {
+                const task = await db.collection('tasks').findOne({ taskId });
+                if (!task) {
+                    ctx.session.step = null;
+                    delete ctx.session.editTaskId;
+                    return ctx.reply('❌ Task not found.');
+                }
+                
+                // Get the date from the task's end date in IST
+                const taskIST = utcToISTDisplay(task.endDate);
+                const istDateStr = taskIST.date;
+                
+                // Convert new IST time to UTC
+                const newEndDateUTC = istToUTC(istDateStr, text);
+                
+                if (newEndDateUTC <= task.startDate) {
+                    return ctx.reply('❌ End time must be after start time.');
+                }
+                
+                await db.collection('tasks').updateOne(
+                    { taskId: taskId }, 
+                    { 
+                        $set: { 
+                            endDate: newEndDateUTC,
+                            endTimeStr: text
+                        } 
+                    }
+                );
+                
+                await db.collection('history').updateMany(
+                    { originalTaskId: taskId }, 
+                    { $set: { endDate: newEndDateUTC } }
+                );
+                
+                ctx.session.step = null;
+                delete ctx.session.editTaskId;
+                await ctx.reply('✅ <b>END TIME UPDATED!</b>', { parse_mode: 'HTML' });
+                await showTaskDetail(ctx, taskId);
+            } catch (error) {
+                console.error('Error updating end time:', error);
+                await ctx.reply('❌ Failed to update end time.');
+            }
+        }
+        else if (step === 'edit_task_repeat_count') {
+            const taskId = ctx.session.editTaskId;
+            if (!taskId) {
+                ctx.session.step = null;
+                return ctx.reply('❌ No task selected.');
+            }
+            
+            const count = parseInt(text);
+            
+            if (isNaN(count) || count < 0 || count > 365) {
+                return ctx.reply('❌ Invalid Number. Enter 0-365');
+            }
+            
+            try {
+                await db.collection('tasks').updateOne(
+                    { taskId: taskId }, 
+                    { 
+                        $set: { 
+                            repeatCount: count,
+                            ...(count === 0 && { repeat: 'none' })
+                        } 
+                    }
+                );
+                
+                await db.collection('history').updateMany(
+                    { originalTaskId: taskId }, 
+                    { 
+                        $set: { 
+                            repeatCount: count,
+                            ...(count === 0 && { repeat: 'none' })
+                        } 
+                    }
+                );
+                
+                ctx.session.step = null;
+                delete ctx.session.editTaskId;
+                await ctx.reply('✅ <b>REPEAT COUNT UPDATED!</b>', { parse_mode: 'HTML' });
+                await showTaskDetail(ctx, taskId);
+            } catch (error) {
+                console.error('Error updating repeat count:', error);
+                await ctx.reply('❌ Failed to update repeat count.');
+            }
+        }
+        else if (step === 'edit_note_title') {
+            const noteId = ctx.session.editNoteId;
+            if (!noteId) {
+                ctx.session.step = null;
+                return ctx.reply('❌ No note selected.');
+            }
+            
+            if (text.length === 0) return ctx.reply('❌ Title cannot be empty.');
+            if (text.length > 200) return ctx.reply('❌ Title too long. Max 200 characters.');
+            
+            try {
+                await db.collection('notes').updateOne(
+                    { noteId: noteId }, 
+                    { $set: { title: text, updatedAt: new Date() } }
+                );
+                
+                const updatedNote = await db.collection('notes').findOne({ noteId: noteId });
+                
+                ctx.session.step = null;
+                delete ctx.session.editNoteId;
+                
+                await ctx.reply(
+                    '✅ <b>𝗡𝗢𝗧𝗘 𝗧𝗜𝗧𝗟𝗘 𝗨𝗣𝗗𝗔𝗧𝗘𝗗!</b>\n' +
+                    '━━━━━━━━━━━━━━━━━━━━\n' +
+                    '📌 <b>' + updatedNote.title + '</b>\n' +
+                    (hasContent(updatedNote.description) ? formatBlockquote(updatedNote.description) : '') + '\n' +
+                    '📅 Updated: ' + utcToISTDisplay(new Date()).dateTime + ' IST',
+                    { parse_mode: 'HTML' }
+                );
+                
+                await showNoteDetail(ctx, noteId);
+                
+            } catch (error) {
+                console.error('Error updating note title:', error);
+                ctx.session.step = null;
+                delete ctx.session.editNoteId;
+                await ctx.reply('❌ Failed to update title.');
+            }
+        }
+        else if (step === 'edit_note_content') {
+            const noteId = ctx.session.editNoteId;
+            if (!noteId) {
+                ctx.session.step = null;
+                return ctx.reply('❌ No note selected.');
+            }
+            
+            const content = text === '-' ? '' : text;
+            if (content.length > 0 && content.split(/\s+/).length > 400) {
+                return ctx.reply('❌ Too long! Max 400 words.');
+            }
+            
+            try {
+                await db.collection('notes').updateOne(
+                    { noteId: noteId }, 
+                    { $set: { description: content, updatedAt: new Date() } }
+                );
+                
+                const updatedNote = await db.collection('notes').findOne({ noteId: noteId });
+                
+                ctx.session.step = null;
+                delete ctx.session.editNoteId;
+                
+                await ctx.reply(
+                    '✅ <b>𝗡𝗢𝗧𝗘 𝗖𝗢𝗡𝗧𝗘𝗡𝗧 𝗨𝗣𝗗𝗔𝗧𝗘𝗗!</b>\n' +
+                    '━━━━━━━━━━━━━━━━━━━━\n' +
+                    '📌 <b>' + updatedNote.title + '</b>\n' +
+                    (hasContent(updatedNote.description) ? formatBlockquote(updatedNote.description) : '') + '\n' +
+                    '📅 Updated: ' + utcToISTDisplay(new Date()).dateTime + ' IST',
+                    { parse_mode: 'HTML' }
+                );
+                
+                await showNoteDetail(ctx, noteId);
+                
+            } catch (error) {
+                console.error('Error updating note content:', error);
+                ctx.session.step = null;
+                delete ctx.session.editNoteId;
+                await ctx.reply('❌ Failed to update content.');
+            }
+        }
     } catch (error) {
         console.error('Text handler error:', error);
         await ctx.reply('❌ An error occurred. Please try again.');
     }
 });
 
-// Progress type selection
-bot.action('progress_type_number', async (ctx) => {
-    ctx.session.progress.questionType = 'number';
-    ctx.session.step = 'progress_color';
+bot.action('repeat_none', async (ctx) => {
+    ctx.session.task.repeat = 'none';
+    ctx.session.task.repeatCount = 0;
+    await saveTask(ctx);
+});
+
+bot.action('repeat_daily', async (ctx) => {
+    ctx.session.task.repeat = 'daily';
+    ctx.session.step = 'task_repeat_count';
     await ctx.reply(
-        '🎨 <b>𝗦𝗘𝗟𝗘𝗖𝗧 𝗖𝗢𝗟𝗢𝗥</b>\n' +
+        '🔢 <b>𝗗𝗔𝗜𝗟𝗬 𝗥𝗘𝗣𝗘𝗔𝗧</b>\n' +
         '━━━━━━━━━━━━━━━━━━━━\n' +
-        'Enter a color code (e.g., #2563eb for blue, #dc2626 for red, #059669 for green):',
+        '📝 <i>How many times should this task repeat? (1-365)</i>',
         { parse_mode: 'HTML' }
     );
 });
 
-bot.action('progress_type_text', async (ctx) => {
-    ctx.session.progress.questionType = 'text';
-    ctx.session.step = 'progress_color';
+bot.action('repeat_weekly', async (ctx) => {
+    ctx.session.task.repeat = 'weekly';
+    ctx.session.step = 'task_repeat_count';
     await ctx.reply(
-        '🎨 <b>𝗦𝗘𝗟𝗘𝗖𝗧 𝗖𝗢𝗟𝗢𝗥</b>\n' +
+        '🔢 <b>𝗪𝗘𝗘𝗞𝗟𝗬 𝗥𝗘𝗣𝗘𝗔𝗧</b>\n' +
         '━━━━━━━━━━━━━━━━━━━━\n' +
-        'Enter a color code (e.g., #2563eb for blue, #dc2626 for red, #059669 for green):',
+        '📝 <i>How many times should this task repeat? (1-365)</i>',
         { parse_mode: 'HTML' }
     );
 });
-
-bot.action('progress_type_boolean', async (ctx) => {
-    ctx.session.progress.questionType = 'boolean';
-    ctx.session.step = 'progress_color';
-    await ctx.reply(
-        '🎨 <b>𝗦𝗘𝗟𝗘𝗖𝗧 𝗖𝗢𝗟𝗢𝗥</b>\n' +
-        '━━━━━━━━━━━━━━━━━━━━\n' +
-        'Enter a color code (e.g., #2563eb for blue, #dc2626 for red, #059669 for green):',
-        { parse_mode: 'HTML' }
-    );
-});
-
-async function saveProgress(ctx) {
-    const progress = ctx.session.progress;
-    
-    try {
-        await db.collection('progress').insertOne(progress);
-        
-        ctx.session.step = null;
-        delete ctx.session.progress;
-        
-        await ctx.reply(
-            '✅ <b>𝗣𝗥𝗢𝗚𝗥𝗘𝗦𝗦 𝗧𝗥𝗔𝗖𝗞𝗘𝗥 𝗖𝗥𝗘𝗔𝗧𝗘𝗗 𝗦𝗨𝗖𝗖𝗘𝗦𝗦𝗙𝗨𝗟𝗟𝗬!</b>\n' +
-            '━━━━━━━━━━━━━━━━━━━━\n' +
-            '📌 <b>' + progress.title + '</b>\n' +
-            (hasContent(progress.description) ? progress.description + '\n' : '') +
-            '📊 Total Rounds: ' + progress.totalRounds + '\n' +
-            (progress.question ? '❓ Question: ' + progress.question + '\n' : '') +
-            '━━━━━━━━━━━━━━━━━━━━',
-            { parse_mode: 'HTML' }
-        );
-        
-        await showMainMenu(ctx);
-        
-        try {
-            await bot.telegram.sendMessage(CHAT_ID,
-                '🌱 <b>𝗡𝗘𝗪 𝗣𝗥𝗢𝗚𝗥𝗘𝗦𝗦 𝗧𝗥𝗔𝗖𝗞𝗘𝗥 𝗔𝗗𝗗𝗘𝗗</b>\n' +
-                '━━━━━━━━━━━━━━━━━━━━\n' +
-                '📌 <b>' + progress.title + '</b>\n' +
-                (hasContent(progress.description) ? progress.description + '\n' : '') +
-                '📊 Total Rounds: ' + progress.totalRounds + '\n' +
-                '━━━━━━━━━━━━━━━━━━━━',
-                { parse_mode: 'HTML' }
-            );
-        } catch (e) {}
-    } catch (error) {
-        console.error('Error saving progress:', error);
-        await ctx.reply('❌ Failed to save progress tracker. Please try again.');
-    }
-}
 
 async function saveTask(ctx) {
     const task = ctx.session.task;
@@ -4861,7 +4585,7 @@ ${hasContent(task.description) ? formatBlockquote(task.description) : ''}
                 
         const keyboard = Markup.inlineKeyboard([
             [
-                Markup.button.callback('📋 Tasks', 'tasks_menu'),
+                Markup.button.callback('📋 Today\'s Tasks', 'view_today_tasks_1'),
                 Markup.button.callback('🔙 Back', 'main_menu')
             ]
         ]);
@@ -4886,36 +4610,8 @@ ${hasContent(task.description) ? formatBlockquote(task.description) : ''}
     }
 }
 
-bot.action('repeat_none', async (ctx) => {
-    ctx.session.task.repeat = 'none';
-    ctx.session.task.repeatCount = 0;
-    await saveTask(ctx);
-});
-
-bot.action('repeat_daily', async (ctx) => {
-    ctx.session.task.repeat = 'daily';
-    ctx.session.step = 'task_repeat_count';
-    await ctx.reply(
-        '🔢 <b>𝗗𝗔𝗜𝗟𝗬 𝗥𝗘𝗣𝗘𝗔𝗧</b>\n' +
-        '━━━━━━━━━━━━━━━━━━━━\n' +
-        '📝 <i>How many times should this task repeat? (1-365)</i>',
-        { parse_mode: 'HTML' }
-    );
-});
-
-bot.action('repeat_weekly', async (ctx) => {
-    ctx.session.task.repeat = 'weekly';
-    ctx.session.step = 'task_repeat_count';
-    await ctx.reply(
-        '🔢 <b>𝗪𝗘𝗘𝗞𝗟𝗬 𝗥𝗘𝗣𝗘𝗔𝗧</b>\n' +
-        '━━━━━━━━━━━━━━━━━━━━\n' +
-        '📝 <i>How many times should this task repeat? (1-365)</i>',
-        { parse_mode: 'HTML' }
-    );
-});
-
 // ==========================================
-// 🔍 TASK DETAIL
+// 🔍 TASK DETAIL - FIXED WITH IST TRANSLATION
 // ==========================================
 bot.action(/^task_det_([^_]+)$/, async (ctx) => {
     const taskId = ctx.match[1];
@@ -5012,15 +4708,15 @@ ${progressBar} ${progress}%
     buttons.push(actionRow);
     
     buttons.push([
-        Markup.button.callback('📋 Tasks', 'tasks_menu'),
-        Markup.button.callback('🔙 Back', 'tasks_menu')
+        Markup.button.callback('📋 Tasks', 'view_today_tasks_1'),
+        Markup.button.callback('🔙 Back', 'view_today_tasks_1')
     ]);
 
     await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
 }
 
 // ==========================================
-// 🔍 SUBTASK DETAIL
+// 🔍 SUBTASK DETAIL - COMPLETELY FIXED
 // ==========================================
 bot.action(/^subtask_det_([^_]+)_(.+)$/, async (ctx) => {
     const taskId = ctx.match[1];
@@ -5500,7 +5196,7 @@ bot.action('reorder_tasks_menu', async (ctx) => {
             }]);
         });
         
-        keyboard.push([{ text: '🔙 Back to Tasks', callback_data: 'tasks_menu' }]);
+        keyboard.push([{ text: '🔙 Back to Main Menu', callback_data: 'main_menu' }]);
         
         await safeEdit(ctx, text, {
             reply_markup: { inline_keyboard: keyboard }
@@ -5770,7 +5466,7 @@ bot.action('reorder_notes_menu', async (ctx) => {
             }]);
         });
         
-        keyboard.push([{ text: '🔙 Back to Notes', callback_data: 'notes_menu' }]);
+        keyboard.push([{ text: '🔙 Back to Main Menu', callback_data: 'main_menu' }]);
         
         await safeEdit(ctx, text, {
             reply_markup: { inline_keyboard: keyboard }
@@ -6004,7 +5700,7 @@ bot.action('reorder_note_save', async (ctx) => {
 });
 
 // ==========================================
-// 📜 VIEW HISTORY
+// 📜 VIEW HISTORY - WITH PAGINATION AND IST
 // ==========================================
 bot.action(/^view_history_dates_(\d+)$/, async (ctx) => {
     const page = parseInt(ctx.match[1]);
@@ -6049,6 +5745,7 @@ bot.action(/^view_history_dates_(\d+)$/, async (ctx) => {
         const date = new Date(d.completedDate);
         const dateStr = date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
         
+        // Display date in IST
         const istDate = utcToISTDisplay(date);
         
         return [Markup.button.callback('📅 ' + istDate.displayDate + ' (' + d.count + ')', 'hist_list_' + dateStr + '_1')];
@@ -6066,7 +5763,7 @@ bot.action(/^view_history_dates_(\d+)$/, async (ctx) => {
         buttons.push(paginationRow);
     }
     
-    buttons.push([Markup.button.callback('🔙 Back to History', 'history_menu')]);
+    buttons.push([Markup.button.callback('🔙 Back', 'main_menu')]);
     
     await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
 });
@@ -6202,7 +5899,7 @@ ${task.repeatCount > 0 ? '🔢 <b>Remaining Repeats:</b> ' + task.repeatCount + 
 });
 
 // ==========================================
-// 🗒️ VIEW NOTES
+// 🗒️ VIEW NOTES - WITH PAGINATION AND IST
 // ==========================================
 bot.action(/^view_notes_(\d+)$/, async (ctx) => {
     const page = parseInt(ctx.match[1]);
@@ -6249,7 +5946,7 @@ bot.action(/^view_notes_(\d+)$/, async (ctx) => {
         buttons.push(paginationRow);
     }
     
-    buttons.push([Markup.button.callback('🔙 Back to Notes', 'notes_menu')]);
+    buttons.push([Markup.button.callback('🔙 Back', 'main_menu')]);
     
     await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
 });
@@ -6303,6 +6000,9 @@ ${note.updatedAt ? '✏️ <b>Updated:</b> ' + updatedIST.dateTime + ' IST' : ''
     await safeEdit(ctx, text, Markup.inlineKeyboard(buttons));
 }
 
+// ==========================================
+// ✏️ EDIT NOTE HANDLERS
+// ==========================================
 bot.action(/^edit_note_title_([^_]+)$/, async (ctx) => {
     const noteId = ctx.match[1];
     
@@ -6378,7 +6078,7 @@ bot.action(/^delete_note_([^_]+)$/, async (ctx) => {
 });
 
 // ==========================================
-// 📥 DOWNLOAD MENU
+// 📥 DOWNLOAD DATA MENU
 // ==========================================
 bot.action('download_menu', async (ctx) => {
     const text = '📥 <b>𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗 𝗚𝗟𝗢𝗕𝗔𝗟 𝗗𝗔𝗧𝗔</b>\n━━━━━━━━━━━━━━━━━━━━\n📁 <i>Files will be sent as JSON documents</i>';
@@ -6387,8 +6087,7 @@ bot.action('download_menu', async (ctx) => {
         [Markup.button.callback('📋 Active Tasks', 'download_tasks')],
         [Markup.button.callback('📜 History', 'download_history')],
         [Markup.button.callback('🗒️ Notes', 'download_notes')],
-        [Markup.button.callback('🌱 Progress', 'download_progress')],
-        [Markup.button.callback('📦 All Data', 'download_all')],
+        [Markup.button.callback('📦 All Data (3 files)', 'download_all')],
         [Markup.button.callback('🔙 Back', 'main_menu')]
     ]);
     
@@ -6488,56 +6187,18 @@ bot.action('download_notes', async (ctx) => {
     }
 });
 
-bot.action('download_progress', async (ctx) => {
-    try {
-        await ctx.answerCbQuery('⏳ Fetching progress...');
-        const [progress, entries] = await Promise.all([
-            db.collection('progress').find().toArray(),
-            db.collection('progressEntries').find().toArray()
-        ]);
-        
-        const progressData = {
-            total: progress.length,
-            entries: entries.length,
-            downloadedAt: new Date().toISOString(),
-            downloadedAtIST: utcToISTDisplay(new Date()).dateTime,
-            progress: progress,
-            entries: entries
-        };
-        
-        const progressJson = JSON.stringify(progressData, null, 2);
-        const progressBuff = Buffer.from(progressJson, 'utf-8');
-        
-        await ctx.replyWithDocument({
-            source: progressBuff,
-            filename: 'global_progress_' + Date.now() + '.json'
-        }, {
-            caption: '🌱 <b>Global Progress Data</b>\nTrackers: ' + progress.length + ', Entries: ' + entries.length + '\n📅 ' + utcToISTDisplay(new Date()).dateTime + ' IST',
-            parse_mode: 'HTML'
-        });
-        
-        await ctx.answerCbQuery('✅ Sent ' + progress.length + ' trackers with ' + entries.length + ' entries');
-    } catch (error) {
-        console.error('Error downloading progress:', error);
-        await ctx.answerCbQuery('❌ Error sending progress file');
-        await ctx.reply('❌ Failed to send progress file. Please try again.');
-    }
-});
-
 bot.action('download_all', async (ctx) => {
     try {
         await ctx.answerCbQuery('⏳ Preparing all data...');
         const timestamp = Date.now();
         
-        const [tasks, history, notes, progress, entries] = await Promise.all([
+        const [tasks, history, notes] = await Promise.all([
             db.collection('tasks').find().toArray(),
             db.collection('history').find().toArray(),
-            db.collection('notes').find().toArray(),
-            db.collection('progress').find().toArray(),
-            db.collection('progressEntries').find().toArray()
+            db.collection('notes').find().toArray()
         ]);
         
-        const totalItems = tasks.length + history.length + notes.length + progress.length + entries.length;
+        const totalItems = tasks.length + history.length + notes.length;
         const nowIST = utcToISTDisplay(new Date());
         
         if (tasks.length > 0) {
@@ -6591,39 +6252,19 @@ bot.action('download_all', async (ctx) => {
             });
         }
         
-        if (progress.length > 0 || entries.length > 0) {
-            const progressData = {
-                totalTrackers: progress.length,
-                totalEntries: entries.length,
-                downloadedAt: new Date().toISOString(),
-                downloadedAtIST: nowIST.dateTime,
-                progress: progress,
-                entries: entries
-            };
-            const progressBuff = Buffer.from(JSON.stringify(progressData, null, 2), 'utf-8');
-            await ctx.replyWithDocument({
-                source: progressBuff,
-                filename: 'global_progress_' + timestamp + '.json'
-            }, {
-                caption: '🌱 <b>Progress</b> (Trackers: ' + progress.length + ', Entries: ' + entries.length + ') - ' + nowIST.displayTime + ' IST',
-                parse_mode: 'HTML'
-            });
-        }
-        
         await ctx.reply(
             '📦 <b>ALL GLOBAL DATA DOWNLOAD COMPLETE</b>\n━━━━━━━━━━━━━━━━━━━━\n' +
             '📋 Tasks: ' + tasks.length + ' item' + (tasks.length !== 1 ? 's' : '') + '\n' +
             '📜 History: ' + history.length + ' item' + (history.length !== 1 ? 's' : '') + '\n' +
             '🗒️ Notes: ' + notes.length + ' item' + (notes.length !== 1 ? 's' : '') + '\n' +
-            '🌱 Progress: ' + progress.length + ' tracker' + (progress.length !== 1 ? 's' : '') + '\n' +
-            '📊 Entries: ' + entries.length + ' entry' + (entries.length !== 1 ? 's' : '') + '\n' +
-            '📁 ' + [tasks, history, notes, progress].filter(a => a.length > 0).length + ' JSON files sent\n' +
+            '📊 Total: ' + totalItems + ' items\n' +
+            '📁 ' + [tasks, history, notes].filter(a => a.length > 0).length + ' JSON files sent\n' +
             '📅 ' + nowIST.dateTime + ' IST\n' +
             '━━━━━━━━━━━━━━━━━━━━',
             { parse_mode: 'HTML' }
         );
         
-        await ctx.answerCbQuery('✅ Sent ' + totalItems + ' items across ' + [tasks, history, notes, progress].filter(a => a.length > 0).length + ' files');
+        await ctx.answerCbQuery('✅ Sent ' + totalItems + ' items across ' + [tasks, history, notes].filter(a => a.length > 0).length + ' files');
     } catch (error) {
         console.error('Error downloading all data:', error);
         await ctx.answerCbQuery('❌ Error sending files');
@@ -6632,7 +6273,7 @@ bot.action('download_all', async (ctx) => {
 });
 
 // ==========================================
-// 🗑️ DELETE MENU
+// 🗑️ DELETE DATA MENU - GLOBAL
 // ==========================================
 bot.action('delete_menu', async (ctx) => {
     try {
@@ -6642,7 +6283,6 @@ bot.action('delete_menu', async (ctx) => {
             [Markup.button.callback('📋 Delete All Tasks', 'delete_tasks_confirm')],
             [Markup.button.callback('📜 Delete All History', 'delete_history_confirm')],
             [Markup.button.callback('🗒️ Delete All Notes', 'delete_notes_confirm')],
-            [Markup.button.callback('🌱 Delete All Progress', 'delete_progress_confirm')],
             [Markup.button.callback('🔥 Delete EVERYTHING', 'delete_all_confirm')],
             [Markup.button.callback('🔙 Back to Main Menu', 'main_menu')]
         ]);
@@ -6651,76 +6291,6 @@ bot.action('delete_menu', async (ctx) => {
     } catch (error) {
         console.error('Error in delete_menu:', error);
         await ctx.answerCbQuery('❌ Error loading delete menu');
-    }
-});
-
-bot.action('delete_progress_confirm', async (ctx) => {
-    try {
-        const progressCount = await db.collection('progress').countDocuments({});
-        const entriesCount = await db.collection('progressEntries').countDocuments({});
-        
-        const text = '⚠️ <b>⚠️ FINAL WARNING ⚠️</b>\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Delete ALL ' + progressCount + ' GLOBAL progress tracker' + (progressCount !== 1 ? 's' : '') + ' with ' + entriesCount + ' entries?\n\n<b>This will affect ALL users!</b>\n\n⚠️ <b>This action cannot be undone!</b>\n━━━━━━━━━━━━━━━━━━━━';
-        
-        const keyboard = Markup.inlineKeyboard([
-            [Markup.button.callback('✅ YES, DELETE ALL GLOBAL PROGRESS', 'delete_progress_final')],
-            [Markup.button.callback('🔙 Cancel', 'delete_menu')]
-        ]);
-        
-        await safeEdit(ctx, text, keyboard);
-    } catch (error) {
-        console.error('Error in delete_progress_confirm:', error);
-        await ctx.answerCbQuery('❌ Error loading confirmation');
-    }
-});
-
-bot.action('delete_progress_final', async (ctx) => {
-    try {
-        await ctx.answerCbQuery('⏳ Processing...');
-        
-        const progress = await db.collection('progress').find().toArray();
-        const entries = await db.collection('progressEntries').find().toArray();
-        
-        const progressResult = await db.collection('progress').deleteMany({});
-        const entriesResult = await db.collection('progressEntries').deleteMany({});
-        
-        if (progress.length > 0 || entries.length > 0) {
-            const backupData = {
-                progress: progress,
-                entries: entries,
-                deletedAt: new Date().toISOString()
-            };
-            const backupBuff = Buffer.from(JSON.stringify(backupData, null, 2));
-            try {
-                await ctx.replyWithDocument({ 
-                    source: backupBuff, 
-                    filename: 'global_progress_backup_' + Date.now() + '.json' 
-                });
-            } catch (sendError) {
-                console.error('Error sending backup:', sendError);
-            }
-        }
-        
-        const successText = '✅ <b>𝗚𝗟𝗢𝗕𝗔𝗟 𝗗𝗘𝗟𝗘𝗧𝗜𝗢𝗡 𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘</b>\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Deleted ' + progressResult.deletedCount + ' progress trackers and ' + entriesResult.deletedCount + ' entries\n' + ((progress.length + entries.length) > 0 ? '📁 Backup file sent!\n' : '') + '━━━━━━━━━━━━━━━━━━━━';
-        
-        const keyboard = Markup.inlineKeyboard([
-            [Markup.button.callback('🔙 Back to Main Menu', 'main_menu')]
-        ]);
-        
-        await safeEdit(ctx, successText, keyboard);
-        
-        try {
-            await bot.telegram.sendMessage(CHAT_ID,
-                '🗑️ <b>𝗚𝗟𝗢𝗕𝗔𝗟 𝗣𝗥𝗢𝗚𝗥𝗘𝗦𝗦 𝗗𝗘𝗟𝗘𝗧𝗘𝗗</b>\n' +
-                '━━━━━━━━━━━━━━━━━━━━\n' +
-                '🗑️ All ' + progressResult.deletedCount + ' trackers with ' + entriesResult.deletedCount + ' entries deleted\n' +
-                '━━━━━━━━━━━━━━━━━━━━',
-                { parse_mode: 'HTML' }
-            );
-        } catch (e) {}
-    } catch (error) {
-        console.error('Error deleting progress:', error);
-        await ctx.answerCbQuery('❌ Error deleting progress');
-        await showMainMenu(ctx);
     }
 });
 
@@ -6914,16 +6484,14 @@ bot.action('delete_notes_final', async (ctx) => {
 
 bot.action('delete_all_confirm', async (ctx) => {
     try {
-        const [tasksCount, historyCount, notesCount, progressCount, entriesCount] = await Promise.all([
+        const [tasksCount, historyCount, notesCount] = await Promise.all([
             db.collection('tasks').countDocuments({}),
             db.collection('history').countDocuments({}),
-            db.collection('notes').countDocuments({}),
-            db.collection('progress').countDocuments({}),
-            db.collection('progressEntries').countDocuments({})
+            db.collection('notes').countDocuments({})
         ]);
-        const totalCount = tasksCount + historyCount + notesCount + progressCount + entriesCount;
+        const totalCount = tasksCount + historyCount + notesCount;
         
-        const text = '⚠️ <b>⚠️ ⚠️ ⚠️ FINAL WARNING ⚠️ ⚠️ ⚠️</b>\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Delete ALL ' + totalCount + ' GLOBAL items?\n\n<b>⚠️ THIS WILL DELETE EVERYTHING FOR EVERYONE!</b>\n\n📋 Tasks: ' + tasksCount + '\n📜 History: ' + historyCount + '\n🗒️ Notes: ' + notesCount + '\n🌱 Progress Trackers: ' + progressCount + '\n📊 Progress Entries: ' + entriesCount + '\n\n<b>⚠️ THIS ACTION CANNOT BE UNDONE!</b>\n━━━━━━━━━━━━━━━━━━━━';
+        const text = '⚠️ <b>⚠️ ⚠️ ⚠️ FINAL WARNING ⚠️ ⚠️ ⚠️</b>\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Delete ALL ' + totalCount + ' GLOBAL items?\n\n<b>⚠️ THIS WILL DELETE EVERYTHING FOR EVERYONE!</b>\n\n📋 Tasks: ' + tasksCount + '\n📜 History: ' + historyCount + '\n🗒️ Notes: ' + notesCount + '\n\n<b>⚠️ THIS ACTION CANNOT BE UNDONE!</b>\n━━━━━━━━━━━━━━━━━━━━';
         
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback('🔥 YES, DELETE EVERYTHING GLOBAL', 'delete_all_final')],
@@ -6941,25 +6509,21 @@ bot.action('delete_all_final', async (ctx) => {
     try {
         await ctx.answerCbQuery('⏳ Processing...');
         
-        const [tasks, history, notes, progress, entries] = await Promise.all([
+        const [tasks, history, notes] = await Promise.all([
             db.collection('tasks').find().toArray(),
             db.collection('history').find().toArray(),
-            db.collection('notes').find().toArray(),
-            db.collection('progress').find().toArray(),
-            db.collection('progressEntries').find().toArray()
+            db.collection('notes').find().toArray()
         ]);
         
         tasks.forEach(t => cancelTaskSchedule(t.taskId));
         
-        const [tasksResult, historyResult, notesResult, progressResult, entriesResult] = await Promise.all([
+        const [tasksResult, historyResult, notesResult] = await Promise.all([
             db.collection('tasks').deleteMany({}),
             db.collection('history').deleteMany({}),
-            db.collection('notes').deleteMany({}),
-            db.collection('progress').deleteMany({}),
-            db.collection('progressEntries').deleteMany({})
+            db.collection('notes').deleteMany({})
         ]);
         
-        const totalDeleted = tasksResult.deletedCount + historyResult.deletedCount + notesResult.deletedCount + progressResult.deletedCount + entriesResult.deletedCount;
+        const totalDeleted = tasksResult.deletedCount + historyResult.deletedCount + notesResult.deletedCount;
         const timestamp = Date.now();
         
         if (tasks.length > 0) {
@@ -6986,20 +6550,7 @@ bot.action('delete_all_final', async (ctx) => {
             });
         }
         
-        if (progress.length > 0 || entries.length > 0) {
-            const progressData = {
-                progress: progress,
-                entries: entries,
-                deletedAt: new Date().toISOString()
-            };
-            const progressBuff = Buffer.from(JSON.stringify(progressData, null, 2));
-            await ctx.replyWithDocument({ 
-                source: progressBuff, 
-                filename: 'global_all_backup_progress_' + timestamp + '.json' 
-            });
-        }
-        
-        const successText = '✅ <b>𝗚𝗟𝗢𝗕𝗔𝗟 𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘 𝗗𝗘𝗟𝗘𝗧𝗜𝗢𝗡</b>\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Deleted ' + totalDeleted + ' items total\n\n📋 Tasks: ' + tasksResult.deletedCount + '\n📜 History: ' + historyResult.deletedCount + '\n🗒️ Notes: ' + notesResult.deletedCount + '\n🌱 Trackers: ' + progressResult.deletedCount + '\n📊 Entries: ' + entriesResult.deletedCount + '\n\n' + ((tasks.length + history.length + notes.length + progress.length + entries.length) > 0 ? '📁 Backup files sent!\n' : '') + '━━━━━━━━━━━━━━━━━━━━';
+        const successText = '✅ <b>𝗚𝗟𝗢𝗕𝗔𝗟 𝗖𝗢𝗠𝗣𝗟𝗘𝗧𝗘 𝗗𝗘𝗟𝗘𝗧𝗜𝗢𝗡</b>\n━━━━━━━━━━━━━━━━━━━━\n🗑️ Deleted ' + totalDeleted + ' items total\n\n📋 Tasks: ' + tasksResult.deletedCount + '\n📜 History: ' + historyResult.deletedCount + '\n🗒️ Notes: ' + notesResult.deletedCount + '\n\n' + ((tasks.length + history.length + notes.length) > 0 ? '📁 Backup files sent!\n' : '') + '━━━━━━━━━━━━━━━━━━━━';
         
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback('🔙 Back to Main Menu', 'main_menu')]
@@ -7029,7 +6580,7 @@ bot.action('no_action', async (ctx) => {
 });
 
 // ==========================================
-// ⏰ HALF HOURLY SUMMARY
+// ⏰ HALF HOURLY SUMMARY - WITH IST
 // ==========================================
 async function sendHalfHourlySummary() {
     try {
