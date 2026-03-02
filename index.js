@@ -6,7 +6,7 @@ const path = require('path');
 const fs = require('fs');
 
 // ==========================================
-// ⚙️ CONFIGURATION
+// ⚙️ CONFIGURATION - DIRECT HARDCODED VALUES
 // ==========================================
 const BOT_TOKEN = '8388773187:AAEWqg9L-JhIsIYtpbxJ0wxqdT2ImWmFni4';
 const MONGODB_URI = 'mongodb+srv://sandip:9E9AISFqTfU3VI5i@cluster0.p8irtov.mongodb.net/telegram_bot';
@@ -14,12 +14,18 @@ const PORT = process.env.PORT || 8080;
 const WEB_APP_URL = 'https://web-production-820965.up.railway.app';
 const CHAT_ID = 8469993808;
 
+// ==========================================
+// 🕐 TIMEZONE CONSTANTS (IST = UTC+5:30)
+// ==========================================
 const IST_OFFSET_HOURS = 5;
 const IST_OFFSET_MINUTES = 30;
 const IST_OFFSET_MS = (IST_OFFSET_HOURS * 60 + IST_OFFSET_MINUTES) * 60 * 1000;
 
 const app = express();
 
+// ==========================================
+// 🎨 EXPRESS CONFIGURATION
+// ==========================================
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -62,17 +68,34 @@ function utcToISTDisplay(utcDate) {
     };
 }
 
-function getCurrentIST() { return new Date(new Date().getTime() + IST_OFFSET_MS); }
+function getCurrentIST() {
+    return new Date(new Date().getTime() + IST_OFFSET_MS);
+}
+
 function getTodayStartUTC() {
     const istNow = getCurrentIST();
     const istStartOfDay = new Date(Date.UTC(istNow.getUTCFullYear(), istNow.getUTCMonth(), istNow.getUTCDate(), 0, 0, 0));
     return new Date(istStartOfDay.getTime() - IST_OFFSET_MS);
 }
-function getTomorrowStartUTC() { return new Date(getTodayStartUTC().getTime() + 24 * 60 * 60 * 1000); }
-function getCurrentISTDisplay() { return utcToISTDisplay(getCurrentIST()); }
+
+function getTomorrowStartUTC() {
+    return new Date(getTodayStartUTC().getTime() + 24 * 60 * 60 * 1000);
+}
+
+function formatISTDate(utcDate) {
+    return utcDate ? utcToISTDisplay(utcDate).displayDate : '';
+}
+
+function formatISTTime(utcDate) {
+    return utcDate ? utcToISTDisplay(utcDate).displayTime : '';
+}
+
+function getCurrentISTDisplay() {
+    return utcToISTDisplay(getCurrentIST());
+}
 
 // ==========================================
-// 🎨 EJS TEMPLATE GENERATOR
+// 🎨 MONOLITHIC EJS TEMPLATE GENERATOR
 // ==========================================
 function writeMainEJS() {
     const mainEJS = `<!DOCTYPE html>
@@ -84,7 +107,7 @@ function writeMainEJS() {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        /* System Default Light Theme */
+        /* === SYSTEM-LEVEL THEME VARIABLES === */
         :root {
             --bg-color: #f5f7fa;
             --surface-color: #ffffff;
@@ -100,7 +123,7 @@ function writeMainEJS() {
             --ring-today: #3b82f6;
         }
 
-        /* System Default Dark Theme Auto-Switch */
+        /* Native Dark Mode Support */
         @media (prefers-color-scheme: dark) {
             :root {
                 --bg-color: #0f172a;
@@ -124,6 +147,7 @@ function writeMainEJS() {
             background: var(--bg-color); color: var(--text-primary); 
             padding: 20px 10px 120px 10px; min-height: 100vh;
             font-size: 12px; line-height: 1.4;
+            -webkit-tap-highlight-color: transparent;
         }
 
         /* Top Nav */
@@ -148,7 +172,7 @@ function writeMainEJS() {
         /* Graphs 1:1 */
         .graphs-grid-container { width: 100%; aspect-ratio: 1 / 1; display: flex; flex-direction: column; }
         .chart-wrapper { display: flex; justify-content: space-around; align-items: flex-end; flex: 1; padding-top: 10px; }
-        .bar-col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; width: 10%; max-width: 35px; height: 100%; }
+        .bar-col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; width: 10%; max-width: 35px; height: 100%; position: relative;}
         .bar-track { width: 100%; height: 90%; border-radius: 6px; position: relative; display: flex; align-items: flex-end; }
         .bar-fill { width: 100%; border-radius: 6px; transition: height 0.8s; position: relative; }
         .bar-label-inner { position: absolute; top: 0; left: 0; right: 0; bottom: 0; writing-mode: vertical-rl; transform: rotate(180deg); display: flex; align-items: center; justify-content: center; color: #ffffff; font-size: 0.75rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-shadow: 0px 1px 3px rgba(0,0,0,0.8); pointer-events: none; z-index: 10; padding: 5px 0; }
@@ -179,7 +203,7 @@ function writeMainEJS() {
 
         /* Progress/Tasks Lists */
         .tasks-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; margin-top: 10px; }
-        .task-card { background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 14px; padding: 14px; transition: 0.2s; width: 100%; box-shadow: var(--shadow-soft); margin-bottom: 10px;}
+        .task-card, .note-card, .history-date-card { background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 14px; padding: 14px; transition: 0.2s; width: 100%; box-shadow: var(--shadow-soft); margin-bottom: 10px;}
         .task-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; width: 100%; flex-wrap: wrap; }
         
         details.task-details { display: contents; }
@@ -194,16 +218,38 @@ function writeMainEJS() {
 
         .task-description-container { width: 100%; order: 3; margin: 10px 0 4px 0; }
         details.task-details:not([open]) .task-description-container { display: none; }
-        .task-description { font-size: 0.85rem; color: var(--text-secondary); padding: 8px 12px; background: var(--hover-color); border-radius: 10px; border-left: 3px solid; word-break: break-word; white-space: pre-wrap; line-height: 1.4; }
+        .task-description { font-size: 0.85rem; color: var(--text-secondary); padding: 8px 12px; background: var(--hover-color); border-radius: 10px; border-left: 3px solid; word-break: break-word; white-space: pre-wrap; width: 100%; box-sizing: border-box; line-height: 1.4; }
 
         .task-meta-row { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; width: 100%; }
         .badge { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; background: var(--hover-color); border-radius: 100px; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); }
         .color-dot { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--border-color); flex-shrink: 0; }
         
+        .progress-ring-small { position: relative; width: 40px; height: 40px; }
+        .progress-ring-circle-small { transition: stroke-dashoffset 0.5s; transform: rotate(-90deg); transform-origin: 50% 50%; }
+        .progress-text-small { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 0.7rem; font-weight: 700; color: var(--accent-color); }
+        
+        .subtasks-container { margin-top: 12px; border-top: 1px solid var(--border-color); padding-top: 12px; width: 100%; }
+        .subtask-item { display: flex; flex-direction: column; background: var(--hover-color); border-radius: 10px; margin-bottom: 8px; padding: 8px; width: 100%; }
+        .subtask-main-row { display: flex; align-items: flex-start; gap: 8px; width: 100%; }
+        .subtask-checkbox { width: 20px; height: 20px; border-radius: 6px; border: 2px solid var(--accent-color); background: transparent; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; color: white; font-size: 0.7rem; flex-shrink: 0; margin-top: 1px; }
+        .subtask-checkbox.completed { background: var(--success-color); border-color: var(--success-color); }
+        .subtask-details { flex: 1; min-width: 0; }
+        .subtask-title { font-weight: 600; color: var(--text-primary); margin-bottom: 2px; font-size: 0.85rem; word-break: break-word; cursor: pointer; }
+        .subtask-title.completed { text-decoration: line-through; color: var(--text-secondary); }
+
+        /* Notes & History */
+        .note-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; width: 100%; }
+        .note-title { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); word-break: break-word; flex: 1; cursor: pointer; }
+        .note-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-color); font-size: 0.7rem; color: var(--text-secondary); }
+        
+        .history-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; }
+        .month-selector { display: flex; align-items: center; gap: 12px; }
+        .month-btn { padding: 6px 12px; border-radius: 100px; border: 1px solid var(--border-color); background: var(--surface-color); color: var(--text-primary); font-size: 0.8rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px; }
+        
         /* Modals & Forms */
         .fab { position: fixed; bottom: 20px; right: 20px; z-index: 1000; width: 54px; height: 54px; border-radius: 50%; background: var(--accent-color); color: white; border: none; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; cursor: pointer; box-shadow: 0 8px 20px rgba(37,99,235,0.4); transition: 0.2s; }
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--modal-backdrop); backdrop-filter: blur(4px); align-items: center; justify-content: center; z-index: 2000; padding: 15px; opacity: 0; }
-        .modal.show { opacity: 1; transition: opacity 0.3s ease; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--modal-backdrop); backdrop-filter: blur(4px); align-items: center; justify-content: center; z-index: 2000; padding: 15px; opacity: 0; transition: opacity 0.3s ease;}
+        .modal.show { opacity: 1; }
         .modal-content { background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 20px; padding: 20px; width: 100%; max-width: 400px; max-height: 85vh; overflow-y: auto; box-shadow: 0 25px 50px rgba(0,0,0,0.25); transform: scale(0.95); transition: 0.3s ease; }
         .modal.show .modal-content { transform: scale(1); }
         .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;}
@@ -215,8 +261,9 @@ function writeMainEJS() {
         .form-group label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 0.8rem; color: var(--text-primary); }
         .form-control { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 12px; font-size: 0.9rem; outline: none; background: var(--bg-color); color: var(--text-primary); }
         .form-control:focus { border-color: var(--accent-color); }
+        textarea.form-control { min-height: 80px; resize: vertical; }
         
-        .color-palette { display: flex; justify-content: space-between; align-items: center; width: 100%; margin-top: 8px; }
+        .color-palette { display: flex; justify-content: space-between; align-items: center; width: 100%; margin-top: 8px; gap: 4px; }
         .color-swatch { width: 26px; height: 26px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: 0.1s;}
         .color-swatch.selected { transform: scale(1.15); box-shadow: 0 0 0 2px var(--surface-color), 0 0 0 4px var(--text-primary); }
         .color-swatch.hidden { display: none; }
@@ -225,27 +272,48 @@ function writeMainEJS() {
         .checkbox-group input { width: 18px; height: 18px; cursor: pointer; accent-color: var(--accent-color); }
         .hidden-fields { display: none; background: var(--hover-color); padding: 15px; border-radius: 12px; margin-bottom: 15px; }
         
+        .btn { padding: 12px 20px; border-radius: 100px; border: none; font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: 0.2s; }
+        .btn-secondary { background: var(--hover-color); color: var(--text-secondary); }
         .btn-submit { width: 100%; padding: 14px; background: var(--accent-color); color: white; border: none; border-radius: 12px; font-weight: 700; font-size: 0.95rem; cursor: pointer; margin-top: 10px; transition: 0.2s; }
-        
-        .empty-state { text-align: center; color: var(--text-secondary); padding: 30px; font-size: 0.9rem; background: var(--hover-color); border-radius: 16px; grid-column: 1/-1; }
+        .btn-submit:hover { background: #1d4ed8; }
+
+        .toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; }
+        .toast { background: var(--text-primary); color: var(--bg-color); padding: 10px 20px; border-radius: 100px; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-size: 0.85rem; font-weight: 600; animation: slideIn 0.3s ease; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        .loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 9998; }
+        .spinner { width: 48px; height: 48px; border: 4px solid var(--border-color); border-top: 4px solid var(--accent-color); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .empty-state { text-align: center; padding: 40px 20px; color: var(--text-secondary); background: var(--hover-color); border-radius: 24px; grid-column: 1/-1;}
         .hidden { display: none; }
         
-        /* Toast */
-        .toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; }
-        .toast { background: var(--text-primary); color: var(--bg-color); padding: 12px 20px; border-radius: 100px; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); font-size: 0.85rem; font-weight: 600; animation: slideIn 0.3s ease; }
-        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @media (max-width: 768px) { 
+            .nav-container { flex-direction: column; align-items: stretch; } 
+            .nav-links { width: 100%; justify-content: stretch; } 
+            .nav-btn { flex: 1; justify-content: center; padding: 8px 12px; } 
+            .time-badge { justify-content: center; } 
+            .tasks-grid, .history-tasks-grid { grid-template-columns: 1fr; } 
+        }
     </style>
 </head>
 <body>
+    <div class="loader" id="loader"><div class="spinner"></div></div>
     <div class="toast-container" id="toastContainer"></div>
 
     <div class="app-header">
         <div class="nav-container">
             <div class="nav-links">
-                <button class="nav-btn" id="nav-tasks" onclick="switchPage('tasks')"><i class="fas fa-tasks"></i> <span>Tasks</span></button>
-                <button class="nav-btn" id="nav-progress" onclick="switchPage('progress')"><i class="fas fa-chart-line"></i> <span>Progress</span></button>
-                <button class="nav-btn" id="nav-notes" onclick="switchPage('notes')"><i class="fas fa-note-sticky"></i> <span>Notes</span></button>
-                <button class="nav-btn" id="nav-history" onclick="switchPage('history')"><i class="fas fa-history"></i> <span>History</span></button>
+                <button class="nav-btn" id="nav-tasks" onclick="switchPage('tasks')">
+                    <i class="fas fa-tasks"></i> <span>Tasks</span>
+                </button>
+                <button class="nav-btn active" id="nav-progress" onclick="switchPage('progress')">
+                    <i class="fas fa-chart-line"></i> <span>Progress</span>
+                </button>
+                <button class="nav-btn" id="nav-notes" onclick="switchPage('notes')">
+                    <i class="fas fa-note-sticky"></i> <span>Notes</span>
+                </button>
+                <button class="nav-btn" id="nav-history" onclick="switchPage('history')">
+                    <i class="fas fa-history"></i> <span>History</span>
+                </button>
             </div>
             <div class="time-badge">
                 <i class="fas fa-calendar-alt"></i> <span id="currentDateDisplay"></span>
@@ -254,9 +322,10 @@ function writeMainEJS() {
         </div>
     </div>
 
-    <button class="fab" id="fabButton" onclick="openAddModal()"><i class="fas fa-plus"></i></button>
-    <div class="main-content" id="mainContent"></div>
+    <button class="fab" id="fabButton" onclick="openAddModal()" title="Add New"><i class="fas fa-plus"></i></button>
     
+    <div class="main-content" id="mainContent"></div>
+
     <div class="speech-bubble" id="speech-bubble">
         <div id="speech-content"></div>
         <div class="speech-tail" id="speech-tail"></div>
@@ -264,40 +333,22 @@ function writeMainEJS() {
 
     <div class="modal" id="add-progress-modal">
         <div class="modal-content">
-            <div class="modal-header">
-                <h2>Add New Progress</h2>
-                <button class="close-btn" onclick="closeModal('add-progress-modal')"><i class="fas fa-times"></i></button>
-            </div>
+            <div class="modal-header"><h2>Add New Progress</h2><button class="close-btn" onclick="closeModal('add-progress-modal')"><i class="fas fa-times"></i></button></div>
             <form id="add-progress-form">
-                <div class="form-group">
-                    <label>Title</label>
-                    <input type="text" class="form-control" id="p-title" required>
-                </div>
-                <div class="form-group">
-                    <label>Description (Optional)</label>
-                    <textarea class="form-control" id="p-desc" rows="2"></textarea>
-                </div>
+                <div class="form-group"><label>Title</label><input type="text" class="form-control" id="p-title" required></div>
+                <div class="form-group"><label>Description</label><textarea class="form-control" id="p-desc" rows="2"></textarea></div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                     <div class="form-group"><label>Start Date</label><input type="date" class="form-control" id="p-start-date" required></div>
                     <div class="form-group"><label>Duration (Days)</label><input type="number" class="form-control" id="p-end-count" value="365" required min="1"></div>
                 </div>
                 <div class="form-group">
-                    <label>Color</label>
-                    <div class="color-palette" id="color-palette"></div>
-                    <input type="hidden" id="p-color" required>
-                    <small id="color-error" style="color:var(--danger-color); display:none; font-weight:600; margin-top:5px;">All 8 colors are used!</small>
+                    <label>Color</label><div class="color-palette" id="color-palette"></div>
+                    <input type="hidden" id="p-color" required><small id="color-error" style="color:var(--danger-color); display:none; font-weight:600; margin-top:5px;">All 8 colors are used!</small>
                 </div>
                 <label class="checkbox-group"><input type="checkbox" id="p-has-data" onchange="toggleDataFields('add')">Require numerical logging?</label>
                 <div class="hidden-fields" id="data-fields">
                     <div class="form-group"><label>Question</label><input type="text" class="form-control" id="p-question"></div>
-                    <div class="form-group">
-                        <label>Type</label>
-                        <select class="form-control" id="p-type" onchange="toggleStartDataFields('add')">
-                            <option value="boolean">Boolean (Yes/No)</option>
-                            <option value="float">Float (Decimals)</option>
-                            <option value="integer">Integer (Whole numbers)</option>
-                        </select>
-                    </div>
+                    <div class="form-group"><label>Type</label><select class="form-control" id="p-type" onchange="toggleStartDataFields('add')"><option value="boolean">Boolean</option><option value="float">Float</option><option value="integer">Integer</option></select></div>
                     <div id="start-goal-wrapper" style="display: none; grid-template-columns: 1fr 1fr; gap: 12px;">
                         <div class="form-group"><label>Start Data</label><input type="number" step="0.01" class="form-control" id="p-start-data"></div>
                         <div class="form-group"><label>End Data</label><input type="number" step="0.01" class="form-control" id="p-goal-data"></div>
@@ -310,10 +361,7 @@ function writeMainEJS() {
 
     <div class="modal" id="edit-progress-modal">
         <div class="modal-content">
-            <div class="modal-header">
-                <h2>Edit Progress</h2>
-                <button class="close-btn" onclick="closeModal('edit-progress-modal')"><i class="fas fa-times"></i></button>
-            </div>
+            <div class="modal-header"><h2>Edit Progress</h2><button class="close-btn" onclick="closeModal('edit-progress-modal')"><i class="fas fa-times"></i></button></div>
             <form id="edit-progress-form">
                 <input type="hidden" id="edit-p-id">
                 <div class="form-group"><label>Title</label><input type="text" class="form-control" id="edit-p-title" required></div>
@@ -322,22 +370,11 @@ function writeMainEJS() {
                     <div class="form-group"><label>Start Date</label><input type="date" class="form-control" id="edit-p-start-date" required></div>
                     <div class="form-group"><label>Duration</label><input type="number" class="form-control" id="edit-p-end-count" required></div>
                 </div>
-                <div class="form-group">
-                    <label>Color (Swaps if occupied)</label>
-                    <div class="color-palette" id="edit-color-palette"></div>
-                    <input type="hidden" id="edit-p-color" required>
-                </div>
+                <div class="form-group"><label>Color (Swaps if occupied)</label><div class="color-palette" id="edit-color-palette"></div><input type="hidden" id="edit-p-color" required></div>
                 <label class="checkbox-group"><input type="checkbox" id="edit-p-has-data" onchange="toggleDataFields('edit')">Require numerical logging?</label>
                 <div class="hidden-fields" id="edit-data-fields">
                     <div class="form-group"><label>Question</label><input type="text" class="form-control" id="edit-p-question"></div>
-                    <div class="form-group">
-                        <label>Type</label>
-                        <select class="form-control" id="edit-p-type" onchange="toggleStartDataFields('edit')">
-                            <option value="boolean">Boolean</option>
-                            <option value="float">Float</option>
-                            <option value="integer">Integer</option>
-                        </select>
-                    </div>
+                    <div class="form-group"><label>Type</label><select class="form-control" id="edit-p-type" onchange="toggleStartDataFields('edit')"><option value="boolean">Boolean</option><option value="float">Float</option><option value="integer">Integer</option></select></div>
                     <div id="edit-start-goal-wrapper" style="display: none; grid-template-columns: 1fr 1fr; gap: 12px;">
                         <div class="form-group"><label>Start Data</label><input type="number" step="0.01" class="form-control" id="edit-p-start-data"></div>
                         <div class="form-group"><label>End Data</label><input type="number" step="0.01" class="form-control" id="edit-p-goal-data"></div>
@@ -351,22 +388,13 @@ function writeMainEJS() {
     <div class="modal" id="log-modal">
         <div class="modal-content">
             <div id="log-list-view">
-                <div class="modal-header">
-                    <h2 id="log-modal-title">Log Progress</h2>
-                    <button class="close-btn" onclick="closeModal('log-modal')"><i class="fas fa-times"></i></button>
-                </div>
+                <div class="modal-header"><h2 id="log-modal-title">Log Progress</h2><button class="close-btn" onclick="closeModal('log-modal')"><i class="fas fa-times"></i></button></div>
                 <div id="daily-progress-list"></div>
             </div>
             <div id="log-question-view" style="display: none;">
-                <div class="modal-header">
-                    <h2 id="l-title"></h2>
-                    <button class="close-btn" onclick="showLogList()"><i class="fas fa-arrow-left"></i></button>
-                </div>
+                <div class="modal-header"><h2 id="l-title"></h2><button class="close-btn" onclick="showLogList()"><i class="fas fa-arrow-left"></i></button></div>
                 <div id="l-desc-container"></div>
-                <div class="form-group">
-                    <label id="l-question"></label>
-                    <div id="l-input-wrapper"></div>
-                </div>
+                <div class="form-group"><label id="l-question"></label><div id="l-input-wrapper"></div></div>
                 <button class="btn-submit" id="save-log-btn">Save</button>
             </div>
         </div>
@@ -380,18 +408,18 @@ function writeMainEJS() {
         tg.ready();
         tg.expand();
 
-        function showToast(message) {
+        function showToast(message, type = 'success') {
             const container = document.getElementById('toastContainer');
             const toast = document.createElement('div');
             toast.className = 'toast';
-            toast.innerHTML = '<i class="fas fa-info-circle"></i><span>' + message + '</span>';
+            let icon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
+            toast.innerHTML = '<i class="fas ' + icon + '"></i><span>' + message + '</span>';
             container.appendChild(toast);
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.style.transform = 'translateX(100%)';
-                setTimeout(() => toast.remove(), 300);
-            }, 3000);
+            setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateX(100%)'; setTimeout(() => toast.remove(), 300); }, 3000);
         }
+
+        function showLoader() { document.getElementById('loader').style.display = 'flex'; }
+        function hideLoader() { document.getElementById('loader').style.display = 'none'; }
 
         let currentPage = 'progress';
         let tasksData = []; let notesData = []; let historyData = {}; 
@@ -424,6 +452,7 @@ function writeMainEJS() {
         });
 
         function switchPage(page) {
+            showLoader();
             currentPage = page;
             document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
             document.getElementById('nav-' + page).classList.add('active');
@@ -434,7 +463,8 @@ function writeMainEJS() {
                 if (page === 'history') historyData = data.groupedHistory || {};
                 if (page === 'progress') progressData = data.progress || { items: [], progress: {} };
                 renderPage();
-            }).catch(err => showToast('Error loading page data'));
+                hideLoader();
+            }).catch(err => { showToast('Error loading page data'); hideLoader(); });
         }
 
         function renderPage() {
@@ -446,14 +476,16 @@ function writeMainEJS() {
                 bindCalendarEvents();
             } else if (currentPage === 'tasks') {
                 let html = '<h1 class="page-title">Tasks</h1><div class="tasks-grid">';
-                tasksData.forEach(t => { html += '<div class="task-card"><div class="task-header"><span class="task-title">' + escapeHtml(t.title) + '</span><button class="action-btn" onclick="completeTask(\\'' + t.taskId + '\\')"><i class="fas fa-check"></i></button></div></div>'; });
+                if(tasksData.length===0) html += '<div class="empty-state">No Tasks</div>';
+                tasksData.forEach(t => { html += '<div class="task-card"><div class="task-header"><span class="task-title">' + escapeHtml(t.title) + '</span><div class="task-actions"><button class="action-btn" onclick="completeTask(\\'' + t.taskId + '\\')"><i class="fas fa-check"></i></button><button class="action-btn delete" onclick="deleteTask(\\'' + t.taskId + '\\')"><i class="fas fa-trash"></i></button></div></div></div>'; });
                 content.innerHTML = html + '</div>';
             } else if (currentPage === 'notes') {
                 let html = '<h1 class="page-title">Notes</h1><div class="tasks-grid">';
-                notesData.forEach(n => { html += '<div class="task-card"><div class="task-header"><span class="task-title">' + escapeHtml(n.title) + '</span><button class="action-btn delete" onclick="deleteNote(\\'' + n.noteId + '\\')"><i class="fas fa-trash"></i></button></div></div>'; });
+                if(notesData.length===0) html += '<div class="empty-state">No Notes</div>';
+                notesData.forEach(n => { html += '<div class="note-card"><div class="note-header"><span class="note-title">' + escapeHtml(n.title) + '</span><button class="action-btn delete" onclick="deleteNote(\\'' + n.noteId + '\\')"><i class="fas fa-trash"></i></button></div><div class="note-content-container"><div class="note-content">' + preserveLineBreaks(n.description) + '</div></div></div>'; });
                 content.innerHTML = html + '</div>';
             } else if (currentPage === 'history') {
-                content.innerHTML = '<div class="empty-state">History loaded.</div>';
+                content.innerHTML = '<div class="empty-state">History loaded. Switch to tasks to view complete history.</div>';
             }
         }
 
@@ -524,7 +556,7 @@ function writeMainEJS() {
                 html += '<div class="day-cell" data-date="' + dateStr + '"><div class="day-circle ' + (isToday ? 'today ' : '') + dataClass + '" style="background: ' + bgStyle + '">' + i + '</div></div>';
             }
 
-            return '<details class="panel-wrapper" open><summary class="panel-summary"><span>Progress Calendar</span><i class="fas fa-chevron-down chevron"></i></summary><div class="panel-body"><div class="month-nav"><button class="nav-btn-cal" onclick="changeMonth(-1)"><i class="fas fa-chevron-left"></i></button><h1>' + monthNames[currentMonth] + ' ' + currentYear + '</h1><button class="nav-btn-cal" onclick="changeMonth(1)"><i class="fas fa-chevron-right"></i></button></div><div class="grid-container"><div class="calendar-grid" id="calendar-grid">' + html + '</div></div></div></details>';
+            return '<details class="panel-wrapper" open><summary class="panel-summary"><span>Progress Calendar</span><i class="fas fa-chevron-down chevron"></i></summary><div class="panel-body"><div class="month-nav"><button class="nav-btn-cal" onclick="changeMonth(-1)"><i class="fas fa-chevron-left"></i></button><h1>' + monthNames[currentMonth] + ' ' + currentYear + '</h1><button class="nav-btn-cal" onclick="changeMonth(1)"><i class="fas fa-chevron-right"></i></button></div><div class="grid-container" id="calendar-master-container"><div class="calendar-grid" id="calendar-grid">' + html + '</div></div></div></details>';
         }
 
         function renderProgressList() {
@@ -591,21 +623,29 @@ function writeMainEJS() {
 
             // Absolute Positioning Math fixing Scroll issues
             const bRect = bubble.getBoundingClientRect();
-            const gridRect = document.getElementById('calendar-grid').getBoundingClientRect();
+            const gridRect = document.getElementById('calendar-master-container').getBoundingClientRect();
             const cellRect = cellEl.getBoundingClientRect();
             
-            const sX = window.scrollX; const sY = window.scrollY;
+            const sX = window.scrollX || document.documentElement.scrollLeft; 
+            const sY = window.scrollY || document.documentElement.scrollTop;
 
-            const bubbleX = gridRect.left + sX + (gridRect.width / 2) - (bRect.width / 2);
-            const bubbleY = gridRect.top + sY + (gridRect.height / 2) - (bRect.height / 2);
+            const gridAbsX = gridRect.left + sX;
+            const gridAbsY = gridRect.top + sY;
+            const cellAbsX = cellRect.left + sX;
+            const cellAbsY = cellRect.top + sY;
+
+            // Center bubble horizontally in grid layout
+            const bubbleX = gridAbsX + (gridRect.width / 2) - (bRect.width / 2);
+            const bubbleY = gridAbsY + (gridRect.height / 2) - (bRect.height / 2);
 
             bubble.style.left = bubbleX + 'px';
             bubble.style.top = bubbleY + 'px';
 
+            // Point Tail exactly at the cell
             const bCenterX = bubbleX + bRect.width / 2;
             const bCenterY = bubbleY + bRect.height / 2;
-            const cCenterX = cellRect.left + sX + cellRect.width / 2;
-            const cCenterY = cellRect.top + sY + cellRect.height / 2;
+            const cCenterX = cellAbsX + cellRect.width / 2;
+            const cCenterY = cellAbsY + cellRect.height / 2;
 
             const diffX = cCenterX - bCenterX;
             const diffY = cCenterY - bCenterY;
@@ -627,10 +667,18 @@ function writeMainEJS() {
             setTimeout(() => bubble.classList.add('show'), 10);
         }
 
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.day-cell') && !e.target.closest('.speech-bubble')) {
+                const bubble = document.getElementById('speech-bubble');
+                if (bubble) bubble.classList.remove('show');
+            }
+        });
+
         // ================= PROGRESS MODALS =================
         function initColorPalette() {
             const container = document.getElementById('color-palette');
             const input = document.getElementById('p-color');
+            if(!container) return;
             const used = progressData.items.map(g => g.color);
             let html = ''; let firstAvail = null;
             paletteColors.forEach(hex => {
@@ -675,10 +723,7 @@ function writeMainEJS() {
 
         function openAddModal() {
             if (currentPage === 'tasks') {
-                const istNow = new Date(new Date().getTime() + 5.5 * 60 * 60 * 1000);
-                document.getElementById('startDate').value = todayStr;
-                document.getElementById('startTime').value = String(istNow.getUTCHours()).padStart(2, '0') + ':' + String(istNow.getUTCMinutes()).padStart(2, '0');
-                openModalObj('addTaskModal');
+                openAddTaskModal();
             } else if (currentPage === 'progress') {
                 document.getElementById('p-start-date').value = todayStr;
                 document.getElementById('p-type').value = 'boolean';
@@ -800,9 +845,9 @@ function writeMainEJS() {
             const dayData = progressData.progress[dateStr] || {};
             activeItems.forEach(item => {
                 const isDone = dayData[item.id] !== undefined;
-                html += '<div class="log-card"><div class="log-header"><details class="task-details"><summary><i class="fas fa-chevron-right chevron-icon"></i><div class="color-dot" style="background:' + item.color + ';"></div><span class="progress-title">' + escapeHtml(item.title) + '</span></summary>' + (item.description ? '<div class="task-description-container"><div class="task-description" style="border-left-color: ' + item.color + ';">' + preserveLineBreaks(item.description) + '</div></div>' : '') + '</details><button class="log-action" onclick="event.preventDefault(); handleLogAction(event, \\'' + item.id + '\\', \\'' + dateStr + '\\')" style="background: ' + (isDone ? 'var(--hover-color)' : item.color) + '; color: ' + (isDone ? 'var(--text-secondary)' : 'white') + ';" ' + (isDone ? 'disabled' : '') + '><i class="fas fa-check"></i></button></div></div>';
+                html += '<div class="task-card"><div class="task-header"><details class="task-details"><summary><i class="fas fa-chevron-right chevron-icon"></i><div class="color-dot" style="background:' + item.color + ';"></div><span class="progress-title">' + escapeHtml(item.title) + '</span></summary>' + (item.description ? '<div class="task-description-container"><div class="task-description" style="border-left-color: ' + item.color + ';">' + preserveLineBreaks(item.description) + '</div></div>' : '') + '</details><button class="action-btn" onclick="event.preventDefault(); handleLogAction(event, \\'' + item.id + '\\', \\'' + dateStr + '\\')" style="background: ' + (isDone ? 'var(--hover-color)' : item.color) + '; color: ' + (isDone ? 'var(--text-secondary)' : 'white') + ';" ' + (isDone ? 'disabled' : '') + '><i class="fas fa-check"></i></button></div></div>';
             });
-            document.getElementById('daily-goals-list').innerHTML = html;
+            document.getElementById('daily-progress-list').innerHTML = html;
             showLogList();
             openModalObj('log-modal');
         }
@@ -832,7 +877,7 @@ function writeMainEJS() {
             if (!progressData.progress[dateStr]) progressData.progress[dateStr] = {};
             progressData.progress[dateStr][item.id] = val; 
             
-            // Optimistic UI Updates
+            // Optimistic UI Updates instantly
             renderPage();
             const activeItems = progressData.items.filter(g => isItemActive(g, dateStr));
             const dayData = progressData.progress[dateStr] || {};
@@ -855,7 +900,14 @@ function writeMainEJS() {
             saveDirectComplete(item, dateStr, val);
         });
 
-        // ==================== TASKS & NOTES API ====================
+        // ==================== TASKS API ====================
+        function openAddTaskModal() {
+            const istNow = new Date(new Date().getTime() + 5.5 * 60 * 60 * 1000);
+            document.getElementById('startDate').value = todayStr;
+            document.getElementById('startTime').value = String(istNow.getUTCHours()).padStart(2, '0') + ':' + String(istNow.getUTCMinutes()).padStart(2, '0');
+            document.getElementById('endTime').value = String(istNow.getUTCHours() + 1).padStart(2, '0') + ':' + String(istNow.getUTCMinutes()).padStart(2, '0');
+            openModalObj('addTaskModal');
+        }
         function completeTask(taskId) {
             if (!confirm('Complete this task?')) return;
             fetch('/api/tasks/' + taskId + '/complete', { method: 'POST' }).then(() => switchPage('tasks'));
@@ -867,6 +919,14 @@ function writeMainEJS() {
         function deleteNote(noteId) {
             if (!confirm('Delete this note?')) return;
             fetch('/api/notes/' + noteId + '/delete', { method: 'POST' }).then(() => switchPage('notes'));
+        }
+        function submitTaskForm(e) {
+            e.preventDefault();
+            fetch('/api/tasks', { method: 'POST', body: new URLSearchParams(new FormData(e.target)) }).then(() => { closeModal('addTaskModal'); switchPage('tasks'); });
+        }
+        function submitNoteForm(e) {
+            e.preventDefault();
+            fetch('/api/notes', { method: 'POST', body: new URLSearchParams(new FormData(e.target)) }).then(() => { closeModal('addNoteModal'); switchPage('notes'); });
         }
 
         // Modals
@@ -962,7 +1022,7 @@ function scheduleTask(task) {
                 if (currentTimeUTC >= startTimeUTC || count >= 10) {
                     cancelTaskSchedule(taskId);
                     if (currentTimeUTC >= startTimeUTC) {
-                        try { await bot.telegram.sendMessage(CHAT_ID, `🚀 <b>START NOW:</b> ${task.title}\n📝 <b>Desc:</b> ${task.description || 'N/A'}`, { parse_mode: 'HTML' }); } catch (e) {}
+                        try { await bot.telegram.sendMessage(CHAT_ID, `🚀 <b>START NOW:</b> ${task.title}\n📅 <b>Date:</b> ${task.startDateStr} at ${task.startTimeStr}\n📝 <b>Desc:</b> ${task.description || 'N/A'}`, { parse_mode: 'HTML' }); } catch (e) {}
                     }
                     return;
                 }
@@ -1026,11 +1086,7 @@ function scheduleAutoComplete() {
 // ==========================================
 // 📱 WEB INTERFACE ROUTES
 // ==========================================
-app.get('/', (req, res) => res.redirect('/tasks'));
-
-app.get('/tasks', async (req, res) => {
-    try { res.render('index'); } catch (error) { res.status(500).send(error.message); }
-});
+app.get('/', (req, res) => res.render('index'));
 
 app.get('/api/page/:page', async (req, res) => {
     try {
@@ -1063,6 +1119,7 @@ app.get('/api/page/:page', async (req, res) => {
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
+// TASKS ROUTES
 app.post('/api/tasks', async (req, res) => {
     try {
         const { title, description, startDate, startTime, endTime, repeat, repeatCount } = req.body;
@@ -1072,19 +1129,6 @@ app.post('/api/tasks', async (req, res) => {
         await db.collection('tasks').insertOne(task);
         if (task.startDate > new Date(Date.now() + 10 * 60000)) scheduleTask(task);
         try { await bot.telegram.sendMessage(CHAT_ID, `➕ <b>Task Added:</b> ${task.title}\n📅 <b>Date:</b> ${task.startDateStr} at ${task.startTimeStr}\n📝 <b>Desc:</b> ${task.description || 'N/A'}`, { parse_mode: 'HTML' }); } catch(e){}
-        res.json({ success: true });
-    } catch (error) { res.status(500).json({ error: error.message }); }
-});
-
-app.post('/api/tasks/:taskId/update', async (req, res) => {
-    try {
-        const { title, description, startDate, startTime, endTime, repeat, repeatCount } = req.body;
-        const startDateUTC = istToUTC(startDate, startTime); const endDateUTC = istToUTC(startDate, endTime);
-        cancelTaskSchedule(req.params.taskId);
-        await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { $set: { title: title.trim(), description: description ? description.trim() : '', startDate: startDateUTC, endDate: endDateUTC, nextOccurrence: startDateUTC, repeat: repeat || 'none', repeatCount: repeat && repeat !== 'none' ? (parseInt(repeatCount) || 7) : 0, startTimeStr: startTime, endTimeStr: endTime, startDateStr: startDate, updatedAt: new Date() } });
-        const t = await db.collection('tasks').findOne({ taskId: req.params.taskId });
-        if (t && t.startDate > new Date(Date.now() + 10 * 60000)) scheduleTask(t);
-        try { await bot.telegram.sendMessage(CHAT_ID, `✏️ <b>Task Updated:</b> ${t.title}\n📅 <b>Date:</b> ${t.startDateStr} at ${t.startTimeStr}`, { parse_mode: 'HTML' }); } catch(e){}
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
@@ -1118,27 +1162,13 @@ app.post('/api/tasks/:taskId/delete', async (req, res) => {
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// ==================== PROGRESS API ROUTES ====================
+// PROGRESS ROUTES
 app.post('/api/progress', async (req, res) => {
     try {
         const item = req.body;
         item.createdAt = new Date(); item.updatedAt = new Date();
         await db.collection('progress_items').insertOne(item);
-        try { await bot.telegram.sendMessage(CHAT_ID, `📊 <b>Progress Goal Added:</b> ${item.title}\n🎯 <b>Duration:</b> ${item.endCount} days\n📝 <b>Desc:</b> ${item.description || 'N/A'}`, { parse_mode: 'HTML' }); } catch(e){}
-        res.json({ success: true });
-    } catch (error) { res.status(500).json({ error: error.message }); }
-});
-
-app.post('/api/progress/:itemId/update', async (req, res) => {
-    try {
-        const item = req.body; item.updatedAt = new Date();
-        const oldItem = await db.collection('progress_items').findOne({ id: req.params.itemId });
-        if (oldItem && oldItem.color !== item.color) {
-            const conf = await db.collection('progress_items').findOne({ color: item.color, id: { $ne: req.params.itemId } });
-            if (conf) await db.collection('progress_items').updateOne({ id: conf.id }, { $set: { color: oldItem.color } });
-        }
-        await db.collection('progress_items').updateOne({ id: req.params.itemId }, { $set: item });
-        try { await bot.telegram.sendMessage(CHAT_ID, `✏️ <b>Progress Goal Updated:</b> ${item.title}`, { parse_mode: 'HTML' }); } catch(e){}
+        try { await bot.telegram.sendMessage(CHAT_ID, `📊 <b>New Progress Added:</b> ${item.title}\n🎯 <b>Target:</b> ${item.endCount} days\n📝 <b>Desc:</b> ${item.description || 'N/A'}\n🔢 <b>Type:</b> ${item.type}`, { parse_mode: 'HTML' }); } catch(e){}
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
@@ -1160,12 +1190,12 @@ app.post('/api/progress/log', async (req, res) => {
         if (exist) await db.collection('progress_logs').updateOne({ itemId, date }, { $set: { value, updatedAt: new Date() } });
         else await db.collection('progress_logs').insertOne({ itemId, date, value, createdAt: new Date() });
         const item = await db.collection('progress_items').findOne({ id: itemId });
-        if (item) try { await bot.telegram.sendMessage(CHAT_ID, `✅ <b>Progress Logged:</b> ${item.title}\n📈 <b>Value:</b> ${value}\n📅 <b>Date:</b> ${date}`, { parse_mode: 'HTML' }); } catch(e){}
+        if (item) try { await bot.telegram.sendMessage(CHAT_ID, `✅ <b>Progress Logged:</b> ${item.title}\n📈 <b>Value Recorded:</b> ${value}\n📅 <b>Date:</b> ${date}\n📝 <b>Details:</b> ${item.description || 'N/A'}`, { parse_mode: 'HTML' }); } catch(e){}
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// ==================== NOTES API ROUTES ====================
+// NOTES ROUTES
 app.post('/api/notes', async (req, res) => {
     try {
         if (!req.body.title) return res.status(400).send('Empty title');
