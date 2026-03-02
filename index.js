@@ -107,7 +107,7 @@ async function connectDB() {
             await client.connect();
             db = client.db('telegram_bot');
             
-            // Create progress collection if it doesn't exist
+            // Create collections if they don't exist
             const collections = await db.listCollections().toArray();
             const collectionNames = collections.map(c => c.name);
             
@@ -117,13 +117,11 @@ async function connectDB() {
                     items: [],
                     progress: {}
                 });
-                console.log('✅ Progress collection created');
             }
             
             console.log('✅ Connected to MongoDB');
             return true;
         } catch (error) {
-            console.error('MongoDB connection error:', error);
             retries--;
             if (retries === 0) return false;
             await new Promise(resolve => setTimeout(resolve, 5000));
@@ -136,7 +134,6 @@ async function connectDB() {
 // 🛠️ UTILITY FUNCTIONS
 // ==========================================
 function generateId(type = 'task') { return Math.random().toString(36).substring(2, 10); }
-function generateProgressId() { return 'p' + Date.now().toString(36) + Math.random().toString(36).substring(2, 6); }
 function generateSubtaskId() { return 'sub_' + Date.now().toString(36); }
 function calculateDuration(startDate, endDate) { return Math.round((endDate - startDate) / 60000); }
 function formatDuration(minutes) {
@@ -268,7 +265,7 @@ function scheduleAutoComplete() {
 }
 
 // ==========================================
-// 🎨 EJS TEMPLATE - WITH FULL PROGRESS TRACKER INTEGRATION
+// 🎨 EJS TEMPLATE - WITH FIXED PROGRESS TRACKER
 // ==========================================
 function formatDateUTC(dateObj) { return formatISTDate(dateObj); }
 function formatTimeUTC(dateObj) { return formatISTTime(dateObj); }
@@ -332,18 +329,17 @@ function writeMainEJS() {
             body { 
                 background: var(--bg-dark); 
                 color: var(--text-primary-dark); 
-            } 
+            }
         }
         
         .app-header { 
             background: var(--card-bg-light); 
             border-bottom: 1px solid var(--border-light); 
-            padding: 12px 16px; 
+            padding: 10px 16px; 
             position: sticky; 
             top: 0; 
             z-index: 100; 
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-            border-radius: 0 0 24px 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05); 
         }
         
         @media (prefers-color-scheme: dark) { 
@@ -360,17 +356,16 @@ function writeMainEJS() {
             align-items: center; 
             justify-content: space-between; 
             flex-wrap: wrap; 
-            gap: 12px; 
+            gap: 8px; 
         }
         
         .nav-links { 
             display: flex; 
-            gap: 6px; 
+            gap: 4px; 
             background: var(--hover-light); 
-            padding: 4px; 
+            padding: 3px; 
             border-radius: 100px; 
             flex-wrap: wrap;
-            box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
         }
         
         @media (prefers-color-scheme: dark) { 
@@ -383,7 +378,7 @@ function writeMainEJS() {
             display: flex; 
             align-items: center; 
             gap: 6px; 
-            padding: 8px 18px; 
+            padding: 8px 16px; 
             border-radius: 100px; 
             border: none; 
             background: transparent; 
@@ -404,14 +399,14 @@ function writeMainEJS() {
         .nav-btn.active { 
             background: var(--card-bg-light); 
             color: var(--accent-light); 
-            box-shadow: 0 2px 8px rgba(37,99,235,0.15); 
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05); 
         }
         
         @media (prefers-color-scheme: dark) { 
             .nav-btn.active { 
                 background: var(--card-bg-dark); 
                 color: var(--accent-dark); 
-                box-shadow: 0 2px 8px rgba(96,165,250,0.15); 
+                box-shadow: 0 2px 6px rgba(0,0,0,0.2); 
             } 
         }
         
@@ -419,36 +414,31 @@ function writeMainEJS() {
             display: flex; 
             align-items: center; 
             gap: 8px; 
-            padding: 6px 16px; 
-            background: linear-gradient(135deg, var(--accent-soft-light) 0%, var(--accent-light) 100%);
+            padding: 6px 12px; 
+            background: var(--accent-soft-light); 
             border-radius: 100px; 
             font-size: 0.75rem; 
-            font-weight: 600; 
-            color: white;
-            box-shadow: 0 2px 8px rgba(37,99,235,0.2);
+            font-weight: 500; 
+            color: var(--accent-light); 
         }
         
         @media (prefers-color-scheme: dark) { 
             .time-badge { 
-                background: linear-gradient(135deg, var(--accent-soft-dark) 0%, var(--accent-dark) 100%);
-                color: white;
+                background: var(--accent-soft-dark); 
+                color: var(--accent-dark); 
             } 
         }
         
         .main-content { 
             max-width: 1400px; 
-            margin: 20px auto; 
+            margin: 16px auto; 
             padding: 0 16px; 
         }
         
         .page-title { 
             font-size: 1.5rem; 
             font-weight: 700; 
-            margin-bottom: 20px; 
-            background: linear-gradient(135deg, var(--accent-light) 0%, var(--accent-dark) 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            margin-bottom: 16px; 
         }
         
         .tasks-grid { 
@@ -461,23 +451,11 @@ function writeMainEJS() {
         .task-card, .note-card, .history-date-card, .progress-card { 
             background: var(--card-bg-light); 
             border: 1px solid var(--border-light); 
-            border-radius: 20px; 
+            border-radius: 16px; 
             padding: 16px; 
             transition: all 0.2s ease; 
             word-wrap: break-word; 
-            overflow-wrap: break-word;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
-        }
-        
-        .task-card:hover, .note-card:hover, .progress-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(0,0,0,0.08);
-        }
-        
-        @media (prefers-color-scheme: dark) { 
-            .task-card:hover, .note-card:hover, .progress-card:hover {
-                box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-            }
+            overflow-wrap: break-word; 
         }
         
         @media (prefers-color-scheme: dark) { 
@@ -529,9 +507,9 @@ function writeMainEJS() {
         .task-description { 
             font-size: 0.85rem; 
             color: var(--text-secondary-light); 
-            padding: 8px 10px; 
+            padding: 4px 6px; 
             background: var(--hover-light); 
-            border-radius: 12px; 
+            border-radius: 10px; 
             border-left: 3px solid var(--accent-light); 
             word-break: break-word; 
             white-space: pre-wrap; 
@@ -559,7 +537,7 @@ function writeMainEJS() {
             display: inline-flex; 
             align-items: center; 
             gap: 4px; 
-            padding: 4px 10px; 
+            padding: 3px 8px; 
             background: var(--hover-light); 
             border-radius: 100px; 
             font-size: 0.75rem; 
@@ -582,9 +560,9 @@ function writeMainEJS() {
         }
         
         .action-btn { 
-            width: 32px; 
-            height: 32px; 
-            border-radius: 10px; 
+            width: 30px; 
+            height: 30px; 
+            border-radius: 8px; 
             border: none; 
             background: var(--hover-light); 
             color: var(--text-secondary-light); 
@@ -606,7 +584,6 @@ function writeMainEJS() {
         .action-btn:hover { 
             background: var(--accent-light); 
             color: white; 
-            transform: scale(1.05);
         }
         
         .action-btn.delete:hover { 
@@ -666,7 +643,7 @@ function writeMainEJS() {
             display: flex; 
             flex-direction: column; 
             background: var(--hover-light); 
-            border-radius: 12px; 
+            border-radius: 10px; 
             margin-bottom: 8px; 
             padding: 8px; 
             width: 100%; 
@@ -686,9 +663,9 @@ function writeMainEJS() {
         }
         
         .subtask-checkbox { 
-            width: 22px; 
-            height: 22px; 
-            border-radius: 8px; 
+            width: 20px; 
+            height: 20px; 
+            border-radius: 6px; 
             border: 2px solid var(--accent-light); 
             background: transparent; 
             display: flex; 
@@ -733,9 +710,9 @@ function writeMainEJS() {
         }
         
         .subtask-btn { 
-            width: 28px; 
-            height: 28px; 
-            border-radius: 8px; 
+            width: 26px; 
+            height: 26px; 
+            border-radius: 6px; 
             border: none; 
             background: var(--card-bg-light); 
             color: var(--text-secondary-light); 
@@ -765,16 +742,16 @@ function writeMainEJS() {
         
         .subtask-description-container { 
             margin-top: 6px; 
-            margin-left: 30px; 
-            width: calc(100% - 30px); 
+            margin-left: 28px; 
+            width: calc(100% - 28px); 
         }
         
         .subtask-description { 
             font-size: 0.8rem; 
             color: var(--text-secondary-light); 
-            padding: 6px 8px; 
+            padding: 4px 6px; 
             background: var(--card-bg-light); 
-            border-radius: 10px; 
+            border-radius: 8px; 
             border-left: 2px solid var(--accent-light); 
             word-break: break-word; 
             white-space: pre-wrap; 
@@ -794,7 +771,7 @@ function writeMainEJS() {
         .badge { 
             display: inline-flex; 
             align-items: center; 
-            padding: 4px 10px; 
+            padding: 3px 8px; 
             border-radius: 100px; 
             font-size: 0.7rem; 
             font-weight: 600; 
@@ -842,9 +819,9 @@ function writeMainEJS() {
         .note-content { 
             font-size: 0.85rem; 
             color: var(--text-secondary-light); 
-            padding: 8px 10px; 
+            padding: 4px 6px; 
             background: var(--hover-light); 
-            border-radius: 12px; 
+            border-radius: 10px; 
             border-left: 3px solid var(--accent-light); 
             word-break: break-word; 
             white-space: pre-wrap; 
@@ -895,7 +872,7 @@ function writeMainEJS() {
         }
         
         .month-btn { 
-            padding: 8px 14px; 
+            padding: 6px 12px; 
             border-radius: 100px; 
             border: 1px solid var(--border-light); 
             background: var(--card-bg-light); 
@@ -906,13 +883,6 @@ function writeMainEJS() {
             display: flex; 
             align-items: center; 
             gap: 4px; 
-            transition: all 0.2s ease;
-        }
-        
-        .month-btn:hover {
-            background: var(--accent-light);
-            color: white;
-            border-color: var(--accent-light);
         }
         
         @media (prefers-color-scheme: dark) { 
@@ -920,12 +890,7 @@ function writeMainEJS() {
                 background: var(--card-bg-dark); 
                 border-color: var(--border-dark); 
                 color: var(--text-primary-dark); 
-            }
-            .month-btn:hover {
-                background: var(--accent-dark);
-                color: white;
-                border-color: var(--accent-dark);
-            }
+            } 
         }
         
         .history-date-card { 
@@ -941,7 +906,7 @@ function writeMainEJS() {
         
         .history-task-card { 
             background: var(--hover-light); 
-            border-radius: 14px; 
+            border-radius: 12px; 
             padding: 12px; 
             border-left: 3px solid var(--success-light); 
             word-break: break-word; 
@@ -992,9 +957,9 @@ function writeMainEJS() {
         .history-description { 
             font-size: 0.8rem; 
             color: var(--text-secondary-light); 
-            padding: 6px 8px; 
+            padding: 4px 6px; 
             background: var(--card-bg-light); 
-            border-radius: 10px; 
+            border-radius: 8px; 
             border-left: 2px solid var(--success-light); 
             word-break: break-word; 
             white-space: pre-wrap; 
@@ -1026,19 +991,15 @@ function writeMainEJS() {
         
         /* Progress Tracker Specific Styles */
         .panel-wrapper {
-            margin-bottom: 20px;
+            margin-bottom: 16px;
             border: 1px solid var(--border-light);
-            border-radius: 20px;
+            border-radius: 16px;
             overflow: hidden;
-            background: var(--card-bg-light);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
         }
         
         @media (prefers-color-scheme: dark) {
             .panel-wrapper {
-                background: var(--card-bg-dark);
                 border-color: var(--border-dark);
-                box-shadow: 0 4px 12px rgba(0,0,0,0.1);
             }
         }
         
@@ -1046,25 +1007,25 @@ function writeMainEJS() {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 14px 18px;
+            padding: 12px 16px;
             font-size: 0.95rem;
             font-weight: 600;
             color: var(--text-primary-light);
             cursor: pointer;
             list-style: none;
-            background: linear-gradient(135deg, var(--card-bg-light) 0%, var(--hover-light) 100%);
+            background: var(--card-bg-light);
             border-bottom: 1px solid transparent;
         }
         
         @media (prefers-color-scheme: dark) {
             .panel-summary {
-                background: linear-gradient(135deg, var(--card-bg-dark) 0%, var(--hover-dark) 100%);
+                background: var(--card-bg-dark);
                 color: var(--text-primary-dark);
             }
         }
         
         .panel-summary::-webkit-details-marker { display: none; }
-        .panel-summary i.chevron { transition: transform 0.3s; color: var(--accent-light); }
+        .panel-summary i.chevron { transition: transform 0.3s; color: var(--text-secondary-light); }
         details[open] .panel-summary i.chevron { transform: rotate(180deg); }
         details[open] .panel-summary { border-bottom: 1px solid var(--border-light); }
         
@@ -1072,7 +1033,11 @@ function writeMainEJS() {
             details[open] .panel-summary { border-bottom-color: var(--border-dark); }
         }
         
-        .panel-body { padding: 18px; }
+        .panel-body { padding: 16px; background: var(--card-bg-light); }
+        
+        @media (prefers-color-scheme: dark) {
+            .panel-body { background: var(--card-bg-dark); }
+        }
         
         /* Graphs */
         .graphs-grid-container {
@@ -1097,19 +1062,18 @@ function writeMainEJS() {
             align-items: center;
             justify-content: flex-end;
             width: 12%;
-            max-width: 50px;
+            max-width: 45px;
             height: 100%;
         }
         
         .bar-track {
             width: 100%;
             height: 85%;
-            border-radius: 8px;
+            border-radius: 6px;
             position: relative;
             display: flex;
             align-items: flex-end;
             background: var(--progress-bg-light);
-            overflow: hidden;
         }
         
         @media (prefers-color-scheme: dark) {
@@ -1120,7 +1084,7 @@ function writeMainEJS() {
         
         .bar-fill {
             width: 100%;
-            border-radius: 8px;
+            border-radius: 6px;
             transition: height 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
         
@@ -1148,15 +1112,15 @@ function writeMainEJS() {
         }
         
         .bar-percent {
-            font-size: 0.7rem;
+            font-size: 0.65rem;
             font-weight: 700;
-            color: var(--accent-light);
-            margin-bottom: 6px;
+            color: var(--text-primary-light);
+            margin-bottom: 4px;
         }
         
         @media (prefers-color-scheme: dark) {
             .bar-percent {
-                color: var(--accent-dark);
+                color: var(--text-primary-dark);
             }
         }
         
@@ -1165,25 +1129,24 @@ function writeMainEJS() {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 16px;
+            margin-bottom: 12px;
         }
         
         .month-nav h1 {
-            font-size: 1rem;
+            font-size: 0.9rem;
             font-weight: 600;
             color: var(--text-primary-light);
             margin: 0;
-            background: linear-gradient(135deg, var(--hover-light) 0%, var(--card-bg-light) 100%);
-            padding: 8px 20px;
+            background: var(--hover-light);
+            padding: 6px 14px;
             border-radius: 50px;
             border: 1px solid var(--border-light);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
         }
         
         @media (prefers-color-scheme: dark) {
             .month-nav h1 {
                 color: var(--text-primary-dark);
-                background: linear-gradient(135deg, var(--hover-dark) 0%, var(--card-bg-dark) 100%);
+                background: var(--hover-dark);
                 border-color: var(--border-dark);
             }
         }
@@ -1191,8 +1154,8 @@ function writeMainEJS() {
         .nav-btn {
             background: var(--hover-light);
             border: 1px solid var(--border-light);
-            width: 34px;
-            height: 34px;
+            width: 30px;
+            height: 30px;
             border-radius: 50%;
             cursor: pointer;
             font-size: 0.8rem;
@@ -1200,13 +1163,6 @@ function writeMainEJS() {
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.2s ease;
-        }
-        
-        .nav-btn:hover {
-            background: var(--accent-light);
-            color: white;
-            border-color: var(--accent-light);
         }
         
         @media (prefers-color-scheme: dark) {
@@ -1214,11 +1170,6 @@ function writeMainEJS() {
                 background: var(--hover-dark);
                 border-color: var(--border-dark);
                 color: var(--text-secondary-dark);
-            }
-            .nav-btn:hover {
-                background: var(--accent-dark);
-                color: white;
-                border-color: var(--accent-dark);
             }
         }
         
@@ -1234,7 +1185,7 @@ function writeMainEJS() {
             display: grid;
             grid-template-columns: repeat(7, 1fr);
             grid-template-rows: auto repeat(6, 1fr);
-            gap: 6px;
+            gap: 4px;
         }
         
         .weekday {
@@ -1242,14 +1193,14 @@ function writeMainEJS() {
             align-items: center;
             justify-content: center;
             font-weight: 600;
-            font-size: 0.7rem;
-            color: var(--accent-light);
+            font-size: 0.6rem;
+            color: var(--text-secondary-light);
             text-transform: uppercase;
         }
         
         @media (prefers-color-scheme: dark) {
             .weekday {
-                color: var(--accent-dark);
+                color: var(--text-secondary-dark);
             }
         }
         
@@ -1257,7 +1208,7 @@ function writeMainEJS() {
             display: flex;
             align-items: center;
             justify-content: center;
-            border-radius: 12px;
+            border-radius: 8px;
             position: relative;
         }
         
@@ -1270,16 +1221,16 @@ function writeMainEJS() {
         
         .day-circle {
             width: 100%;
-            max-width: 36px;
+            max-width: 32px;
             aspect-ratio: 1;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: 600;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             color: var(--text-primary-light);
-            transition: all 0.2s ease;
+            transition: transform 0.2s ease;
             position: relative;
         }
         
@@ -1293,8 +1244,8 @@ function writeMainEJS() {
         
         .day-circle.has-data {
             color: #ffffff;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-            text-shadow: 0px 1px 3px rgba(0,0,0,0.5);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            text-shadow: 0px 1px 3px rgba(0,0,0,0.7);
         }
         
         .day-circle.today {
@@ -1318,13 +1269,13 @@ function writeMainEJS() {
             background: var(--card-bg-light);
             backdrop-filter: blur(10px);
             border: 1px solid var(--border-light);
-            border-radius: 18px;
-            padding: 14px;
+            border-radius: 16px;
+            padding: 12px;
             z-index: 1000;
-            min-width: 180px;
-            max-width: 260px;
+            min-width: 160px;
+            max-width: 240px;
             pointer-events: none;
-            box-shadow: 0 15px 30px rgba(0,0,0,0.15);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
             display: none;
             opacity: 0;
             transition: opacity 0.2s ease;
@@ -1344,8 +1295,8 @@ function writeMainEJS() {
         
         .speech-tail {
             position: absolute;
-            width: 14px;
-            height: 14px;
+            width: 12px;
+            height: 12px;
             background: var(--card-bg-light);
             border: 1px solid var(--border-light);
             z-index: -1;
@@ -1360,17 +1311,17 @@ function writeMainEJS() {
         }
         
         .speech-date {
-            font-size: 0.7rem;
+            font-size: 0.65rem;
             font-weight: 600;
-            color: var(--accent-light);
-            margin-bottom: 8px;
+            color: var(--text-secondary-light);
+            margin-bottom: 6px;
             border-bottom: 1px solid var(--border-light);
             padding-bottom: 6px;
         }
         
         @media (prefers-color-scheme: dark) {
             .speech-date {
-                color: var(--accent-dark);
+                color: var(--text-secondary-dark);
                 border-bottom-color: var(--border-dark);
             }
         }
@@ -1379,8 +1330,8 @@ function writeMainEJS() {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 6px 0;
-            font-size: 0.8rem;
+            padding: 4px 0;
+            font-size: 0.75rem;
             font-weight: 500;
         }
         
@@ -1400,23 +1351,29 @@ function writeMainEJS() {
         .progress-title-section {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
             flex: 1;
             min-width: 0;
         }
         
         .progress-title-section .chevron-icon {
-            font-size: 0.8rem;
-            color: var(--accent-light);
+            font-size: 0.7rem;
+            color: var(--text-secondary-light);
             transition: transform 0.2s;
             flex-shrink: 0;
+        }
+        
+        @media (prefers-color-scheme: dark) {
+            .progress-title-section .chevron-icon {
+                color: var(--text-secondary-dark);
+            }
         }
         
         details.progress-details[open] .chevron-icon { transform: rotate(90deg); }
         
         .progress-title {
             font-weight: 600;
-            font-size: 1rem;
+            font-size: 0.95rem;
             color: var(--text-primary-light);
             word-break: break-word;
         }
@@ -1436,15 +1393,15 @@ function writeMainEJS() {
         
         .progress-description-container {
             width: 100%;
-            margin-top: 10px;
+            margin-top: 8px;
         }
         
         .progress-description {
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             color: var(--text-secondary-light);
-            padding: 8px 12px;
+            padding: 6px 10px;
             background: var(--hover-light);
-            border-radius: 12px;
+            border-radius: 10px;
             border-left: 3px solid;
             word-break: break-word;
             white-space: pre-wrap;
@@ -1462,19 +1419,18 @@ function writeMainEJS() {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-top: 12px;
+            margin-top: 10px;
             width: 100%;
-            gap: 8px;
+            gap: 6px;
             flex-wrap: wrap;
         }
         
         .color-dot {
-            width: 24px;
-            height: 24px;
+            width: 20px;
+            height: 20px;
             border-radius: 50%;
             border: 2px solid var(--border-light);
             flex-shrink: 0;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         
         @media (prefers-color-scheme: dark) {
@@ -1487,18 +1443,17 @@ function writeMainEJS() {
         .color-palette {
             display: flex;
             flex-wrap: wrap;
-            gap: 10px;
-            margin: 12px 0;
+            gap: 8px;
+            margin: 10px 0;
         }
         
         .color-swatch {
-            width: 32px;
-            height: 32px;
+            width: 28px;
+            height: 28px;
             border-radius: 50%;
             cursor: pointer;
             border: 2px solid transparent;
             transition: all 0.2s ease;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
         }
         
         .color-swatch.selected {
@@ -1519,11 +1474,10 @@ function writeMainEJS() {
             display: flex;
             align-items: center;
             gap: 8px;
-            margin: 15px 0;
+            margin: 12px 0;
             font-weight: 500;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             color: var(--text-primary-light);
-            cursor: pointer;
         }
         
         @media (prefers-color-scheme: dark) {
@@ -1533,8 +1487,8 @@ function writeMainEJS() {
         }
         
         .checkbox-group input {
-            width: 18px;
-            height: 18px;
+            width: 16px;
+            height: 16px;
             cursor: pointer;
             accent-color: var(--accent-light);
         }
@@ -1542,9 +1496,9 @@ function writeMainEJS() {
         .hidden-fields {
             display: none;
             background: var(--hover-light);
-            padding: 16px;
-            border-radius: 16px;
-            margin-bottom: 15px;
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 12px;
         }
         
         @media (prefers-color-scheme: dark) {
@@ -1562,7 +1516,7 @@ function writeMainEJS() {
             width: 100%;
             height: 100%;
             background: var(--modal-backdrop);
-            backdrop-filter: blur(8px);
+            backdrop-filter: blur(4px);
             align-items: center;
             justify-content: center;
             z-index: 2000;
@@ -1579,13 +1533,13 @@ function writeMainEJS() {
         .modal-content {
             background: var(--card-bg-light);
             border: 1px solid var(--border-light);
-            border-radius: 28px;
-            padding: 24px;
+            border-radius: 24px;
+            padding: 20px;
             width: 100%;
-            max-width: 480px;
+            max-width: 450px;
             max-height: 85vh;
             overflow-y: auto;
-            box-shadow: 0 25px 50px rgba(0,0,0,0.25);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
             transform: scale(0.95);
             transition: transform 0.3s ease;
         }
@@ -1603,8 +1557,8 @@ function writeMainEJS() {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 12px;
+            margin-bottom: 16px;
+            padding-bottom: 10px;
             border-bottom: 1px solid var(--border-light);
         }
         
@@ -1615,26 +1569,28 @@ function writeMainEJS() {
         }
         
         .modal-header h2 {
-            font-size: 1.2rem;
-            font-weight: 700;
+            font-size: 1.1rem;
+            font-weight: 600;
             color: var(--text-primary-light);
-            background: linear-gradient(135deg, var(--accent-light) 0%, var(--accent-dark) 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+        }
+        
+        @media (prefers-color-scheme: dark) {
+            .modal-header h2 {
+                color: var(--text-primary-dark);
+            }
         }
         
         .close-btn {
             background: var(--hover-light);
             border: none;
-            width: 34px;
-            height: 34px;
+            width: 30px;
+            height: 30px;
             border-radius: 50%;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.9rem;
+            font-size: 0.8rem;
             color: var(--text-secondary-light);
             transition: all 0.2s ease;
         }
@@ -1646,21 +1602,17 @@ function writeMainEJS() {
             }
         }
         
-        .close-btn:hover { 
-            background: var(--danger-light); 
-            color: white;
-            transform: rotate(90deg);
-        }
+        .close-btn:hover { background: var(--danger-light); color: white; }
         
         .form-group {
-            margin-bottom: 16px;
+            margin-bottom: 12px;
         }
         
         .form-group label {
             display: block;
-            font-weight: 600;
-            margin-bottom: 6px;
-            font-size: 0.8rem;
+            font-weight: 500;
+            margin-bottom: 4px;
+            font-size: 0.75rem;
             color: var(--text-secondary-light);
         }
         
@@ -1672,15 +1624,14 @@ function writeMainEJS() {
         
         .form-control {
             width: 100%;
-            padding: 12px 14px;
+            padding: 10px 12px;
             border: 1px solid var(--border-light);
-            border-radius: 14px;
-            font-size: 0.9rem;
+            border-radius: 10px;
+            font-size: 0.85rem;
             outline: none;
             background: var(--bg-light);
             color: var(--text-primary-light);
             font-family: 'Inter', sans-serif;
-            transition: all 0.2s ease;
         }
         
         @media (prefers-color-scheme: dark) {
@@ -1693,127 +1644,79 @@ function writeMainEJS() {
         
         .form-control:focus {
             border-color: var(--accent-light);
-            box-shadow: 0 0 0 3px var(--accent-soft-light);
         }
         
         textarea.form-control {
-            min-height: 80px;
+            min-height: 70px;
             resize: vertical;
         }
         
         .btn-submit {
             width: 100%;
-            padding: 14px;
-            background: linear-gradient(135deg, var(--accent-light) 0%, var(--accent-dark) 100%);
+            padding: 12px;
+            background: var(--accent-light);
             color: white;
             border: none;
-            border-radius: 100px;
+            border-radius: 12px;
             font-weight: 600;
-            font-size: 0.95rem;
-            cursor: pointer;
-            margin-top: 16px;
-            transition: all 0.2s ease;
-            box-shadow: 0 4px 12px rgba(37,99,235,0.3);
-        }
-        
-        .btn-submit:hover { 
-            opacity: 0.9; 
-            transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(37,99,235,0.4);
-        }
-        
-        .btn-submit:disabled { 
-            opacity: 0.5; 
-            cursor: not-allowed;
-            transform: none;
-        }
-        
-        /* Toast Notifications */
-        .toast-container {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 9999;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-        
-        .toast {
-            background: var(--card-bg-light);
-            color: var(--text-primary-light);
-            padding: 12px 24px;
-            border-radius: 100px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
             font-size: 0.9rem;
-            font-weight: 500;
-            border-left: 4px solid;
-            animation: slideIn 0.3s ease;
-            max-width: 350px;
-            backdrop-filter: blur(10px);
+            cursor: pointer;
+            margin-top: 12px;
+            transition: all 0.2s ease;
         }
         
         @media (prefers-color-scheme: dark) {
-            .toast {
-                background: var(--card-bg-dark);
-                color: var(--text-primary-dark);
+            .btn-submit {
+                background: var(--accent-dark);
             }
         }
         
-        .toast.success { border-left-color: var(--success-light); }
-        .toast.error { border-left-color: var(--danger-light); }
-        .toast.warning { border-left-color: var(--warning-light); }
+        .btn-submit:hover { opacity: 0.9; transform: translateY(-1px); }
+        .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
         
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
+        /* Log View */
+        #log-list-view, #log-question-view {
+            transition: all 0.2s ease;
         }
         
-        .loader {
+        #log-question-view { display: none; }
+        
+        .fab {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: var(--modal-backdrop);
-            backdrop-filter: blur(8px);
-            display: none;
+            bottom: 24px;
+            right: 24px;
+            width: 56px;
+            height: 56px;
+            border-radius: 28px;
+            background: var(--accent-light);
+            color: white;
+            border: none;
+            font-size: 1.3rem;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(37,99,235,0.3);
+            transition: all 0.2s ease;
+            display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 9998;
-        }
-        
-        .spinner {
-            width: 50px;
-            height: 50px;
-            border: 4px solid var(--border-light);
-            border-top: 4px solid var(--accent-light);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
+            z-index: 99;
         }
         
         @media (prefers-color-scheme: dark) {
-            .spinner {
-                border: 4px solid var(--border-dark);
-                border-top: 4px solid var(--accent-dark);
+            .fab {
+                background: var(--accent-dark);
+                box-shadow: 0 4px 12px rgba(96,165,250,0.3);
             }
         }
         
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
+        .fab:hover { transform: scale(1.05); }
         
         .empty-state {
             text-align: center;
-            padding: 40px 20px;
+            padding: 30px 20px;
             color: var(--text-secondary-light);
             background: var(--hover-light);
-            border-radius: 24px;
-            font-size: 0.9rem;
+            border-radius: 16px;
+            font-size: 0.85rem;
         }
         
         @media (prefers-color-scheme: dark) {
@@ -1823,51 +1726,21 @@ function writeMainEJS() {
             }
         }
         
-        .fab {
-            position: fixed;
-            bottom: 24px;
-            right: 24px;
-            width: 60px;
-            height: 60px;
-            border-radius: 30px;
-            background: linear-gradient(135deg, var(--accent-light) 0%, var(--accent-dark) 100%);
-            color: white;
-            border: none;
-            font-size: 1.5rem;
-            cursor: pointer;
-            box-shadow: 0 8px 20px rgba(37,99,235,0.4);
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 99;
-        }
-        
-        .fab:hover { 
-            transform: scale(1.1) rotate(90deg);
-            box-shadow: 0 12px 28px rgba(37,99,235,0.5);
-        }
-        
         .task-title-container {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
             cursor: pointer;
         }
         
         .task-title-container i {
-            font-size: 0.8rem;
+            font-size: 0.7rem;
             color: var(--accent-light);
-            transition: transform 0.2s;
-        }
-        
-        .task-title-container:hover i {
-            transform: translateX(3px);
         }
         
         .hidden { display: none; }
         .w-100 { width: 100%; }
-        .flex-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .flex-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         
         @media (max-width: 768px) {
             .nav-container {
@@ -1906,49 +1779,36 @@ function writeMainEJS() {
             }
             
             .day-circle {
-                max-width: 30px;
-                font-size: 0.7rem;
+                max-width: 28px;
+                font-size: 0.65rem;
             }
             
             .fab {
-                width: 52px;
-                height: 52px;
-                font-size: 1.3rem;
+                width: 48px;
+                height: 48px;
+                font-size: 1.1rem;
                 bottom: 16px;
                 right: 16px;
-            }
-            
-            .modal-content {
-                padding: 18px;
             }
         }
         
         @media (max-width: 480px) {
             .day-circle {
-                max-width: 26px;
-                font-size: 0.65rem;
+                max-width: 24px;
+                font-size: 0.6rem;
             }
             
             .calendar-grid {
-                gap: 3px;
+                gap: 2px;
             }
             
             .bar-percent {
-                font-size: 0.6rem;
+                font-size: 0.55rem;
             }
             
             .bar-label-inner {
                 font-size: 0.5rem;
                 padding: 2px 1px;
-            }
-            
-            .nav-btn {
-                padding: 6px 8px;
-                font-size: 0.7rem;
-            }
-            
-            .nav-btn i {
-                font-size: 0.8rem;
             }
         }
     </style>
@@ -2026,7 +1886,7 @@ function writeMainEJS() {
                     <input type="number" class="form-control" name="repeatCount" value="7" min="1" max="365">
                 </div>
                 <div style="display: flex; gap: 12px; margin-top: 16px;">
-                    <button type="button" class="btn-submit" style="background: var(--hover-light); color: var(--text-secondary-light); box-shadow: none;" onclick="closeModal('addTaskModal')">Cancel</button>
+                    <button type="button" class="btn-submit" style="background: var(--hover-light); color: var(--text-secondary-light);" onclick="closeModal('addTaskModal')">Cancel</button>
                     <button type="submit" class="btn-submit">Create Task</button>
                 </div>
             </form>
@@ -2076,7 +1936,7 @@ function writeMainEJS() {
                     <input type="number" class="form-control" name="repeatCount" id="editRepeatCount" min="1" max="365">
                 </div>
                 <div style="display: flex; gap: 12px; margin-top: 16px;">
-                    <button type="button" class="btn-submit" style="background: var(--hover-light); color: var(--text-secondary-light); box-shadow: none;" onclick="closeModal('editTaskModal')">Cancel</button>
+                    <button type="button" class="btn-submit" style="background: var(--hover-light); color: var(--text-secondary-light);" onclick="closeModal('editTaskModal')">Cancel</button>
                     <button type="submit" class="btn-submit">Update</button>
                 </div>
             </form>
@@ -2100,7 +1960,7 @@ function writeMainEJS() {
                     <textarea class="form-control" name="description" rows="3"></textarea>
                 </div>
                 <div style="display: flex; gap: 12px; margin-top: 16px;">
-                    <button type="button" class="btn-submit" style="background: var(--hover-light); color: var(--text-secondary-light); box-shadow: none;" onclick="closeModal('addSubtaskModal')">Cancel</button>
+                    <button type="button" class="btn-submit" style="background: var(--hover-light); color: var(--text-secondary-light);" onclick="closeModal('addSubtaskModal')">Cancel</button>
                     <button type="submit" class="btn-submit">Add</button>
                 </div>
             </form>
@@ -2125,7 +1985,7 @@ function writeMainEJS() {
                     <textarea class="form-control" name="description" id="editSubtaskDescription" rows="3"></textarea>
                 </div>
                 <div style="display: flex; gap: 12px; margin-top: 16px;">
-                    <button type="button" class="btn-submit" style="background: var(--hover-light); color: var(--text-secondary-light); box-shadow: none;" onclick="closeModal('editSubtaskModal')">Cancel</button>
+                    <button type="button" class="btn-submit" style="background: var(--hover-light); color: var(--text-secondary-light);" onclick="closeModal('editSubtaskModal')">Cancel</button>
                     <button type="submit" class="btn-submit">Update</button>
                 </div>
             </form>
@@ -2149,7 +2009,7 @@ function writeMainEJS() {
                     <textarea class="form-control" name="description" rows="4"></textarea>
                 </div>
                 <div style="display: flex; gap: 12px; margin-top: 16px;">
-                    <button type="button" class="btn-submit" style="background: var(--hover-light); color: var(--text-secondary-light); box-shadow: none;" onclick="closeModal('addNoteModal')">Cancel</button>
+                    <button type="button" class="btn-submit" style="background: var(--hover-light); color: var(--text-secondary-light);" onclick="closeModal('addNoteModal')">Cancel</button>
                     <button type="submit" class="btn-submit">Save</button>
                 </div>
             </form>
@@ -2173,7 +2033,7 @@ function writeMainEJS() {
                     <textarea class="form-control" name="description" id="editNoteDescription" rows="4"></textarea>
                 </div>
                 <div style="display: flex; gap: 12px; margin-top: 16px;">
-                    <button type="button" class="btn-submit" style="background: var(--hover-light); color: var(--text-secondary-light); box-shadow: none;" onclick="closeModal('editNoteModal')">Cancel</button>
+                    <button type="button" class="btn-submit" style="background: var(--hover-light); color: var(--text-secondary-light);" onclick="closeModal('editNoteModal')">Cancel</button>
                     <button type="submit" class="btn-submit">Update</button>
                 </div>
             </form>
@@ -2203,7 +2063,7 @@ function writeMainEJS() {
                     </div>
                     <div class="form-group">
                         <label>Duration (Days)</label>
-                        <input type="number" class="form-control" id="p-end-count" value="365" required min="1" max="3650">
+                        <input type="number" class="form-control" id="p-end-count" value="365" required>
                     </div>
                 </div>
                 <div class="form-group">
@@ -2329,7 +2189,7 @@ function writeMainEJS() {
                 </div>
                 <div id="l-desc-container"></div>
                 <div class="form-group">
-                    <label id="l-question" style="font-size: 0.9rem;"></label>
+                    <label id="l-question" style="font-size: 0.8rem;"></label>
                     <div id="l-input-wrapper"></div>
                 </div>
                 <button class="btn-submit" id="save-log-btn">Save Progress</button>
@@ -2347,47 +2207,7 @@ function writeMainEJS() {
         tg.ready();
         tg.expand();
 
-        // Chrome Notification Support
-        function setupBrowserNotifications() {
-            if (!("Notification" in window)) return;
-            if (Notification.permission !== "granted" && Notification.permission !== "denied") {
-                Notification.requestPermission();
-            }
-        }
-        
-        function showBrowserNotification(title, bodyText) {
-            if ("Notification" in window && Notification.permission === "granted") {
-                const n = new Notification(title, { body: bodyText, icon: "https://telegram.org/favicon.ico" });
-                setTimeout(() => n.close(), 5000);
-            }
-        }
-        
-        setupBrowserNotifications();
-
-        function showToast(message, type = 'success') {
-            const container = document.getElementById('toastContainer');
-            const toast = document.createElement('div');
-            toast.className = 'toast ' + type;
-            
-            let icon = 'fa-check-circle';
-            if (type === 'error') icon = 'fa-exclamation-circle';
-            else if (type === 'warning') icon = 'fa-exclamation-triangle';
-            
-            toast.innerHTML = '<i class="fas ' + icon + '"></i><span>' + message + '</span>';
-            container.appendChild(toast);
-            showBrowserNotification("Task Manager", message);
-            
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.style.transform = 'translateX(100%)';
-                toast.style.transition = 'all 0.3s ease';
-                setTimeout(() => toast.remove(), 300);
-            }, 3000);
-        }
-
-        function showLoader() { document.getElementById('loader').style.display = 'flex'; }
-        function hideLoader() { document.getElementById('loader').style.display = 'none'; }
-
+        // Global variables
         let currentPage = '<%= currentPage %>';
         let tasksData = <%- JSON.stringify(tasks || []) %>;
         let notesData = <%- JSON.stringify(notes || []) %>;
@@ -2401,6 +2221,7 @@ function writeMainEJS() {
         // Progress colors
         const paletteColors = ['#ec4899', '#a855f7', '#38bdf8', '#ef4444', '#f97316', '#16a34a', '#84cc16', '#3b82f6'];
 
+        // Initialize today's date in IST
         function calculateISTDate() {
             const now = new Date();
             const istOffset = 5.5 * 60 * 60 * 1000;
@@ -2414,22 +2235,46 @@ function writeMainEJS() {
         }
         calculateISTDate();
 
+        // Ensure progressData has proper structure
+        if (!progressData.items) progressData.items = [];
+        if (!progressData.progress) progressData.progress = {};
+
+        function showLoader() { document.getElementById('loader').style.display = 'flex'; }
+        function hideLoader() { document.getElementById('loader').style.display = 'none'; }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            if (type === 'error') toast.style.background = '#dc2626';
+            else if (type === 'warning') toast.style.background = '#d97706';
+            let icon = type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle';
+            toast.innerHTML = '<i class="fas ' + icon + '"></i><span>' + message + '</span>';
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100%)';
+                toast.style.transition = 'all 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
         function switchPage(page) {
             showLoader();
             fetch('/api/page/' + page).then(res => res.json()).then(data => {
                 currentPage = page;
                 tasksData = data.tasks || [];
                 notesData = data.notes || [];
-                progressData = data.progress || { items: [], progress: {} };
+                if (data.progress) {
+                    progressData = data.progress;
+                    if (!progressData.items) progressData.items = [];
+                    if (!progressData.progress) progressData.progress = {};
+                }
                 historyData = data.groupedHistory || {};
                 renderPage();
                 updateActiveNav();
                 hideLoader();
-            }).catch(err => { 
-                console.error(err);
-                showToast('Error loading page', 'error'); 
-                hideLoader(); 
-            });
+            }).catch(err => { showToast('Error loading page', 'error'); hideLoader(); });
         }
 
         function updateActiveNav() {
@@ -2467,7 +2312,7 @@ function writeMainEJS() {
         
         function preserveLineBreaks(text) { 
             if (!text) return '';
-            return escapeHtml(text).replace(/\\n/g, '<br>').replace(/\\r\\n/g, '<br>'); 
+            return escapeHtml(text).replace(/\\n/g, '<br>'); 
         }
         
         function escapeJsString(str) {
@@ -2485,9 +2330,9 @@ function writeMainEJS() {
 
         // ==================== TASKS RENDERING ====================
         function renderTasksPage() {
-            let html = '<h1 class="page-title">Today\'s Tasks</h1><div class="tasks-grid">';
+            let html = '<h1 class="page-title">Today\\'s Tasks</h1><div class="tasks-grid">';
             if (!tasksData || tasksData.length === 0) {
-                html += '<div class="empty-state" style="grid-column: 1/-1;"><i class="fas fa-clipboard-list" style="font-size: 2.5rem; margin-bottom: 16px;"></i><h3 style="margin-top: 12px;">No tasks for today</h3><p style="margin-top: 8px;">Click the + button to add a new task</p></div>';
+                html += '<div class="empty-state" style="grid-column: 1/-1;"><i class="fas fa-clipboard-list" style="font-size: 2rem;"></i><h3 style="margin-top: 12px;">No tasks</h3></div>';
             } else {
                 tasksData.forEach((task) => {
                     const hasDescription = hasContent(task.description);
@@ -2532,7 +2377,7 @@ function writeMainEJS() {
         function renderNotesPage() {
             let html = '<h1 class="page-title">Notes</h1><div class="tasks-grid">';
             if (!notesData || notesData.length === 0) {
-                html += '<div class="empty-state" style="grid-column: 1/-1;"><i class="fas fa-note-sticky" style="font-size: 2.5rem; margin-bottom: 16px;"></i><h3 style="margin-top: 12px;">No notes</h3><p style="margin-top: 8px;">Click the + button to create a new note</p></div>';
+                html += '<div class="empty-state" style="grid-column: 1/-1;"><i class="fas fa-note-sticky" style="font-size: 2rem;"></i><h3 style="margin-top: 12px;">No notes</h3></div>';
             } else {
                 notesData.forEach(note => {
                     const hasDescription = hasContent(note.description);
@@ -2559,12 +2404,12 @@ function writeMainEJS() {
             let html = '<h1 class="page-title">Progress Tracker</h1>';
             
             if (!progressData.items || progressData.items.length === 0) {
-                html += '<div class="empty-state"><i class="fas fa-chart-line" style="font-size:2.5rem; margin-bottom:16px;"></i><h3>No progress tracked yet</h3><p style="margin-top:8px;">Click the + button to start tracking your habits</p></div>';
+                html += '<div class="empty-state"><i class="fas fa-chart-line" style="font-size:2rem; margin-bottom:10px;"></i><br>No progress tracked yet. Add one via the + button.</div>';
                 return html;
             }
 
             // Graphs Panel
-            html += '<details class="panel-wrapper" open><summary class="panel-summary"><span>Progress Overview</span><i class="fas fa-chevron-down chevron"></i></summary><div class="panel-body">';
+            html += '<details class="panel-wrapper" open><summary class="panel-summary"><span>Progress Overview</span><i class="fas fa-chevron-down chevron"></i></summary><div class="panel-body" id="graphs-container">';
             html += renderGraphs();
             html += '</div></details>';
 
@@ -2608,7 +2453,7 @@ function writeMainEJS() {
             html += '</div></div></div></details>';
 
             // Manage Progress Panel
-            html += '<details class="panel-wrapper" open><summary class="panel-summary"><span>Manage Progress</span><i class="fas fa-chevron-down chevron"></i></summary><div class="panel-body">';
+            html += '<details class="panel-wrapper" open><summary class="panel-summary"><span>Manage Progress</span><i class="fas fa-chevron-down chevron"></i></summary><div class="panel-body" id="progress-manage-list">';
             html += renderProgressList();
             html += '</div></details>';
 
@@ -2644,7 +2489,7 @@ function writeMainEJS() {
 
                 const lightColor = item.color + '40'; 
 
-                html += '<div class="bar-col"><div class="bar-percent">' + Math.round(percentage) + '%</div><div class="bar-track" style="background-color: ' + lightColor + ';" title="' + escapeHtml(item.title) + ': ' + completedCount + '/' + totalDaysSoFar + ' Days"><div class="bar-fill" style="height: ' + percentage + '%; background-color: ' + item.color + ';"></div><div class="bar-label-inner">' + escapeHtml(item.title) + '</div></div></div>';
+                html += '<div class="bar-col"><div class="bar-percent">' + Math.round(percentage) + '%</div><div class="bar-track" style="background-color: ' + lightColor + ';" title="' + item.title + ': ' + completedCount + '/' + totalDaysSoFar + ' Days"><div class="bar-fill" style="height: ' + percentage + '%; background-color: ' + item.color + ';"></div><div class="bar-label-inner">' + item.title + '</div></div></div>';
             });
             
             html += '</div></div>';
@@ -2653,7 +2498,7 @@ function writeMainEJS() {
 
         function renderProgressList() {
             if(progressData.items.length === 0) {
-                return '<div class="empty-state"><i class="fas fa-clipboard-list" style="font-size:2.5rem; margin-bottom:16px;"></i><h3>No progress items</h3><p style="margin-top:8px;">Click the + button to add your first progress tracker</p></div>';
+                return '<div class="empty-state"><i class="fas fa-clipboard-list" style="font-size:2rem; margin-bottom:10px;"></i><br>No progress tracked yet. Add one via the + button.</div>';
             }
 
             let html = '';
@@ -2694,7 +2539,7 @@ function writeMainEJS() {
             let bubbleHtml = '<div class="speech-date">' + dObj.toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'}) + '</div>';
             
             if(activeItems.length === 0) {
-                bubbleHtml += '<div style="font-size:0.8rem; color:var(--text-secondary-light); text-align:center;">No progress active.</div>';
+                bubbleHtml += '<div style="font-size:0.75rem; color:var(--text-secondary-light); text-align:center;">No progress active.</div>';
             } else {
                 activeItems.forEach(g => {
                     const isDone = dayData[g.id] !== undefined;
@@ -2709,11 +2554,11 @@ function writeMainEJS() {
             const cellRect = cellEl.getBoundingClientRect();
             
             let bubbleX = (window.innerWidth / 2) - (bRect.width / 2);
-            let bubbleY = cellRect.top - bRect.height - 10; 
+            let bubbleY = cellRect.top - bRect.height - 6.5; 
             let placeBelow = false;
 
             if (bubbleY < 10) { 
-                bubbleY = cellRect.bottom + 10; 
+                bubbleY = cellRect.bottom + 6.5; 
                 placeBelow = true; 
             }
 
@@ -2726,10 +2571,10 @@ function writeMainEJS() {
             tail.style.left = tailX + 'px';
             
             if (placeBelow) {
-                tail.style.top = '-7px'; tail.style.bottom = 'auto';
+                tail.style.top = '-6.5px'; tail.style.bottom = 'auto';
                 tail.style.transform = 'translateX(-50%) rotate(225deg)'; 
             } else {
-                tail.style.bottom = '-7px'; tail.style.top = 'auto';
+                tail.style.bottom = '-6.5px'; tail.style.top = 'auto';
                 tail.style.transform = 'translateX(-50%) rotate(45deg)'; 
             }
             
@@ -2742,11 +2587,11 @@ function writeMainEJS() {
             const filteredHistory = filterHistoryByMonth(historyData, currentYear, currentMonth);
             const dates = Object.keys(filteredHistory).sort().reverse();
             if (dates.length === 0) {
-                html += '<div class="empty-state"><i class="fas fa-history" style="font-size: 2.5rem; margin-bottom:16px;"></i><h3>No history</h3><p style="margin-top:8px;">Completed tasks will appear here</p></div>';
+                html += '<div class="empty-state"><i class="fas fa-history" style="font-size: 2rem;"></i><h3 style="margin-top: 12px;">No history</h3></div>';
             } else {
                 dates.forEach(date => {
                     const tasks = filteredHistory[date];
-                    html += '<div class="history-date-card"><details class="history-details" open><summary style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px;"><i class="fas fa-calendar-alt" style="color: var(--accent-light);"></i><span style="font-weight: 600;">' + date + '</span><span class="badge" style="margin-left: auto;">' + tasks.length + ' tasks</span></summary><div class="history-tasks-grid">';
+                    html += '<div class="history-date-card"><details class="history-details"><summary><i class="fas fa-calendar-alt"></i><span style="font-weight: 600;">' + date + '</span><span class="badge" style="margin-left: auto;">' + tasks.length + ' tasks</span></summary><div class="history-tasks-grid">';
                     tasks.forEach(task => {
                         const hasDescription = hasContent(task.description);
                         const historyDescId = 'history_desc_' + task._id;
@@ -2781,10 +2626,7 @@ function writeMainEJS() {
             return filtered;
         }
 
-        function formatTime(dateString) { 
-            if (!dateString) return '';
-            return new Date(dateString).toISOString().split('T')[1].substring(0, 5); 
-        }
+        function formatTime(dateString) { return new Date(dateString).toISOString().split('T')[1].substring(0, 5); }
 
         // ==================== MODAL FUNCTIONS ====================
         function openModal(modalId) { 
@@ -2868,9 +2710,7 @@ function writeMainEJS() {
         function openAddProgressModal() {
             document.getElementById('p-start-date').value = todayStr;
             document.getElementById('p-type').value = 'boolean';
-            document.getElementById('p-has-data').checked = false;
-            document.getElementById('data-fields').style.display = 'none';
-            document.getElementById('start-goal-wrapper').style.display = 'none';
+            toggleStartGoalData('add');
             initColorPalette(); 
             openModal('addProgressModal');
         }
@@ -2926,6 +2766,8 @@ function writeMainEJS() {
         }
 
         window.handleLogAction = (e, itemId, dateStr) => {
+            e.preventDefault();
+            e.stopPropagation();
             const btn = e.currentTarget;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
             btn.style.background = 'var(--hover-light)';
@@ -2933,8 +2775,11 @@ function writeMainEJS() {
             btn.disabled = true;
 
             const item = progressData.items.find(g => g.id === itemId);
-            if (item.hasData && item.type !== 'boolean') openLogQuestion(item, dateStr);
-            else saveDirectComplete(item, dateStr);
+            if (item.hasData && item.type !== 'boolean') {
+                openLogQuestion(item, dateStr);
+            } else {
+                saveDirectComplete(item, dateStr);
+            }
         };
 
         function openLogQuestion(item, dateStr) {
@@ -2951,8 +2796,8 @@ function writeMainEJS() {
             document.getElementById('l-question').innerText = item.question;
 
             const wrapper = document.getElementById('l-input-wrapper');
-            if (item.type === 'float') wrapper.innerHTML = '<input type="number" step="0.01" class="form-control" id="log-input" placeholder="Enter value">';
-            else wrapper.innerHTML = '<input type="number" step="1" class="form-control" id="log-input" placeholder="Enter value">';
+            if (item.type === 'float') wrapper.innerHTML = '<input type="number" step="0.01" class="form-control" id="log-input" placeholder="0.00">';
+            else wrapper.innerHTML = '<input type="number" step="1" class="form-control" id="log-input" placeholder="0">';
 
             document.getElementById('log-list-view').style.display = 'none';
             document.getElementById('log-question-view').style.display = 'block';
@@ -2972,7 +2817,6 @@ function writeMainEJS() {
                 closeModal('logProgressModal');
                 const cell = document.querySelector('.day-cell[data-date="' + dateStr + '"]');
                 if (cell) showBubble(cell, dateStr);
-                showToast('Progress saved for ' + dateStr);
             } else openLogModal(dateStr);
         }
 
@@ -3007,7 +2851,14 @@ function writeMainEJS() {
                 document.getElementById('create-progress-btn').disabled = true;
             }
             
-            container.onclick = (e) => handlePaletteClick(e, container, input, false);
+            container.onclick = (e) => {
+                const swatch = e.target.closest('.color-swatch');
+                if (swatch && !swatch.classList.contains('hidden')) {
+                    container.querySelectorAll('.color-swatch').forEach(el => el.classList.remove('selected'));
+                    swatch.classList.add('selected');
+                    input.value = swatch.dataset.color;
+                }
+            };
         }
 
         function initEditColorPalette(currentColor) {
@@ -3022,26 +2873,21 @@ function writeMainEJS() {
             
             container.innerHTML = html;
             input.value = currentColor;
-            container.onclick = (e) => handlePaletteClick(e, container, input, true);
-        }
-
-        function handlePaletteClick(e, container, inputElement, isEditMode) {
-            if(e.target.classList.contains('color-swatch') && (isEditMode || !e.target.classList.contains('hidden'))) {
-                container.querySelectorAll('.color-swatch').forEach(el => el.classList.remove('selected'));
-                e.target.classList.add('selected');
-                inputElement.value = e.target.dataset.color;
-            }
+            container.onclick = (e) => {
+                const swatch = e.target.closest('.color-swatch');
+                if (swatch) {
+                    container.querySelectorAll('.color-swatch').forEach(el => el.classList.remove('selected'));
+                    swatch.classList.add('selected');
+                    input.value = swatch.dataset.color;
+                }
+            };
         }
 
         function toggleDataFields(mode) {
             const prefix = mode === 'add' ? 'p' : 'edit-p';
             const hasData = document.getElementById(prefix + '-has-data').checked;
             document.getElementById(mode === 'add' ? 'data-fields' : 'edit-data-fields').style.display = hasData ? 'block' : 'none';
-            if (!hasData) {
-                document.getElementById(mode === 'add' ? 'start-goal-wrapper' : 'edit-start-goal-wrapper').style.display = 'none';
-            } else {
-                toggleStartGoalData(mode);
-            }
+            toggleStartGoalData(mode);
         }
 
         function toggleStartGoalData(mode) {
@@ -3125,7 +2971,9 @@ function writeMainEJS() {
         }
 
         function submitProgressForm(event) {
-            event.preventDefault(); showLoader();
+            event.preventDefault(); 
+            showLoader();
+            
             const formData = new FormData();
             const hasData = document.getElementById('p-has-data').checked;
             const type = document.getElementById('p-type').value;
@@ -3135,7 +2983,7 @@ function writeMainEJS() {
             formData.append('startDate', document.getElementById('p-start-date').value);
             formData.append('endCount', document.getElementById('p-end-count').value);
             formData.append('color', document.getElementById('p-color').value);
-            formData.append('hasData', hasData ? 'true' : 'false');
+            formData.append('hasData', hasData);
             formData.append('type', hasData ? type : 'boolean');
 
             if (hasData) {
@@ -3160,7 +3008,9 @@ function writeMainEJS() {
         }
 
         function submitEditProgressForm(event) {
-            event.preventDefault(); showLoader();
+            event.preventDefault(); 
+            showLoader();
+            
             const formData = new FormData();
             const itemId = document.getElementById('edit-p-id').value;
             const hasData = document.getElementById('edit-p-has-data').checked;
@@ -3172,7 +3022,7 @@ function writeMainEJS() {
             formData.append('startDate', document.getElementById('edit-p-start-date').value);
             formData.append('endCount', document.getElementById('edit-p-end-count').value);
             formData.append('color', document.getElementById('edit-p-color').value);
-            formData.append('hasData', hasData ? 'true' : 'false');
+            formData.append('hasData', hasData);
             formData.append('type', hasData ? type : 'boolean');
 
             if (hasData) {
@@ -3196,8 +3046,6 @@ function writeMainEJS() {
 
         document.getElementById('save-log-btn').addEventListener('click', async () => {
             const inputEl = document.getElementById('log-input');
-            if (!inputEl) return;
-            
             let val = inputEl.value.trim();
             if (val === '') return alert('Enter a value.');
 
@@ -3218,7 +3066,6 @@ function writeMainEJS() {
                 closeModal('logProgressModal');
                 const cell = document.querySelector('.day-cell[data-date="' + dateStr + '"]');
                 if (cell) showBubble(cell, dateStr);
-                showToast('Progress saved for ' + dateStr);
             } else openLogModal(dateStr);
         });
 
@@ -3282,22 +3129,14 @@ function writeMainEJS() {
                 document.getElementById('currentDateDisplay').innerHTML = String(istNow.getUTCDate()).padStart(2, '0') + '-' + String(istNow.getUTCMonth() + 1).padStart(2, '0') + '-' + istNow.getUTCFullYear();
             }, 1000);
             
-            // Repeat select listeners
-            const repeatSelect = document.getElementById('repeatSelect');
-            if (repeatSelect) {
-                repeatSelect.addEventListener('change', function() { 
-                    document.getElementById('repeatCountGroup').style.display = this.value === 'none' ? 'none' : 'block'; 
-                });
-            }
+            document.getElementById('repeatSelect').addEventListener('change', function() { 
+                document.getElementById('repeatCountGroup').style.display = this.value === 'none' ? 'none' : 'block'; 
+            });
             
-            const editRepeatSelect = document.getElementById('editRepeatSelect');
-            if (editRepeatSelect) {
-                editRepeatSelect.addEventListener('change', function() { 
-                    document.getElementById('editRepeatCountGroup').style.display = this.value === 'none' ? 'none' : 'block'; 
-                });
-            }
+            document.getElementById('editRepeatSelect').addEventListener('change', function() { 
+                document.getElementById('editRepeatCountGroup').style.display = this.value === 'none' ? 'none' : 'block'; 
+            });
             
-            // Modal click outside
             window.addEventListener('click', function(event) { 
                 if (event.target.classList.contains('modal')) { 
                     closeModal(event.target.id); 
@@ -3323,6 +3162,14 @@ function writeMainEJS() {
                     document.getElementById('speech-bubble').classList.remove('show');
                 }
             });
+
+            // Progress form listeners
+            if (document.getElementById('p-has-data')) {
+                document.getElementById('p-has-data').addEventListener('change', function() { toggleDataFields('add'); });
+                document.getElementById('edit-p-has-data').addEventListener('change', function() { toggleDataFields('edit'); });
+                document.getElementById('p-type').addEventListener('change', function() { toggleStartGoalData('add'); });
+                document.getElementById('edit-p-type').addEventListener('change', function() { toggleStartGoalData('edit'); });
+            }
         });
     </script>
 </body>
@@ -3472,14 +3319,15 @@ app.get('/api/page/:page', async (req, res) => {
         const page = req.params.page;
         if (page === 'tasks') {
             const tasks = await db.collection('tasks').find({ status: 'pending', nextOccurrence: { $gte: getTodayStartUTC(), $lt: getTomorrowStartUTC() } }).sort({ orderIndex: 1, nextOccurrence: 1 }).toArray();
-            res.json({ tasks: tasks.map(task => ({ ...task, startTimeIST: utcToISTDisplay(task.startDate).displayTime, endTimeIST: utcToISTDisplay(task.endDate).displayTime, dateIST: utcToISTDisplay(task.startDate).displayDate, durationFormatted: formatDuration(calculateDuration(task.startDate, task.endDate)), subtaskProgress: calculateSubtaskProgress(task.subtasks) })), notes: [], progress: {}, groupedHistory: {} });
+            res.json({ tasks: tasks.map(task => ({ ...task, startTimeIST: utcToISTDisplay(task.startDate).displayTime, endTimeIST: utcToISTDisplay(task.endDate).displayTime, dateIST: utcToISTDisplay(task.startDate).displayDate, durationFormatted: formatDuration(calculateDuration(task.startDate, task.endDate)), subtaskProgress: calculateSubtaskProgress(task.subtasks) })), notes: [], groupedHistory: {} });
         } else if (page === 'notes') {
             const notes = await db.collection('notes').find().sort({ orderIndex: 1, createdAt: -1 }).toArray();
-            res.json({ tasks: [], notes: notes.map(note => ({ ...note, createdAtIST: utcToISTDisplay(note.createdAt).dateTime, updatedAtIST: note.updatedAt ? utcToISTDisplay(note.updatedAt).dateTime : utcToISTDisplay(note.createdAt).dateTime })), progress: {}, groupedHistory: {} });
+            res.json({ tasks: [], notes: notes.map(note => ({ ...note, createdAtIST: utcToISTDisplay(note.createdAt).dateTime, updatedAtIST: note.updatedAt ? utcToISTDisplay(note.updatedAt).dateTime : utcToISTDisplay(note.createdAt).dateTime })), groupedHistory: {} });
         } else if (page === 'progress') {
             let progressDoc = await db.collection('progress').findOne({});
             if (!progressDoc) {
                 progressDoc = { items: [], progress: {} };
+                await db.collection('progress').insertOne(progressDoc);
             }
             res.json({ tasks: [], notes: [], progress: progressDoc, groupedHistory: {} });
         } else if (page === 'history') {
@@ -3490,7 +3338,7 @@ app.get('/api/page/:page', async (req, res) => {
                 if (!groupedHistory[dateKey]) groupedHistory[dateKey] = [];
                 groupedHistory[dateKey].push({ ...item, completedTimeIST: utcToISTDisplay(item.completedAt).displayTime, startTimeIST: utcToISTDisplay(item.startDate).displayTime, endTimeIST: utcToISTDisplay(item.endDate).displayTime, durationFormatted: formatDuration(calculateDuration(item.startDate, item.endDate)) });
             });
-            res.json({ tasks: [], notes: [], progress: {}, groupedHistory });
+            res.json({ tasks: [], notes: [], groupedHistory });
         } else { res.status(404).json({ error: 'Not found' }); }
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
@@ -3768,8 +3616,8 @@ app.post('/api/progress', async (req, res) => {
         if (hasData === 'true') {
             newItem.question = question;
             if (type !== 'boolean') {
-                if (start && start !== '') newItem.start = type === 'float' ? parseFloat(start) : parseInt(start);
-                if (end && end !== '') newItem.end = type === 'float' ? parseFloat(end) : parseInt(end);
+                if (start) newItem.start = type === 'float' ? parseFloat(start) : parseInt(start);
+                if (end) newItem.end = type === 'float' ? parseFloat(end) : parseInt(end);
             }
         }
         
@@ -3823,8 +3671,8 @@ app.post('/api/progress/:itemId/update', async (req, res) => {
         if (hasData === 'true') {
             updatedItem.question = question;
             if (type !== 'boolean') {
-                if (start && start !== '') updatedItem.start = type === 'float' ? parseFloat(start) : parseInt(start);
-                if (end && end !== '') updatedItem.end = type === 'float' ? parseFloat(end) : parseInt(end);
+                if (start) updatedItem.start = type === 'float' ? parseFloat(start) : parseInt(start);
+                if (end) updatedItem.end = type === 'float' ? parseFloat(end) : parseInt(end);
             }
         }
         
@@ -3896,7 +3744,6 @@ async function start() {
             await bot.launch();
             console.log('🤖 Bot Started Successfully - With Progress Tracker!');
         } else {
-            console.log('Failed to connect to MongoDB, retrying in 5 seconds...');
             setTimeout(start, 5000);
         }
     } catch (error) {
