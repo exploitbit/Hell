@@ -3822,6 +3822,7 @@ app.post('/api/notes/:noteId/move', async (req, res) => {
             notes[idx].orderIndex = notes[idx+1].orderIndex; 
             notes[idx+1].orderIndex = t;
             await db.collection('notes').updateOne({ noteId: notes[idx].noteId }, { $set: { orderIndex: notes[idx].orderIndex } });
+            // Note API Routes (continued)
             await db.collection('notes').updateOne({ noteId: notes[idx+1].noteId }, { $set: { orderIndex: notes[idx+1].orderIndex } });
         }
         res.redirect('/notes');
@@ -3834,7 +3835,16 @@ app.post('/api/notes/:noteId/move', async (req, res) => {
 // Progress API Routes
 app.post('/api/progress', async (req, res) => {
     try {
+        if (!db) {
+            return res.status(500).send('Database not connected');
+        }
+        
         const { title, description, startDate, endCount, color, hasData, type, question, start, end } = req.body;
+        
+        // Validate required fields
+        if (!title || !title.trim()) {
+            return res.status(400).send('Title is required');
+        }
         
         let progressDoc = await db.collection('progress').findOne({});
         if (!progressDoc) {
@@ -3846,14 +3856,14 @@ app.post('/api/progress', async (req, res) => {
             title: title.trim(),
             description: description || '',
             startDate: startDate,
-            endCount: parseInt(endCount),
-            color: color,
+            endCount: parseInt(endCount) || 365,
+            color: color || '#3b82f6',
             hasData: hasData === 'true',
-            type: type
+            type: type || 'boolean'
         };
         
         if (hasData === 'true') {
-            newItem.question = question;
+            newItem.question = question || '';
             if (type !== 'boolean') {
                 if (start) newItem.start = type === 'float' ? parseFloat(start) : parseInt(start);
                 if (end) newItem.end = type === 'float' ? parseFloat(end) : parseInt(end);
@@ -3866,14 +3876,22 @@ app.post('/api/progress', async (req, res) => {
         
         res.redirect('/progress');
     } catch (error) { 
-        console.error(error);
+        console.error('Progress creation error:', error);
         res.status(500).send(error.message); 
     }
 });
 
 app.post('/api/progress/:itemId/update', async (req, res) => {
     try {
+        if (!db) {
+            return res.status(500).send('Database not connected');
+        }
+        
         const { itemId, title, description, startDate, endCount, color, hasData, type, question, start, end } = req.body;
+        
+        if (!title || !title.trim()) {
+            return res.status(400).send('Title is required');
+        }
         
         let progressDoc = await db.collection('progress').findOne({});
         if (!progressDoc) {
@@ -3886,7 +3904,7 @@ app.post('/api/progress/:itemId/update', async (req, res) => {
         }
         
         const originalItem = progressDoc.items[itemIndex];
-        const newColor = color;
+        const newColor = color || originalItem.color;
         
         // Color interchange logic
         if (originalItem.color !== newColor) {
@@ -3900,18 +3918,18 @@ app.post('/api/progress/:itemId/update', async (req, res) => {
             id: itemId,
             title: title.trim(),
             description: description || '',
-            startDate: startDate,
-            endCount: parseInt(endCount),
+            startDate: startDate || originalItem.startDate,
+            endCount: parseInt(endCount) || originalItem.endCount,
             color: newColor,
             hasData: hasData === 'true',
-            type: type
+            type: type || originalItem.type
         };
         
         if (hasData === 'true') {
-            updatedItem.question = question;
+            updatedItem.question = question || originalItem.question;
             if (type !== 'boolean') {
-                if (start) updatedItem.start = type === 'float' ? parseFloat(start) : parseInt(start);
-                if (end) updatedItem.end = type === 'float' ? parseFloat(end) : parseInt(end);
+                if (start !== undefined) updatedItem.start = type === 'float' ? parseFloat(start) : parseInt(start);
+                if (end !== undefined) updatedItem.end = type === 'float' ? parseFloat(end) : parseInt(end);
             }
         }
         
@@ -3921,13 +3939,17 @@ app.post('/api/progress/:itemId/update', async (req, res) => {
         
         res.redirect('/progress');
     } catch (error) { 
-        console.error(error);
+        console.error('Progress update error:', error);
         res.status(500).send(error.message); 
     }
 });
 
 app.post('/api/progress/:itemId/delete', async (req, res) => {
     try {
+        if (!db) {
+            return res.status(500).send('Database not connected');
+        }
+        
         let progressDoc = await db.collection('progress').findOne({});
         if (!progressDoc) {
             return res.status(404).send('Progress not found');
@@ -3949,61 +3971,188 @@ app.post('/api/progress/:itemId/delete', async (req, res) => {
         
         res.redirect('/progress');
     } catch (error) { 
-        console.error(error);
+        console.error('Progress deletion error:', error);
         res.status(500).send(error.message); 
     }
 });
 
 app.post('/api/progress/update', async (req, res) => {
     try {
+        if (!db) {
+            return res.status(500).json({ error: 'Database not connected' });
+        }
+        
         const progressData = req.body;
+        
+        // Ensure proper structure
+        if (!progressData.items) progressData.items = [];
+        if (!progressData.progress) progressData.progress = {};
+        
         await db.collection('progress').replaceOne({}, progressData, { upsert: true });
         res.json({ success: true });
     } catch (error) { 
-        console.error(error);
+        console.error('Progress save error:', error);
         res.status(500).json({ error: error.message }); 
     }
+});
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+    res.json({ 
+        status: 'ok', 
+        dbConnected: !!db,
+        botEnabled: botEnabled,
+        timestamp: new Date().toISOString() 
+    });
 });
 
 // ==========================================
 // 🚀 BOOTSTRAP
 // ==========================================
+let server = null;
+
 async function start() {
     try {
-        if (await connectDB()) {
+        // Check if port is in use
+        const isPortAvailable = await checkPort(PORT);
+        if (!isPortAvailable) {
+            console.error(`⚠️ Port ${PORT} is already in use. Make sure no other instance is running.`);
+            console.log('🔄 Will retry in 5 seconds...');
+            setTimeout(start, 5000);
+            return;
+        }
+
+        const dbConnected = await connectDB();
+        if (dbConnected) {
             await rescheduleAllPending();
             scheduleAutoComplete();
             
-            app.listen(PORT, '0.0.0.0', () => {
+            // Start server with error handling
+            server = app.listen(PORT, '0.0.0.0', () => {
                 console.log('🌐 Web interface running on port ' + PORT);
                 console.log('🌍 Public Web URL: ' + WEB_APP_URL);
                 console.log('🕐 IST Time: ' + getCurrentISTDisplay().dateTime);
             });
             
-            await bot.launch();
-            console.log('🤖 Bot Started Successfully - With Progress Tracker!');
+            server.on('error', (error) => {
+                if (error.code === 'EADDRINUSE') {
+                    console.error(`❌ Port ${PORT} is already in use. Retrying in 5 seconds...`);
+                    setTimeout(() => {
+                        if (server) server.close();
+                        start();
+                    }, 5000);
+                } else {
+                    console.error('Server error:', error);
+                }
+            });
+            
+            // Try to launch bot if enabled
+            if (botEnabled && bot) {
+                try {
+                    await bot.launch();
+                    console.log('🤖 Bot Started Successfully - With Progress Tracker!');
+                } catch (botError) {
+                    console.log('⚠️ Bot failed to start (continuing without bot):', botError.message);
+                    botEnabled = false;
+                }
+            } else {
+                console.log('⚠️ Running without Telegram bot (invalid token or bot disabled)');
+            }
+            
+            console.log('✅ Application started successfully');
         } else {
+            console.error('❌ Failed to connect to MongoDB after multiple retries');
+            console.log('🔄 Will retry in 5 seconds...');
             setTimeout(start, 5000);
         }
     } catch (error) {
         console.error('Startup error:', error);
+        console.log('🔄 Will retry in 10 seconds...');
         setTimeout(start, 10000);
     }
 }
 
+// Helper function to check if port is available
+function checkPort(port) {
+    return new Promise((resolve) => {
+        const tester = require('net').createServer()
+            .once('error', (err) => {
+                if (err.code === 'EADDRINUSE') {
+                    resolve(false);
+                } else {
+                    resolve(true);
+                }
+            })
+            .once('listening', () => {
+                tester.once('close', () => resolve(true)).close();
+            })
+            .listen(port, '0.0.0.0');
+    });
+}
+
 // Graceful shutdown
 process.once('SIGINT', () => { 
+    console.log('🛑 Received SIGINT, shutting down gracefully...');
     isShuttingDown = true; 
     if (autoCompleteJob) autoCompleteJob.cancel();
-    bot.stop('SIGINT'); 
-    process.exit(0); 
+    if (botEnabled && bot) bot.stop('SIGINT');
+    if (server) {
+        server.close(() => {
+            console.log('✅ Server closed');
+            if (client) {
+                client.close().then(() => {
+                    console.log('✅ MongoDB connection closed');
+                    process.exit(0);
+                }).catch(() => process.exit(0));
+            } else {
+                process.exit(0);
+            }
+        });
+    } else {
+        if (client) {
+            client.close().then(() => process.exit(0)).catch(() => process.exit(0));
+        } else {
+            process.exit(0);
+        }
+    }
 });
 
 process.once('SIGTERM', () => { 
+    console.log('🛑 Received SIGTERM, shutting down gracefully...');
     isShuttingDown = true; 
     if (autoCompleteJob) autoCompleteJob.cancel();
-    bot.stop('SIGTERM'); 
-    process.exit(0); 
+    if (botEnabled && bot) bot.stop('SIGTERM');
+    if (server) {
+        server.close(() => {
+            console.log('✅ Server closed');
+            if (client) {
+                client.close().then(() => {
+                    console.log('✅ MongoDB connection closed');
+                    process.exit(0);
+                }).catch(() => process.exit(0));
+            } else {
+                process.exit(0);
+            }
+        });
+    } else {
+        if (client) {
+            client.close().then(() => process.exit(0)).catch(() => process.exit(0));
+        } else {
+            process.exit(0);
+        }
+    }
 });
 
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+    console.error('❌ Uncaught Exception:', error);
+    // Don't exit immediately, let the process continue
+});
+
+process.on('unhandledRejection', (error) => {
+    console.error('❌ Unhandled Rejection:', error);
+    // Don't exit immediately, let the process continue
+});
+
+// Start the application
 start();
