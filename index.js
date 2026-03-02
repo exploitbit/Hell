@@ -8,11 +8,11 @@ const fs = require('fs');
 // ==========================================
 // ⚙️ CONFIGURATION - DIRECT HARDCODED VALUES
 // ==========================================
-const BOT_TOKEN = '8716545255:AAHNcyDFzOdVUQz38iutCVEN3DARA5YJLBM';
+const BOT_TOKEN = ':8716545255:AAHNcyDFzOdVUQz38iutCVEN3DARA5YJLBM';
 const MONGODB_URI = 'mongodb+srv://sandip:9E9AISFqTfU3VI5i@cluster0.p8irtov.mongodb.net/telegram_bot';
 const PORT = process.env.PORT || 8080;
 const WEB_APP_URL = 'https://web-production-820965.up.railway.app';
-const CHAT_ID = 8781152810;
+const CHAT_ID = 8716545255;
 // ==========================================
 // 🕐 TIMEZONE CONSTANTS (IST = UTC+5:30)
 // ==========================================
@@ -103,17 +103,9 @@ async function connectDB() {
     let retries = 5;
     while (retries > 0) {
         try {
-            client = new MongoClient(MONGODB_URI, { 
-                serverSelectionTimeoutMS: 5000, 
-                maxPoolSize: 10,
-                connectTimeoutMS: 10000,
-                socketTimeoutMS: 45000
-            });
+            client = new MongoClient(MONGODB_URI, { serverSelectionTimeoutMS: 5000, maxPoolSize: 10 });
             await client.connect();
             db = client.db('telegram_bot');
-            
-            // Test the connection
-            await db.command({ ping: 1 });
             
             // Create collections if they don't exist
             const collections = await db.listCollections().toArray();
@@ -130,7 +122,6 @@ async function connectDB() {
             console.log('✅ Connected to MongoDB');
             return true;
         } catch (error) {
-            console.error(`MongoDB connection attempt failed: ${error.message}`);
             retries--;
             if (retries === 0) return false;
             await new Promise(resolve => setTimeout(resolve, 5000));
@@ -142,10 +133,8 @@ async function connectDB() {
 // ==========================================
 // 🛠️ UTILITY FUNCTIONS
 // ==========================================
-function generateId(type = 'task') { 
-    return type + '_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 6); 
-}
-function generateSubtaskId() { return 'sub_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 4); }
+function generateId(type = 'task') { return Math.random().toString(36).substring(2, 10); }
+function generateSubtaskId() { return 'sub_' + Date.now().toString(36); }
 function calculateDuration(startDate, endDate) { return Math.round((endDate - startDate) / 60000); }
 function formatDuration(minutes) {
     if (minutes < 0) return '0 mins';
@@ -163,37 +152,19 @@ function calculateSubtaskProgress(subtasks) {
 // ==========================================
 // 🤖 BOT SETUP & SCHEDULER (NOTIFICATIONS ONLY)
 // ==========================================
-let bot = null;
-let botEnabled = false;
-
-// Try to initialize bot but don't crash if token is invalid
-try {
-    bot = new Telegraf(BOT_TOKEN);
-    botEnabled = true;
-    console.log('🤖 Bot initialized');
-} catch (error) {
-    console.log('⚠️ Bot initialization failed, continuing without bot functionality');
-    botEnabled = false;
-}
-
+const bot = new Telegraf(BOT_TOKEN);
 const activeSchedules = new Map();
 let isShuttingDown = false;
 
-if (botEnabled && bot) {
-    bot.command('start', async (ctx) => {
-        try {
-            const keyboard = Markup.inlineKeyboard([
-                [Markup.button.webApp('📋 Tasks', WEB_APP_URL + '/tasks')],
-                [Markup.button.webApp('📝 Notes', WEB_APP_URL + '/notes')],
-                [Markup.button.webApp('📊 Progress', WEB_APP_URL + '/progress')],
-                [Markup.button.webApp('📜 History', WEB_APP_URL + '/history')]
-            ]);
-            await ctx.reply('🌟 <b>Global Task Manager</b>\n\nManage your tasks, notes, and progress using the Web App below.', { parse_mode: 'HTML', reply_markup: keyboard.reply_markup });
-        } catch (error) {
-            console.error('Bot command error:', error.message);
-        }
-    });
-}
+bot.command('start', async (ctx) => {
+    const keyboard = Markup.inlineKeyboard([
+        [Markup.button.webApp('📋 Tasks', WEB_APP_URL + '/tasks')],
+        [Markup.button.webApp('📝 Notes', WEB_APP_URL + '/notes')],
+        [Markup.button.webApp('📊 Progress', WEB_APP_URL + '/progress')],
+        [Markup.button.webApp('📜 History', WEB_APP_URL + '/history')]
+    ]);
+    await ctx.reply('🌟 <b>Global Task Manager</b>\n\nManage your tasks, notes, and progress using the Web App below.', { parse_mode: 'HTML', reply_markup: keyboard.reply_markup });
+});
 
 function scheduleTask(task) {
     if (!task || !task.taskId || !task.startDate) return;
@@ -223,13 +194,13 @@ function scheduleTask(task) {
                         clearInterval(activeSchedule.interval);
                         activeSchedule.interval = null;
                     }
-                    if (currentTimeUTC >= startTimeUTC && botEnabled && bot) {
+                    if (currentTimeUTC >= startTimeUTC) {
                         try { await bot.telegram.sendMessage(CHAT_ID, `🚀 <b>START NOW:</b> ${task.title}`, { parse_mode: 'HTML' }); } catch (e) {}
                     }
                     return;
                 }
                 const minutesLeft = Math.ceil((startTimeUTC - currentTimeUTC) / 60000);
-                if (minutesLeft > 0 && botEnabled && bot) {
+                if (minutesLeft > 0) {
                     try { await bot.telegram.sendMessage(CHAT_ID, `🔔 <b>In ${minutesLeft}m:</b> ${task.title}`, { parse_mode: 'HTML' }); } catch (e) {}
                 }
                 count++;
@@ -246,9 +217,7 @@ function scheduleTask(task) {
             if (activeSchedules.get(taskId).startJob) activeSchedules.get(taskId).startJob.cancel();
             activeSchedules.get(taskId).startJob = startJob;
         } else { activeSchedules.set(taskId, { startJob }); }
-    } catch (error) {
-        console.error('Schedule task error:', error.message);
-    }
+    } catch (error) {}
 }
 
 function cancelTaskSchedule(taskId) {
@@ -262,17 +231,13 @@ function cancelTaskSchedule(taskId) {
 
 async function rescheduleAllPending() {
     try {
-        if (!db) return;
         const tasks = await db.collection('tasks').find({ status: 'pending', startDate: { $gt: new Date(Date.now() + 10 * 60000) } }).toArray();
         tasks.forEach(task => scheduleTask(task));
-    } catch (error) {
-        console.error('Reschedule error:', error.message);
-    }
+    } catch (error) {}
 }
 
 async function autoCompletePendingTasks() {
     try {
-        if (!db) return;
         const pendingTasks = await db.collection('tasks').find({ status: 'pending', nextOccurrence: { $gte: getTodayStartUTC(), $lt: getTomorrowStartUTC() } }).toArray();
         for (const task of pendingTasks) {
             const historyItem = { ...task, _id: undefined, completedAt: new Date(), completedDate: getTodayStartUTC(), originalTaskId: task.taskId, status: 'completed', autoCompleted: true };
@@ -288,13 +253,9 @@ async function autoCompletePendingTasks() {
             } else {
                 await db.collection('tasks').deleteOne({ taskId: task.taskId });
             }
-            if (botEnabled && bot) {
-                try { await bot.telegram.sendMessage(CHAT_ID, `✅ <b>Auto-Completed:</b> ${task.title}`, { parse_mode: 'HTML' }); } catch (e) {}
-            }
+            try { await bot.telegram.sendMessage(CHAT_ID, `✅ <b>Auto-Completed:</b> ${task.title}`, { parse_mode: 'HTML' }); } catch (e) {}
         }
-    } catch (error) {
-        console.error('Auto complete error:', error.message);
-    }
+    } catch (error) {}
 }
 
 let autoCompleteJob;
@@ -349,6 +310,12 @@ function writeMainEJS() {
             --ring-today-dark: #60a5fa;
             
             --modal-backdrop: rgba(15, 23, 42, 0.5);
+            
+            /* Toast variables */
+            --toast-success: #10b981;
+            --toast-error: #ef4444;
+            --toast-warning: #f59e0b;
+            --toast-info: #3b82f6;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
@@ -371,6 +338,98 @@ function writeMainEJS() {
             }
         }
         
+        /* Modern Toast Container */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: white;
+            color: #1e293b;
+            padding: 12px 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.02);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 300px;
+            max-width: 400px;
+            transform: translateX(120%);
+            animation: slideIn 0.3s ease forwards;
+            border-left: 4px solid transparent;
+            pointer-events: auto;
+            backdrop-filter: blur(10px);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .toast {
+                background: #1e293b;
+                color: #f8fafc;
+                box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+            }
+        }
+
+        .toast.success { border-left-color: var(--toast-success); }
+        .toast.error { border-left-color: var(--toast-error); }
+        .toast.warning { border-left-color: var(--toast-warning); }
+        .toast.info { border-left-color: var(--toast-info); }
+
+        .toast i {
+            font-size: 1.2rem;
+        }
+
+        .toast.success i { color: var(--toast-success); }
+        .toast.error i { color: var(--toast-error); }
+        .toast.warning i { color: var(--toast-warning); }
+        .toast.info i { color: var(--toast-info); }
+
+        .toast-content {
+            flex: 1;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .toast-progress {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 3px;
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 0 0 0 12px;
+            animation: progress 3s linear forwards;
+        }
+
+        .toast.success .toast-progress { background: var(--toast-success); }
+        .toast.error .toast-progress { background: var(--toast-error); }
+        .toast.warning .toast-progress { background: var(--toast-warning); }
+        .toast.info .toast-progress { background: var(--toast-info); }
+
+        @keyframes slideIn {
+            0% { transform: translateX(120%); opacity: 0; }
+            100% { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes slideOut {
+            0% { transform: translateX(0); opacity: 1; }
+            100% { transform: translateX(120%); opacity: 0; }
+        }
+
+        @keyframes progress {
+            0% { width: 100%; }
+            100% { width: 0%; }
+        }
+
+        .toast.hide {
+            animation: slideOut 0.3s ease forwards;
+        }
+
         .app-header { 
             background: var(--card-bg-light); 
             border-bottom: 1px solid var(--border-light); 
@@ -1249,6 +1308,7 @@ function writeMainEJS() {
             justify-content: center;
             border-radius: 8px;
             position: relative;
+            cursor: pointer;
         }
         
         .day-cell.empty { pointer-events: none; }
@@ -1853,7 +1913,6 @@ function writeMainEJS() {
     </style>
 </head>
 <body>
-    <div class="loader" id="loader"><div class="spinner"></div></div>
     <div class="toast-container" id="toastContainer"></div>
 
     <div class="app-header">
@@ -2243,10 +2302,8 @@ function writeMainEJS() {
 
     <script>
         const tg = window.Telegram.WebApp;
-        if (tg) {
-            tg.ready();
-            tg.expand();
-        }
+        tg.ready();
+        tg.expand();
 
         // Global variables
         let currentPage = '<%= currentPage %>';
@@ -2281,56 +2338,62 @@ function writeMainEJS() {
         if (!progressData.progress) progressData.progress = {};
 
         function showLoader() { 
-            const loader = document.getElementById('loader');
-            if (loader) loader.style.display = 'flex'; 
+            // Using toast for loading indication
+            showToast('Loading...', 'info');
         }
         
         function hideLoader() { 
-            const loader = document.getElementById('loader');
-            if (loader) loader.style.display = 'none'; 
+            // No need to hide anything as toast auto-hides
         }
 
+        // Modern Toast Function
         function showToast(message, type = 'success') {
             const container = document.getElementById('toastContainer');
-            if (!container) return;
-            
             const toast = document.createElement('div');
-            toast.className = 'toast';
-            if (type === 'error') toast.style.background = '#dc2626';
-            else if (type === 'warning') toast.style.background = '#d97706';
-            let icon = type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle';
-            toast.innerHTML = '<i class="fas ' + icon + '"></i><span>' + message + '</span>';
+            toast.className = 'toast ' + type;
+            
+            let icon = 'fa-check-circle';
+            if (type === 'error') icon = 'fa-exclamation-circle';
+            else if (type === 'warning') icon = 'fa-exclamation-triangle';
+            else if (type === 'info') icon = 'fa-info-circle';
+            
+            toast.innerHTML = \`
+                <i class="fas \${icon}"></i>
+                <div class="toast-content">\${message}</div>
+                <div class="toast-progress"></div>
+            \`;
+            
             container.appendChild(toast);
+            
+            // Auto remove after 3 seconds
             setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.style.transform = 'translateX(100%)';
-                toast.style.transition = 'all 0.3s ease';
+                toast.classList.add('hide');
                 setTimeout(() => toast.remove(), 300);
             }, 3000);
+            
+            // Allow click to dismiss
+            toast.addEventListener('click', () => {
+                toast.classList.add('hide');
+                setTimeout(() => toast.remove(), 300);
+            });
         }
 
         function switchPage(page) {
-            showLoader();
-            fetch('/api/page/' + page)
-                .then(res => res.json())
-                .then(data => {
-                    currentPage = page;
-                    tasksData = data.tasks || [];
-                    notesData = data.notes || [];
-                    if (data.progress) {
-                        progressData = data.progress;
-                        if (!progressData.items) progressData.items = [];
-                        if (!progressData.progress) progressData.progress = {};
-                    }
-                    historyData = data.groupedHistory || {};
-                    renderPage();
-                    updateActiveNav();
-                    hideLoader();
-                })
-                .catch(err => { 
-                    showToast('Error loading page', 'error'); 
-                    hideLoader(); 
-                });
+            showToast('Loading ' + page + '...', 'info');
+            fetch('/api/page/' + page).then(res => res.json()).then(data => {
+                currentPage = page;
+                tasksData = data.tasks || [];
+                notesData = data.notes || [];
+                if (data.progress) {
+                    progressData = data.progress;
+                    if (!progressData.items) progressData.items = [];
+                    if (!progressData.progress) progressData.progress = {};
+                }
+                historyData = data.groupedHistory || {};
+                renderPage();
+                updateActiveNav();
+                showToast(page.charAt(0).toUpperCase() + page.slice(1) + ' loaded', 'success');
+            }).catch(err => { showToast('Error loading page', 'error'); });
         }
 
         function updateActiveNav() {
@@ -2343,19 +2406,17 @@ function writeMainEJS() {
         function renderPage() {
             const content = document.getElementById('mainContent');
             const fabButton = document.getElementById('fabButton');
-            if (!content) return;
-            
             if (currentPage === 'tasks') { 
-                if (fabButton) fabButton.style.display = 'flex'; 
+                fabButton.style.display = 'flex'; 
                 content.innerHTML = renderTasksPage(); 
             } else if (currentPage === 'notes') { 
-                if (fabButton) fabButton.style.display = 'flex'; 
+                fabButton.style.display = 'flex'; 
                 content.innerHTML = renderNotesPage(); 
             } else if (currentPage === 'progress') { 
-                if (fabButton) fabButton.style.display = 'flex'; 
+                fabButton.style.display = 'flex'; 
                 content.innerHTML = renderProgressPage(); 
             } else if (currentPage === 'history') { 
-                if (fabButton) fabButton.style.display = 'none'; 
+                fabButton.style.display = 'none'; 
                 content.innerHTML = renderHistoryPage(); 
             }
         }
@@ -2381,14 +2442,20 @@ function writeMainEJS() {
         function toggleDescription(elementId) {
             const element = document.getElementById(elementId);
             if (element) {
-                if (element.classList.contains('hidden')) element.classList.remove('hidden');
-                else element.classList.add('hidden');
+                const icon = document.getElementById(elementId + '_icon');
+                if (element.classList.contains('hidden')) {
+                    element.classList.remove('hidden');
+                    if (icon) icon.style.transform = 'rotate(90deg)';
+                } else {
+                    element.classList.add('hidden');
+                    if (icon) icon.style.transform = 'rotate(0deg)';
+                }
             }
         }
 
         // ==================== TASKS RENDERING ====================
         function renderTasksPage() {
-            let html = '<h1 class="page-title">Today\'s Tasks</h1><div class="tasks-grid">';
+            let html = '<h1 class="page-title">Today\\'s Tasks</h1><div class="tasks-grid">';
             if (!tasksData || tasksData.length === 0) {
                 html += '<div class="empty-state" style="grid-column: 1/-1;"><i class="fas fa-clipboard-list" style="font-size: 2rem;"></i><h3 style="margin-top: 12px;">No tasks</h3></div>';
             } else {
@@ -2402,9 +2469,9 @@ function writeMainEJS() {
                     const descriptionId = 'task_desc_' + task.taskId;
                     const escapedTitle = escapeHtml(task.title);
                     
-                    html += '<div class="task-card"><div class="task-header"><div class="task-title-section"><div class="task-title-container" onclick="toggleDescription(\'' + descriptionId + '\')"><i class="fas fa-chevron-right" id="' + descriptionId + '_icon"></i><span class="task-title">' + escapedTitle + '</span></div></div><div class="task-actions">';
-                    if (totalSubtasks < 10) html += '<button class="action-btn" onclick="openAddSubtaskModal(\'' + task.taskId + '\')"><i class="fas fa-plus"></i></button>';
-                    html += '<button class="action-btn" onclick="openEditTaskModal(\'' + task.taskId + '\')"><i class="fas fa-pencil-alt"></i></button><button class="action-btn" onclick="completeTask(\'' + task.taskId + '\')"><i class="fas fa-check"></i></button><button class="action-btn delete" onclick="deleteTask(\'' + task.taskId + '\')"><i class="fas fa-trash"></i></button></div></div>';
+                    html += '<div class="task-card"><div class="task-header"><div class="task-title-section"><div class="task-title-container" onclick="toggleDescription(\\'' + descriptionId + '\\')"><i class="fas fa-chevron-right" id="' + descriptionId + '_icon"></i><span class="task-title">' + escapedTitle + '</span></div></div><div class="task-actions">';
+                    if (totalSubtasks < 10) html += '<button class="action-btn" onclick="openAddSubtaskModal(\\'' + task.taskId + '\\')"><i class="fas fa-plus"></i></button>';
+                    html += '<button class="action-btn" onclick="openEditTaskModal(\\'' + task.taskId + '\\')"><i class="fas fa-pencil-alt"></i></button><button class="action-btn" onclick="completeTask(\\'' + task.taskId + '\\')"><i class="fas fa-check"></i></button><button class="action-btn delete" onclick="deleteTask(\\'' + task.taskId + '\\')"><i class="fas fa-trash"></i></button></div></div>';
                     if (hasDescription) html += '<div id="' + descriptionId + '" class="task-description-container hidden"><div class="task-description">' + preserveLineBreaks(task.description) + '</div></div>';
                     html += '<div class="task-time-row"><span class="date-chip"><i class="fas fa-calendar-alt"></i> ' + task.dateIST + '</span><span class="time-chip"><i class="fas fa-clock"></i> ' + task.startTimeIST + '-' + task.endTimeIST + '</span></div>';
                     
@@ -2414,7 +2481,7 @@ function writeMainEJS() {
                             const subtaskHasDesc = hasContent(subtask.description);
                             const subtaskDescId = 'subtask_desc_' + task.taskId + '_' + subtask.id;
                             const escapedSubtaskTitle = escapeHtml(subtask.title);
-                            html += '<div class="subtask-item"><div class="subtask-main-row"><div class="subtask-checkbox ' + (subtask.completed ? 'completed' : '') + '" onclick="toggleSubtask(\'' + task.taskId + '\', \'' + subtask.id + '\')">' + (subtask.completed ? '<i class="fas fa-check"></i>' : '') + '</div><div class="subtask-details"><div class="subtask-title-container" onclick="toggleDescription(\'' + subtaskDescId + '\')"><span class="subtask-title ' + (subtask.completed ? 'completed' : '') + '">' + escapedSubtaskTitle + '</span></div></div><div class="subtask-actions"><button class="subtask-btn" onclick="editSubtask(\'' + task.taskId + '\', \'' + subtask.id + '\', \'' + escapeJsString(subtask.title) + '\', \'' + escapeJsString(subtask.description || '') + '\')"><i class="fas fa-pencil-alt"></i></button><button class="subtask-btn delete" onclick="deleteSubtask(\'' + task.taskId + '\', \'' + subtask.id + '\')"><i class="fas fa-trash"></i></button></div></div>';
+                            html += '<div class="subtask-item"><div class="subtask-main-row"><div class="subtask-checkbox ' + (subtask.completed ? 'completed' : '') + '" onclick="toggleSubtask(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\')">' + (subtask.completed ? '<i class="fas fa-check"></i>' : '') + '</div><div class="subtask-details"><div class="subtask-title-container" onclick="toggleDescription(\\'' + subtaskDescId + '\\')"><span class="subtask-title ' + (subtask.completed ? 'completed' : '') + '">' + escapedSubtaskTitle + '</span></div></div><div class="subtask-actions"><button class="subtask-btn" onclick="editSubtask(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\', \\'' + escapeJsString(subtask.title) + '\\', \\'' + escapeJsString(subtask.description || '') + '\\')"><i class="fas fa-pencil-alt"></i></button><button class="subtask-btn delete" onclick="deleteSubtask(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\')"><i class="fas fa-trash"></i></button></div></div>';
                             if (subtaskHasDesc) html += '<div id="' + subtaskDescId + '" class="subtask-description-container hidden"><div class="subtask-description">' + preserveLineBreaks(subtask.description) + '</div></div>';
                             html += '</div>';
                         });
@@ -2441,7 +2508,7 @@ function writeMainEJS() {
                     const hasDescription = hasContent(note.description);
                     const noteDescId = 'note_desc_' + note.noteId;
                     const escapedNoteTitle = escapeHtml(note.title);
-                    html += '<div class="note-card"><div class="note-header"><div class="task-title-container" onclick="toggleDescription(\'' + noteDescId + '\')"><i class="fas fa-chevron-right" id="' + noteDescId + '_icon"></i><span class="note-title">' + escapedNoteTitle + '</span></div><div style="display: flex; gap: 4px;"><button class="action-btn" onclick="moveNote(\'' + note.noteId + '\', \'up\')"><i class="fas fa-arrow-up"></i></button><button class="action-btn" onclick="moveNote(\'' + note.noteId + '\', \'down\')"><i class="fas fa-arrow-down"></i></button><button class="action-btn" onclick="openEditNoteModal(\'' + note.noteId + '\', \'' + escapeJsString(note.title) + '\', \'' + escapeJsString(note.description || '') + '\')"><i class="fas fa-pencil-alt"></i></button><button class="action-btn delete" onclick="deleteNote(\'' + note.noteId + '\')"><i class="fas fa-trash"></i></button></div></div>';
+                    html += '<div class="note-card"><div class="note-header"><div class="task-title-container" onclick="toggleDescription(\\'' + noteDescId + '\\')"><i class="fas fa-chevron-right" id="' + noteDescId + '_icon"></i><span class="note-title">' + escapedNoteTitle + '</span></div><div style="display: flex; gap: 4px;"><button class="action-btn" onclick="moveNote(\\'' + note.noteId + '\\', \\'up\\')"><i class="fas fa-arrow-up"></i></button><button class="action-btn" onclick="moveNote(\\'' + note.noteId + '\\', \\'down\\')"><i class="fas fa-arrow-down"></i></button><button class="action-btn" onclick="openEditNoteModal(\\'' + note.noteId + '\\', \\'' + escapeJsString(note.title) + '\\', \\'' + escapeJsString(note.description || '') + '\\')"><i class="fas fa-pencil-alt"></i></button><button class="action-btn delete" onclick="deleteNote(\\'' + note.noteId + '\\')"><i class="fas fa-trash"></i></button></div></div>';
                     if (hasDescription) html += '<div id="' + noteDescId + '" class="note-content-container hidden"><div class="note-content">' + preserveLineBreaks(note.description) + '</div></div>';
                     html += '<div class="note-meta"><span><i class="fas fa-clock"></i> ' + note.createdAtIST + '</span>' + (note.updatedAtIST !== note.createdAtIST ? '<span><i class="fas fa-pencil-alt"></i> ' + note.updatedAtIST + '</span>' : '') + '</div></div>';
                 });
@@ -2569,7 +2636,7 @@ function writeMainEJS() {
                 if(daysPassed < 0) daysLeft = item.endCount; 
                 if(daysLeft < 0) daysLeft = 0;
 
-                html += '<div class="progress-card"><details class="progress-details"><summary class="progress-summary"><div class="progress-title-section"><i class="fas fa-chevron-right chevron-icon"></i><span class="progress-title">' + escapeHtml(item.title) + '</span></div><div class="progress-actions"><button class="action-btn" onclick="event.preventDefault(); event.stopPropagation(); openEditProgressModal(\'' + item.id + '\')"><i class="fas fa-pencil-alt"></i></button><button class="action-btn delete" onclick="event.preventDefault(); event.stopPropagation(); deleteProgress(\'' + item.id + '\')"><i class="fas fa-trash"></i></button></div></summary>';
+                html += '<div class="progress-card"><details class="progress-details"><summary class="progress-summary"><div class="progress-title-section"><i class="fas fa-chevron-right chevron-icon"></i><span class="progress-title">' + escapeHtml(item.title) + '</span></div><div class="progress-actions"><button class="action-btn" onclick="event.preventDefault(); event.stopPropagation(); openEditProgressModal(\\'' + item.id + '\\')"><i class="fas fa-pencil-alt"></i></button><button class="action-btn delete" onclick="event.preventDefault(); event.stopPropagation(); deleteProgress(\\'' + item.id + '\\')"><i class="fas fa-trash"></i></button></div></summary>';
                 if (item.description) {
                     html += '<div class="progress-description-container"><div class="progress-description" style="border-left-color: ' + item.color + ';">' + preserveLineBreaks(item.description) + '</div></div>';
                 }
@@ -2589,8 +2656,6 @@ function writeMainEJS() {
             const bubble = document.getElementById('speech-bubble');
             const content = document.getElementById('speech-content');
             const tail = document.getElementById('speech-tail');
-            
-            if (!bubble || !content || !tail) return;
             
             const activeItems = progressData.items.filter(g => isItemActive(g, dateStr));
             const dayData = progressData.progress[dateStr] || {};
@@ -2656,7 +2721,7 @@ function writeMainEJS() {
                         const hasDescription = hasContent(task.description);
                         const historyDescId = 'history_desc_' + task._id;
                         const escapedHistoryTitle = escapeHtml(task.title);
-                        html += '<div class="history-task-card"><div class="history-task-header"><div class="task-title-container" onclick="toggleDescription(\'' + historyDescId + '\')"><i class="fas fa-chevron-right"></i><span class="history-task-title">' + escapedHistoryTitle + '</span></div><span class="history-task-time"><i class="fas fa-check-circle" style="color: var(--success-light);"></i> ' + task.completedTimeIST + '</span></div>';
+                        html += '<div class="history-task-card"><div class="history-task-header"><div class="task-title-container" onclick="toggleDescription(\\'' + historyDescId + '\\')"><i class="fas fa-chevron-right"></i><span class="history-task-title">' + escapedHistoryTitle + '</span></div><span class="history-task-time"><i class="fas fa-check-circle" style="color: var(--success-light);"></i> ' + task.completedTimeIST + '</span></div>';
                         if (hasDescription) html += '<div id="' + historyDescId + '" class="history-description-container hidden"><div class="history-description">' + preserveLineBreaks(task.description) + '</div></div>';
                         html += '<div style="display: flex; gap: 6px; margin: 8px 0; flex-wrap: wrap;"><span class="badge"><i class="fas fa-clock"></i> ' + (task.startTimeIST || formatTime(task.startDate)) + '-' + (task.endTimeIST || formatTime(task.endDate)) + '</span><span class="badge"><i class="fas fa-hourglass-half"></i> ' + task.durationFormatted + '</span>' + (task.repeat && task.repeat !== 'none' ? '<span class="badge"><i class="fas fa-repeat"></i> ' + (task.repeat === 'daily' ? 'Daily' : 'Weekly') + '</span>' : '') + '</div>';
                         if (task.subtasks && task.subtasks.length > 0) {
@@ -2664,7 +2729,7 @@ function writeMainEJS() {
                             task.subtasks.forEach(subtask => {
                                 const subtaskHasDesc = hasContent(subtask.description);
                                 const historySubtaskDescId = 'history_subtask_desc_' + task._id + '_' + subtask.id;
-                                html += '<div class="history-subtask"><div style="display: flex; align-items: flex-start; gap: 6px;"><span style="color: ' + (subtask.completed ? 'var(--success-light)' : 'var(--text-secondary-light)') + '"><i class="fas fa-' + (subtask.completed ? 'check-circle' : 'circle') + '"></i></span><div style="flex: 1;"><div class="task-title-container" onclick="toggleDescription(\'' + historySubtaskDescId + '\')"><span style="font-weight: 600; font-size: 0.8rem;">' + escapeHtml(subtask.title) + '</span></div>' + (subtaskHasDesc ? '<div id="' + historySubtaskDescId + '" class="history-description-container hidden"><div class="history-description" style="border-left-color: var(--accent-light);">' + preserveLineBreaks(subtask.description) + '</div></div>' : '') + '</div></div></div>';
+                                html += '<div class="history-subtask"><div style="display: flex; align-items: flex-start; gap: 6px;"><span style="color: ' + (subtask.completed ? 'var(--success-light)' : 'var(--text-secondary-light)') + '"><i class="fas fa-' + (subtask.completed ? 'check-circle' : 'circle') + '"></i></span><div style="flex: 1;"><div class="task-title-container" onclick="toggleDescription(\\'' + historySubtaskDescId + '\\')"><span style="font-weight: 600; font-size: 0.8rem;">' + escapeHtml(subtask.title) + '</span></div>' + (subtaskHasDesc ? '<div id="' + historySubtaskDescId + '" class="history-description-container hidden"><div class="history-description" style="border-left-color: var(--accent-light);">' + preserveLineBreaks(subtask.description) + '</div></div>' : '') + '</div></div></div>';
                             });
                             html += '</div></details>';
                         }
@@ -2690,16 +2755,13 @@ function writeMainEJS() {
 
         // ==================== MODAL FUNCTIONS ====================
         function openModal(modalId) { 
-            const modal = document.getElementById(modalId);
-            if (!modal) return;
-            modal.style.display = 'flex'; 
-            setTimeout(() => modal.classList.add('show'), 10);
+            document.getElementById(modalId).style.display = 'flex'; 
+            setTimeout(() => document.getElementById(modalId).classList.add('show'), 10);
             document.body.style.overflow = 'hidden'; 
         }
         
         function closeModal(modalId) { 
             const modal = document.getElementById(modalId);
-            if (!modal) return;
             modal.classList.remove('show');
             setTimeout(() => { 
                 modal.style.display = 'none'; 
@@ -2724,35 +2786,26 @@ function writeMainEJS() {
             const hours = String(istNow.getUTCHours()).padStart(2, '0');
             const minutes = String(istNow.getUTCMinutes()).padStart(2, '0');
             
-            const startDateEl = document.getElementById('startDate');
-            const startTimeEl = document.getElementById('startTime');
-            const endTimeEl = document.getElementById('endTime');
-            
-            if (startDateEl) startDateEl.value = year + '-' + month + '-' + day;
-            if (startTimeEl) startTimeEl.value = hours + ':' + minutes;
-            if (endTimeEl) {
-                const endHour = istNow.getUTCHours() + 1;
-                endTimeEl.value = String(endHour).padStart(2, '0') + ':' + minutes;
-            }
+            document.getElementById('startDate').value = year + '-' + month + '-' + day;
+            document.getElementById('startTime').value = hours + ':' + minutes;
+            const endHour = istNow.getUTCHours() + 1;
+            document.getElementById('endTime').value = String(endHour).padStart(2, '0') + ':' + minutes;
             openModal('addTaskModal');
         }
 
         function openEditTaskModal(taskId) {
-            fetch('/api/tasks/' + taskId)
-                .then(res => res.json())
-                .then(task => {
-                    document.getElementById('editTaskId').value = task.taskId;
-                    document.getElementById('editTitle').value = task.title;
-                    document.getElementById('editDescription').value = task.description || '';
-                    document.getElementById('editStartDate').value = task.startDateIST || task.startDate;
-                    document.getElementById('editStartTime').value = task.startTimeIST || task.startTime;
-                    document.getElementById('editEndTime').value = task.endTimeIST || task.endTime;
-                    document.getElementById('editRepeatSelect').value = task.repeat || 'none';
-                    document.getElementById('editRepeatCount').value = task.repeatCount || 7;
-                    document.getElementById('editRepeatCountGroup').style.display = task.repeat !== 'none' ? 'block' : 'none';
-                    openModal('editTaskModal');
-                })
-                .catch(err => { showToast('Error loading task', 'error'); });
+            fetch('/api/tasks/' + taskId).then(res => res.json()).then(task => {
+                document.getElementById('editTaskId').value = task.taskId;
+                document.getElementById('editTitle').value = task.title;
+                document.getElementById('editDescription').value = task.description || '';
+                document.getElementById('editStartDate').value = task.startDateIST || task.startDate;
+                document.getElementById('editStartTime').value = task.startTimeIST || task.startTime;
+                document.getElementById('editEndTime').value = task.endTimeIST || task.endTime;
+                document.getElementById('editRepeatSelect').value = task.repeat || 'none';
+                document.getElementById('editRepeatCount').value = task.repeatCount || 7;
+                document.getElementById('editRepeatCountGroup').style.display = task.repeat !== 'none' ? 'block' : 'none';
+                openModal('editTaskModal');
+            }).catch(err => { showToast('Error loading task', 'error'); });
         }
 
         function openAddSubtaskModal(taskId) { 
@@ -2778,12 +2831,18 @@ function writeMainEJS() {
             openModal('editNoteModal'); 
         }
 
-        // Progress Modal Functions
+        // Progress Modal Functions - FIXED
         function openAddProgressModal() {
-            const startDateEl = document.getElementById('p-start-date');
-            if (startDateEl) startDateEl.value = todayStr;
-            const typeEl = document.getElementById('p-type');
-            if (typeEl) typeEl.value = 'boolean';
+            const dateInput = document.getElementById('p-start-date');
+            if (dateInput) {
+                dateInput.value = todayStr;
+            }
+            
+            const typeSelect = document.getElementById('p-type');
+            if (typeSelect) {
+                typeSelect.value = 'boolean';
+            }
+            
             toggleStartGoalData('add');
             initColorPalette(); 
             openModal('addProgressModal');
@@ -2828,7 +2887,7 @@ function writeMainEJS() {
 
             activeItems.forEach(item => {
                 const isDone = dayData[item.id] !== undefined;
-                html += '<div class="progress-card"><details class="progress-details" style="display: contents;"><summary class="progress-summary"><div class="progress-title-section"><i class="fas fa-chevron-right chevron-icon"></i><div class="color-dot" style="background:' + item.color + ';"></div><span class="progress-title">' + escapeHtml(item.title) + '</span></div><div class="progress-actions"><button class="action-btn" onclick="event.preventDefault(); event.stopPropagation(); handleLogAction(event, \'' + item.id + '\', \'' + dateStr + '\')" style="background: ' + (isDone ? 'var(--hover-light)' : item.color) + '; color: ' + (isDone ? 'var(--text-secondary-light)' : 'white') + ';" ' + (isDone ? 'disabled' : '') + '><i class="fas fa-check"></i></button></div></summary>';
+                html += '<div class="progress-card"><details class="progress-details" style="display: contents;"><summary class="progress-summary"><div class="progress-title-section"><i class="fas fa-chevron-right chevron-icon"></i><div class="color-dot" style="background:' + item.color + ';"></div><span class="progress-title">' + escapeHtml(item.title) + '</span></div><div class="progress-actions"><button class="action-btn" onclick="event.preventDefault(); event.stopPropagation(); handleLogAction(event, \\'' + item.id + '\\', \\'' + dateStr + '\\')" style="background: ' + (isDone ? 'var(--hover-light)' : item.color) + '; color: ' + (isDone ? 'var(--text-secondary-light)' : 'white') + ';" ' + (isDone ? 'disabled' : '') + '><i class="fas fa-check"></i></button></div></summary>';
                 if (item.description) {
                     html += '<div class="progress-description-container"><div class="progress-description" style="border-left-color: ' + item.color + ';">' + preserveLineBreaks(item.description) + '</div></div>';
                 }
@@ -2849,9 +2908,9 @@ function writeMainEJS() {
             btn.disabled = true;
 
             const item = progressData.items.find(g => g.id === itemId);
-            if (item && item.hasData && item.type !== 'boolean') {
+            if (item.hasData && item.type !== 'boolean') {
                 openLogQuestion(item, dateStr);
-            } else if (item) {
+            } else {
                 saveDirectComplete(item, dateStr);
             }
         };
@@ -2882,6 +2941,7 @@ function writeMainEJS() {
             progressData.progress[dateStr][item.id] = true; 
             
             updateProgressOnServer();
+            showToast('Progress saved!', 'success');
             
             const activeItems = progressData.items.filter(g => isItemActive(g, dateStr));
             const dayData = progressData.progress[dateStr] || {};
@@ -2899,7 +2959,7 @@ function writeMainEJS() {
             document.getElementById('log-question-view').style.display = 'none'; 
         }
 
-        // Progress Form Functions
+        // Progress Form Functions - FIXED
         function initColorPalette() {
             const container = document.getElementById('color-palette');
             const input = document.getElementById('p-color');
@@ -2921,12 +2981,10 @@ function writeMainEJS() {
                 const swatch = container.querySelector('[data-color="' + firstAvail + '"]');
                 if (swatch) swatch.classList.add('selected');
                 document.getElementById('color-error').style.display = 'none';
-                const createBtn = document.getElementById('create-progress-btn');
-                if (createBtn) createBtn.disabled = false;
+                document.getElementById('create-progress-btn').disabled = false;
             } else {
                 document.getElementById('color-error').style.display = 'block';
-                const createBtn = document.getElementById('create-progress-btn');
-                if (createBtn) createBtn.disabled = true;
+                document.getElementById('create-progress-btn').disabled = true;
             }
             
             container.onclick = (e) => {
@@ -2966,33 +3024,41 @@ function writeMainEJS() {
         function toggleDataFields(mode) {
             const prefix = mode === 'add' ? 'p' : 'edit-p';
             const hasData = document.getElementById(prefix + '-has-data').checked;
-            document.getElementById(mode === 'add' ? 'data-fields' : 'edit-data-fields').style.display = hasData ? 'block' : 'none';
+            const fieldsDiv = document.getElementById(mode === 'add' ? 'data-fields' : 'edit-data-fields');
+            if (fieldsDiv) {
+                fieldsDiv.style.display = hasData ? 'block' : 'none';
+            }
             toggleStartGoalData(mode);
         }
 
         function toggleStartGoalData(mode) {
             const prefix = mode === 'add' ? 'p' : 'edit-p';
-            const type = document.getElementById(prefix + '-type').value;
+            const typeSelect = document.getElementById(prefix + '-type');
+            if (!typeSelect) return;
+            
+            const type = typeSelect.value;
             const wrapper = document.getElementById(mode === 'add' ? 'start-goal-wrapper' : 'edit-start-goal-wrapper');
-            if (type === 'boolean') {
-                wrapper.style.display = 'none';
-            } else {
-                wrapper.style.display = 'grid';
+            if (wrapper) {
+                if (type === 'boolean') {
+                    wrapper.style.display = 'none';
+                } else {
+                    wrapper.style.display = 'grid';
+                }
             }
         }
 
         function deleteProgress(itemId) {
             if(!confirm("Are you sure you want to delete this progress and ALL its history?")) return;
-            showLoader();
+            showToast('Deleting progress...', 'info');
             
             fetch('/api/progress/' + itemId + '/delete', { method: 'POST' })
                 .then(res => {
                     if(res.ok){
-                        showToast('Progress deleted');
+                        showToast('Progress deleted', 'success');
                         switchPage('progress');
                     } else throw new Error('');
                 })
-                .catch(err => { showToast('Error deleting', 'error'); hideLoader(); });
+                .catch(err => { showToast('Error deleting', 'error'); });
         }
 
         function updateProgressOnServer() {
@@ -3000,119 +3066,85 @@ function writeMainEJS() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(progressData)
-            }).catch(err => console.error('Error saving progress:', err));
+            })
+            .then(res => {
+                if (res.ok) {
+                    showToast('Progress updated', 'success');
+                } else {
+                    throw new Error('Failed to update');
+                }
+            })
+            .catch(err => console.error('Error saving progress:', err));
         }
 
         // ==================== FORM SUBMISSIONS ====================
         function submitTaskForm(event) {
-            event.preventDefault(); 
-            showLoader();
+            event.preventDefault(); showToast('Creating task...', 'info');
             fetch('/api/tasks', { method: 'POST', body: new URLSearchParams(new FormData(event.target)) })
-            .then(res => { 
-                if(res.ok){ 
-                    closeModal('addTaskModal'); 
-                    showToast('Task created!'); 
-                    switchPage('tasks'); 
-                } else throw new Error(''); 
-            })
-            .catch(err => { showToast('Error creating task', 'error'); hideLoader(); });
+            .then(res => { if(res.ok){ closeModal('addTaskModal'); showToast('Task created!', 'success'); switchPage('tasks'); } else throw new Error(''); })
+            .catch(err => { showToast('Error creating task', 'error'); });
         }
 
         function submitEditTaskForm(event) {
-            event.preventDefault(); 
-            showLoader();
+            event.preventDefault(); showToast('Updating task...', 'info');
             const formData = new FormData(event.target);
             fetch('/api/tasks/' + formData.get('taskId') + '/update', { method: 'POST', body: new URLSearchParams(formData) })
-            .then(res => { 
-                if(res.ok){ 
-                    closeModal('editTaskModal'); 
-                    showToast('Task updated!'); 
-                    switchPage('tasks'); 
-                } else throw new Error(''); 
-            })
-            .catch(err => { showToast('Error updating task', 'error'); hideLoader(); });
+            .then(res => { if(res.ok){ closeModal('editTaskModal'); showToast('Task updated!', 'success'); switchPage('tasks'); } else throw new Error(''); })
+            .catch(err => { showToast('Error updating task', 'error'); });
         }
 
         function submitSubtaskForm(event) {
-            event.preventDefault(); 
-            showLoader();
+            event.preventDefault(); showToast('Adding subtask...', 'info');
             const formData = new FormData(event.target);
             fetch('/api/tasks/' + formData.get('taskId') + '/subtasks', { method: 'POST', body: new URLSearchParams(formData) })
-            .then(res => { 
-                if(res.ok){ 
-                    closeModal('addSubtaskModal'); 
-                    showToast('Subtask added!'); 
-                    switchPage('tasks'); 
-                } else throw new Error(''); 
-            })
-            .catch(err => { showToast('Error adding subtask', 'error'); hideLoader(); });
+            .then(res => { if(res.ok){ closeModal('addSubtaskModal'); showToast('Subtask added!', 'success'); switchPage('tasks'); } else throw new Error(''); })
+            .catch(err => { showToast('Error adding subtask', 'error'); });
         }
 
         function submitEditSubtaskForm(event) {
-            event.preventDefault(); 
-            showLoader();
+            event.preventDefault(); showToast('Updating subtask...', 'info');
             const formData = new FormData(event.target);
             fetch('/api/tasks/' + formData.get('taskId') + '/subtasks/' + formData.get('subtaskId') + '/update', { method: 'POST', body: new URLSearchParams(formData) })
-            .then(res => { 
-                if(res.ok){ 
-                    closeModal('editSubtaskModal'); 
-                    showToast('Subtask updated!'); 
-                    switchPage('tasks'); 
-                } else throw new Error(''); 
-            })
-            .catch(err => { showToast('Error updating subtask', 'error'); hideLoader(); });
+            .then(res => { if(res.ok){ closeModal('editSubtaskModal'); showToast('Subtask updated!', 'success'); switchPage('tasks'); } else throw new Error(''); })
+            .catch(err => { showToast('Error updating subtask', 'error'); });
         }
 
         function submitNoteForm(event) {
-            event.preventDefault(); 
-            showLoader();
+            event.preventDefault(); showToast('Creating note...', 'info');
             fetch('/api/notes', { method: 'POST', body: new URLSearchParams(new FormData(event.target)) })
-            .then(res => { 
-                if(res.ok){ 
-                    closeModal('addNoteModal'); 
-                    showToast('Note created!'); 
-                    switchPage('notes'); 
-                } else throw new Error(''); 
-            })
-            .catch(err => { showToast('Error creating note', 'error'); hideLoader(); });
+            .then(res => { if(res.ok){ closeModal('addNoteModal'); showToast('Note created!', 'success'); switchPage('notes'); } else throw new Error(''); })
+            .catch(err => { showToast('Error creating note', 'error'); });
         }
 
         function submitEditNoteForm(event) {
-            event.preventDefault(); 
-            showLoader();
+            event.preventDefault(); showToast('Updating note...', 'info');
             const formData = new FormData(event.target);
             fetch('/api/notes/' + formData.get('noteId') + '/update', { method: 'POST', body: new URLSearchParams(formData) })
-            .then(res => { 
-                if(res.ok){ 
-                    closeModal('editNoteModal'); 
-                    showToast('Note updated!'); 
-                    switchPage('notes'); 
-                } else throw new Error(''); 
-            })
-            .catch(err => { showToast('Error updating note', 'error'); hideLoader(); });
+            .then(res => { if(res.ok){ closeModal('editNoteModal'); showToast('Note updated!', 'success'); switchPage('notes'); } else throw new Error(''); })
+            .catch(err => { showToast('Error updating note', 'error'); });
         }
 
         function submitProgressForm(event) {
             event.preventDefault(); 
-            showLoader();
+            showToast('Creating progress...', 'info');
             
             const formData = new FormData();
             const hasData = document.getElementById('p-has-data').checked;
             const type = document.getElementById('p-type').value;
 
-            formData.append('title', (document.getElementById('p-title').value || '').trim());
-            formData.append('description', (document.getElementById('p-desc').value || '').trim());
-            formData.append('startDate', document.getElementById('p-start-date').value || '');
-            formData.append('endCount', document.getElementById('p-end-count').value || '365');
-            formData.append('color', document.getElementById('p-color').value || '#3b82f6');
-            formData.append('hasData', hasData ? 'true' : 'false');
+            formData.append('title', document.getElementById('p-title').value.trim());
+            formData.append('description', document.getElementById('p-desc').value.trim());
+            formData.append('startDate', document.getElementById('p-start-date').value);
+            formData.append('endCount', document.getElementById('p-end-count').value);
+            formData.append('color', document.getElementById('p-color').value);
+            formData.append('hasData', hasData);
             formData.append('type', hasData ? type : 'boolean');
 
             if (hasData) {
-                formData.append('question', (document.getElementById('p-question').value || '').trim());
+                formData.append('question', document.getElementById('p-question').value.trim());
                 if (type !== 'boolean') {
-                    formData.append('start', document.getElementById('p-start-data').value || '0');
-                    formData.append('end', document.getElementById('p-goal-data').value || '100');
+                    formData.append('start', document.getElementById('p-start-data').value);
+                    formData.append('end', document.getElementById('p-goal-data').value);
                 }
             }
 
@@ -3122,16 +3154,16 @@ function writeMainEJS() {
                     closeModal('addProgressModal'); 
                     document.getElementById('addProgressForm').reset();
                     document.getElementById('data-fields').style.display = 'none';
-                    showToast('Progress created!'); 
+                    showToast('Progress created!', 'success'); 
                     switchPage('progress'); 
                 } else throw new Error(''); 
             })
-            .catch(err => { showToast('Error creating progress', 'error'); hideLoader(); });
+            .catch(err => { showToast('Error creating progress', 'error'); });
         }
 
         function submitEditProgressForm(event) {
             event.preventDefault(); 
-            showLoader();
+            showToast('Updating progress...', 'info');
             
             const formData = new FormData();
             const itemId = document.getElementById('edit-p-id').value;
@@ -3139,19 +3171,19 @@ function writeMainEJS() {
             const type = document.getElementById('edit-p-type').value;
 
             formData.append('itemId', itemId);
-            formData.append('title', (document.getElementById('edit-p-title').value || '').trim());
-            formData.append('description', (document.getElementById('edit-p-desc').value || '').trim());
-            formData.append('startDate', document.getElementById('edit-p-start-date').value || '');
-            formData.append('endCount', document.getElementById('edit-p-end-count').value || '365');
-            formData.append('color', document.getElementById('edit-p-color').value || '#3b82f6');
-            formData.append('hasData', hasData ? 'true' : 'false');
+            formData.append('title', document.getElementById('edit-p-title').value.trim());
+            formData.append('description', document.getElementById('edit-p-desc').value.trim());
+            formData.append('startDate', document.getElementById('edit-p-start-date').value);
+            formData.append('endCount', document.getElementById('edit-p-end-count').value);
+            formData.append('color', document.getElementById('edit-p-color').value);
+            formData.append('hasData', hasData);
             formData.append('type', hasData ? type : 'boolean');
 
             if (hasData) {
-                formData.append('question', (document.getElementById('edit-p-question').value || '').trim());
+                formData.append('question', document.getElementById('edit-p-question').value.trim());
                 if (type !== 'boolean') {
-                    formData.append('start', document.getElementById('edit-p-start-data').value || '0');
-                    formData.append('end', document.getElementById('edit-p-goal-data').value || '100');
+                    formData.append('start', document.getElementById('edit-p-start-data').value);
+                    formData.append('end', document.getElementById('edit-p-goal-data').value);
                 }
             }
 
@@ -3159,23 +3191,19 @@ function writeMainEJS() {
             .then(res => { 
                 if(res.ok){ 
                     closeModal('editProgressModal'); 
-                    showToast('Progress updated!'); 
+                    showToast('Progress updated!', 'success'); 
                     switchPage('progress'); 
                 } else throw new Error(''); 
             })
-            .catch(err => { showToast('Error updating progress', 'error'); hideLoader(); });
+            .catch(err => { showToast('Error updating progress', 'error'); });
         }
 
         document.getElementById('save-log-btn')?.addEventListener('click', async () => {
             const inputEl = document.getElementById('log-input');
-            if (!inputEl) return;
-            
             let val = inputEl.value.trim();
             if (val === '') return alert('Enter a value.');
 
             const { item, dateStr } = loggingContext;
-            if (!item) return;
-            
             if (item.type === 'float') val = parseFloat(parseFloat(val).toFixed(2)); 
             else val = parseInt(val, 10);
 
@@ -3197,51 +3225,50 @@ function writeMainEJS() {
 
         // ==================== ACTION FUNCTIONS ====================
         function toggleSubtask(taskId, subtaskId) {
-            showLoader();
+            showToast('Toggling subtask...', 'info');
             fetch('/api/tasks/' + taskId + '/subtasks/' + subtaskId + '/toggle', { method: 'POST' })
-            .then(res => { if(res.ok){ showToast('Subtask toggled'); switchPage('tasks'); } else throw new Error(''); })
-            .catch(err => { showToast('Error toggling', 'error'); hideLoader(); });
+            .then(res => { if(res.ok){ showToast('Subtask toggled', 'success'); switchPage('tasks'); } else throw new Error(''); })
+            .catch(err => { showToast('Error toggling', 'error'); });
         }
 
         function deleteSubtask(taskId, subtaskId) {
             if (!confirm('Delete this subtask?')) return;
-            showLoader();
+            showToast('Deleting subtask...', 'info');
             fetch('/api/tasks/' + taskId + '/subtasks/' + subtaskId + '/delete', { method: 'POST' })
-            .then(res => { if(res.ok){ showToast('Subtask deleted'); switchPage('tasks'); } else throw new Error(''); })
-            .catch(err => { showToast('Error deleting', 'error'); hideLoader(); });
+            .then(res => { if(res.ok){ showToast('Subtask deleted', 'success'); switchPage('tasks'); } else throw new Error(''); })
+            .catch(err => { showToast('Error deleting', 'error'); });
         }
 
         function completeTask(taskId) {
             if (!confirm('Complete this task?')) return;
-            showLoader();
+            showToast('Completing task...', 'info');
             fetch('/api/tasks/' + taskId + '/complete', { method: 'POST' })
-            .then(res => { if(res.ok){ showToast('Task completed!'); switchPage('tasks'); } else { return res.text().then(t => {throw new Error(t);}); } })
-            .catch(err => { showToast(err.message || 'Error completing task', 'error'); hideLoader(); });
+            .then(res => { if(res.ok){ showToast('Task completed!', 'success'); switchPage('tasks'); } else { return res.text().then(t => {throw new Error(t);}); } })
+            .catch(err => { showToast(err.message || 'Error completing task', 'error'); });
         }
 
         function deleteTask(taskId) {
             if (!confirm('Delete this task?')) return;
-            showLoader();
+            showToast('Deleting task...', 'info');
             fetch('/api/tasks/' + taskId + '/delete', { method: 'POST' })
-            .then(res => { if(res.ok){ showToast('Task deleted'); switchPage('tasks'); } else throw new Error(''); })
-            .catch(err => { showToast('Error deleting', 'error'); hideLoader(); });
+            .then(res => { if(res.ok){ showToast('Task deleted', 'success'); switchPage('tasks'); } else throw new Error(''); })
+            .catch(err => { showToast('Error deleting', 'error'); });
         }
 
         function deleteNote(noteId) {
             if (!confirm('Delete this note?')) return;
-            showLoader();
+            showToast('Deleting note...', 'info');
             fetch('/api/notes/' + noteId + '/delete', { method: 'POST' })
-            .then(res => { if(res.ok){ showToast('Note deleted'); switchPage('notes'); } else throw new Error(''); })
-            .catch(err => { showToast('Error deleting', 'error'); hideLoader(); });
+            .then(res => { if(res.ok){ showToast('Note deleted', 'success'); switchPage('notes'); } else throw new Error(''); })
+            .catch(err => { showToast('Error deleting', 'error'); });
         }
 
         function moveNote(noteId, direction) {
-            showLoader();
-            const formData = new FormData(); 
-            formData.append('direction', direction);
+            showToast('Moving note...', 'info');
+            const formData = new FormData(); formData.append('direction', direction);
             fetch('/api/notes/' + noteId + '/move', { method: 'POST', body: new URLSearchParams(formData) })
-            .then(res => { if(res.ok){ showToast('Moved'); switchPage('notes'); } else throw new Error(''); })
-            .catch(err => { showToast('Error moving', 'error'); hideLoader(); });
+            .then(res => { if(res.ok){ showToast('Moved', 'success'); switchPage('notes'); } else throw new Error(''); })
+            .catch(err => { showToast('Error moving', 'error'); });
         }
 
         // ==================== EVENT LISTENERS ====================
@@ -3252,29 +3279,27 @@ function writeMainEJS() {
             setInterval(() => {
                 const now = new Date();
                 const istNow = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
-                const timeEl = document.getElementById('currentTimeDisplay');
-                const dateEl = document.getElementById('currentDateDisplay');
-                if (timeEl) {
-                    timeEl.innerHTML = String(istNow.getUTCHours()).padStart(2, '0') + ':' + String(istNow.getUTCMinutes()).padStart(2, '0');
+                const timeDisplay = document.getElementById('currentTimeDisplay');
+                const dateDisplay = document.getElementById('currentDateDisplay');
+                if (timeDisplay) {
+                    timeDisplay.innerHTML = String(istNow.getUTCHours()).padStart(2, '0') + ':' + String(istNow.getUTCMinutes()).padStart(2, '0');
                 }
-                if (dateEl) {
-                    dateEl.innerHTML = String(istNow.getUTCDate()).padStart(2, '0') + '-' + String(istNow.getUTCMonth() + 1).padStart(2, '0') + '-' + istNow.getUTCFullYear();
+                if (dateDisplay) {
+                    dateDisplay.innerHTML = String(istNow.getUTCDate()).padStart(2, '0') + '-' + String(istNow.getUTCMonth() + 1).padStart(2, '0') + '-' + istNow.getUTCFullYear();
                 }
             }, 1000);
             
             const repeatSelect = document.getElementById('repeatSelect');
             if (repeatSelect) {
                 repeatSelect.addEventListener('change', function() { 
-                    const group = document.getElementById('repeatCountGroup');
-                    if (group) group.style.display = this.value === 'none' ? 'none' : 'block'; 
+                    document.getElementById('repeatCountGroup').style.display = this.value === 'none' ? 'none' : 'block'; 
                 });
             }
             
             const editRepeatSelect = document.getElementById('editRepeatSelect');
             if (editRepeatSelect) {
                 editRepeatSelect.addEventListener('change', function() { 
-                    const group = document.getElementById('editRepeatCountGroup');
-                    if (group) group.style.display = this.value === 'none' ? 'none' : 'block'; 
+                    document.getElementById('editRepeatCountGroup').style.display = this.value === 'none' ? 'none' : 'block'; 
                 });
             }
             
@@ -3299,9 +3324,9 @@ function writeMainEJS() {
             });
             
             document.addEventListener('click', (e) => {
-                const bubble = document.getElementById('speech-bubble');
-                if (!e.target.closest('.day-cell') && !e.target.closest('.speech-bubble') && bubble) {
-                    bubble.classList.remove('show');
+                if (!e.target.closest('.day-cell') && !e.target.closest('.speech-bubble')) {
+                    const bubble = document.getElementById('speech-bubble');
+                    if (bubble) bubble.classList.remove('show');
                 }
             });
 
@@ -3325,6 +3350,37 @@ function writeMainEJS() {
             if (editPType) {
                 editPType.addEventListener('change', function() { toggleStartGoalData('edit'); });
             }
+
+            // Save log button listener
+            const saveLogBtn = document.getElementById('save-log-btn');
+            if (saveLogBtn) {
+                saveLogBtn.addEventListener('click', async () => {
+                    const inputEl = document.getElementById('log-input');
+                    if (!inputEl) return;
+                    
+                    let val = inputEl.value.trim();
+                    if (val === '') return alert('Enter a value.');
+
+                    const { item, dateStr } = loggingContext;
+                    if (item.type === 'float') val = parseFloat(parseFloat(val).toFixed(2)); 
+                    else val = parseInt(val, 10);
+
+                    if (!progressData.progress[dateStr]) progressData.progress[dateStr] = {};
+                    progressData.progress[dateStr][item.id] = val;
+
+                    updateProgressOnServer();
+                    
+                    const activeItems = progressData.items.filter(g => isItemActive(g, dateStr));
+                    const dayData = progressData.progress[dateStr] || {};
+                    const isAllCompleted = activeItems.length > 0 && activeItems.every(g => dayData[g.id] !== undefined);
+                    
+                    if (isAllCompleted) {
+                        closeModal('logProgressModal');
+                        const cell = document.querySelector('.day-cell[data-date="' + dateStr + '"]');
+                        if (cell) showBubble(cell, dateStr);
+                    } else openLogModal(dateStr);
+                });
+            }
         });
     </script>
 </body>
@@ -3340,9 +3396,6 @@ app.get('/', (req, res) => res.redirect('/tasks'));
 
 app.get('/tasks', async (req, res) => {
     try {
-        if (!db) {
-            return res.status(500).send('Database not connected');
-        }
         const tasks = await db.collection('tasks').find({ status: 'pending', nextOccurrence: { $gte: getTodayStartUTC(), $lt: getTomorrowStartUTC() } }).sort({ orderIndex: 1, nextOccurrence: 1 }).toArray();
         const currentIST = getCurrentISTDisplay();
         
@@ -3382,9 +3435,6 @@ app.get('/tasks', async (req, res) => {
 
 app.get('/notes', async (req, res) => {
     try {
-        if (!db) {
-            return res.status(500).send('Database not connected');
-        }
         const notes = await db.collection('notes').find().sort({ orderIndex: 1, createdAt: -1 }).toArray();
         const currentIST = getCurrentISTDisplay();
         
@@ -3415,9 +3465,6 @@ app.get('/notes', async (req, res) => {
 
 app.get('/progress', async (req, res) => {
     try {
-        if (!db) {
-            return res.status(500).send('Database not connected');
-        }
         let progressDoc = await db.collection('progress').findOne({});
         if (!progressDoc) {
             progressDoc = { items: [], progress: {} };
@@ -3442,9 +3489,6 @@ app.get('/progress', async (req, res) => {
 
 app.get('/history', async (req, res) => {
     try {
-        if (!db) {
-            return res.status(500).send('Database not connected');
-        }
         const history = await db.collection('history').find().sort({ completedAt: -1 }).limit(500).toArray();
         const groupedHistory = {};
         history.forEach(item => {
@@ -3483,9 +3527,6 @@ app.get('/history', async (req, res) => {
 
 app.get('/api/page/:page', async (req, res) => {
     try {
-        if (!db) {
-            return res.status(500).json({ error: 'Database not connected' });
-        }
         const page = req.params.page;
         if (page === 'tasks') {
             const tasks = await db.collection('tasks').find({ status: 'pending', nextOccurrence: { $gte: getTodayStartUTC(), $lt: getTomorrowStartUTC() } }).sort({ orderIndex: 1, nextOccurrence: 1 }).toArray();
@@ -3510,39 +3551,21 @@ app.get('/api/page/:page', async (req, res) => {
             });
             res.json({ tasks: [], notes: [], groupedHistory });
         } else { res.status(404).json({ error: 'Not found' }); }
-    } catch (error) { 
-        console.error(error);
-        res.status(500).json({ error: error.message }); 
-    }
+    } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 // Task API Routes
 app.get('/api/tasks/:taskId', async (req, res) => {
     try {
-        if (!db) {
-            return res.status(500).json({ error: 'Database not connected' });
-        }
         const task = await db.collection('tasks').findOne({ taskId: req.params.taskId });
         if (!task) return res.status(404).json({ error: 'Not found' });
         res.json({ ...task, startDateIST: utcToISTDisplay(task.startDate).date, startTimeIST: utcToISTDisplay(task.startDate).time, endTimeIST: utcToISTDisplay(task.endDate).time });
-    } catch (error) { 
-        console.error(error);
-        res.status(500).json({ error: error.message }); 
-    }
+    } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 app.post('/api/tasks', async (req, res) => {
     try {
-        if (!db) {
-            return res.status(500).send('Database not connected');
-        }
         const { title, description, startDate, startTime, endTime, repeat, repeatCount } = req.body;
-        
-        // Validate required fields
-        if (!title || !title.trim()) {
-            return res.status(400).send('Title is required');
-        }
-        
         const startDateUTC = istToUTC(startDate, startTime); 
         const endDateUTC = istToUTC(startDate, endTime);
         if (!startDateUTC || !endDateUTC || endDateUTC <= startDateUTC || startDateUTC <= new Date(Date.now() + 10 * 60000)) return res.status(400).send('Invalid times');
@@ -3566,9 +3589,7 @@ app.post('/api/tasks', async (req, res) => {
         };
         await db.collection('tasks').insertOne(task);
         if (task.startDate > new Date(Date.now() + 10 * 60000)) scheduleTask(task);
-        if (botEnabled && bot) {
-            try { await bot.telegram.sendMessage(CHAT_ID, `➕ <b>Added:</b> ${task.title}`, { parse_mode: 'HTML' }); } catch(e){}
-        }
+        try { await bot.telegram.sendMessage(CHAT_ID, `➕ <b>Added:</b> ${task.title}`, { parse_mode: 'HTML' }); } catch(e){}
         res.redirect('/tasks');
     } catch (error) { 
         console.error(error);
@@ -3578,15 +3599,7 @@ app.post('/api/tasks', async (req, res) => {
 
 app.post('/api/tasks/:taskId/update', async (req, res) => {
     try {
-        if (!db) {
-            return res.status(500).send('Database not connected');
-        }
         const { title, description, startDate, startTime, endTime, repeat, repeatCount } = req.body;
-        
-        if (!title || !title.trim()) {
-            return res.status(400).send('Title is required');
-        }
-        
         const startDateUTC = istToUTC(startDate, startTime); 
         const endDateUTC = istToUTC(startDate, endTime);
         if (!startDateUTC || endDateUTC <= startDateUTC || startDateUTC <= new Date(Date.now() + 10 * 60000)) return res.status(400).send('Invalid times');
@@ -3615,13 +3628,8 @@ app.post('/api/tasks/:taskId/update', async (req, res) => {
 
 app.post('/api/tasks/:taskId/complete', async (req, res) => {
     try {
-        if (!db) {
-            return res.status(500).send('Database not connected');
-        }
         const task = await db.collection('tasks').findOne({ taskId: req.params.taskId });
-        if (!task) return res.status(404).send('Task not found');
-        if ((task.subtasks || []).some(s => !s.completed)) return res.status(400).send('Complete subtasks first');
-        
+        if (!task || (task.subtasks || []).some(s => !s.completed)) return res.status(400).send('Complete subtasks first');
         await db.collection('history').insertOne({ ...task, _id: undefined, completedAt: new Date(), completedDate: getTodayStartUTC(), originalTaskId: task.taskId, status: 'completed' });
         cancelTaskSchedule(task.taskId);
         if (task.repeat !== 'none' && task.repeatCount > 0) {
@@ -3638,14 +3646,10 @@ app.post('/api/tasks/:taskId/complete', async (req, res) => {
             });
             const t = await db.collection('tasks').findOne({ taskId: task.taskId });
             if (t && t.nextOccurrence > new Date(Date.now() + 10 * 60000)) scheduleTask(t);
-            if (botEnabled && bot) {
-                try { await bot.telegram.sendMessage(CHAT_ID, `✅ <b>Completed:</b> ${task.title}\n🔄 Next: ${utcToISTDisplay(nextUTC).dateTime}`, { parse_mode: 'HTML' }); } catch(e){}
-            }
+            try { await bot.telegram.sendMessage(CHAT_ID, `✅ <b>Completed:</b> ${task.title}\n🔄 Next: ${utcToISTDisplay(nextUTC).dateTime}`, { parse_mode: 'HTML' }); } catch(e){}
         } else {
             await db.collection('tasks').deleteOne({ taskId: task.taskId });
-            if (botEnabled && bot) {
-                try { await bot.telegram.sendMessage(CHAT_ID, `✅ <b>Completed:</b> ${task.title}`, { parse_mode: 'HTML' }); } catch(e){}
-            }
+            try { await bot.telegram.sendMessage(CHAT_ID, `✅ <b>Completed:</b> ${task.title}`, { parse_mode: 'HTML' }); } catch(e){}
         }
         res.redirect('/tasks');
     } catch (error) { 
@@ -3656,15 +3660,10 @@ app.post('/api/tasks/:taskId/complete', async (req, res) => {
 
 app.post('/api/tasks/:taskId/delete', async (req, res) => {
     try {
-        if (!db) {
-            return res.status(500).send('Database not connected');
-        }
         const t = await db.collection('tasks').findOne({taskId: req.params.taskId});
         cancelTaskSchedule(req.params.taskId);
         await db.collection('tasks').deleteOne({ taskId: req.params.taskId });
-        if(t && botEnabled && bot) {
-            try { await bot.telegram.sendMessage(CHAT_ID, `🗑️ <b>Deleted:</b> ${t.title}`, { parse_mode: 'HTML' }); } catch(e){}
-        }
+        if(t) try { await bot.telegram.sendMessage(CHAT_ID, `🗑️ <b>Deleted:</b> ${t.title}`, { parse_mode: 'HTML' }); } catch(e){}
         res.redirect('/tasks');
     } catch (error) { 
         console.error(error);
@@ -3674,10 +3673,7 @@ app.post('/api/tasks/:taskId/delete', async (req, res) => {
 
 app.post('/api/tasks/:taskId/subtasks', async (req, res) => {
     try {
-        if (!db) {
-            return res.status(500).send('Database not connected');
-        }
-        if (!req.body.title || !req.body.title.trim()) return res.status(400).send('Empty title');
+        if (!req.body.title) return res.status(400).send('Empty title');
         await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { 
             $push: { subtasks: { 
                 id: generateSubtaskId(), 
@@ -3696,10 +3692,7 @@ app.post('/api/tasks/:taskId/subtasks', async (req, res) => {
 
 app.post('/api/tasks/:taskId/subtasks/:subtaskId/update', async (req, res) => {
     try {
-        if (!db) {
-            return res.status(500).send('Database not connected');
-        }
-        if (!req.body.title || !req.body.title.trim()) return res.status(400).send('Empty title');
+        if (!req.body.title) return res.status(400).send('Empty title');
         await db.collection('tasks').updateOne({ taskId: req.params.taskId, "subtasks.id": req.params.subtaskId }, { 
             $set: { 
                 "subtasks.$.title": req.body.title.trim(), 
@@ -3715,14 +3708,8 @@ app.post('/api/tasks/:taskId/subtasks/:subtaskId/update', async (req, res) => {
 
 app.post('/api/tasks/:taskId/subtasks/:subtaskId/toggle', async (req, res) => {
     try {
-        if (!db) {
-            return res.status(500).send('Database not connected');
-        }
         const task = await db.collection('tasks').findOne({ taskId: req.params.taskId });
-        if (!task) return res.status(404).send('Task not found');
         const sub = (task.subtasks || []).find(s => s.id === req.params.subtaskId);
-        if (!sub) return res.status(404).send('Subtask not found');
-        
         await db.collection('tasks').updateOne({ taskId: req.params.taskId, "subtasks.id": req.params.subtaskId }, { 
             $set: { "subtasks.$.completed": !sub.completed } 
         });
@@ -3735,9 +3722,6 @@ app.post('/api/tasks/:taskId/subtasks/:subtaskId/toggle', async (req, res) => {
 
 app.post('/api/tasks/:taskId/subtasks/:subtaskId/delete', async (req, res) => {
     try {
-        if (!db) {
-            return res.status(500).send('Database not connected');
-        }
         await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { 
             $pull: { subtasks: { id: req.params.subtaskId } } 
         });
@@ -3751,10 +3735,7 @@ app.post('/api/tasks/:taskId/subtasks/:subtaskId/delete', async (req, res) => {
 // Note API Routes
 app.post('/api/notes', async (req, res) => {
     try {
-        if (!db) {
-            return res.status(500).send('Database not connected');
-        }
-        if (!req.body.title || !req.body.title.trim()) return res.status(400).send('Empty title');
+        if (!req.body.title) return res.status(400).send('Empty title');
         const note = { 
             noteId: generateId('note'), 
             title: req.body.title.trim(), 
@@ -3773,10 +3754,7 @@ app.post('/api/notes', async (req, res) => {
 
 app.post('/api/notes/:noteId/update', async (req, res) => {
     try {
-        if (!db) {
-            return res.status(500).send('Database not connected');
-        }
-        if (!req.body.title || !req.body.title.trim()) return res.status(400).send('Empty title');
+        if (!req.body.title) return res.status(400).send('Empty title');
         await db.collection('notes').updateOne({ noteId: req.params.noteId }, { 
             $set: { 
                 title: req.body.title.trim(), 
@@ -3793,9 +3771,6 @@ app.post('/api/notes/:noteId/update', async (req, res) => {
 
 app.post('/api/notes/:noteId/delete', async (req, res) => {
     try {
-        if (!db) {
-            return res.status(500).send('Database not connected');
-        }
         await db.collection('notes').deleteOne({ noteId: req.params.noteId });
         res.redirect('/notes');
     } catch (error) { 
@@ -3806,9 +3781,6 @@ app.post('/api/notes/:noteId/delete', async (req, res) => {
 
 app.post('/api/notes/:noteId/move', async (req, res) => {
     try {
-        if (!db) {
-            return res.status(500).send('Database not connected');
-        }
         const notes = await db.collection('notes').find().sort({ orderIndex: 1 }).toArray();
         const idx = notes.findIndex(n => n.noteId === req.params.noteId);
         if (req.body.direction === 'up' && idx > 0) {
@@ -3822,7 +3794,6 @@ app.post('/api/notes/:noteId/move', async (req, res) => {
             notes[idx].orderIndex = notes[idx+1].orderIndex; 
             notes[idx+1].orderIndex = t;
             await db.collection('notes').updateOne({ noteId: notes[idx].noteId }, { $set: { orderIndex: notes[idx].orderIndex } });
-            // Note API Routes (continued)
             await db.collection('notes').updateOne({ noteId: notes[idx+1].noteId }, { $set: { orderIndex: notes[idx+1].orderIndex } });
         }
         res.redirect('/notes');
@@ -3835,16 +3806,7 @@ app.post('/api/notes/:noteId/move', async (req, res) => {
 // Progress API Routes
 app.post('/api/progress', async (req, res) => {
     try {
-        if (!db) {
-            return res.status(500).send('Database not connected');
-        }
-        
         const { title, description, startDate, endCount, color, hasData, type, question, start, end } = req.body;
-        
-        // Validate required fields
-        if (!title || !title.trim()) {
-            return res.status(400).send('Title is required');
-        }
         
         let progressDoc = await db.collection('progress').findOne({});
         if (!progressDoc) {
@@ -3856,14 +3818,14 @@ app.post('/api/progress', async (req, res) => {
             title: title.trim(),
             description: description || '',
             startDate: startDate,
-            endCount: parseInt(endCount) || 365,
-            color: color || '#3b82f6',
+            endCount: parseInt(endCount),
+            color: color,
             hasData: hasData === 'true',
-            type: type || 'boolean'
+            type: type
         };
         
         if (hasData === 'true') {
-            newItem.question = question || '';
+            newItem.question = question;
             if (type !== 'boolean') {
                 if (start) newItem.start = type === 'float' ? parseFloat(start) : parseInt(start);
                 if (end) newItem.end = type === 'float' ? parseFloat(end) : parseInt(end);
@@ -3876,22 +3838,14 @@ app.post('/api/progress', async (req, res) => {
         
         res.redirect('/progress');
     } catch (error) { 
-        console.error('Progress creation error:', error);
+        console.error(error);
         res.status(500).send(error.message); 
     }
 });
 
 app.post('/api/progress/:itemId/update', async (req, res) => {
     try {
-        if (!db) {
-            return res.status(500).send('Database not connected');
-        }
-        
         const { itemId, title, description, startDate, endCount, color, hasData, type, question, start, end } = req.body;
-        
-        if (!title || !title.trim()) {
-            return res.status(400).send('Title is required');
-        }
         
         let progressDoc = await db.collection('progress').findOne({});
         if (!progressDoc) {
@@ -3904,7 +3858,7 @@ app.post('/api/progress/:itemId/update', async (req, res) => {
         }
         
         const originalItem = progressDoc.items[itemIndex];
-        const newColor = color || originalItem.color;
+        const newColor = color;
         
         // Color interchange logic
         if (originalItem.color !== newColor) {
@@ -3918,18 +3872,18 @@ app.post('/api/progress/:itemId/update', async (req, res) => {
             id: itemId,
             title: title.trim(),
             description: description || '',
-            startDate: startDate || originalItem.startDate,
-            endCount: parseInt(endCount) || originalItem.endCount,
+            startDate: startDate,
+            endCount: parseInt(endCount),
             color: newColor,
             hasData: hasData === 'true',
-            type: type || originalItem.type
+            type: type
         };
         
         if (hasData === 'true') {
-            updatedItem.question = question || originalItem.question;
+            updatedItem.question = question;
             if (type !== 'boolean') {
-                if (start !== undefined) updatedItem.start = type === 'float' ? parseFloat(start) : parseInt(start);
-                if (end !== undefined) updatedItem.end = type === 'float' ? parseFloat(end) : parseInt(end);
+                if (start) updatedItem.start = type === 'float' ? parseFloat(start) : parseInt(start);
+                if (end) updatedItem.end = type === 'float' ? parseFloat(end) : parseInt(end);
             }
         }
         
@@ -3939,17 +3893,13 @@ app.post('/api/progress/:itemId/update', async (req, res) => {
         
         res.redirect('/progress');
     } catch (error) { 
-        console.error('Progress update error:', error);
+        console.error(error);
         res.status(500).send(error.message); 
     }
 });
 
 app.post('/api/progress/:itemId/delete', async (req, res) => {
     try {
-        if (!db) {
-            return res.status(500).send('Database not connected');
-        }
-        
         let progressDoc = await db.collection('progress').findOne({});
         if (!progressDoc) {
             return res.status(404).send('Progress not found');
@@ -3971,188 +3921,61 @@ app.post('/api/progress/:itemId/delete', async (req, res) => {
         
         res.redirect('/progress');
     } catch (error) { 
-        console.error('Progress deletion error:', error);
+        console.error(error);
         res.status(500).send(error.message); 
     }
 });
 
 app.post('/api/progress/update', async (req, res) => {
     try {
-        if (!db) {
-            return res.status(500).json({ error: 'Database not connected' });
-        }
-        
         const progressData = req.body;
-        
-        // Ensure proper structure
-        if (!progressData.items) progressData.items = [];
-        if (!progressData.progress) progressData.progress = {};
-        
         await db.collection('progress').replaceOne({}, progressData, { upsert: true });
         res.json({ success: true });
     } catch (error) { 
-        console.error('Progress save error:', error);
+        console.error(error);
         res.status(500).json({ error: error.message }); 
     }
-});
-
-// Health check endpoint
-app.get('/health', (req, res) => {
-    res.json({ 
-        status: 'ok', 
-        dbConnected: !!db,
-        botEnabled: botEnabled,
-        timestamp: new Date().toISOString() 
-    });
 });
 
 // ==========================================
 // 🚀 BOOTSTRAP
 // ==========================================
-let server = null;
-
 async function start() {
     try {
-        // Check if port is in use
-        const isPortAvailable = await checkPort(PORT);
-        if (!isPortAvailable) {
-            console.error(`⚠️ Port ${PORT} is already in use. Make sure no other instance is running.`);
-            console.log('🔄 Will retry in 5 seconds...');
-            setTimeout(start, 5000);
-            return;
-        }
-
-        const dbConnected = await connectDB();
-        if (dbConnected) {
+        if (await connectDB()) {
             await rescheduleAllPending();
             scheduleAutoComplete();
             
-            // Start server with error handling
-            server = app.listen(PORT, '0.0.0.0', () => {
+            app.listen(PORT, '0.0.0.0', () => {
                 console.log('🌐 Web interface running on port ' + PORT);
                 console.log('🌍 Public Web URL: ' + WEB_APP_URL);
                 console.log('🕐 IST Time: ' + getCurrentISTDisplay().dateTime);
             });
             
-            server.on('error', (error) => {
-                if (error.code === 'EADDRINUSE') {
-                    console.error(`❌ Port ${PORT} is already in use. Retrying in 5 seconds...`);
-                    setTimeout(() => {
-                        if (server) server.close();
-                        start();
-                    }, 5000);
-                } else {
-                    console.error('Server error:', error);
-                }
-            });
-            
-            // Try to launch bot if enabled
-            if (botEnabled && bot) {
-                try {
-                    await bot.launch();
-                    console.log('🤖 Bot Started Successfully - With Progress Tracker!');
-                } catch (botError) {
-                    console.log('⚠️ Bot failed to start (continuing without bot):', botError.message);
-                    botEnabled = false;
-                }
-            } else {
-                console.log('⚠️ Running without Telegram bot (invalid token or bot disabled)');
-            }
-            
-            console.log('✅ Application started successfully');
+            await bot.launch();
+            console.log('🤖 Bot Started Successfully - With Progress Tracker!');
         } else {
-            console.error('❌ Failed to connect to MongoDB after multiple retries');
-            console.log('🔄 Will retry in 5 seconds...');
             setTimeout(start, 5000);
         }
     } catch (error) {
         console.error('Startup error:', error);
-        console.log('🔄 Will retry in 10 seconds...');
         setTimeout(start, 10000);
     }
 }
 
-// Helper function to check if port is available
-function checkPort(port) {
-    return new Promise((resolve) => {
-        const tester = require('net').createServer()
-            .once('error', (err) => {
-                if (err.code === 'EADDRINUSE') {
-                    resolve(false);
-                } else {
-                    resolve(true);
-                }
-            })
-            .once('listening', () => {
-                tester.once('close', () => resolve(true)).close();
-            })
-            .listen(port, '0.0.0.0');
-    });
-}
-
 // Graceful shutdown
 process.once('SIGINT', () => { 
-    console.log('🛑 Received SIGINT, shutting down gracefully...');
     isShuttingDown = true; 
     if (autoCompleteJob) autoCompleteJob.cancel();
-    if (botEnabled && bot) bot.stop('SIGINT');
-    if (server) {
-        server.close(() => {
-            console.log('✅ Server closed');
-            if (client) {
-                client.close().then(() => {
-                    console.log('✅ MongoDB connection closed');
-                    process.exit(0);
-                }).catch(() => process.exit(0));
-            } else {
-                process.exit(0);
-            }
-        });
-    } else {
-        if (client) {
-            client.close().then(() => process.exit(0)).catch(() => process.exit(0));
-        } else {
-            process.exit(0);
-        }
-    }
+    bot.stop('SIGINT'); 
+    process.exit(0); 
 });
 
 process.once('SIGTERM', () => { 
-    console.log('🛑 Received SIGTERM, shutting down gracefully...');
     isShuttingDown = true; 
     if (autoCompleteJob) autoCompleteJob.cancel();
-    if (botEnabled && bot) bot.stop('SIGTERM');
-    if (server) {
-        server.close(() => {
-            console.log('✅ Server closed');
-            if (client) {
-                client.close().then(() => {
-                    console.log('✅ MongoDB connection closed');
-                    process.exit(0);
-                }).catch(() => process.exit(0));
-            } else {
-                process.exit(0);
-            }
-        });
-    } else {
-        if (client) {
-            client.close().then(() => process.exit(0)).catch(() => process.exit(0));
-        } else {
-            process.exit(0);
-        }
-    }
+    bot.stop('SIGTERM'); 
+    process.exit(0); 
 });
 
-// Handle uncaught exceptions
-process.on('uncaughtException', (error) => {
-    console.error('❌ Uncaught Exception:', error);
-    // Don't exit immediately, let the process continue
-});
-
-process.on('unhandledRejection', (error) => {
-    console.error('❌ Unhandled Rejection:', error);
-    // Don't exit immediately, let the process continue
-});
-
-// Start the application
 start();
