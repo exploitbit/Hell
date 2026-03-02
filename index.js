@@ -8,11 +8,11 @@ const fs = require('fs');
 // ==========================================
 // ⚙️ CONFIGURATION - DIRECT HARDCODED VALUES
 // ==========================================
-const BOT_TOKEN = '8716545255:AAHNcyDFzOdVUQz38iutCVEN3DARA5YJLBM';
+const BOT_TOKEN = '8388773187:AAEWqg9L-JhIsIYtpbxJ0wxqdT2ImWmFni4';
 const MONGODB_URI = 'mongodb+srv://sandip:9E9AISFqTfU3VI5i@cluster0.p8irtov.mongodb.net/telegram_bot';
 const PORT = process.env.PORT || 8080;
 const WEB_APP_URL = 'https://web-production-820965.up.railway.app';
-const CHAT_ID = 8781152810;
+const CHAT_ID = 8469993808;
 // ==========================================
 // 🕐 TIMEZONE CONSTANTS (IST = UTC+5:30)
 // ==========================================
@@ -103,9 +103,17 @@ async function connectDB() {
     let retries = 5;
     while (retries > 0) {
         try {
-            client = new MongoClient(MONGODB_URI, { serverSelectionTimeoutMS: 5000, maxPoolSize: 10 });
+            client = new MongoClient(MONGODB_URI, { 
+                serverSelectionTimeoutMS: 5000, 
+                maxPoolSize: 10,
+                connectTimeoutMS: 10000,
+                socketTimeoutMS: 45000
+            });
             await client.connect();
             db = client.db('telegram_bot');
+            
+            // Test the connection
+            await db.command({ ping: 1 });
             
             // Create collections if they don't exist
             const collections = await db.listCollections().toArray();
@@ -122,6 +130,7 @@ async function connectDB() {
             console.log('✅ Connected to MongoDB');
             return true;
         } catch (error) {
+            console.error(`MongoDB connection attempt failed: ${error.message}`);
             retries--;
             if (retries === 0) return false;
             await new Promise(resolve => setTimeout(resolve, 5000));
@@ -133,8 +142,10 @@ async function connectDB() {
 // ==========================================
 // 🛠️ UTILITY FUNCTIONS
 // ==========================================
-function generateId(type = 'task') { return Math.random().toString(36).substring(2, 10); }
-function generateSubtaskId() { return 'sub_' + Date.now().toString(36); }
+function generateId(type = 'task') { 
+    return type + '_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 6); 
+}
+function generateSubtaskId() { return 'sub_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 4); }
 function calculateDuration(startDate, endDate) { return Math.round((endDate - startDate) / 60000); }
 function formatDuration(minutes) {
     if (minutes < 0) return '0 mins';
@@ -152,19 +163,37 @@ function calculateSubtaskProgress(subtasks) {
 // ==========================================
 // 🤖 BOT SETUP & SCHEDULER (NOTIFICATIONS ONLY)
 // ==========================================
-const bot = new Telegraf(BOT_TOKEN);
+let bot = null;
+let botEnabled = false;
+
+// Try to initialize bot but don't crash if token is invalid
+try {
+    bot = new Telegraf(BOT_TOKEN);
+    botEnabled = true;
+    console.log('🤖 Bot initialized');
+} catch (error) {
+    console.log('⚠️ Bot initialization failed, continuing without bot functionality');
+    botEnabled = false;
+}
+
 const activeSchedules = new Map();
 let isShuttingDown = false;
 
-bot.command('start', async (ctx) => {
-    const keyboard = Markup.inlineKeyboard([
-        [Markup.button.webApp('📋 Tasks', WEB_APP_URL + '/tasks')],
-        [Markup.button.webApp('📝 Notes', WEB_APP_URL + '/notes')],
-        [Markup.button.webApp('📊 Progress', WEB_APP_URL + '/progress')],
-        [Markup.button.webApp('📜 History', WEB_APP_URL + '/history')]
-    ]);
-    await ctx.reply('🌟 <b>Global Task Manager</b>\n\nManage your tasks, notes, and progress using the Web App below.', { parse_mode: 'HTML', reply_markup: keyboard.reply_markup });
-});
+if (botEnabled && bot) {
+    bot.command('start', async (ctx) => {
+        try {
+            const keyboard = Markup.inlineKeyboard([
+                [Markup.button.webApp('📋 Tasks', WEB_APP_URL + '/tasks')],
+                [Markup.button.webApp('📝 Notes', WEB_APP_URL + '/notes')],
+                [Markup.button.webApp('📊 Progress', WEB_APP_URL + '/progress')],
+                [Markup.button.webApp('📜 History', WEB_APP_URL + '/history')]
+            ]);
+            await ctx.reply('🌟 <b>Global Task Manager</b>\n\nManage your tasks, notes, and progress using the Web App below.', { parse_mode: 'HTML', reply_markup: keyboard.reply_markup });
+        } catch (error) {
+            console.error('Bot command error:', error.message);
+        }
+    });
+}
 
 function scheduleTask(task) {
     if (!task || !task.taskId || !task.startDate) return;
@@ -194,13 +223,13 @@ function scheduleTask(task) {
                         clearInterval(activeSchedule.interval);
                         activeSchedule.interval = null;
                     }
-                    if (currentTimeUTC >= startTimeUTC) {
+                    if (currentTimeUTC >= startTimeUTC && botEnabled && bot) {
                         try { await bot.telegram.sendMessage(CHAT_ID, `🚀 <b>START NOW:</b> ${task.title}`, { parse_mode: 'HTML' }); } catch (e) {}
                     }
                     return;
                 }
                 const minutesLeft = Math.ceil((startTimeUTC - currentTimeUTC) / 60000);
-                if (minutesLeft > 0) {
+                if (minutesLeft > 0 && botEnabled && bot) {
                     try { await bot.telegram.sendMessage(CHAT_ID, `🔔 <b>In ${minutesLeft}m:</b> ${task.title}`, { parse_mode: 'HTML' }); } catch (e) {}
                 }
                 count++;
@@ -217,7 +246,9 @@ function scheduleTask(task) {
             if (activeSchedules.get(taskId).startJob) activeSchedules.get(taskId).startJob.cancel();
             activeSchedules.get(taskId).startJob = startJob;
         } else { activeSchedules.set(taskId, { startJob }); }
-    } catch (error) {}
+    } catch (error) {
+        console.error('Schedule task error:', error.message);
+    }
 }
 
 function cancelTaskSchedule(taskId) {
@@ -231,13 +262,17 @@ function cancelTaskSchedule(taskId) {
 
 async function rescheduleAllPending() {
     try {
+        if (!db) return;
         const tasks = await db.collection('tasks').find({ status: 'pending', startDate: { $gt: new Date(Date.now() + 10 * 60000) } }).toArray();
         tasks.forEach(task => scheduleTask(task));
-    } catch (error) {}
+    } catch (error) {
+        console.error('Reschedule error:', error.message);
+    }
 }
 
 async function autoCompletePendingTasks() {
     try {
+        if (!db) return;
         const pendingTasks = await db.collection('tasks').find({ status: 'pending', nextOccurrence: { $gte: getTodayStartUTC(), $lt: getTomorrowStartUTC() } }).toArray();
         for (const task of pendingTasks) {
             const historyItem = { ...task, _id: undefined, completedAt: new Date(), completedDate: getTodayStartUTC(), originalTaskId: task.taskId, status: 'completed', autoCompleted: true };
@@ -253,9 +288,13 @@ async function autoCompletePendingTasks() {
             } else {
                 await db.collection('tasks').deleteOne({ taskId: task.taskId });
             }
-            try { await bot.telegram.sendMessage(CHAT_ID, `✅ <b>Auto-Completed:</b> ${task.title}`, { parse_mode: 'HTML' }); } catch (e) {}
+            if (botEnabled && bot) {
+                try { await bot.telegram.sendMessage(CHAT_ID, `✅ <b>Auto-Completed:</b> ${task.title}`, { parse_mode: 'HTML' }); } catch (e) {}
+            }
         }
-    } catch (error) {}
+    } catch (error) {
+        console.error('Auto complete error:', error.message);
+    }
 }
 
 let autoCompleteJob;
@@ -2204,8 +2243,10 @@ function writeMainEJS() {
 
     <script>
         const tg = window.Telegram.WebApp;
-        tg.ready();
-        tg.expand();
+        if (tg) {
+            tg.ready();
+            tg.expand();
+        }
 
         // Global variables
         let currentPage = '<%= currentPage %>';
@@ -2239,11 +2280,20 @@ function writeMainEJS() {
         if (!progressData.items) progressData.items = [];
         if (!progressData.progress) progressData.progress = {};
 
-        function showLoader() { document.getElementById('loader').style.display = 'flex'; }
-        function hideLoader() { document.getElementById('loader').style.display = 'none'; }
+        function showLoader() { 
+            const loader = document.getElementById('loader');
+            if (loader) loader.style.display = 'flex'; 
+        }
+        
+        function hideLoader() { 
+            const loader = document.getElementById('loader');
+            if (loader) loader.style.display = 'none'; 
+        }
 
         function showToast(message, type = 'success') {
             const container = document.getElementById('toastContainer');
+            if (!container) return;
+            
             const toast = document.createElement('div');
             toast.className = 'toast';
             if (type === 'error') toast.style.background = '#dc2626';
@@ -2261,20 +2311,26 @@ function writeMainEJS() {
 
         function switchPage(page) {
             showLoader();
-            fetch('/api/page/' + page).then(res => res.json()).then(data => {
-                currentPage = page;
-                tasksData = data.tasks || [];
-                notesData = data.notes || [];
-                if (data.progress) {
-                    progressData = data.progress;
-                    if (!progressData.items) progressData.items = [];
-                    if (!progressData.progress) progressData.progress = {};
-                }
-                historyData = data.groupedHistory || {};
-                renderPage();
-                updateActiveNav();
-                hideLoader();
-            }).catch(err => { showToast('Error loading page', 'error'); hideLoader(); });
+            fetch('/api/page/' + page)
+                .then(res => res.json())
+                .then(data => {
+                    currentPage = page;
+                    tasksData = data.tasks || [];
+                    notesData = data.notes || [];
+                    if (data.progress) {
+                        progressData = data.progress;
+                        if (!progressData.items) progressData.items = [];
+                        if (!progressData.progress) progressData.progress = {};
+                    }
+                    historyData = data.groupedHistory || {};
+                    renderPage();
+                    updateActiveNav();
+                    hideLoader();
+                })
+                .catch(err => { 
+                    showToast('Error loading page', 'error'); 
+                    hideLoader(); 
+                });
         }
 
         function updateActiveNav() {
@@ -2287,17 +2343,19 @@ function writeMainEJS() {
         function renderPage() {
             const content = document.getElementById('mainContent');
             const fabButton = document.getElementById('fabButton');
+            if (!content) return;
+            
             if (currentPage === 'tasks') { 
-                fabButton.style.display = 'flex'; 
+                if (fabButton) fabButton.style.display = 'flex'; 
                 content.innerHTML = renderTasksPage(); 
             } else if (currentPage === 'notes') { 
-                fabButton.style.display = 'flex'; 
+                if (fabButton) fabButton.style.display = 'flex'; 
                 content.innerHTML = renderNotesPage(); 
             } else if (currentPage === 'progress') { 
-                fabButton.style.display = 'flex'; 
+                if (fabButton) fabButton.style.display = 'flex'; 
                 content.innerHTML = renderProgressPage(); 
             } else if (currentPage === 'history') { 
-                fabButton.style.display = 'none'; 
+                if (fabButton) fabButton.style.display = 'none'; 
                 content.innerHTML = renderHistoryPage(); 
             }
         }
@@ -2330,7 +2388,7 @@ function writeMainEJS() {
 
         // ==================== TASKS RENDERING ====================
         function renderTasksPage() {
-            let html = '<h1 class="page-title">Today\\'s Tasks</h1><div class="tasks-grid">';
+            let html = '<h1 class="page-title">Today\'s Tasks</h1><div class="tasks-grid">';
             if (!tasksData || tasksData.length === 0) {
                 html += '<div class="empty-state" style="grid-column: 1/-1;"><i class="fas fa-clipboard-list" style="font-size: 2rem;"></i><h3 style="margin-top: 12px;">No tasks</h3></div>';
             } else {
@@ -2344,9 +2402,9 @@ function writeMainEJS() {
                     const descriptionId = 'task_desc_' + task.taskId;
                     const escapedTitle = escapeHtml(task.title);
                     
-                    html += '<div class="task-card"><div class="task-header"><div class="task-title-section"><div class="task-title-container" onclick="toggleDescription(\\'' + descriptionId + '\\')"><i class="fas fa-chevron-right" id="' + descriptionId + '_icon"></i><span class="task-title">' + escapedTitle + '</span></div></div><div class="task-actions">';
-                    if (totalSubtasks < 10) html += '<button class="action-btn" onclick="openAddSubtaskModal(\\'' + task.taskId + '\\')"><i class="fas fa-plus"></i></button>';
-                    html += '<button class="action-btn" onclick="openEditTaskModal(\\'' + task.taskId + '\\')"><i class="fas fa-pencil-alt"></i></button><button class="action-btn" onclick="completeTask(\\'' + task.taskId + '\\')"><i class="fas fa-check"></i></button><button class="action-btn delete" onclick="deleteTask(\\'' + task.taskId + '\\')"><i class="fas fa-trash"></i></button></div></div>';
+                    html += '<div class="task-card"><div class="task-header"><div class="task-title-section"><div class="task-title-container" onclick="toggleDescription(\'' + descriptionId + '\')"><i class="fas fa-chevron-right" id="' + descriptionId + '_icon"></i><span class="task-title">' + escapedTitle + '</span></div></div><div class="task-actions">';
+                    if (totalSubtasks < 10) html += '<button class="action-btn" onclick="openAddSubtaskModal(\'' + task.taskId + '\')"><i class="fas fa-plus"></i></button>';
+                    html += '<button class="action-btn" onclick="openEditTaskModal(\'' + task.taskId + '\')"><i class="fas fa-pencil-alt"></i></button><button class="action-btn" onclick="completeTask(\'' + task.taskId + '\')"><i class="fas fa-check"></i></button><button class="action-btn delete" onclick="deleteTask(\'' + task.taskId + '\')"><i class="fas fa-trash"></i></button></div></div>';
                     if (hasDescription) html += '<div id="' + descriptionId + '" class="task-description-container hidden"><div class="task-description">' + preserveLineBreaks(task.description) + '</div></div>';
                     html += '<div class="task-time-row"><span class="date-chip"><i class="fas fa-calendar-alt"></i> ' + task.dateIST + '</span><span class="time-chip"><i class="fas fa-clock"></i> ' + task.startTimeIST + '-' + task.endTimeIST + '</span></div>';
                     
@@ -2356,7 +2414,7 @@ function writeMainEJS() {
                             const subtaskHasDesc = hasContent(subtask.description);
                             const subtaskDescId = 'subtask_desc_' + task.taskId + '_' + subtask.id;
                             const escapedSubtaskTitle = escapeHtml(subtask.title);
-                            html += '<div class="subtask-item"><div class="subtask-main-row"><div class="subtask-checkbox ' + (subtask.completed ? 'completed' : '') + '" onclick="toggleSubtask(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\')">' + (subtask.completed ? '<i class="fas fa-check"></i>' : '') + '</div><div class="subtask-details"><div class="subtask-title-container" onclick="toggleDescription(\\'' + subtaskDescId + '\\')"><span class="subtask-title ' + (subtask.completed ? 'completed' : '') + '">' + escapedSubtaskTitle + '</span></div></div><div class="subtask-actions"><button class="subtask-btn" onclick="editSubtask(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\', \\'' + escapeJsString(subtask.title) + '\\', \\'' + escapeJsString(subtask.description || '') + '\\')"><i class="fas fa-pencil-alt"></i></button><button class="subtask-btn delete" onclick="deleteSubtask(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\')"><i class="fas fa-trash"></i></button></div></div>';
+                            html += '<div class="subtask-item"><div class="subtask-main-row"><div class="subtask-checkbox ' + (subtask.completed ? 'completed' : '') + '" onclick="toggleSubtask(\'' + task.taskId + '\', \'' + subtask.id + '\')">' + (subtask.completed ? '<i class="fas fa-check"></i>' : '') + '</div><div class="subtask-details"><div class="subtask-title-container" onclick="toggleDescription(\'' + subtaskDescId + '\')"><span class="subtask-title ' + (subtask.completed ? 'completed' : '') + '">' + escapedSubtaskTitle + '</span></div></div><div class="subtask-actions"><button class="subtask-btn" onclick="editSubtask(\'' + task.taskId + '\', \'' + subtask.id + '\', \'' + escapeJsString(subtask.title) + '\', \'' + escapeJsString(subtask.description || '') + '\')"><i class="fas fa-pencil-alt"></i></button><button class="subtask-btn delete" onclick="deleteSubtask(\'' + task.taskId + '\', \'' + subtask.id + '\')"><i class="fas fa-trash"></i></button></div></div>';
                             if (subtaskHasDesc) html += '<div id="' + subtaskDescId + '" class="subtask-description-container hidden"><div class="subtask-description">' + preserveLineBreaks(subtask.description) + '</div></div>';
                             html += '</div>';
                         });
@@ -2383,7 +2441,7 @@ function writeMainEJS() {
                     const hasDescription = hasContent(note.description);
                     const noteDescId = 'note_desc_' + note.noteId;
                     const escapedNoteTitle = escapeHtml(note.title);
-                    html += '<div class="note-card"><div class="note-header"><div class="task-title-container" onclick="toggleDescription(\\'' + noteDescId + '\\')"><i class="fas fa-chevron-right" id="' + noteDescId + '_icon"></i><span class="note-title">' + escapedNoteTitle + '</span></div><div style="display: flex; gap: 4px;"><button class="action-btn" onclick="moveNote(\\'' + note.noteId + '\\', \\'up\\')"><i class="fas fa-arrow-up"></i></button><button class="action-btn" onclick="moveNote(\\'' + note.noteId + '\\', \\'down\\')"><i class="fas fa-arrow-down"></i></button><button class="action-btn" onclick="openEditNoteModal(\\'' + note.noteId + '\\', \\'' + escapeJsString(note.title) + '\\', \\'' + escapeJsString(note.description || '') + '\\')"><i class="fas fa-pencil-alt"></i></button><button class="action-btn delete" onclick="deleteNote(\\'' + note.noteId + '\\')"><i class="fas fa-trash"></i></button></div></div>';
+                    html += '<div class="note-card"><div class="note-header"><div class="task-title-container" onclick="toggleDescription(\'' + noteDescId + '\')"><i class="fas fa-chevron-right" id="' + noteDescId + '_icon"></i><span class="note-title">' + escapedNoteTitle + '</span></div><div style="display: flex; gap: 4px;"><button class="action-btn" onclick="moveNote(\'' + note.noteId + '\', \'up\')"><i class="fas fa-arrow-up"></i></button><button class="action-btn" onclick="moveNote(\'' + note.noteId + '\', \'down\')"><i class="fas fa-arrow-down"></i></button><button class="action-btn" onclick="openEditNoteModal(\'' + note.noteId + '\', \'' + escapeJsString(note.title) + '\', \'' + escapeJsString(note.description || '') + '\')"><i class="fas fa-pencil-alt"></i></button><button class="action-btn delete" onclick="deleteNote(\'' + note.noteId + '\')"><i class="fas fa-trash"></i></button></div></div>';
                     if (hasDescription) html += '<div id="' + noteDescId + '" class="note-content-container hidden"><div class="note-content">' + preserveLineBreaks(note.description) + '</div></div>';
                     html += '<div class="note-meta"><span><i class="fas fa-clock"></i> ' + note.createdAtIST + '</span>' + (note.updatedAtIST !== note.createdAtIST ? '<span><i class="fas fa-pencil-alt"></i> ' + note.updatedAtIST + '</span>' : '') + '</div></div>';
                 });
@@ -2511,7 +2569,7 @@ function writeMainEJS() {
                 if(daysPassed < 0) daysLeft = item.endCount; 
                 if(daysLeft < 0) daysLeft = 0;
 
-                html += '<div class="progress-card"><details class="progress-details"><summary class="progress-summary"><div class="progress-title-section"><i class="fas fa-chevron-right chevron-icon"></i><span class="progress-title">' + escapeHtml(item.title) + '</span></div><div class="progress-actions"><button class="action-btn" onclick="event.preventDefault(); event.stopPropagation(); openEditProgressModal(\\'' + item.id + '\\')"><i class="fas fa-pencil-alt"></i></button><button class="action-btn delete" onclick="event.preventDefault(); event.stopPropagation(); deleteProgress(\\'' + item.id + '\\')"><i class="fas fa-trash"></i></button></div></summary>';
+                html += '<div class="progress-card"><details class="progress-details"><summary class="progress-summary"><div class="progress-title-section"><i class="fas fa-chevron-right chevron-icon"></i><span class="progress-title">' + escapeHtml(item.title) + '</span></div><div class="progress-actions"><button class="action-btn" onclick="event.preventDefault(); event.stopPropagation(); openEditProgressModal(\'' + item.id + '\')"><i class="fas fa-pencil-alt"></i></button><button class="action-btn delete" onclick="event.preventDefault(); event.stopPropagation(); deleteProgress(\'' + item.id + '\')"><i class="fas fa-trash"></i></button></div></summary>';
                 if (item.description) {
                     html += '<div class="progress-description-container"><div class="progress-description" style="border-left-color: ' + item.color + ';">' + preserveLineBreaks(item.description) + '</div></div>';
                 }
@@ -2531,6 +2589,8 @@ function writeMainEJS() {
             const bubble = document.getElementById('speech-bubble');
             const content = document.getElementById('speech-content');
             const tail = document.getElementById('speech-tail');
+            
+            if (!bubble || !content || !tail) return;
             
             const activeItems = progressData.items.filter(g => isItemActive(g, dateStr));
             const dayData = progressData.progress[dateStr] || {};
@@ -2596,7 +2656,7 @@ function writeMainEJS() {
                         const hasDescription = hasContent(task.description);
                         const historyDescId = 'history_desc_' + task._id;
                         const escapedHistoryTitle = escapeHtml(task.title);
-                        html += '<div class="history-task-card"><div class="history-task-header"><div class="task-title-container" onclick="toggleDescription(\\'' + historyDescId + '\\')"><i class="fas fa-chevron-right"></i><span class="history-task-title">' + escapedHistoryTitle + '</span></div><span class="history-task-time"><i class="fas fa-check-circle" style="color: var(--success-light);"></i> ' + task.completedTimeIST + '</span></div>';
+                        html += '<div class="history-task-card"><div class="history-task-header"><div class="task-title-container" onclick="toggleDescription(\'' + historyDescId + '\')"><i class="fas fa-chevron-right"></i><span class="history-task-title">' + escapedHistoryTitle + '</span></div><span class="history-task-time"><i class="fas fa-check-circle" style="color: var(--success-light);"></i> ' + task.completedTimeIST + '</span></div>';
                         if (hasDescription) html += '<div id="' + historyDescId + '" class="history-description-container hidden"><div class="history-description">' + preserveLineBreaks(task.description) + '</div></div>';
                         html += '<div style="display: flex; gap: 6px; margin: 8px 0; flex-wrap: wrap;"><span class="badge"><i class="fas fa-clock"></i> ' + (task.startTimeIST || formatTime(task.startDate)) + '-' + (task.endTimeIST || formatTime(task.endDate)) + '</span><span class="badge"><i class="fas fa-hourglass-half"></i> ' + task.durationFormatted + '</span>' + (task.repeat && task.repeat !== 'none' ? '<span class="badge"><i class="fas fa-repeat"></i> ' + (task.repeat === 'daily' ? 'Daily' : 'Weekly') + '</span>' : '') + '</div>';
                         if (task.subtasks && task.subtasks.length > 0) {
@@ -2604,7 +2664,7 @@ function writeMainEJS() {
                             task.subtasks.forEach(subtask => {
                                 const subtaskHasDesc = hasContent(subtask.description);
                                 const historySubtaskDescId = 'history_subtask_desc_' + task._id + '_' + subtask.id;
-                                html += '<div class="history-subtask"><div style="display: flex; align-items: flex-start; gap: 6px;"><span style="color: ' + (subtask.completed ? 'var(--success-light)' : 'var(--text-secondary-light)') + '"><i class="fas fa-' + (subtask.completed ? 'check-circle' : 'circle') + '"></i></span><div style="flex: 1;"><div class="task-title-container" onclick="toggleDescription(\\'' + historySubtaskDescId + '\\')"><span style="font-weight: 600; font-size: 0.8rem;">' + escapeHtml(subtask.title) + '</span></div>' + (subtaskHasDesc ? '<div id="' + historySubtaskDescId + '" class="history-description-container hidden"><div class="history-description" style="border-left-color: var(--accent-light);">' + preserveLineBreaks(subtask.description) + '</div></div>' : '') + '</div></div></div>';
+                                html += '<div class="history-subtask"><div style="display: flex; align-items: flex-start; gap: 6px;"><span style="color: ' + (subtask.completed ? 'var(--success-light)' : 'var(--text-secondary-light)') + '"><i class="fas fa-' + (subtask.completed ? 'check-circle' : 'circle') + '"></i></span><div style="flex: 1;"><div class="task-title-container" onclick="toggleDescription(\'' + historySubtaskDescId + '\')"><span style="font-weight: 600; font-size: 0.8rem;">' + escapeHtml(subtask.title) + '</span></div>' + (subtaskHasDesc ? '<div id="' + historySubtaskDescId + '" class="history-description-container hidden"><div class="history-description" style="border-left-color: var(--accent-light);">' + preserveLineBreaks(subtask.description) + '</div></div>' : '') + '</div></div></div>';
                             });
                             html += '</div></details>';
                         }
@@ -2630,13 +2690,16 @@ function writeMainEJS() {
 
         // ==================== MODAL FUNCTIONS ====================
         function openModal(modalId) { 
-            document.getElementById(modalId).style.display = 'flex'; 
-            setTimeout(() => document.getElementById(modalId).classList.add('show'), 10);
+            const modal = document.getElementById(modalId);
+            if (!modal) return;
+            modal.style.display = 'flex'; 
+            setTimeout(() => modal.classList.add('show'), 10);
             document.body.style.overflow = 'hidden'; 
         }
         
         function closeModal(modalId) { 
             const modal = document.getElementById(modalId);
+            if (!modal) return;
             modal.classList.remove('show');
             setTimeout(() => { 
                 modal.style.display = 'none'; 
@@ -2661,26 +2724,35 @@ function writeMainEJS() {
             const hours = String(istNow.getUTCHours()).padStart(2, '0');
             const minutes = String(istNow.getUTCMinutes()).padStart(2, '0');
             
-            document.getElementById('startDate').value = year + '-' + month + '-' + day;
-            document.getElementById('startTime').value = hours + ':' + minutes;
-            const endHour = istNow.getUTCHours() + 1;
-            document.getElementById('endTime').value = String(endHour).padStart(2, '0') + ':' + minutes;
+            const startDateEl = document.getElementById('startDate');
+            const startTimeEl = document.getElementById('startTime');
+            const endTimeEl = document.getElementById('endTime');
+            
+            if (startDateEl) startDateEl.value = year + '-' + month + '-' + day;
+            if (startTimeEl) startTimeEl.value = hours + ':' + minutes;
+            if (endTimeEl) {
+                const endHour = istNow.getUTCHours() + 1;
+                endTimeEl.value = String(endHour).padStart(2, '0') + ':' + minutes;
+            }
             openModal('addTaskModal');
         }
 
         function openEditTaskModal(taskId) {
-            fetch('/api/tasks/' + taskId).then(res => res.json()).then(task => {
-                document.getElementById('editTaskId').value = task.taskId;
-                document.getElementById('editTitle').value = task.title;
-                document.getElementById('editDescription').value = task.description || '';
-                document.getElementById('editStartDate').value = task.startDateIST || task.startDate;
-                document.getElementById('editStartTime').value = task.startTimeIST || task.startTime;
-                document.getElementById('editEndTime').value = task.endTimeIST || task.endTime;
-                document.getElementById('editRepeatSelect').value = task.repeat || 'none';
-                document.getElementById('editRepeatCount').value = task.repeatCount || 7;
-                document.getElementById('editRepeatCountGroup').style.display = task.repeat !== 'none' ? 'block' : 'none';
-                openModal('editTaskModal');
-            }).catch(err => { showToast('Error loading task', 'error'); });
+            fetch('/api/tasks/' + taskId)
+                .then(res => res.json())
+                .then(task => {
+                    document.getElementById('editTaskId').value = task.taskId;
+                    document.getElementById('editTitle').value = task.title;
+                    document.getElementById('editDescription').value = task.description || '';
+                    document.getElementById('editStartDate').value = task.startDateIST || task.startDate;
+                    document.getElementById('editStartTime').value = task.startTimeIST || task.startTime;
+                    document.getElementById('editEndTime').value = task.endTimeIST || task.endTime;
+                    document.getElementById('editRepeatSelect').value = task.repeat || 'none';
+                    document.getElementById('editRepeatCount').value = task.repeatCount || 7;
+                    document.getElementById('editRepeatCountGroup').style.display = task.repeat !== 'none' ? 'block' : 'none';
+                    openModal('editTaskModal');
+                })
+                .catch(err => { showToast('Error loading task', 'error'); });
         }
 
         function openAddSubtaskModal(taskId) { 
@@ -2708,8 +2780,10 @@ function writeMainEJS() {
 
         // Progress Modal Functions
         function openAddProgressModal() {
-            document.getElementById('p-start-date').value = todayStr;
-            document.getElementById('p-type').value = 'boolean';
+            const startDateEl = document.getElementById('p-start-date');
+            if (startDateEl) startDateEl.value = todayStr;
+            const typeEl = document.getElementById('p-type');
+            if (typeEl) typeEl.value = 'boolean';
             toggleStartGoalData('add');
             initColorPalette(); 
             openModal('addProgressModal');
@@ -2754,7 +2828,7 @@ function writeMainEJS() {
 
             activeItems.forEach(item => {
                 const isDone = dayData[item.id] !== undefined;
-                html += '<div class="progress-card"><details class="progress-details" style="display: contents;"><summary class="progress-summary"><div class="progress-title-section"><i class="fas fa-chevron-right chevron-icon"></i><div class="color-dot" style="background:' + item.color + ';"></div><span class="progress-title">' + escapeHtml(item.title) + '</span></div><div class="progress-actions"><button class="action-btn" onclick="event.preventDefault(); event.stopPropagation(); handleLogAction(event, \\'' + item.id + '\\', \\'' + dateStr + '\\')" style="background: ' + (isDone ? 'var(--hover-light)' : item.color) + '; color: ' + (isDone ? 'var(--text-secondary-light)' : 'white') + ';" ' + (isDone ? 'disabled' : '') + '><i class="fas fa-check"></i></button></div></summary>';
+                html += '<div class="progress-card"><details class="progress-details" style="display: contents;"><summary class="progress-summary"><div class="progress-title-section"><i class="fas fa-chevron-right chevron-icon"></i><div class="color-dot" style="background:' + item.color + ';"></div><span class="progress-title">' + escapeHtml(item.title) + '</span></div><div class="progress-actions"><button class="action-btn" onclick="event.preventDefault(); event.stopPropagation(); handleLogAction(event, \'' + item.id + '\', \'' + dateStr + '\')" style="background: ' + (isDone ? 'var(--hover-light)' : item.color) + '; color: ' + (isDone ? 'var(--text-secondary-light)' : 'white') + ';" ' + (isDone ? 'disabled' : '') + '><i class="fas fa-check"></i></button></div></summary>';
                 if (item.description) {
                     html += '<div class="progress-description-container"><div class="progress-description" style="border-left-color: ' + item.color + ';">' + preserveLineBreaks(item.description) + '</div></div>';
                 }
@@ -2775,9 +2849,9 @@ function writeMainEJS() {
             btn.disabled = true;
 
             const item = progressData.items.find(g => g.id === itemId);
-            if (item.hasData && item.type !== 'boolean') {
+            if (item && item.hasData && item.type !== 'boolean') {
                 openLogQuestion(item, dateStr);
-            } else {
+            } else if (item) {
                 saveDirectComplete(item, dateStr);
             }
         };
@@ -2829,6 +2903,8 @@ function writeMainEJS() {
         function initColorPalette() {
             const container = document.getElementById('color-palette');
             const input = document.getElementById('p-color');
+            if (!container || !input) return;
+            
             const usedColors = progressData.items.map(g => g.color);
             let html = ''; 
             let firstAvail = null;
@@ -2845,10 +2921,12 @@ function writeMainEJS() {
                 const swatch = container.querySelector('[data-color="' + firstAvail + '"]');
                 if (swatch) swatch.classList.add('selected');
                 document.getElementById('color-error').style.display = 'none';
-                document.getElementById('create-progress-btn').disabled = false;
+                const createBtn = document.getElementById('create-progress-btn');
+                if (createBtn) createBtn.disabled = false;
             } else {
                 document.getElementById('color-error').style.display = 'block';
-                document.getElementById('create-progress-btn').disabled = true;
+                const createBtn = document.getElementById('create-progress-btn');
+                if (createBtn) createBtn.disabled = true;
             }
             
             container.onclick = (e) => {
@@ -2864,6 +2942,8 @@ function writeMainEJS() {
         function initEditColorPalette(currentColor) {
             const container = document.getElementById('edit-color-palette');
             const input = document.getElementById('edit-p-color');
+            if (!container || !input) return;
+            
             let html = ''; 
             
             paletteColors.forEach((hex) => {
@@ -2925,48 +3005,90 @@ function writeMainEJS() {
 
         // ==================== FORM SUBMISSIONS ====================
         function submitTaskForm(event) {
-            event.preventDefault(); showLoader();
+            event.preventDefault(); 
+            showLoader();
             fetch('/api/tasks', { method: 'POST', body: new URLSearchParams(new FormData(event.target)) })
-            .then(res => { if(res.ok){ closeModal('addTaskModal'); showToast('Task created!'); switchPage('tasks'); } else throw new Error(''); })
+            .then(res => { 
+                if(res.ok){ 
+                    closeModal('addTaskModal'); 
+                    showToast('Task created!'); 
+                    switchPage('tasks'); 
+                } else throw new Error(''); 
+            })
             .catch(err => { showToast('Error creating task', 'error'); hideLoader(); });
         }
 
         function submitEditTaskForm(event) {
-            event.preventDefault(); showLoader();
+            event.preventDefault(); 
+            showLoader();
             const formData = new FormData(event.target);
             fetch('/api/tasks/' + formData.get('taskId') + '/update', { method: 'POST', body: new URLSearchParams(formData) })
-            .then(res => { if(res.ok){ closeModal('editTaskModal'); showToast('Task updated!'); switchPage('tasks'); } else throw new Error(''); })
+            .then(res => { 
+                if(res.ok){ 
+                    closeModal('editTaskModal'); 
+                    showToast('Task updated!'); 
+                    switchPage('tasks'); 
+                } else throw new Error(''); 
+            })
             .catch(err => { showToast('Error updating task', 'error'); hideLoader(); });
         }
 
         function submitSubtaskForm(event) {
-            event.preventDefault(); showLoader();
+            event.preventDefault(); 
+            showLoader();
             const formData = new FormData(event.target);
             fetch('/api/tasks/' + formData.get('taskId') + '/subtasks', { method: 'POST', body: new URLSearchParams(formData) })
-            .then(res => { if(res.ok){ closeModal('addSubtaskModal'); showToast('Subtask added!'); switchPage('tasks'); } else throw new Error(''); })
+            .then(res => { 
+                if(res.ok){ 
+                    closeModal('addSubtaskModal'); 
+                    showToast('Subtask added!'); 
+                    switchPage('tasks'); 
+                } else throw new Error(''); 
+            })
             .catch(err => { showToast('Error adding subtask', 'error'); hideLoader(); });
         }
 
         function submitEditSubtaskForm(event) {
-            event.preventDefault(); showLoader();
+            event.preventDefault(); 
+            showLoader();
             const formData = new FormData(event.target);
             fetch('/api/tasks/' + formData.get('taskId') + '/subtasks/' + formData.get('subtaskId') + '/update', { method: 'POST', body: new URLSearchParams(formData) })
-            .then(res => { if(res.ok){ closeModal('editSubtaskModal'); showToast('Subtask updated!'); switchPage('tasks'); } else throw new Error(''); })
+            .then(res => { 
+                if(res.ok){ 
+                    closeModal('editSubtaskModal'); 
+                    showToast('Subtask updated!'); 
+                    switchPage('tasks'); 
+                } else throw new Error(''); 
+            })
             .catch(err => { showToast('Error updating subtask', 'error'); hideLoader(); });
         }
 
         function submitNoteForm(event) {
-            event.preventDefault(); showLoader();
+            event.preventDefault(); 
+            showLoader();
             fetch('/api/notes', { method: 'POST', body: new URLSearchParams(new FormData(event.target)) })
-            .then(res => { if(res.ok){ closeModal('addNoteModal'); showToast('Note created!'); switchPage('notes'); } else throw new Error(''); })
+            .then(res => { 
+                if(res.ok){ 
+                    closeModal('addNoteModal'); 
+                    showToast('Note created!'); 
+                    switchPage('notes'); 
+                } else throw new Error(''); 
+            })
             .catch(err => { showToast('Error creating note', 'error'); hideLoader(); });
         }
 
         function submitEditNoteForm(event) {
-            event.preventDefault(); showLoader();
+            event.preventDefault(); 
+            showLoader();
             const formData = new FormData(event.target);
             fetch('/api/notes/' + formData.get('noteId') + '/update', { method: 'POST', body: new URLSearchParams(formData) })
-            .then(res => { if(res.ok){ closeModal('editNoteModal'); showToast('Note updated!'); switchPage('notes'); } else throw new Error(''); })
+            .then(res => { 
+                if(res.ok){ 
+                    closeModal('editNoteModal'); 
+                    showToast('Note updated!'); 
+                    switchPage('notes'); 
+                } else throw new Error(''); 
+            })
             .catch(err => { showToast('Error updating note', 'error'); hideLoader(); });
         }
 
@@ -2978,19 +3100,19 @@ function writeMainEJS() {
             const hasData = document.getElementById('p-has-data').checked;
             const type = document.getElementById('p-type').value;
 
-            formData.append('title', document.getElementById('p-title').value.trim());
-            formData.append('description', document.getElementById('p-desc').value.trim());
-            formData.append('startDate', document.getElementById('p-start-date').value);
-            formData.append('endCount', document.getElementById('p-end-count').value);
-            formData.append('color', document.getElementById('p-color').value);
-            formData.append('hasData', hasData);
+            formData.append('title', (document.getElementById('p-title').value || '').trim());
+            formData.append('description', (document.getElementById('p-desc').value || '').trim());
+            formData.append('startDate', document.getElementById('p-start-date').value || '');
+            formData.append('endCount', document.getElementById('p-end-count').value || '365');
+            formData.append('color', document.getElementById('p-color').value || '#3b82f6');
+            formData.append('hasData', hasData ? 'true' : 'false');
             formData.append('type', hasData ? type : 'boolean');
 
             if (hasData) {
-                formData.append('question', document.getElementById('p-question').value.trim());
+                formData.append('question', (document.getElementById('p-question').value || '').trim());
                 if (type !== 'boolean') {
-                    formData.append('start', document.getElementById('p-start-data').value);
-                    formData.append('end', document.getElementById('p-goal-data').value);
+                    formData.append('start', document.getElementById('p-start-data').value || '0');
+                    formData.append('end', document.getElementById('p-goal-data').value || '100');
                 }
             }
 
@@ -3017,19 +3139,19 @@ function writeMainEJS() {
             const type = document.getElementById('edit-p-type').value;
 
             formData.append('itemId', itemId);
-            formData.append('title', document.getElementById('edit-p-title').value.trim());
-            formData.append('description', document.getElementById('edit-p-desc').value.trim());
-            formData.append('startDate', document.getElementById('edit-p-start-date').value);
-            formData.append('endCount', document.getElementById('edit-p-end-count').value);
-            formData.append('color', document.getElementById('edit-p-color').value);
-            formData.append('hasData', hasData);
+            formData.append('title', (document.getElementById('edit-p-title').value || '').trim());
+            formData.append('description', (document.getElementById('edit-p-desc').value || '').trim());
+            formData.append('startDate', document.getElementById('edit-p-start-date').value || '');
+            formData.append('endCount', document.getElementById('edit-p-end-count').value || '365');
+            formData.append('color', document.getElementById('edit-p-color').value || '#3b82f6');
+            formData.append('hasData', hasData ? 'true' : 'false');
             formData.append('type', hasData ? type : 'boolean');
 
             if (hasData) {
-                formData.append('question', document.getElementById('edit-p-question').value.trim());
+                formData.append('question', (document.getElementById('edit-p-question').value || '').trim());
                 if (type !== 'boolean') {
-                    formData.append('start', document.getElementById('edit-p-start-data').value);
-                    formData.append('end', document.getElementById('edit-p-goal-data').value);
+                    formData.append('start', document.getElementById('edit-p-start-data').value || '0');
+                    formData.append('end', document.getElementById('edit-p-goal-data').value || '100');
                 }
             }
 
@@ -3044,12 +3166,16 @@ function writeMainEJS() {
             .catch(err => { showToast('Error updating progress', 'error'); hideLoader(); });
         }
 
-        document.getElementById('save-log-btn').addEventListener('click', async () => {
+        document.getElementById('save-log-btn')?.addEventListener('click', async () => {
             const inputEl = document.getElementById('log-input');
+            if (!inputEl) return;
+            
             let val = inputEl.value.trim();
             if (val === '') return alert('Enter a value.');
 
             const { item, dateStr } = loggingContext;
+            if (!item) return;
+            
             if (item.type === 'float') val = parseFloat(parseFloat(val).toFixed(2)); 
             else val = parseInt(val, 10);
 
@@ -3111,7 +3237,8 @@ function writeMainEJS() {
 
         function moveNote(noteId, direction) {
             showLoader();
-            const formData = new FormData(); formData.append('direction', direction);
+            const formData = new FormData(); 
+            formData.append('direction', direction);
             fetch('/api/notes/' + noteId + '/move', { method: 'POST', body: new URLSearchParams(formData) })
             .then(res => { if(res.ok){ showToast('Moved'); switchPage('notes'); } else throw new Error(''); })
             .catch(err => { showToast('Error moving', 'error'); hideLoader(); });
@@ -3125,17 +3252,31 @@ function writeMainEJS() {
             setInterval(() => {
                 const now = new Date();
                 const istNow = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
-                document.getElementById('currentTimeDisplay').innerHTML = String(istNow.getUTCHours()).padStart(2, '0') + ':' + String(istNow.getUTCMinutes()).padStart(2, '0');
-                document.getElementById('currentDateDisplay').innerHTML = String(istNow.getUTCDate()).padStart(2, '0') + '-' + String(istNow.getUTCMonth() + 1).padStart(2, '0') + '-' + istNow.getUTCFullYear();
+                const timeEl = document.getElementById('currentTimeDisplay');
+                const dateEl = document.getElementById('currentDateDisplay');
+                if (timeEl) {
+                    timeEl.innerHTML = String(istNow.getUTCHours()).padStart(2, '0') + ':' + String(istNow.getUTCMinutes()).padStart(2, '0');
+                }
+                if (dateEl) {
+                    dateEl.innerHTML = String(istNow.getUTCDate()).padStart(2, '0') + '-' + String(istNow.getUTCMonth() + 1).padStart(2, '0') + '-' + istNow.getUTCFullYear();
+                }
             }, 1000);
             
-            document.getElementById('repeatSelect').addEventListener('change', function() { 
-                document.getElementById('repeatCountGroup').style.display = this.value === 'none' ? 'none' : 'block'; 
-            });
+            const repeatSelect = document.getElementById('repeatSelect');
+            if (repeatSelect) {
+                repeatSelect.addEventListener('change', function() { 
+                    const group = document.getElementById('repeatCountGroup');
+                    if (group) group.style.display = this.value === 'none' ? 'none' : 'block'; 
+                });
+            }
             
-            document.getElementById('editRepeatSelect').addEventListener('change', function() { 
-                document.getElementById('editRepeatCountGroup').style.display = this.value === 'none' ? 'none' : 'block'; 
-            });
+            const editRepeatSelect = document.getElementById('editRepeatSelect');
+            if (editRepeatSelect) {
+                editRepeatSelect.addEventListener('change', function() { 
+                    const group = document.getElementById('editRepeatCountGroup');
+                    if (group) group.style.display = this.value === 'none' ? 'none' : 'block'; 
+                });
+            }
             
             window.addEventListener('click', function(event) { 
                 if (event.target.classList.contains('modal')) { 
@@ -3158,17 +3299,31 @@ function writeMainEJS() {
             });
             
             document.addEventListener('click', (e) => {
-                if (!e.target.closest('.day-cell') && !e.target.closest('.speech-bubble')) {
-                    document.getElementById('speech-bubble').classList.remove('show');
+                const bubble = document.getElementById('speech-bubble');
+                if (!e.target.closest('.day-cell') && !e.target.closest('.speech-bubble') && bubble) {
+                    bubble.classList.remove('show');
                 }
             });
 
             // Progress form listeners
-            if (document.getElementById('p-has-data')) {
-                document.getElementById('p-has-data').addEventListener('change', function() { toggleDataFields('add'); });
-                document.getElementById('edit-p-has-data').addEventListener('change', function() { toggleDataFields('edit'); });
-                document.getElementById('p-type').addEventListener('change', function() { toggleStartGoalData('add'); });
-                document.getElementById('edit-p-type').addEventListener('change', function() { toggleStartGoalData('edit'); });
+            const pHasData = document.getElementById('p-has-data');
+            if (pHasData) {
+                pHasData.addEventListener('change', function() { toggleDataFields('add'); });
+            }
+            
+            const editPHasData = document.getElementById('edit-p-has-data');
+            if (editPHasData) {
+                editPHasData.addEventListener('change', function() { toggleDataFields('edit'); });
+            }
+            
+            const pType = document.getElementById('p-type');
+            if (pType) {
+                pType.addEventListener('change', function() { toggleStartGoalData('add'); });
+            }
+            
+            const editPType = document.getElementById('edit-p-type');
+            if (editPType) {
+                editPType.addEventListener('change', function() { toggleStartGoalData('edit'); });
             }
         });
     </script>
@@ -3185,6 +3340,9 @@ app.get('/', (req, res) => res.redirect('/tasks'));
 
 app.get('/tasks', async (req, res) => {
     try {
+        if (!db) {
+            return res.status(500).send('Database not connected');
+        }
         const tasks = await db.collection('tasks').find({ status: 'pending', nextOccurrence: { $gte: getTodayStartUTC(), $lt: getTomorrowStartUTC() } }).sort({ orderIndex: 1, nextOccurrence: 1 }).toArray();
         const currentIST = getCurrentISTDisplay();
         
@@ -3224,6 +3382,9 @@ app.get('/tasks', async (req, res) => {
 
 app.get('/notes', async (req, res) => {
     try {
+        if (!db) {
+            return res.status(500).send('Database not connected');
+        }
         const notes = await db.collection('notes').find().sort({ orderIndex: 1, createdAt: -1 }).toArray();
         const currentIST = getCurrentISTDisplay();
         
@@ -3254,6 +3415,9 @@ app.get('/notes', async (req, res) => {
 
 app.get('/progress', async (req, res) => {
     try {
+        if (!db) {
+            return res.status(500).send('Database not connected');
+        }
         let progressDoc = await db.collection('progress').findOne({});
         if (!progressDoc) {
             progressDoc = { items: [], progress: {} };
@@ -3278,6 +3442,9 @@ app.get('/progress', async (req, res) => {
 
 app.get('/history', async (req, res) => {
     try {
+        if (!db) {
+            return res.status(500).send('Database not connected');
+        }
         const history = await db.collection('history').find().sort({ completedAt: -1 }).limit(500).toArray();
         const groupedHistory = {};
         history.forEach(item => {
@@ -3316,6 +3483,9 @@ app.get('/history', async (req, res) => {
 
 app.get('/api/page/:page', async (req, res) => {
     try {
+        if (!db) {
+            return res.status(500).json({ error: 'Database not connected' });
+        }
         const page = req.params.page;
         if (page === 'tasks') {
             const tasks = await db.collection('tasks').find({ status: 'pending', nextOccurrence: { $gte: getTodayStartUTC(), $lt: getTomorrowStartUTC() } }).sort({ orderIndex: 1, nextOccurrence: 1 }).toArray();
@@ -3340,21 +3510,39 @@ app.get('/api/page/:page', async (req, res) => {
             });
             res.json({ tasks: [], notes: [], groupedHistory });
         } else { res.status(404).json({ error: 'Not found' }); }
-    } catch (error) { res.status(500).json({ error: error.message }); }
+    } catch (error) { 
+        console.error(error);
+        res.status(500).json({ error: error.message }); 
+    }
 });
 
 // Task API Routes
 app.get('/api/tasks/:taskId', async (req, res) => {
     try {
+        if (!db) {
+            return res.status(500).json({ error: 'Database not connected' });
+        }
         const task = await db.collection('tasks').findOne({ taskId: req.params.taskId });
         if (!task) return res.status(404).json({ error: 'Not found' });
         res.json({ ...task, startDateIST: utcToISTDisplay(task.startDate).date, startTimeIST: utcToISTDisplay(task.startDate).time, endTimeIST: utcToISTDisplay(task.endDate).time });
-    } catch (error) { res.status(500).json({ error: error.message }); }
+    } catch (error) { 
+        console.error(error);
+        res.status(500).json({ error: error.message }); 
+    }
 });
 
 app.post('/api/tasks', async (req, res) => {
     try {
+        if (!db) {
+            return res.status(500).send('Database not connected');
+        }
         const { title, description, startDate, startTime, endTime, repeat, repeatCount } = req.body;
+        
+        // Validate required fields
+        if (!title || !title.trim()) {
+            return res.status(400).send('Title is required');
+        }
+        
         const startDateUTC = istToUTC(startDate, startTime); 
         const endDateUTC = istToUTC(startDate, endTime);
         if (!startDateUTC || !endDateUTC || endDateUTC <= startDateUTC || startDateUTC <= new Date(Date.now() + 10 * 60000)) return res.status(400).send('Invalid times');
@@ -3378,7 +3566,9 @@ app.post('/api/tasks', async (req, res) => {
         };
         await db.collection('tasks').insertOne(task);
         if (task.startDate > new Date(Date.now() + 10 * 60000)) scheduleTask(task);
-        try { await bot.telegram.sendMessage(CHAT_ID, `➕ <b>Added:</b> ${task.title}`, { parse_mode: 'HTML' }); } catch(e){}
+        if (botEnabled && bot) {
+            try { await bot.telegram.sendMessage(CHAT_ID, `➕ <b>Added:</b> ${task.title}`, { parse_mode: 'HTML' }); } catch(e){}
+        }
         res.redirect('/tasks');
     } catch (error) { 
         console.error(error);
@@ -3388,7 +3578,15 @@ app.post('/api/tasks', async (req, res) => {
 
 app.post('/api/tasks/:taskId/update', async (req, res) => {
     try {
+        if (!db) {
+            return res.status(500).send('Database not connected');
+        }
         const { title, description, startDate, startTime, endTime, repeat, repeatCount } = req.body;
+        
+        if (!title || !title.trim()) {
+            return res.status(400).send('Title is required');
+        }
+        
         const startDateUTC = istToUTC(startDate, startTime); 
         const endDateUTC = istToUTC(startDate, endTime);
         if (!startDateUTC || endDateUTC <= startDateUTC || startDateUTC <= new Date(Date.now() + 10 * 60000)) return res.status(400).send('Invalid times');
@@ -3417,8 +3615,13 @@ app.post('/api/tasks/:taskId/update', async (req, res) => {
 
 app.post('/api/tasks/:taskId/complete', async (req, res) => {
     try {
+        if (!db) {
+            return res.status(500).send('Database not connected');
+        }
         const task = await db.collection('tasks').findOne({ taskId: req.params.taskId });
-        if (!task || (task.subtasks || []).some(s => !s.completed)) return res.status(400).send('Complete subtasks first');
+        if (!task) return res.status(404).send('Task not found');
+        if ((task.subtasks || []).some(s => !s.completed)) return res.status(400).send('Complete subtasks first');
+        
         await db.collection('history').insertOne({ ...task, _id: undefined, completedAt: new Date(), completedDate: getTodayStartUTC(), originalTaskId: task.taskId, status: 'completed' });
         cancelTaskSchedule(task.taskId);
         if (task.repeat !== 'none' && task.repeatCount > 0) {
@@ -3435,10 +3638,14 @@ app.post('/api/tasks/:taskId/complete', async (req, res) => {
             });
             const t = await db.collection('tasks').findOne({ taskId: task.taskId });
             if (t && t.nextOccurrence > new Date(Date.now() + 10 * 60000)) scheduleTask(t);
-            try { await bot.telegram.sendMessage(CHAT_ID, `✅ <b>Completed:</b> ${task.title}\n🔄 Next: ${utcToISTDisplay(nextUTC).dateTime}`, { parse_mode: 'HTML' }); } catch(e){}
+            if (botEnabled && bot) {
+                try { await bot.telegram.sendMessage(CHAT_ID, `✅ <b>Completed:</b> ${task.title}\n🔄 Next: ${utcToISTDisplay(nextUTC).dateTime}`, { parse_mode: 'HTML' }); } catch(e){}
+            }
         } else {
             await db.collection('tasks').deleteOne({ taskId: task.taskId });
-            try { await bot.telegram.sendMessage(CHAT_ID, `✅ <b>Completed:</b> ${task.title}`, { parse_mode: 'HTML' }); } catch(e){}
+            if (botEnabled && bot) {
+                try { await bot.telegram.sendMessage(CHAT_ID, `✅ <b>Completed:</b> ${task.title}`, { parse_mode: 'HTML' }); } catch(e){}
+            }
         }
         res.redirect('/tasks');
     } catch (error) { 
@@ -3449,10 +3656,15 @@ app.post('/api/tasks/:taskId/complete', async (req, res) => {
 
 app.post('/api/tasks/:taskId/delete', async (req, res) => {
     try {
+        if (!db) {
+            return res.status(500).send('Database not connected');
+        }
         const t = await db.collection('tasks').findOne({taskId: req.params.taskId});
         cancelTaskSchedule(req.params.taskId);
         await db.collection('tasks').deleteOne({ taskId: req.params.taskId });
-        if(t) try { await bot.telegram.sendMessage(CHAT_ID, `🗑️ <b>Deleted:</b> ${t.title}`, { parse_mode: 'HTML' }); } catch(e){}
+        if(t && botEnabled && bot) {
+            try { await bot.telegram.sendMessage(CHAT_ID, `🗑️ <b>Deleted:</b> ${t.title}`, { parse_mode: 'HTML' }); } catch(e){}
+        }
         res.redirect('/tasks');
     } catch (error) { 
         console.error(error);
@@ -3462,7 +3674,10 @@ app.post('/api/tasks/:taskId/delete', async (req, res) => {
 
 app.post('/api/tasks/:taskId/subtasks', async (req, res) => {
     try {
-        if (!req.body.title) return res.status(400).send('Empty title');
+        if (!db) {
+            return res.status(500).send('Database not connected');
+        }
+        if (!req.body.title || !req.body.title.trim()) return res.status(400).send('Empty title');
         await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { 
             $push: { subtasks: { 
                 id: generateSubtaskId(), 
@@ -3481,7 +3696,10 @@ app.post('/api/tasks/:taskId/subtasks', async (req, res) => {
 
 app.post('/api/tasks/:taskId/subtasks/:subtaskId/update', async (req, res) => {
     try {
-        if (!req.body.title) return res.status(400).send('Empty title');
+        if (!db) {
+            return res.status(500).send('Database not connected');
+        }
+        if (!req.body.title || !req.body.title.trim()) return res.status(400).send('Empty title');
         await db.collection('tasks').updateOne({ taskId: req.params.taskId, "subtasks.id": req.params.subtaskId }, { 
             $set: { 
                 "subtasks.$.title": req.body.title.trim(), 
@@ -3497,8 +3715,14 @@ app.post('/api/tasks/:taskId/subtasks/:subtaskId/update', async (req, res) => {
 
 app.post('/api/tasks/:taskId/subtasks/:subtaskId/toggle', async (req, res) => {
     try {
+        if (!db) {
+            return res.status(500).send('Database not connected');
+        }
         const task = await db.collection('tasks').findOne({ taskId: req.params.taskId });
+        if (!task) return res.status(404).send('Task not found');
         const sub = (task.subtasks || []).find(s => s.id === req.params.subtaskId);
+        if (!sub) return res.status(404).send('Subtask not found');
+        
         await db.collection('tasks').updateOne({ taskId: req.params.taskId, "subtasks.id": req.params.subtaskId }, { 
             $set: { "subtasks.$.completed": !sub.completed } 
         });
@@ -3511,6 +3735,9 @@ app.post('/api/tasks/:taskId/subtasks/:subtaskId/toggle', async (req, res) => {
 
 app.post('/api/tasks/:taskId/subtasks/:subtaskId/delete', async (req, res) => {
     try {
+        if (!db) {
+            return res.status(500).send('Database not connected');
+        }
         await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { 
             $pull: { subtasks: { id: req.params.subtaskId } } 
         });
@@ -3524,7 +3751,10 @@ app.post('/api/tasks/:taskId/subtasks/:subtaskId/delete', async (req, res) => {
 // Note API Routes
 app.post('/api/notes', async (req, res) => {
     try {
-        if (!req.body.title) return res.status(400).send('Empty title');
+        if (!db) {
+            return res.status(500).send('Database not connected');
+        }
+        if (!req.body.title || !req.body.title.trim()) return res.status(400).send('Empty title');
         const note = { 
             noteId: generateId('note'), 
             title: req.body.title.trim(), 
@@ -3543,7 +3773,10 @@ app.post('/api/notes', async (req, res) => {
 
 app.post('/api/notes/:noteId/update', async (req, res) => {
     try {
-        if (!req.body.title) return res.status(400).send('Empty title');
+        if (!db) {
+            return res.status(500).send('Database not connected');
+        }
+        if (!req.body.title || !req.body.title.trim()) return res.status(400).send('Empty title');
         await db.collection('notes').updateOne({ noteId: req.params.noteId }, { 
             $set: { 
                 title: req.body.title.trim(), 
@@ -3560,6 +3793,9 @@ app.post('/api/notes/:noteId/update', async (req, res) => {
 
 app.post('/api/notes/:noteId/delete', async (req, res) => {
     try {
+        if (!db) {
+            return res.status(500).send('Database not connected');
+        }
         await db.collection('notes').deleteOne({ noteId: req.params.noteId });
         res.redirect('/notes');
     } catch (error) { 
@@ -3570,6 +3806,9 @@ app.post('/api/notes/:noteId/delete', async (req, res) => {
 
 app.post('/api/notes/:noteId/move', async (req, res) => {
     try {
+        if (!db) {
+            return res.status(500).send('Database not connected');
+        }
         const notes = await db.collection('notes').find().sort({ orderIndex: 1 }).toArray();
         const idx = notes.findIndex(n => n.noteId === req.params.noteId);
         if (req.body.direction === 'up' && idx > 0) {
