@@ -307,10 +307,10 @@ function writeMainEJS() {
         .grow-card summary { display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none; outline: none; padding: 4px 0;}
         .grow-card summary::-webkit-details-marker { display: none; }
         .grow-title-section { display: flex; align-items: center; gap: 8px; flex: 1;}
-        .grow-title-section i { font-size: 0.8rem; color: var(--text-secondary-light); transition: transform 0.2s; }
+        .grow-title-section i { font-size: 0.7rem; color: var(--text-secondary-light); transition: transform 0.2s; }
         @media (prefers-color-scheme: dark) { .grow-title-section i { color: var(--text-secondary-dark); } }
         details[open] .grow-title-section i { transform: rotate(90deg); }
-        .grow-title { font-weight: 700; font-size: 1rem; color: var(--text-primary-light); }
+        .grow-title { font-weight: 600; font-size: 1rem; color: var(--text-primary-light); }
         @media (prefers-color-scheme: dark) { .grow-title { color: var(--text-primary-dark); } }
         
         .grow-progress-bar-container { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border-light); width: 100%; }
@@ -1203,7 +1203,7 @@ function writeMainEJS() {
                         const parts = date.split('-'); displayDateHeader = parts[2] + '-' + parts[1] + '-' + parts[0];
                     }
                     html += '<div class="history-date-card"><details class="history-details">';
-                    html += '<summary><i class="fas fa-calendar-alt"></i><span style="font-weight: 600;">' + displayDateHeader + '</span><span class="badge" style="margin-left: auto;">' + tasks.length + ' task(s)</span></summary>';
+                    html += '<summary><i class="fas fa-calendar-alt"></i><span style="font-weight: 600;">' + displayDateHeader + '</span><span class="badge" style="margin-left: auto;">' + tasks.length + ' tasks</span></summary>';
                     html += '<div class="history-tasks-grid">';
                     
                     tasks.forEach(task => {
