@@ -8,7 +8,7 @@ const fs = require('fs');
 // ⚙️ CONFIGURATION
 // ==========================================
 const BOT_TOKEN = '8716545255:AAHNcyDFzOdVUQz38iutCVEN3DARA5YJLBM';
-const MONGODB_URI = 'mongodb+srv://sandip:9E9AISFqTfU3VI5i@cluster0.p8irtov.mongodb.net/telegram_bot';
+const MONGODB_URI = 'mongodb+srv://sandip:9E9AISFqTfU3VI5i@cluster0.p8irtov.mongodb.net/tggrow';
 const PORT = process.env.PORT || 8080;
 const WEB_APP_URL = 'https://web-production-820965.up.railway.app';
 const CHAT_ID = 8781152810;
@@ -35,12 +35,17 @@ async function connectDB() {
     try {
         client = new MongoClient(MONGODB_URI);
         await client.connect();
-        db = client.db('telegram_bot');
-        console.log('✅ Connected to MongoDB');
+        db = client.db('tggrow');
+        console.log('✅ Connected to MongoDB - tggrow database');
         
         const exists = await db.collection('grow').findOne({ type: 'tracker' });
         if (!exists) {
-            await db.collection('grow').insertOne({ type: 'tracker', items: [], progress: {} });
+            await db.collection('grow').insertOne({ 
+                type: 'tracker', 
+                items: [], 
+                progress: {} 
+            });
+            console.log('✅ Initialized grow collection');
         }
         return true;
     } catch (error) {
@@ -63,11 +68,11 @@ const bot = new Telegraf(BOT_TOKEN);
 
 bot.command('start', async (ctx) => {
     const keyboard = Markup.inlineKeyboard([[Markup.button.webApp('🌱 Open Grow Tracker', WEB_APP_URL)]]);
-    await ctx.reply('🌱 <b>Grow Tracker</b>\n\nTrack your daily progress using the Web App below.', { parse_mode: 'HTML', reply_markup: keyboard.reply_markup });
+    await ctx.reply('🌱 <b>Grow Tracker</b>\n\nTrack your daily growth using the Web App below.', { parse_mode: 'HTML', reply_markup: keyboard.reply_markup });
 });
 
 // ==========================================
-// 📱 EJS TEMPLATE
+// 📱 EJS TEMPLATE - FIXED VERSION
 // ==========================================
 const growEJS = '<!DOCTYPE html>' +
 '<html lang="en">' +
@@ -214,7 +219,7 @@ const growEJS = '<!DOCTYPE html>' +
 '                <div class="form-group"><label>Description</label><textarea class="form-control" id="g-desc" rows="2"></textarea></div>' +
 '                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">' +
 '                    <div class="form-group"><label>Start Date</label><input type="date" class="form-control" id="g-start-date" required></div>' +
-'                    <div class="form-group"><label>Duration (Days)</label><input type="number" class="form-control" id="g-end-count" value="365" required></div>' +
+'                    <div class="form-group"><label>Duration</label><input type="number" class="form-control" id="g-end-count" value="365" required></div>' +
 '                </div>' +
 '                <div class="form-group"><label>Color</label><div class="color-palette" id="color-palette"></div><input type="hidden" id="g-color" required></div>' +
 '                <label class="checkbox-group"><input type="checkbox" id="g-has-data" onchange="toggleDataFields(\'add\')">Require data logging?</label>' +
@@ -226,7 +231,7 @@ const growEJS = '<!DOCTYPE html>' +
 '                        <div class="form-group"><label>Goal</label><input type="number" step="0.01" class="form-control" id="g-goal-data"></div>' +
 '                    </div>' +
 '                </div>' +
-'                <button type="submit" class="btn-submit" id="create-btn">Create</button>' +
+'                <button type="submit" class="btn-submit">Create</button>' +
 '            </form>' +
 '        </div>' +
 '    </div>' +
@@ -273,7 +278,8 @@ const growEJS = '<!DOCTYPE html>' +
 '        const API_URL = "/api/";' +
 '        let db = { items: [], progress: {} };' +
 '        let todayStr = "";' +
-'        let currentMonth = 0, currentYear = 2026;' +
+'        let currentMonth = 0;' +
+'        let currentYear = 2026;' +
 '        let loggingContext = null;' +
 '        const paletteColors = ["#ec4899", "#a855f7", "#38bdf8", "#ef4444", "#f97316", "#16a34a", "#84cc16", "#3b82f6"];' +
 '        function getISTDate() {' +
@@ -286,29 +292,29 @@ const growEJS = '<!DOCTYPE html>' +
 '                time: String(ist.getUTCHours()).padStart(2,"0") + ":" + String(ist.getUTCMinutes()).padStart(2,"0")' +
 '            };' +
 '        }' +
-'        document.addEventListener("DOMContentLoaded", () => {' +
+'        document.addEventListener("DOMContentLoaded", function() {' +
 '            const ist = getISTDate();' +
 '            todayStr = ist.date;' +
 '            currentMonth = ist.month;' +
 '            currentYear = ist.year;' +
 '            fetchData();' +
-'            document.getElementById("calendar-grid").addEventListener("click", (e) => {' +
+'            document.getElementById("calendar-grid").addEventListener("click", function(e) {' +
 '                const cell = e.target.closest(".day-cell");' +
 '                if(cell && !cell.classList.contains("empty")) {' +
 '                    const dateStr = cell.dataset.date;' +
-'                    const active = db.items.filter(g => isActive(g, dateStr));' +
+'                    const active = db.items.filter(function(g) { return isActive(g, dateStr); });' +
 '                    const dayData = db.progress[dateStr] || {};' +
-'                    const allDone = active.length > 0 && active.every(g => dayData[g.id] !== undefined);' +
+'                    const allDone = active.length > 0 && active.every(function(g) { return dayData[g.id] !== undefined; });' +
 '                    if(dateStr === todayStr && !allDone) openLogModal(dateStr);' +
 '                    else showBubble(cell, dateStr);' +
 '                }' +
 '            });' +
-'            document.addEventListener("click", (e) => {' +
+'            document.addEventListener("click", function(e) {' +
 '                if (!e.target.closest(".day-cell") && !e.target.closest(".speech-bubble")) {' +
 '                    document.getElementById("speech-bubble").classList.remove("show");' +
 '                }' +
 '            });' +
-'            setInterval(() => {' +
+'            setInterval(function() {' +
 '                const ist = getISTDate();' +
 '                document.getElementById("currentTimeDisplay").innerHTML = ist.time;' +
 '                document.getElementById("currentDateDisplay").innerHTML = ist.date.split("-").reverse().join("-");' +
@@ -333,31 +339,42 @@ const growEJS = '<!DOCTYPE html>' +
 '        function renderGrowList() {' +
 '            const container = document.getElementById("grow-manage-list");' +
 '            if(db.items.length === 0) {' +
-'                container.innerHTML = "<div class=\"empty-state\"><i class=\"fas fa-seedling\"></i><br>No growth yet</div>";' +
+'                container.innerHTML = "<div class=\\"empty-state\\"><i class=\\"fas fa-seedling\\"></i><br>No growth yet</div>";' +
 '                return;' +
 '            }' +
 '            let html = "";' +
 '            const today = new Date(todayStr + "T00:00:00");' +
-'            db.items.forEach(item => {' +
+'            for(let i = 0; i < db.items.length; i++) {' +
+'                const item = db.items[i];' +
 '                const start = new Date(item.startDate + "T00:00:00");' +
 '                let passed = Math.floor((today - start) / 86400000);' +
 '                let left = item.endCount - passed;' +
 '                if(passed < 0) left = item.endCount;' +
 '                if(left < 0) left = 0;' +
-'                html += "<div class=\"grow-card\">";' +
-'                html += "<details class=\"grow-details\">";' +
-'                html += "<summary class=\"grow-summary\">";' +
-'                html += "<div class=\"grow-title-section\"><i class=\"fas fa-chevron-right chevron-icon\"></i><span class=\"grow-title\">" + item.title + "</span></div>";' +
-'                html += "<div class=\"grow-actions\">";' +
-'                html += "<button class=\"action-btn\" onclick=\"event.preventDefault(); event.stopPropagation(); openEditModal(\\\"" + item.id + "\\\")\"><i class=\"fas fa-pencil-alt\"></i></button>";' +
-'                html += "<button class=\"action-btn delete\" onclick=\"event.preventDefault(); event.stopPropagation(); deleteGrow(\\\"" + item.id + "\\\")\"><i class=\"fas fa-trash\"></i></button>";' +
+'                html += "<div class=\\"grow-card\\">";' +
+'                html += "<details class=\\"grow-details\\">";' +
+'                html += "<summary class=\\"grow-summary\\">";' +
+'                html += "<div class=\\"grow-title-section\\"><i class=\\"fas fa-chevron-right chevron-icon\\"></i><span class=\\"grow-title\\">" + escapeHtml(item.title) + "</span></div>";' +
+'                html += "<div class=\\"grow-actions\\">";' +
+'                html += "<button class=\\"action-btn\\" onclick=\\"event.preventDefault(); event.stopPropagation(); openEditModal(\\\"" + item.id + "\\\")\\" title=\\"Edit\\"><i class=\\"fas fa-pencil-alt\\"></i></button>";' +
+'                html += "<button class=\\"action-btn delete\\" onclick=\\"event.preventDefault(); event.stopPropagation(); deleteGrow(\\\"" + item.id + "\\\")\\" title=\\"Delete\\"><i class=\\"fas fa-trash\\"></i></button>";' +
 '                html += "</div></summary>";' +
-'                if(item.description) html += "<div class=\"grow-description-container\"><div class=\"grow-description\" style=\"border-left-color:" + item.color + "\">" + item.description + "</div></div>";' +
+'                if(item.description) html += "<div class=\\"grow-description-container\\"><div class=\\"grow-description\\" style=\\"border-left-color:" + item.color + "\\">" + escapeHtml(item.description) + "</div></div>";' +
 '                html += "</details>";' +
-'                html += "<div class=\"grow-meta-row\"><span class=\"badge\"><i class=\"fas fa-calendar-alt\"></i> " + item.startDate + "</span><span class=\"badge\"><i class=\"fas fa-hourglass-half\"></i> " + left + " left</span><div class=\"color-dot\" style=\"background:" + item.color + "\"></div></div>";' +
+'                html += "<div class=\\"grow-meta-row\\"><span class=\\"badge\\"><i class=\\"fas fa-calendar-alt\\"></i> " + item.startDate + "</span><span class=\\"badge\\"><i class=\\"fas fa-hourglass-half\\"></i> " + left + " left</span><div class=\\"color-dot\\" style=\\"background:" + item.color + "\\"></div></div>";' +
 '                html += "</div>";' +
-'            });' +
+'            }' +
 '            container.innerHTML = html;' +
+'        }' +
+'        function escapeHtml(text) {' +
+'            if(!text) return "";' +
+'            return text.replace(/[&<>"]/g, function(c) {' +
+'                if(c === "&") return "&amp;";' +
+'                if(c === "<") return "&lt;";' +
+'                if(c === ">") return "&gt;";' +
+'                if(c === "\\"") return "&quot;";' +
+'                return c;' +
+'            });' +
 '        }' +
 '        async function deleteGrow(id) {' +
 '            if(!confirm("Delete this growth?")) return;' +
@@ -365,14 +382,14 @@ const growEJS = '<!DOCTYPE html>' +
 '            await fetchData();' +
 '        }' +
 '        function openEditModal(id) {' +
-'            const item = db.items.find(g => g.id === id);' +
+'            const item = db.items.find(function(g) { return g.id === id; });' +
 '            if(!item) return;' +
 '            document.getElementById("edit-g-id").value = item.id;' +
 '            document.getElementById("edit-g-title").value = item.title;' +
 '            document.getElementById("edit-g-desc").value = item.description || "";' +
 '            document.getElementById("edit-g-start-date").value = item.startDate;' +
 '            document.getElementById("edit-g-end-count").value = item.endCount;' +
-'            document.getElementById("edit-g-has-data").checked = item.hasData;' +
+'            document.getElementById("edit-g-has-data").checked = item.hasData || false;' +
 '            toggleDataFields("edit");' +
 '            if(item.hasData) {' +
 '                document.getElementById("edit-g-question").value = item.question || "";' +
@@ -386,7 +403,7 @@ const growEJS = '<!DOCTYPE html>' +
 '            initEditPalette(item.color);' +
 '            openModal("edit-modal");' +
 '        }' +
-'        document.getElementById("edit-grow-form").addEventListener("submit", async (e) => {' +
+'        document.getElementById("edit-grow-form").addEventListener("submit", async function(e) {' +
 '            e.preventDefault();' +
 '            const id = document.getElementById("edit-g-id").value;' +
 '            const fd = new FormData();' +
@@ -407,25 +424,28 @@ const growEJS = '<!DOCTYPE html>' +
 '        });' +
 '        function renderGraphs() {' +
 '            const container = document.getElementById("graphs-container");' +
-'            if(db.items.length === 0) { container.innerHTML = "<div class=\"empty-state\">No data</div>"; return; }' +
-'            let html = "<div class=\"graphs-grid-container\"><div class=\"chart-wrapper\">";' +
+'            if(db.items.length === 0) { container.innerHTML = "<div class=\\"empty-state\\">No data</div>"; return; }' +
+'            let html = "<div class=\\"graphs-grid-container\\"><div class=\\"chart-wrapper\\">";' +
 '            const today = new Date(todayStr + "T00:00:00");' +
-'            db.items.forEach(item => {' +
+'            for(let i = 0; i < db.items.length; i++) {' +
+'                const item = db.items[i];' +
 '                const start = new Date(item.startDate + "T00:00:00");' +
 '                let total = Math.floor((today - start) / 86400000) + 1;' +
 '                if(total < 1) total = 0;' +
 '                if(total > item.endCount) total = item.endCount;' +
 '                let completed = 0;' +
-'                Object.keys(db.progress).forEach(d => {' +
+'                const keys = Object.keys(db.progress);' +
+'                for(let j = 0; j < keys.length; j++) {' +
+'                    const d = keys[j];' +
 '                    const dObj = new Date(d + "T00:00:00");' +
 '                    if(dObj >= start && dObj <= today && db.progress[d] && db.progress[d][item.id] !== undefined) completed++;' +
-'                });' +
+'                }' +
 '                let pct = total > 0 ? Math.min(100, (completed / total) * 100) : 0;' +
-'                html += "<div class=\"bar-col\"><div class=\"bar-percent\">" + Math.round(pct) + "%</div>";' +
-'                html += "<div class=\"bar-track\" style=\"background:" + item.color + "40\">";' +
-'                html += "<div class=\"bar-fill\" style=\"height:" + pct + "%;background:" + item.color + "\"></div>";' +
-'                html += "<div class=\"bar-label-inner\">" + item.title + "</div></div></div>";' +
-'            });' +
+'                html += "<div class=\\"bar-col\\"><div class=\\"bar-percent\\">" + Math.round(pct) + "%</div>";' +
+'                html += "<div class=\\"bar-track\\" style=\\"background:" + item.color + "40\\">";' +
+'                html += "<div class=\\"bar-fill\\" style=\\"height:" + pct + "%;background:" + item.color + "\\"></div>";' +
+'                html += "<div class=\\"bar-label-inner\\">" + escapeHtml(item.title) + "</div></div></div>";' +
+'            }' +
 '            html += "</div></div>";' +
 '            container.innerHTML = html;' +
 '        }' +
@@ -442,23 +462,30 @@ const growEJS = '<!DOCTYPE html>' +
 '            const first = new Date(currentYear, currentMonth, 1).getDay();' +
 '            const days = new Date(currentYear, currentMonth + 1, 0).getDate();' +
 '            let html = "";' +
-'            ["Su","Mo","Tu","We","Th","Fr","Sa"].forEach(d => html += "<div class=\"weekday\">" + d + "</div>");' +
-'            for(let i=0; i<first; i++) html += "<div class=\"day-cell empty\"></div>";' +
-'            for(let i=1; i<=days; i++) {' +
+'            ["Su","Mo","Tu","We","Th","Fr","Sa"].forEach(function(d) { html += "<div class=\\"weekday\\">" + d + "</div>"; });' +
+'            for(let i = 0; i < first; i++) html += "<div class=\\"day-cell empty\\"></div>";' +
+'            for(let i = 1; i <= days; i++) {' +
 '                const date = currentYear + "-" + String(currentMonth+1).padStart(2,"0") + "-" + String(i).padStart(2,"0");' +
 '                const isToday = date === todayStr;' +
 '                const dayData = db.progress[date] || {};' +
 '                const colors = [];' +
-'                db.items.forEach(g => { if(isActive(g, date) && dayData[g.id] !== undefined) colors.push(g.color); });' +
+'                for(let j = 0; j < db.items.length; j++) {' +
+'                    const g = db.items[j];' +
+'                    if(isActive(g, date) && dayData[g.id] !== undefined) colors.push(g.color);' +
+'                }' +
 '                let bg = "transparent", cls = "";' +
 '                if(colors.length === 1) { bg = colors[0]; cls = "has-data"; }' +
 '                else if(colors.length > 1) {' +
 '                    const step = 100 / colors.length;' +
-'                    const stops = colors.map((c,idx) => c + " " + (idx*step) + "% " + ((idx+1)*step) + "%").join(", ");' +
+'                    let stops = "";' +
+'                    for(let j = 0; j < colors.length; j++) {' +
+'                        stops += colors[j] + " " + (j*step) + "% " + ((j+1)*step) + "%";' +
+'                        if(j < colors.length-1) stops += ", ";' +
+'                    }' +
 '                    bg = "conic-gradient(" + stops + ")";' +
 '                    cls = "has-data";' +
 '                }' +
-'                html += "<div class=\"day-cell\" data-date=\"" + date + "\"><div class=\"day-circle " + (isToday?"today ":"") + cls + "\" style=\"background:" + bg + "\">" + i + "</div></div>";' +
+'                html += "<div class=\\"day-cell\\" data-date=\\"" + date + "\\"><div class=\\"day-circle " + (isToday?"today ":"") + cls + "\\" style=\\"background:" + bg + "\\">" + i + "</div></div>";' +
 '            }' +
 '            grid.innerHTML = html;' +
 '            document.getElementById("speech-bubble").classList.remove("show");' +
@@ -467,12 +494,17 @@ const growEJS = '<!DOCTYPE html>' +
 '            const bubble = document.getElementById("speech-bubble");' +
 '            const content = document.getElementById("speech-content");' +
 '            const tail = document.getElementById("speech-tail");' +
-'            const active = db.items.filter(g => isActive(g, date));' +
+'            const active = db.items.filter(function(g) { return isActive(g, date); });' +
 '            const dayData = db.progress[date] || {};' +
 '            const d = new Date(date + "T00:00:00");' +
-'            let html = "<div class=\"speech-date\">" + d.toLocaleDateString("en-US",{month:"short",day:"numeric"}) + "</div>";' +
-'            if(active.length === 0) html += "<div style=\"text-align:center\">No active</div>";' +
-'            else active.forEach(g => html += "<div class=\"speech-item\" style=\"color:" + g.color + "\"><span>" + g.title + "</span><i class=\"fas " + (dayData[g.id]!==undefined?"fa-check-circle":"fa-circle") + "\"></i></div>");' +
+'            let html = "<div class=\\"speech-date\\">" + d.toLocaleDateString("en-US",{month:"short",day:"numeric"}) + "</div>";' +
+'            if(active.length === 0) html += "<div style=\\"text-align:center\\">No active</div>";' +
+'            else {' +
+'                for(let i = 0; i < active.length; i++) {' +
+'                    const g = active[i];' +
+'                    html += "<div class=\\"speech-item\\" style=\\"color:" + g.color + "\\"><span>" + escapeHtml(g.title) + "</span><i class=\\"fas " + (dayData[g.id]!==undefined?"fa-check-circle":"fa-circle") + "\\"></i></div>";' +
+'                }' +
+'            }' +
 '            content.innerHTML = html;' +
 '            bubble.style.display = "block";' +
 '            const bRect = bubble.getBoundingClientRect();' +
@@ -488,27 +520,30 @@ const growEJS = '<!DOCTYPE html>' +
 '            tail.style.left = tailX + "px";' +
 '            if(below) { tail.style.top = "-5px"; tail.style.transform = "rotate(225deg)"; }' +
 '            else { tail.style.bottom = "-5px"; tail.style.transform = "rotate(45deg)"; }' +
-'            setTimeout(() => bubble.classList.add("show"), 10);' +
+'            setTimeout(function() { bubble.classList.add("show"); }, 10);' +
 '        }' +
 '        function initPalette() {' +
 '            const container = document.getElementById("color-palette");' +
 '            const input = document.getElementById("g-color");' +
-'            const used = db.items.map(g => g.color);' +
+'            const used = [];' +
+'            for(let i = 0; i < db.items.length; i++) used.push(db.items[i].color);' +
 '            let html = "", first = null;' +
-'            paletteColors.forEach(c => {' +
+'            for(let i = 0; i < paletteColors.length; i++) {' +
+'                const c = paletteColors[i];' +
 '                const isUsed = used.includes(c);' +
 '                if(!isUsed && !first) first = c;' +
-'                html += "<div class=\"color-swatch " + (isUsed?"hidden":"") + "\" style=\"background:" + c + "\" data-color=\"" + c + "\"></div>";' +
-'            });' +
+'                html += "<div class=\\"color-swatch " + (isUsed?"hidden":"") + "\\" style=\\"background:" + c + "\\" data-color=\\"" + c + "\\"></div>";' +
+'            }' +
 '            container.innerHTML = html;' +
 '            if(first) {' +
 '                input.value = first;' +
-'                container.querySelector("[data-color=\"" + first + "\"]").classList.add("selected");' +
+'                container.querySelector("[data-color=\\"" + first + "\\"]").classList.add("selected");' +
 '                document.getElementById("create-btn").disabled = false;' +
 '            } else document.getElementById("create-btn").disabled = true;' +
-'            container.onclick = (e) => {' +
+'            container.onclick = function(e) {' +
 '                if(e.target.classList.contains("color-swatch") && !e.target.classList.contains("hidden")) {' +
-'                    container.querySelectorAll(".color-swatch").forEach(el => el.classList.remove("selected"));' +
+'                    const swatches = container.querySelectorAll(".color-swatch");' +
+'                    for(let i = 0; i < swatches.length; i++) swatches[i].classList.remove("selected");' +
 '                    e.target.classList.add("selected");' +
 '                    input.value = e.target.dataset.color;' +
 '                }' +
@@ -518,12 +553,16 @@ const growEJS = '<!DOCTYPE html>' +
 '            const container = document.getElementById("edit-color-palette");' +
 '            const input = document.getElementById("edit-g-color");' +
 '            let html = "";' +
-'            paletteColors.forEach(c => html += "<div class=\"color-swatch " + (c===current?"selected":"") + "\" style=\"background:" + c + "\" data-color=\"" + c + "\"></div>");' +
+'            for(let i = 0; i < paletteColors.length; i++) {' +
+'                const c = paletteColors[i];' +
+'                html += "<div class=\\"color-swatch " + (c===current?"selected":"") + "\\" style=\\"background:" + c + "\\" data-color=\\"" + c + "\\"></div>";' +
+'            }' +
 '            container.innerHTML = html;' +
 '            input.value = current;' +
-'            container.onclick = (e) => {' +
+'            container.onclick = function(e) {' +
 '                if(e.target.classList.contains("color-swatch")) {' +
-'                    container.querySelectorAll(".color-swatch").forEach(el => el.classList.remove("selected"));' +
+'                    const swatches = container.querySelectorAll(".color-swatch");' +
+'                    for(let i = 0; i < swatches.length; i++) swatches[i].classList.remove("selected");' +
 '                    e.target.classList.add("selected");' +
 '                    input.value = e.target.dataset.color;' +
 '                }' +
@@ -548,7 +587,7 @@ const growEJS = '<!DOCTYPE html>' +
 '            const wrapper = document.getElementById(mode === "add" ? "start-goal-wrapper" : "edit-start-goal-wrapper");' +
 '            wrapper.style.display = type === "boolean" ? "none" : "grid";' +
 '        }' +
-'        document.getElementById("add-grow-form").addEventListener("submit", async (e) => {' +
+'        document.getElementById("add-grow-form").addEventListener("submit", async function(e) {' +
 '            e.preventDefault();' +
 '            const fd = new FormData();' +
 '            fd.append("title", document.getElementById("g-title").value.trim());' +
@@ -568,40 +607,41 @@ const growEJS = '<!DOCTYPE html>' +
 '            await fetchData();' +
 '        });' +
 '        function openLogModal(date) {' +
-'            const active = db.items.filter(g => isActive(g, date));' +
+'            const active = db.items.filter(function(g) { return isActive(g, date); });' +
 '            const d = new Date(date + "T00:00:00");' +
 '            document.getElementById("log-modal-title").innerText = d.toLocaleDateString("en-US",{month:"long",day:"numeric"});' +
 '            const container = document.getElementById("daily-grow-list");' +
 '            let html = "";' +
 '            const dayData = db.progress[date] || {};' +
-'            active.forEach(item => {' +
+'            for(let i = 0; i < active.length; i++) {' +
+'                const item = active[i];' +
 '                const done = dayData[item.id] !== undefined;' +
-'                html += "<div class=\"grow-card\">";' +
-'                html += "<details class=\"grow-details\">";' +
-'                html += "<summary class=\"grow-summary\">";' +
-'                html += "<div class=\"grow-title-section\"><i class=\"fas fa-chevron-right chevron-icon\"></i><div class=\"color-dot\" style=\"background:" + item.color + "\"></div><span class=\"grow-title\">" + item.title + "</span></div>";' +
-'                html += "<div class=\"grow-actions\">";' +
-'                html += "<button class=\"action-btn\" onclick=\"event.preventDefault(); event.stopPropagation(); handleLog(\\\"" + item.id + "\\\", \\\"" + date + "\\\")\" style=\"background:" + (done?"var(--hover-color)":item.color) + ";color:" + (done?"var(--text-secondary)":"white") + "\"" + (done?" disabled":"") + "><i class=\"fas fa-check\"></i></button>";' +
+'                html += "<div class=\\"grow-card\\">";' +
+'                html += "<details class=\\"grow-details\\">";' +
+'                html += "<summary class=\\"grow-summary\\">";' +
+'                html += "<div class=\\"grow-title-section\\"><i class=\\"fas fa-chevron-right chevron-icon\\"></i><div class=\\"color-dot\\" style=\\"background:" + item.color + "\\"></div><span class=\\"grow-title\\">" + escapeHtml(item.title) + "</span></div>";' +
+'                html += "<div class=\\"grow-actions\\">";' +
+'                html += "<button class=\\"action-btn\\" onclick=\\"event.preventDefault(); event.stopPropagation(); handleLog(\\\"" + item.id + "\\\", \\\"" + date + "\\\")\\" style=\\"background:" + (done?"var(--hover-color)":item.color) + ";color:" + (done?"var(--text-secondary)":"white") + "\\"" + (done?" disabled":"") + "><i class=\\"fas fa-check\\"></i></button>";' +
 '                html += "</div></summary>";' +
-'                if(item.description) html += "<div class=\"grow-description-container\"><div class=\"grow-description\" style=\"border-left-color:" + item.color + "\">" + item.description + "</div></div>";' +
+'                if(item.description) html += "<div class=\\"grow-description-container\\"><div class=\\"grow-description\\" style=\\"border-left-color:" + item.color + "\\">" + escapeHtml(item.description) + "</div></div>";' +
 '                html += "</details></div>";' +
-'            });' +
+'            }' +
 '            container.innerHTML = html;' +
 '            showLogList();' +
 '            openModal("log-modal");' +
 '        }' +
-'        window.handleLog = (id, date) => {' +
-'            const item = db.items.find(g => g.id === id);' +
+'        window.handleLog = function(id, date) {' +
+'            const item = db.items.find(function(g) { return g.id === id; });' +
 '            if(item.hasData && item.type !== "boolean") openLogQuestion(item, date);' +
 '            else saveLog(item, date, true);' +
 '        };' +
 '        function openLogQuestion(item, date) {' +
-'            loggingContext = { item, date };' +
+'            loggingContext = { item: item, date: date };' +
 '            document.getElementById("l-title").innerText = item.title;' +
-'            document.getElementById("l-desc-container").innerHTML = item.description ? "<div class=\"grow-description\" style=\"border-left-color:" + item.color + ";margin-bottom:10px\">" + item.description + "</div>" : "";' +
+'            document.getElementById("l-desc-container").innerHTML = item.description ? "<div class=\\"grow-description\\" style=\\"border-left-color:" + item.color + ";margin-bottom:10px\\">" + escapeHtml(item.description) + "</div>" : "";' +
 '            document.getElementById("l-question").innerText = item.question;' +
 '            const wrapper = document.getElementById("l-input-wrapper");' +
-'            wrapper.innerHTML = item.type === "float" ? "<input type=\"number\" step=\"0.01\" class=\"form-control\" id=\"log-input\">" : "<input type=\"number\" step=\"1\" class=\"form-control\" id=\"log-input\">";' +
+'            wrapper.innerHTML = item.type === "float" ? "<input type=\\"number\\" step=\\"0.01\\" class=\\"form-control\\" id=\\"log-input\\">" : "<input type=\\"number\\" step=\\"1\\" class=\\"form-control\\" id=\\"log-input\\">";' +
 '            document.getElementById("log-list-view").style.display = "none";' +
 '            document.getElementById("log-question-view").style.display = "block";' +
 '        }' +
@@ -612,25 +652,25 @@ const growEJS = '<!DOCTYPE html>' +
 '            fd.append("value", val === true ? "true" : val);' +
 '            await fetch(API_URL + "grow/log", { method: "POST", body: new URLSearchParams(fd) });' +
 '            await fetchData();' +
-'            const active = db.items.filter(g => isActive(g, date));' +
+'            const active = db.items.filter(function(g) { return isActive(g, date); });' +
 '            const dayData = db.progress[date] || {};' +
-'            const allDone = active.length > 0 && active.every(g => dayData[g.id] !== undefined);' +
+'            const allDone = active.length > 0 && active.every(function(g) { return dayData[g.id] !== undefined; });' +
 '            if(allDone) {' +
 '                closeModal("log-modal");' +
-'                showBubble(document.querySelector(".day-cell[data-date=\"" + date + "\"]"), date);' +
+'                showBubble(document.querySelector(".day-cell[data-date=\\"" + date + "\\"]"), date);' +
 '            } else openLogModal(date);' +
 '        }' +
-'        document.getElementById("save-log-btn").addEventListener("click", async () => {' +
+'        document.getElementById("save-log-btn").addEventListener("click", async function() {' +
 '            const input = document.getElementById("log-input");' +
-'            if(!input.value) return alert("Enter value");' +
+'            if(!input || !input.value) return alert("Enter value");' +
 '            const { item, date } = loggingContext;' +
 '            let val = item.type === "float" ? parseFloat(input.value) : parseInt(input.value);' +
 '            await saveLog(item, date, val);' +
 '        });' +
-'        function openModal(id) { document.getElementById(id).style.display = "flex"; setTimeout(() => document.getElementById(id).classList.add("show"), 10); }' +
-'        function closeModal(id) { document.getElementById(id).classList.remove("show"); setTimeout(() => document.getElementById(id).style.display = "none", 200); }' +
+'        function openModal(id) { document.getElementById(id).style.display = "flex"; setTimeout(function() { document.getElementById(id).classList.add("show"); }, 10); }' +
+'        function closeModal(id) { document.getElementById(id).classList.remove("show"); setTimeout(function() { document.getElementById(id).style.display = "none"; }, 200); }' +
 '        function showLogList() { document.getElementById("log-list-view").style.display = "block"; document.getElementById("log-question-view").style.display = "none"; }' +
-'        window.addEventListener("click", (e) => { if(e.target.classList.contains("modal")) closeModal(e.target.id); });' +
+'        window.addEventListener("click", function(e) { if(e.target.classList.contains("modal")) closeModal(e.target.id); });' +
 '    </script>' +
 '</body>' +
 '</html>';
@@ -650,79 +690,135 @@ app.get('/', async (req, res) => {
 });
 
 app.get('/api/grow/data', async (req, res) => {
-    const data = await db.collection('grow').findOne({ type: 'tracker' }) || { items: [], progress: {} };
-    res.json(data);
+    try {
+        const data = await db.collection('grow').findOne({ type: 'tracker' });
+        if (!data) {
+            const defaultData = { items: [], progress: {} };
+            await db.collection('grow').insertOne({ type: 'tracker', ...defaultData });
+            res.json(defaultData);
+        } else {
+            const { type, ...rest } = data;
+            res.json(rest);
+        }
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
 app.post('/api/grow', async (req, res) => {
-    const { title, description, startDate, endCount, color, hasData, type, question, start, end } = req.body;
-    const item = {
-        id: generateId(),
-        title: title,
-        description: description || '',
-        startDate: startDate,
-        endCount: parseInt(endCount),
-        color: color,
-        hasData: hasData === 'true',
-        type: type || 'boolean'
-    };
-    if (hasData === 'true') {
-        item.question = question || '';
-        if (type !== 'boolean') {
-            if (start) item.start = type === 'float' ? parseFloat(start) : parseInt(start);
-            if (end) item.end = type === 'float' ? parseFloat(end) : parseInt(end);
+    try {
+        const { title, description, startDate, endCount, color, hasData, type, question, start, end } = req.body;
+        const item = {
+            id: generateId(),
+            title: title,
+            description: description || '',
+            startDate: startDate,
+            endCount: parseInt(endCount),
+            color: color,
+            hasData: hasData === 'true',
+            type: type || 'boolean'
+        };
+        if (hasData === 'true') {
+            item.question = question || '';
+            if (type !== 'boolean') {
+                if (start && start !== '') item.start = type === 'float' ? parseFloat(start) : parseInt(start);
+                if (end && end !== '') item.end = type === 'float' ? parseFloat(end) : parseInt(end);
+            }
         }
+        await db.collection('grow').updateOne(
+            { type: 'tracker' },
+            { $push: { items: item } },
+            { upsert: true }
+        );
+        try { await bot.telegram.sendMessage(CHAT_ID, `🌱 Added: ${title}`, { parse_mode: 'HTML' }); } catch(e) {}
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
-    await db.collection('grow').updateOne({ type: 'tracker' }, { $push: { items: item } }, { upsert: true });
-    try { await bot.telegram.sendMessage(CHAT_ID, `🌱 Added: ${title}`, { parse_mode: 'HTML' }); } catch(e) {}
-    res.json({ success: true });
 });
 
 app.post('/api/grow/:id/update', async (req, res) => {
-    const { id, title, description, startDate, endCount, color, hasData, type, question, start, end } = req.body;
-    const item = {
-        id: id,
-        title: title,
-        description: description || '',
-        startDate: startDate,
-        endCount: parseInt(endCount),
-        color: color,
-        hasData: hasData === 'true',
-        type: type || 'boolean'
-    };
-    if (hasData === 'true') {
-        item.question = question || '';
-        if (type !== 'boolean') {
-            if (start) item.start = type === 'float' ? parseFloat(start) : parseInt(start);
-            if (end) item.end = type === 'float' ? parseFloat(end) : parseInt(end);
+    try {
+        const { id, title, description, startDate, endCount, color, hasData, type, question, start, end } = req.body;
+        const item = {
+            id: id,
+            title: title,
+            description: description || '',
+            startDate: startDate,
+            endCount: parseInt(endCount),
+            color: color,
+            hasData: hasData === 'true',
+            type: type || 'boolean'
+        };
+        if (hasData === 'true') {
+            item.question = question || '';
+            if (type !== 'boolean') {
+                if (start && start !== '') item.start = type === 'float' ? parseFloat(start) : parseInt(start);
+                if (end && end !== '') item.end = type === 'float' ? parseFloat(end) : parseInt(end);
+            }
         }
+        await db.collection('grow').updateOne(
+            { type: 'tracker', 'items.id': id },
+            { $set: { 'items.$': item } }
+        );
+        try { await bot.telegram.sendMessage(CHAT_ID, `✏️ Updated: ${title}`, { parse_mode: 'HTML' }); } catch(e) {}
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
-    await db.collection('grow').updateOne({ type: 'tracker', 'items.id': id }, { $set: { 'items.$': item } });
-    try { await bot.telegram.sendMessage(CHAT_ID, `✏️ Updated: ${title}`, { parse_mode: 'HTML' }); } catch(e) {}
-    res.json({ success: true });
 });
 
 app.post('/api/grow/:id/delete', async (req, res) => {
-    const tracker = await db.collection('grow').findOne({ type: 'tracker' });
-    const item = tracker?.items.find(i => i.id === req.params.id);
-    await db.collection('grow').updateOne({ type: 'tracker' }, { $pull: { items: { id: req.params.id } } });
-    if (tracker?.progress) {
-        const progress = { ...tracker.progress };
-        Object.keys(progress).forEach(date => { if (progress[date] && progress[date][req.params.id] !== undefined) delete progress[date][req.params.id]; });
-        await db.collection('grow').updateOne({ type: 'tracker' }, { $set: { progress: progress } });
+    try {
+        const tracker = await db.collection('grow').findOne({ type: 'tracker' });
+        const item = tracker?.items.find(i => i.id === req.params.id);
+        
+        await db.collection('grow').updateOne(
+            { type: 'tracker' },
+            { $pull: { items: { id: req.params.id } } }
+        );
+        
+        if (tracker?.progress) {
+            const progress = { ...tracker.progress };
+            Object.keys(progress).forEach(date => {
+                if (progress[date] && progress[date][req.params.id] !== undefined) {
+                    delete progress[date][req.params.id];
+                }
+            });
+            await db.collection('grow').updateOne(
+                { type: 'tracker' },
+                { $set: { progress: progress } }
+            );
+        }
+        
+        try { await bot.telegram.sendMessage(CHAT_ID, `🗑️ Deleted: ${item?.title || 'Unknown'}`, { parse_mode: 'HTML' }); } catch(e) {}
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
-    try { await bot.telegram.sendMessage(CHAT_ID, `🗑️ Deleted: ${item?.title || 'Unknown'}`, { parse_mode: 'HTML' }); } catch(e) {}
-    res.json({ success: true });
 });
 
 app.post('/api/grow/log', async (req, res) => {
-    const { itemId, dateStr, value } = req.body;
-    const parsed = value === 'true' ? true : value === 'false' ? false : isNaN(parseFloat(value)) ? value : parseFloat(value);
-    const tracker = await db.collection('grow').findOne({ type: 'tracker' });
-    const item = tracker?.items.find(i => i.id === itemId);
-    await db.collection('grow').updateOne({ type: 'tracker' }, { $set: { [`progress.${dateStr}.${itemId}`]: parsed } });
-    try { await bot.telegram.sendMessage(CHAT_ID, `✅ Completed: ${item?.title || 'Unknown'}`, { parse_mode: 'HTML' }); } catch(e) {}
-    res.json({ success: true });
+    try {
+        const { itemId, dateStr, value } = req.body;
+        let parsed = value;
+        if (value === 'true') parsed = true;
+        else if (value === 'false') parsed = false;
+        else if (!isNaN(parseFloat(value))) parsed = parseFloat(value);
+        
+        const tracker = await db.collection('grow').findOne({ type: 'tracker' });
+        const item = tracker?.items.find(i => i.id === itemId);
+        
+        await db.collection('grow').updateOne(
+            { type: 'tracker' },
+            { $set: { [`progress.${dateStr}.${itemId}`]: parsed } }
+        );
+        
+        try { await bot.telegram.sendMessage(CHAT_ID, `✅ Completed: ${item?.title || 'Unknown'}`, { parse_mode: 'HTML' }); } catch(e) {}
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
 // ==========================================
@@ -730,10 +826,16 @@ app.post('/api/grow/log', async (req, res) => {
 // ==========================================
 async function start() {
     if (await connectDB()) {
-        app.listen(PORT, '0.0.0.0', () => console.log('🚀 Server running on port ' + PORT));
+        app.listen(PORT, '0.0.0.0', () => {
+            console.log('🚀 Server running on port ' + PORT);
+            console.log('📁 Database: tggrow');
+        });
         await bot.launch();
         console.log('🤖 Bot running');
-    } else setTimeout(start, 5000);
+    } else {
+        console.log('❌ Failed to connect to database, retrying in 5 seconds...');
+        setTimeout(start, 5000);
+    }
 }
 
 process.once('SIGINT', () => { bot.stop('SIGINT'); process.exit(0); });
