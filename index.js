@@ -10,7 +10,7 @@ const fs = require('fs');
 const BOT_TOKEN = '8716545255:AAHNcyDFzOdVUQz38iutCVEN3DARA5YJLBM';
 const MONGODB_URI = 'mongodb+srv://sandip:9E9AISFqTfU3VI5i@cluster0.p8irtov.mongodb.net/tggrow';
 const PORT = process.env.PORT || 8080;
-const WEB_APP_URL = 'https://web-production-820965.up.railway.app';
+const WEB_APP_URL = 'https://tasks-managing.up.railway.app';
 const CHAT_ID = 8781152810;
 
 const app = express();
