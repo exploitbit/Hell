@@ -356,7 +356,7 @@ function writeMainEJS() {
                     <i class="fas fa-tasks"></i> <span>Tasks</span>
                 </button>
                 <button class="nav-btn <%= currentPage === 'grow' ? 'active' : '' %>" onclick="switchPage('grow')">
-                    <i class="fas fa-seedling"></i> <span>Grow</span>
+                    <i class="fas fa-seedling"></i> <span>Growth</span>
                 </button>
                 <button class="nav-btn <%= currentPage === 'notes' ? 'active' : '' %>" onclick="switchPage('notes')">
                     <i class="fas fa-note-sticky"></i> <span>Notes</span>
@@ -407,7 +407,7 @@ function writeMainEJS() {
                     </select>
                 </div>
                 <div class="form-group" id="repeatCountGroup" style="margin-bottom: 12px; display: none;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Repeat Count (1-365)</label>
+                    <label style="font-size: 0.85rem; font-weight: 600;">Repeat Count</label>
                     <input type="number" class="form-control" name="repeatCount" value="7" min="1" max="365">
                 </div>
                 <div style="display: flex; gap: 12px; margin-top: 16px;">
@@ -468,7 +468,7 @@ function writeMainEJS() {
             </div>
             <form id="addGrowForm">
                 <div class="form-group"><label>Title</label><input type="text" class="form-control" id="addGrowTitle" required placeholder="E.g. Daily Walk"></div>
-                <div class="form-group" style="margin-top: 12px;"><label>Description (Optional)</label><textarea class="form-control" id="addGrowDesc" rows="2" placeholder="Brief details..."></textarea></div>
+                <div class="form-group" style="margin-top: 12px;"><label>Description</label><textarea class="form-control" id="addGrowDesc" rows="2" placeholder="Brief details..."></textarea></div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px; margin-top: 12px;">
                     <div class="form-group"><label>Start Date</label><input type="date" class="form-control" id="addGrowStart" required></div>
                     <div class="form-group"><label>Duration (Days)</label><input type="number" class="form-control" id="addGrowDays" value="365" required></div>
@@ -499,10 +499,10 @@ function writeMainEJS() {
             <form id="editGrowForm">
                 <input type="hidden" id="editGrowId">
                 <div class="form-group"><label>Title</label><input type="text" class="form-control" id="editGrowTitle" required></div>
-                <div class="form-group" style="margin-top: 12px;"><label>Description (Optional)</label><textarea class="form-control" id="editGrowDesc" rows="2"></textarea></div>
+                <div class="form-group" style="margin-top: 12px;"><label>Description</label><textarea class="form-control" id="editGrowDesc" rows="2"></textarea></div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px; margin-top: 12px;">
                     <div class="form-group"><label>Start Date</label><input type="date" class="form-control" id="editGrowStart" required></div>
-                    <div class="form-group"><label>Duration (Days)</label><input type="number" class="form-control" id="editGrowDays" required></div>
+                    <div class="form-group"><label>Duration</label><input type="number" class="form-control" id="editGrowDays" required></div>
                 </div>
                 <div class="form-group" style="margin-top: 12px;"><label>Color Tag (Auto-Swaps)</label><div class="grow-palette" id="editGrowPalette"></div><input type="hidden" id="editGrowColor" required></div>
                 
@@ -675,7 +675,7 @@ function writeMainEJS() {
             
             const fabBtn = document.getElementById("fabButton");
             if(growTrackerData.items && growTrackerData.items.length >= 8) {
-                fabBtn.style.opacity = "0.5";
+                fabBtn.style.opacity = "0.75";
             } else {
                 fabBtn.style.opacity = "1";
             }
@@ -1420,8 +1420,8 @@ const activeSchedules = new Map();
 let isShuttingDown = false;
 
 bot.command('start', async (ctx) => {
-    const keyboard = Markup.inlineKeyboard([[Markup.button.webApp('🌐 Open Web App', WEB_APP_URL)]]);
-    await ctx.reply('🌟 <b>Global Task Manager</b>\n\nManage your tasks using the Web App below.', { parse_mode: 'HTML', reply_markup: keyboard.reply_markup });
+    const keyboard = Markup.inlineKeyboard([[Markup.button.webApp('🌐 Task Manager', WEB_APP_URL)]]);
+    await ctx.reply('🌟 <b>Open Task Manager</b>', { parse_mode: 'HTML', reply_markup: keyboard.reply_markup });
 });
 
 function scheduleTask(task) {
@@ -1452,13 +1452,13 @@ function scheduleTask(task) {
                         activeSchedule.interval = null;
                     }
                     if (currentTimeUTC >= targetTimeUTC) {
-                        try { await bot.telegram.sendMessage(CHAT_ID, `🚀 <b>START NOW:</b> ${task.title}\n🕒 <b>Time:</b> ${task.startTimeStr} to ${task.endTimeStr}`, { parse_mode: 'HTML' }); } catch (e) {}
+                        try { await bot.telegram.sendMessage(CHAT_ID, `🚀 <b>START NOW:</b> ${task.title}\n🕒 <b>Time:</b> ${task.startTimeStr} - ${task.endTimeStr}`, { parse_mode: 'HTML' }); } catch (e) {}
                     }
                     return;
                 }
                 const minutesLeft = Math.ceil((targetTimeUTC - currentTimeUTC) / 60000);
                 if (minutesLeft > 0) {
-                    try { await bot.telegram.sendMessage(CHAT_ID, `🔔 <b>In ${minutesLeft}m:</b> ${task.title}\n🕒 <b>Time:</b> ${task.startTimeStr} to ${task.endTimeStr}`, { parse_mode: 'HTML' }); } catch (e) {}
+                    try { await bot.telegram.sendMessage(CHAT_ID, `🔔 <b>In ${minutesLeft}m:</b> ${task.title}\n🕒 <b>Time:</b> ${task.startTimeStr} - ${task.endTimeStr}`, { parse_mode: 'HTML' }); } catch (e) {}
                 }
                 count++;
             };
@@ -1507,7 +1507,7 @@ function setupAutoCompletion() {
     schedule.scheduleJob(rule, async function() {
         if (isShuttingDown) return;
         try {
-            console.log('🌙 Running auto-completion for all pending tasks at 23:57 IST...');
+            console.log('🌙 Running auto-completion - 23:57 IST.');
             const istDateObj = getCurrentISTDisplay();
             const startOfDayUTC = istToUTC(istDateObj.date, "00:00");
             const endOfDayUTC = istToUTC(istDateObj.date, "23:59");
@@ -1604,20 +1604,20 @@ function setupHourlyNotifications() {
 
             if (pendingTasks.length === 0 && completedTasks.length === 0) return;
 
-            let msg = `🕒 <b>Hourly Status Update</b>\n📅 ${istDateObj.displayDate} - ${istDateObj.time}\n\n`;
+            let msg = `🕒 <b>Hourly Update:</b>\n\n`;
 
             if (completedTasks.length > 0) {
-                msg += `<b>✅ Completed Today:</b>\n`;
+                msg += ``;
                 completedTasks.forEach(t => {
-                    msg += `✅ <b>${t.title}</b> (${t.startTimeStr} - ${t.endTimeStr})\n`;
+                    msg += `<blockquote>✅ <b>${t.title}</b> (${t.startTimeStr} - ${t.endTimeStr})\n</blockquote>`;
                 });
-                msg += `\n`;
+                msg += ``;
             }
 
             if (pendingTasks.length > 0) {
-                msg += `<b>❌ Pending Today:</b>\n`;
+                msg += ``;
                 pendingTasks.forEach(t => {
-                    msg += `❌ <b>${t.title}</b> (${t.startTimeStr} - ${t.endTimeStr})\n`;
+                    msg += `<blockquote>❌ <b>${t.title}</b> (${t.startTimeStr} - ${t.endTimeStr})\n</blockquote>`;
                 });
             }
 
@@ -1762,7 +1762,7 @@ app.post('/api/grow', async (req, res) => {
         }
         
         await db.collection('grow').updateOne({ type: 'tracker' }, { $push: { items: item } }, { upsert: true });
-        try { await bot.telegram.sendMessage(CHAT_ID, `🌱 <b>Grow Tracker Added:</b> ${title}`, { parse_mode: 'HTML' }); } catch(e) {}
+        try { await bot.telegram.sendMessage(CHAT_ID, `🌱 <b>Growth Added:</b> ${title}`, { parse_mode: 'HTML' }); } catch(e) {}
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
@@ -1805,7 +1805,7 @@ app.post('/api/grow/:id/delete', async (req, res) => {
             Object.keys(prog).forEach(date => { if (prog[date] && prog[date][req.params.id] !== undefined) delete prog[date][req.params.id]; });
             await db.collection('grow').updateOne({ type: 'tracker' }, { $set: { progress: prog } });
         }
-        try { await bot.telegram.sendMessage(CHAT_ID, `🗑️ <b>Grow Tracker Deleted:</b> ${item?.title || 'Unknown'}`, { parse_mode: 'HTML' }); } catch(e) {}
+        try { await bot.telegram.sendMessage(CHAT_ID, `🗑️ <b>Growth Deleted:</b> ${item?.title || 'Unknown'}`, { parse_mode: 'HTML' }); } catch(e) {}
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
@@ -1817,7 +1817,7 @@ app.post('/api/grow/log', async (req, res) => {
         const item = tracker?.items.find(i => i.id === itemId);
         
         await db.collection('grow').updateOne({ type: 'tracker' }, { $set: { [`progress.${dateStr}.${itemId}`]: value } });
-        try { await bot.telegram.sendMessage(CHAT_ID, `✅ <b>Grow Logged:</b> ${item?.title || 'Unknown'}`, { parse_mode: 'HTML' }); } catch(e) {}
+        try { await bot.telegram.sendMessage(CHAT_ID, `✅ <b>Growth Logged:</b> ${item?.title || 'Unknown'}`, { parse_mode: 'HTML' }); } catch(e) {}
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
@@ -1855,7 +1855,7 @@ app.post('/api/tasks', async (req, res) => {
         };
         await db.collection('tasks').insertOne(task);
         if (task.startDate > new Date()) scheduleTask(task);
-        try { await bot.telegram.sendMessage(CHAT_ID, `➕ <b>Added Task:</b> ${task.title}\n🕒 <b>Time:</b> ${task.startTimeStr} to ${task.endTimeStr}\n📝 <b>Details:</b> ${task.description || 'None'}`, { parse_mode: 'HTML' }); } catch(e){}
+        try { await bot.telegram.sendMessage(CHAT_ID, `➕ <b>Added Task:</b> ${task.title}\n🕒 <b>Time:</b> ${task.startTimeStr} - ${task.endTimeStr}\n<blockquote>${task.description || 'None'}</blockquote>`, { parse_mode: 'HTML' }); } catch(e){}
         res.redirect('/tasks');
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -1905,12 +1905,12 @@ app.post('/api/tasks/:taskId/complete', async (req, res) => {
             await db.collection('tasks').updateOne({ taskId: task.taskId }, { $set: { nextOccurrence: nextUTC, repeatCount: task.repeatCount - 1, startDate: nextUTC, startDateStr: nextISTDisplay, endDate: new Date(nextUTC.getTime() + (task.endDate.getTime() - task.startDate.getTime())), subtasks: (task.subtasks || []).map(s => ({...s, completed: false})) } });
             const t = await db.collection('tasks').findOne({ taskId: task.taskId });
             if (t && t.nextOccurrence > new Date()) scheduleTask(t);
-            try { await bot.telegram.sendMessage(CHAT_ID, `✅ <b>Completed Task:</b> ${task.title}\n🕒 <b>Time:</b> ${task.startTimeStr} to ${task.endTimeStr}\n📝 <b>Details:</b> ${task.description || 'None'}\n🔄 <b>Next:</b> ${nextISTDisplay}`, { parse_mode: 'HTML' }); } catch(e){}
+            try { await bot.telegram.sendMessage(CHAT_ID, `✅ <b>Completed Task:</b> ${task.title}\n🕒 <b>Time:</b> ${task.startTimeStr} - ${task.endTimeStr}\n<blockquote>${task.description || 'None'}</blockquote>\n🔄 <b>Next:</b> ${nextISTDisplay}`, { parse_mode: 'HTML' }); } catch(e){}
         } else {
             // Move non-repeating completely to deleted_tasks
             await db.collection('deleted_tasks').insertOne({ ...task, deletedAt: new Date(), deleteReason: 'completed' });
             await db.collection('tasks').deleteOne({ taskId: task.taskId });
-            try { await bot.telegram.sendMessage(CHAT_ID, `✅ <b>Completed Task:</b> ${task.title}\n🕒 <b>Time:</b> ${task.startTimeStr} to ${task.endTimeStr}\n📝 <b>Details:</b> ${task.description || 'None'}`, { parse_mode: 'HTML' }); } catch(e){}
+            try { await bot.telegram.sendMessage(CHAT_ID, `✅ <b>Completed Task:</b> ${task.title}\n🕒 <b>Time:</b> ${task.startTimeStr} - ${task.endTimeStr}\n<blockquote>${task.description || 'None'}</blockquote>`, { parse_mode: 'HTML' }); } catch(e){}
         }
         res.redirect('/tasks');
     } catch (error) { res.status(500).send(error.message); }
@@ -1924,7 +1924,7 @@ app.post('/api/tasks/:taskId/delete', async (req, res) => {
         if(t) {
             await db.collection('deleted_tasks').insertOne({ ...t, deletedAt: new Date(), deleteReason: 'manual' });
             await db.collection('tasks').deleteOne({ taskId: req.params.taskId });
-            try { await bot.telegram.sendMessage(CHAT_ID, `🗑️ <b>Deleted Task:</b> ${t.title}\n🕒 <b>Time:</b> ${t.startTimeStr} to ${t.endTimeStr}`, { parse_mode: 'HTML' }); } catch(e){}
+            try { await bot.telegram.sendMessage(CHAT_ID, `🗑️ <b>Deleted Task:</b> ${t.title}\n🕒 <b>Time:</b> ${t.startTimeStr} - ${t.endTimeStr}`, { parse_mode: 'HTML' }); } catch(e){}
         }
         res.redirect('/tasks');
     } catch (error) { res.status(500).send(error.message); }
