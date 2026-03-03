@@ -97,8 +97,8 @@ function writeMainEJS() {
             --warning-dark: #fbbf24; --danger-dark: #f87171; --hover-dark: #2d3b4f; --progress-bg-dark: #334155;
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif; }
         
         body { background: var(--bg-light); color: var(--text-primary-light); transition: all 0.2s ease; min-height: 100vh; font-size: 13px; line-height: 1.4; }
         @media (prefers-color-scheme: dark) { body { background: var(--bg-dark); color: var(--text-primary-dark); } }
@@ -110,9 +110,9 @@ function writeMainEJS() {
         .nav-links { display: flex; gap: 2px; background: var(--hover-light); padding: 3px; border-radius: 100px; }
         @media (prefers-color-scheme: dark) { .nav-links { background: var(--hover-dark); } }
         
-        .nav-btn { display: flex; align-items: center; gap: 4px; padding: 6px 10px; border-radius: 100px; border: none; background: transparent; color: var(--text-secondary-light); font-weight: 600; font-size: 0.8rem; cursor: pointer; transition: all 0.2s ease; }
+        .nav-btn { display: flex; align-items: center; gap: 4px; padding: 6px 10px; border-radius: 100px; border: none; background: transparent; color: var(--text-secondary-light); font-weight: 500; font-size: 0.8rem; cursor: pointer; transition: all 0.2s ease; }
         @media (prefers-color-scheme: dark) { .nav-btn { color: var(--text-secondary-dark); } }
-        .nav-btn.active { background: var(--card-bg-light); color: var(--accent-light); box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
+        .nav-btn.active { background: var(--card-bg-light); color: var(--accent-light); box-shadow: 0 2px 6px rgba(0,0,0,0.05); font-weight: 600; }
         @media (prefers-color-scheme: dark) { .nav-btn.active { background: var(--card-bg-dark); color: var(--accent-dark); box-shadow: 0 2px 6px rgba(0,0,0,0.2); } }
         
         .time-badge { display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: var(--accent-soft-light); border-radius: 100px; font-size: 0.75rem; font-weight: 600; color: var(--accent-light); }
@@ -127,11 +127,11 @@ function writeMainEJS() {
         .note-card { margin-bottom: 12px; }
         .task-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; width: 100%; }
         .task-title-section { flex: 1; min-width: 0; }
-        .task-title { font-size: 1.1rem; font-weight: 700; color: var(--text-primary-light); margin-bottom: 4px; line-height: 1.3; word-break: break-word; cursor: pointer; display: inline-block; }
+        .task-title { font-size: 1.05rem; font-weight: 600; color: var(--text-primary-light); margin-bottom: 4px; line-height: 1.3; word-break: break-word; cursor: pointer; display: inline-block; }
         @media (prefers-color-scheme: dark) { .task-title { color: var(--text-primary-dark); } }
         
         .task-description-container { margin: 8px 0 4px 0; width: 100%; }
-        .task-description { font-size: 0.85rem; color: var(--text-secondary-light); padding: 4px 6px; background: var(--hover-light); border-radius: 10px; border-left: 3px solid var(--accent-light); word-break: break-word; white-space: pre-wrap; width: 100%; box-sizing: border-box; line-height: 1.4; }
+        .task-description { font-size: 0.8rem; color: var(--text-secondary-light); padding: 4px 6px; background: var(--hover-light); border-radius: 10px; border-left: 3px solid var(--accent-light); word-break: break-word; white-space: pre-wrap; width: 100%; box-sizing: border-box; line-height: 1.4; }
         @media (prefers-color-scheme: dark) { .task-description { color: var(--text-secondary-dark); background: var(--hover-dark); } }
         
         .task-time-row { display: flex; justify-content: space-between; align-items: center; width: 100%; margin: 8px 0 4px 0; }
@@ -147,7 +147,7 @@ function writeMainEJS() {
         .progress-section { display: flex; align-items: center; gap: 12px; margin: 12px 0; cursor: pointer; }
         .progress-ring-small { position: relative; width: 40px; height: 40px; }
         .progress-ring-circle-small { transition: stroke-dashoffset 0.5s; transform: rotate(-90deg); transform-origin: 50% 50%; }
-        .progress-text-small { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 0.7rem; font-weight: 700; color: var(--accent-light); }
+        .progress-text-small { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 0.65rem; font-weight: 700; color: var(--accent-light); }
         @media (prefers-color-scheme: dark) { .progress-text-small { color: var(--accent-dark); } }
         
         .subtasks-container { margin-top: 12px; border-top: 1px solid var(--border-light); padding-top: 12px; width: 100%; }
@@ -159,7 +159,7 @@ function writeMainEJS() {
         .subtask-checkbox { width: 20px; height: 20px; border-radius: 6px; border: 2px solid var(--accent-light); background: transparent; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; color: white; font-size: 0.7rem; flex-shrink: 0; margin-top: 1px; }
         .subtask-checkbox.completed { background: var(--success-light); border-color: var(--success-light); }
         .subtask-details { flex: 1; min-width: 0; }
-        .subtask-title { font-weight: 600; color: var(--text-primary-light); margin-bottom: 2px; font-size: 0.85rem; word-break: break-word; cursor: pointer; }
+        .subtask-title { font-weight: 500; color: var(--text-primary-light); margin-bottom: 2px; font-size: 0.8rem; word-break: break-word; cursor: pointer; }
         .subtask-title.completed { text-decoration: line-through; color: var(--text-secondary-light); }
         
         .subtask-actions { display: flex; gap: 4px; flex-shrink: 0; }
@@ -169,18 +169,18 @@ function writeMainEJS() {
         .subtask-btn.delete:hover { background: var(--danger-light); }
         
         .subtask-description-container { margin-top: 6px; margin-left: 28px; width: calc(100% - 28px); }
-        .subtask-description { font-size: 0.8rem; color: var(--text-secondary-light); padding: 4px 6px; background: var(--card-bg-light); border-radius: 8px; border-left: 2px solid var(--accent-light); word-break: break-word; white-space: pre-wrap; width: 100%; box-sizing: border-box; max-width: 100%; line-height: 1.4; }
+        .subtask-description { font-size: 0.75rem; color: var(--text-secondary-light); padding: 4px 6px; background: var(--card-bg-light); border-radius: 8px; border-left: 2px solid var(--accent-light); word-break: break-word; white-space: pre-wrap; width: 100%; box-sizing: border-box; max-width: 100%; line-height: 1.4; }
         @media (prefers-color-scheme: dark) { .subtask-description { background: var(--card-bg-dark); color: var(--text-secondary-dark); } }
         
         .badge { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 100px; font-size: 0.7rem; font-weight: 600; gap: 4px; background: var(--hover-light); color: var(--text-secondary-light); width: fit-content; }
         @media (prefers-color-scheme: dark) { .badge { background: var(--hover-dark); color: var(--text-secondary-dark); } }
         
         .note-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; width: 100%; }
-        .note-title { font-size: 1.1rem; font-weight: 700; color: var(--text-primary-light); word-break: break-word; flex: 1; cursor: pointer; }
+        .note-title { font-size: 1.05rem; font-weight: 600; color: var(--text-primary-light); word-break: break-word; flex: 1; cursor: pointer; }
         @media (prefers-color-scheme: dark) { .note-title { color: var(--text-primary-dark); } }
         
         .note-content-container { margin: 4px 0 8px 0; width: 100%; }
-        .note-content { font-size: 0.85rem; color: var(--text-secondary-light); padding: 4px 6px; background: var(--hover-light); border-radius: 10px; border-left: 3px solid var(--accent-light); word-break: break-word; white-space: pre-wrap; width: 100%; box-sizing: border-box; max-width: 100%; line-height: 1.4; }
+        .note-content { font-size: 0.8rem; color: var(--text-secondary-light); padding: 4px 6px; background: var(--hover-light); border-radius: 10px; border-left: 3px solid var(--accent-light); word-break: break-word; white-space: pre-wrap; width: 100%; box-sizing: border-box; max-width: 100%; line-height: 1.4; }
         @media (prefers-color-scheme: dark) { .note-content { color: var(--text-secondary-dark); background: var(--hover-dark); } }
         
         .note-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-light); font-size: 0.7rem; color: var(--text-secondary-light); }
@@ -188,11 +188,11 @@ function writeMainEJS() {
         
         .history-header { display: flex; justify-content: center; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; width: 100%; }
         .month-selector { display: flex; align-items: center; gap: 12px; }
-        .month-btn { padding: 6px 12px; border-radius: 100px; border: 1px solid var(--border-light); background: var(--card-bg-light); color: var(--text-primary-light); font-size: 0.8rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px; }
+        .month-btn { padding: 6px 12px; border-radius: 100px; border: 1px solid var(--border-light); background: var(--card-bg-light); color: var(--text-primary-light); font-size: 0.8rem; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 4px; }
         @media (prefers-color-scheme: dark) { .month-btn { background: var(--card-bg-dark); border-color: var(--border-dark); color: var(--text-primary-dark); } }
         
         .history-date-card { margin-bottom: 16px; }
-        .history-details summary { display: flex; align-items: center; width: 100%; cursor: pointer; list-style: none; }
+        .history-details summary { display: flex; align-items: center; width: 100%; cursor: pointer; list-style: none; font-weight: 600; font-size: 0.95rem; }
         .history-details summary::-webkit-details-marker { display: none; }
         .history-details summary i.fa-calendar-alt { margin-right: 8px; color: var(--accent-light); }
         @media (prefers-color-scheme: dark) { .history-details summary i.fa-calendar-alt { color: var(--accent-dark); } }
@@ -202,12 +202,12 @@ function writeMainEJS() {
         @media (prefers-color-scheme: dark) { .history-task-card { background: var(--hover-dark); } }
         
         .history-task-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
-        .history-task-title { font-size: 0.95rem; font-weight: 700; color: var(--text-primary-light); cursor: pointer; word-break: break-word; flex: 1; }
+        .history-task-title { font-size: 0.9rem; font-weight: 600; color: var(--text-primary-light); cursor: pointer; word-break: break-word; flex: 1; }
         @media (prefers-color-scheme: dark) { .history-task-title { color: var(--text-primary-dark); } }
         
         .history-task-time { font-size: 0.7rem; color: var(--text-secondary-light); flex-shrink: 0; margin-left: auto; padding-left: 8px; }
         .history-description-container { margin: 6px 0 8px 0; width: 100%; }
-        .history-description { font-size: 0.8rem; color: var(--text-secondary-light); padding: 4px 6px; background: var(--card-bg-light); border-radius: 8px; border-left: 2px solid var(--success-light); word-break: break-word; white-space: pre-wrap; width: 100%; box-sizing: border-box; max-width: 100%; line-height: 1.4; }
+        .history-description { font-size: 0.75rem; color: var(--text-secondary-light); padding: 4px 6px; background: var(--card-bg-light); border-radius: 8px; border-left: 2px solid var(--success-light); word-break: break-word; white-space: pre-wrap; width: 100%; box-sizing: border-box; max-width: 100%; line-height: 1.4; }
         @media (prefers-color-scheme: dark) { .history-description { background: var(--card-bg-dark); color: var(--text-secondary-dark); } }
         
         .history-subtask { padding: 6px 6px 6px 20px; border-left: 2px solid var(--border-light); margin: 6px 0; width: 100%; }
@@ -221,7 +221,7 @@ function writeMainEJS() {
         .modal-content { background: var(--card-bg-light); border: 1px solid var(--border-light); border-radius: 24px; padding: 24px; width: 90%; max-width: 500px; max-height: 85vh; overflow-y: auto; }
         @media (prefers-color-scheme: dark) { .modal-content { background: var(--card-bg-dark); border: 1px solid var(--border-dark); } }
         
-        .form-control { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--border-light); background: var(--bg-light); color: var(--text-primary-light); font-size: 0.9rem; font-family: 'Inter', sans-serif; resize: vertical; }
+        .form-control { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--border-light); background: var(--bg-light); color: var(--text-primary-light); font-size: 0.9rem; font-family: 'Space Grotesk', sans-serif; resize: vertical; }
         textarea.form-control { min-height: 80px; }
         @media (prefers-color-scheme: dark) { .form-control { background: var(--bg-dark); border: 1px solid var(--border-dark); color: var(--text-primary-dark); } }
         
@@ -254,7 +254,7 @@ function writeMainEJS() {
         /* ================= GROW CSS ================= */
         .grow-panel { max-width: 600px; margin: 0 auto 12px; background: var(--card-bg-light); border: 1px solid var(--border-light); border-radius: 16px; overflow: hidden; }
         @media (prefers-color-scheme: dark) { .grow-panel { background: var(--card-bg-dark); border-color: var(--border-dark); } }
-        .grow-panel summary { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; font-size: 1rem; font-weight: 700; cursor: pointer; background: transparent; list-style: none; }
+        .grow-panel summary { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; font-size: 0.95rem; font-weight: 600; cursor: pointer; background: transparent; list-style: none; }
         .grow-panel summary::-webkit-details-marker { display: none; }
         .grow-panel > summary > i { transition: transform 0.3s; color: var(--text-secondary-light); }
         @media (prefers-color-scheme: dark) { .grow-panel > summary > i { color: var(--text-secondary-dark); } }
@@ -268,25 +268,25 @@ function writeMainEJS() {
         .grow-bar-track { width: 100%; height: 90%; border-radius: 6px; position: relative; display: flex; align-items: flex-end; background: var(--hover-light); overflow: hidden; border: 1px solid var(--border-light); }
         @media (prefers-color-scheme: dark) { .grow-bar-track { background: var(--hover-dark); border-color: var(--border-dark); } }
         .grow-bar-fill { width: 100%; border-radius: 4px; transition: height 0.6s ease; }
-        .grow-bar-label { position: absolute; top: 0; bottom: 0; left: 0; right: 0; writing-mode: vertical-rl; transform: rotate(180deg); display: flex; align-items: center; justify-content: center; text-align: center; color: var(--text-primary-light); font-size: 0.85rem; font-weight: 700; pointer-events: none; line-height: 1; }
+        .grow-bar-label { position: absolute; top: 0; bottom: 0; left: 0; right: 0; writing-mode: vertical-rl; transform: rotate(180deg); display: flex; align-items: center; justify-content: center; text-align: center; color: var(--text-primary-light); font-size: 0.75rem; font-weight: 600; pointer-events: none; line-height: 1.5; }
         @media (prefers-color-scheme: dark) { .grow-bar-label { color: var(--text-primary-dark); } }
-        .grow-bar-pct { font-size: 0.75rem; font-weight: 700; margin-bottom: 5px; color: var(--text-primary-light); }
+        .grow-bar-pct { font-size: 0.7rem; font-weight: 600; margin-bottom: 5px; color: var(--text-primary-light); }
         @media (prefers-color-scheme: dark) { .grow-bar-pct { color: var(--text-primary-dark); } }
         
         .grow-month-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-        .grow-month-nav h2 { font-size: 1rem; font-weight: 700; background: var(--hover-light); padding: 5px 14px; border-radius: 30px; border: 1px solid var(--border-light); }
+        .grow-month-nav h2 { font-size: 0.95rem; font-weight: 600; background: var(--hover-light); padding: 5px 14px; border-radius: 30px; border: 1px solid var(--border-light); }
         @media (prefers-color-scheme: dark) { .grow-month-nav h2 { background: var(--hover-dark); border-color: var(--border-dark); } }
         
         .grow-calendar { width: 100%; aspect-ratio: 1 / 1; display: flex; flex-direction: column; }
         .grow-grid { flex: 1; width: 100%; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-template-rows: auto repeat(6, minmax(0, 1fr)); gap: 4px; }
-        .grow-weekday { display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.75rem; color: var(--text-secondary-light); text-transform: uppercase; }
+        .grow-weekday { display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.7rem; color: var(--text-secondary-light); text-transform: uppercase; }
         @media (prefers-color-scheme: dark) { .grow-weekday { color: var(--text-secondary-dark); } }
         .grow-day { display: flex; align-items: center; justify-content: center; border-radius: 10px; position: relative; width: 100%; height: 100%; }
         .grow-day.empty { pointer-events: none; background: transparent; }
         .grow-day:hover:not(.empty) { background: var(--hover-light); cursor: pointer; }
         @media (prefers-color-scheme: dark) { .grow-day:hover:not(.empty) { background: var(--hover-dark); } }
         
-        .grow-circle { width: 100%; max-width: 36px; aspect-ratio: 1 / 1; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; transition: transform 0.2s; margin: auto; }
+        .grow-circle { width: 100%; max-width: 36px; aspect-ratio: 1 / 1; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.85rem; transition: transform 0.2s; margin: auto; }
         .grow-day:hover .grow-circle { transform: scale(1.1); }
         .grow-circle.has-data { color: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.2); text-shadow: 0 1px 2px rgba(0,0,0,0.6); }
         .grow-circle.today { box-shadow: 0 0 0 2px var(--card-bg-light), 0 0 0 4px var(--success-light); color: var(--success-light); }
@@ -298,19 +298,19 @@ function writeMainEJS() {
         .grow-bubble.show { opacity: 1; }
         .grow-tail { position: absolute; width: 12px; height: 12px; background: var(--card-bg-light); transform: rotate(45deg); z-index: -1; }
         @media (prefers-color-scheme: dark) { .grow-tail { background: var(--card-bg-dark); } }
-        .grow-bubble-date { font-size: 0.75rem; font-weight: 700; color: var(--text-secondary-light); margin-bottom: 5px; border-bottom: 1px solid var(--border-light); padding-bottom: 5px; }
+        .grow-bubble-date { font-size: 0.7rem; font-weight: 600; color: var(--text-secondary-light); margin-bottom: 5px; border-bottom: 1px solid var(--border-light); padding-bottom: 5px; }
         @media (prefers-color-scheme: dark) { .grow-bubble-date { color: var(--text-secondary-dark); border-color: var(--border-dark); } }
-        .grow-bubble-item { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 0.8rem; font-weight: 600; }
+        .grow-bubble-item { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 0.75rem; font-weight: 500; }
         
         .grow-card { background: var(--card-bg-light); border: 1px solid var(--border-light); border-radius: 14px; padding: 12px; margin-bottom: 10px; transition: 0.2s;}
         @media (prefers-color-scheme: dark) { .grow-card { background: var(--card-bg-dark); border-color: var(--border-dark); } }
         .grow-card summary { display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none; outline: none; padding: 4px 0;}
         .grow-card summary::-webkit-details-marker { display: none; }
         .grow-title-section { display: flex; align-items: center; gap: 8px; flex: 1;}
-        .grow-title-section i { font-size: 0.7rem; color: var(--text-secondary-light); transition: transform 0.2s; }
+        .grow-title-section i { font-size: 0.8rem; color: var(--text-secondary-light); transition: transform 0.2s; }
         @media (prefers-color-scheme: dark) { .grow-title-section i { color: var(--text-secondary-dark); } }
         details[open] .grow-title-section i { transform: rotate(90deg); }
-        .grow-title { font-weight: 550; font-size: 0.8rem; color: var(--text-primary-light); }
+        .grow-title { font-weight: 600; font-size: 0.95rem; color: var(--text-primary-light); }
         @media (prefers-color-scheme: dark) { .grow-title { color: var(--text-primary-dark); } }
         
         .grow-progress-bar-container { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border-light); width: 100%; }
@@ -318,9 +318,9 @@ function writeMainEJS() {
         .grow-progress-bar { width: 100%; height: 8px; background: var(--hover-light); border-radius: 10px; overflow: hidden; margin: 8px 0; border: 1px solid var(--border-light); }
         @media (prefers-color-scheme: dark) { .grow-progress-bar { background: var(--hover-dark); border-color: var(--border-dark); } }
         .grow-progress-fill { height: 100%; border-radius: 10px; transition: width 0.5s ease-out; }
-        .grow-progress-stats { display: flex; justify-content: space-between; gap: 8px; font-size: 0.75rem; color: var(--text-secondary-light); font-weight: 600; align-items: center;}
+        .grow-progress-stats { display: flex; justify-content: space-between; gap: 8px; font-size: 0.7rem; color: var(--text-secondary-light); font-weight: 500; align-items: center;}
         @media (prefers-color-scheme: dark) { .grow-progress-stats { color: var(--text-secondary-dark); } }
-        .grow-progress-stats strong { color: var(--text-primary-light); font-size: 0.85rem;}
+        .grow-progress-stats strong { color: var(--text-primary-light); font-size: 0.8rem; font-weight: 600;}
         @media (prefers-color-scheme: dark) { .grow-progress-stats strong { color: var(--text-primary-dark); } }
         .grow-progress-stats span:last-child { white-space: nowrap; flex-shrink: 0; text-align: right; }
         .grow-progress-stats span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -331,7 +331,7 @@ function writeMainEJS() {
         @media (prefers-color-scheme: dark) { .grow-swatch.selected { box-shadow: 0 0 0 2px var(--card-bg-dark), 0 0 0 4px var(--text-primary-dark); } }
         .grow-swatch.hidden { display: none; }
         
-        .grow-checkbox { display: flex; align-items: center; gap: 8px; margin: 12px 0; font-size: 0.85rem; font-weight: 600; cursor: pointer; color: var(--text-primary-light);}
+        .grow-checkbox { display: flex; align-items: center; gap: 8px; margin: 12px 0; font-size: 0.8rem; font-weight: 500; cursor: pointer; color: var(--text-primary-light);}
         @media (prefers-color-scheme: dark) { .grow-checkbox { color: var(--text-primary-dark); } }
         .grow-hidden-fields { display: none; background: var(--hover-light); padding: 12px; border-radius: 10px; margin-bottom: 12px; }
         @media (prefers-color-scheme: dark) { .grow-hidden-fields { background: var(--hover-dark); } }
@@ -356,7 +356,7 @@ function writeMainEJS() {
                     <i class="fas fa-tasks"></i> <span>Tasks</span>
                 </button>
                 <button class="nav-btn <%= currentPage === 'grow' ? 'active' : '' %>" onclick="switchPage('grow')">
-                    <i class="fas fa-seedling"></i> <span>Growth</span>
+                    <i class="fas fa-seedling"></i> <span>Grow</span>
                 </button>
                 <button class="nav-btn <%= currentPage === 'notes' ? 'active' : '' %>" onclick="switchPage('notes')">
                     <i class="fas fa-note-sticky"></i> <span>Notes</span>
@@ -380,34 +380,34 @@ function writeMainEJS() {
     <div class="modal" id="addTaskModal">
         <div class="modal-content">
             <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                <h2 style="font-size: 1.2rem;">Create New Task</h2>
+                <h2 style="font-size: 1.1rem;">Create New Task</h2>
                 <button class="action-btn" onclick="closeModal('addTaskModal')">&times;</button>
             </div>
             <form id="addTaskForm" onsubmit="submitTaskForm(event)">
                 <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Title *</label>
+                    <label style="font-size: 0.8rem; font-weight: 600;">Title *</label>
                     <input type="text" class="form-control" name="title" required maxlength="100">
                 </div>
                 <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Description</label>
+                    <label style="font-size: 0.8rem; font-weight: 600;">Description</label>
                     <textarea class="form-control" name="description" rows="3" placeholder="Enter description"></textarea>
                 </div>
                 <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Start Date</label>
+                    <label style="font-size: 0.8rem; font-weight: 600;">Start Date</label>
                     <input type="date" class="form-control" name="startDate" id="startDate" required>
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
-                    <div><label style="font-size: 0.85rem; font-weight: 600;">Start Time</label><input type="time" class="form-control" name="startTime" id="startTime" required></div>
-                    <div><label style="font-size: 0.85rem; font-weight: 600;">End Time</label><input type="time" class="form-control" name="endTime" id="endTime" required></div>
+                    <div><label style="font-size: 0.8rem; font-weight: 600;">Start Time</label><input type="time" class="form-control" name="startTime" id="startTime" required></div>
+                    <div><label style="font-size: 0.8rem; font-weight: 600;">End Time</label><input type="time" class="form-control" name="endTime" id="endTime" required></div>
                 </div>
                 <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Repeat</label>
+                    <label style="font-size: 0.8rem; font-weight: 600;">Repeat</label>
                     <select class="form-control" name="repeat" id="repeatSelect">
                         <option value="none">No Repeat</option><option value="daily">Daily</option><option value="weekly">Weekly</option>
                     </select>
                 </div>
                 <div class="form-group" id="repeatCountGroup" style="margin-bottom: 12px; display: none;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Repeat Count</label>
+                    <label style="font-size: 0.8rem; font-weight: 600;">Repeat Count (1-365)</label>
                     <input type="number" class="form-control" name="repeatCount" value="7" min="1" max="365">
                 </div>
                 <div style="display: flex; gap: 12px; margin-top: 16px;">
@@ -421,35 +421,35 @@ function writeMainEJS() {
     <div class="modal" id="editTaskModal">
         <div class="modal-content">
             <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                <h2 style="font-size: 1.2rem;">Edit Task</h2>
+                <h2 style="font-size: 1.1rem;">Edit Task</h2>
                 <button class="action-btn" onclick="closeModal('editTaskModal')">&times;</button>
             </div>
             <form id="editTaskForm" onsubmit="submitEditTaskForm(event)">
                 <input type="hidden" name="taskId" id="editTaskId">
                 <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Title *</label>
+                    <label style="font-size: 0.8rem; font-weight: 600;">Title *</label>
                     <input type="text" class="form-control" name="title" id="editTitle" required maxlength="100">
                 </div>
                 <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Description</label>
+                    <label style="font-size: 0.8rem; font-weight: 600;">Description</label>
                     <textarea class="form-control" name="description" id="editDescription" rows="3"></textarea>
                 </div>
                 <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Start Date</label>
+                    <label style="font-size: 0.8rem; font-weight: 600;">Start Date</label>
                     <input type="date" class="form-control" name="startDate" id="editStartDate" required>
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
-                    <div><label style="font-size: 0.85rem; font-weight: 600;">Start Time</label><input type="time" class="form-control" name="startTime" id="editStartTime" required></div>
-                    <div><label style="font-size: 0.85rem; font-weight: 600;">End Time</label><input type="time" class="form-control" name="endTime" id="editEndTime" required></div>
+                    <div><label style="font-size: 0.8rem; font-weight: 600;">Start Time</label><input type="time" class="form-control" name="startTime" id="editStartTime" required></div>
+                    <div><label style="font-size: 0.8rem; font-weight: 600;">End Time</label><input type="time" class="form-control" name="endTime" id="editEndTime" required></div>
                 </div>
                 <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Repeat</label>
+                    <label style="font-size: 0.8rem; font-weight: 600;">Repeat</label>
                     <select class="form-control" name="repeat" id="editRepeatSelect">
                         <option value="none">No Repeat</option><option value="daily">Daily</option><option value="weekly">Weekly</option>
                     </select>
                 </div>
                 <div class="form-group" id="editRepeatCountGroup" style="margin-bottom: 12px; display: none;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Repeat Count</label>
+                    <label style="font-size: 0.8rem; font-weight: 600;">Repeat Count</label>
                     <input type="number" class="form-control" name="repeatCount" id="editRepeatCount" min="1" max="365">
                 </div>
                 <div style="display: flex; gap: 12px; margin-top: 16px;">
@@ -463,12 +463,12 @@ function writeMainEJS() {
     <div class="modal" id="addGrowModal">
         <div class="modal-content">
             <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                <h2 style="font-size: 1.2rem;">Add New Growth</h2>
+                <h2 style="font-size: 1.1rem;">Add New Growth</h2>
                 <button class="action-btn" onclick="closeModal('addGrowModal')">&times;</button>
             </div>
             <form id="addGrowForm">
                 <div class="form-group"><label>Title</label><input type="text" class="form-control" id="addGrowTitle" required placeholder="E.g. Daily Walk"></div>
-                <div class="form-group" style="margin-top: 12px;"><label>Description</label><textarea class="form-control" id="addGrowDesc" rows="2" placeholder="Brief details..."></textarea></div>
+                <div class="form-group" style="margin-top: 12px;"><label>Description (Optional)</label><textarea class="form-control" id="addGrowDesc" rows="2" placeholder="Brief details..."></textarea></div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px; margin-top: 12px;">
                     <div class="form-group"><label>Start Date</label><input type="date" class="form-control" id="addGrowStart" required></div>
                     <div class="form-group"><label>Duration (Days)</label><input type="number" class="form-control" id="addGrowDays" value="365" required></div>
@@ -493,16 +493,16 @@ function writeMainEJS() {
     <div class="modal" id="editGrowModal">
         <div class="modal-content">
             <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                <h2 style="font-size: 1.2rem;">Edit Growth</h2>
+                <h2 style="font-size: 1.1rem;">Edit Growth</h2>
                 <button class="action-btn" onclick="closeModal('editGrowModal')">&times;</button>
             </div>
             <form id="editGrowForm">
                 <input type="hidden" id="editGrowId">
                 <div class="form-group"><label>Title</label><input type="text" class="form-control" id="editGrowTitle" required></div>
-                <div class="form-group" style="margin-top: 12px;"><label>Description</label><textarea class="form-control" id="editGrowDesc" rows="2"></textarea></div>
+                <div class="form-group" style="margin-top: 12px;"><label>Description (Optional)</label><textarea class="form-control" id="editGrowDesc" rows="2"></textarea></div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px; margin-top: 12px;">
                     <div class="form-group"><label>Start Date</label><input type="date" class="form-control" id="editGrowStart" required></div>
-                    <div class="form-group"><label>Duration</label><input type="number" class="form-control" id="editGrowDays" required></div>
+                    <div class="form-group"><label>Duration (Days)</label><input type="number" class="form-control" id="editGrowDays" required></div>
                 </div>
                 <div class="form-group" style="margin-top: 12px;"><label>Color Tag (Auto-Swaps)</label><div class="grow-palette" id="editGrowPalette"></div><input type="hidden" id="editGrowColor" required></div>
                 
@@ -525,27 +525,27 @@ function writeMainEJS() {
         <div class="modal-content">
             <div id="logGrowListView">
                 <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                    <h2 id="logGrowTitle" style="font-size: 1.2rem;">Log Progress</h2>
+                    <h2 id="logGrowTitle" style="font-size: 1.1rem;">Log Progress</h2>
                     <button class="action-btn" onclick="closeModal('logGrowModal')">&times;</button>
                 </div>
                 <div id="dailyGrowList"></div>
             </div>
             <div id="logGrowQuestionView" style="display: none;">
                 <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                    <h2 id="qGrowTitle" style="font-size: 1.2rem;"></h2>
+                    <h2 id="qGrowTitle" style="font-size: 1.1rem;"></h2>
                     <button class="action-btn" onclick="showGrowLogList()"><i class="fas fa-arrow-left"></i></button>
                 </div>
                 <div id="qGrowDesc"></div>
-                <div class="form-group" style="margin-bottom: 12px;"><label id="qGrowLabel" style="font-size:0.9rem; color:var(--text-primary-light);"></label><div id="qGrowInput"></div></div>
+                <div class="form-group" style="margin-bottom: 12px;"><label id="qGrowLabel" style="font-size:0.85rem; color:var(--text-primary-light);"></label><div id="qGrowInput"></div></div>
                 <button class="btn btn-primary" id="saveGrowLogBtn" style="width: 100%;">Save Value</button>
             </div>
         </div>
     </div>
 
-    <div class="modal" id="addSubtaskModal"><div class="modal-content"><div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;"><h2 style="font-size: 1.2rem;">Add Subtask</h2><button class="action-btn" onclick="closeModal('addSubtaskModal')">&times;</button></div><form id="addSubtaskForm" onsubmit="submitSubtaskForm(event)"><input type="hidden" name="taskId" id="subtaskTaskId"><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.85rem; font-weight: 600;">Title *</label><input type="text" class="form-control" name="title" required maxlength="100"></div><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.85rem; font-weight: 600;">Description</label><textarea class="form-control" name="description" rows="3"></textarea></div><div style="display: flex; gap: 12px; margin-top: 16px;"><button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('addSubtaskModal')">Cancel</button><button type="submit" class="btn btn-primary" style="flex: 1;">Add</button></div></form></div></div>
-    <div class="modal" id="editSubtaskModal"><div class="modal-content"><div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;"><h2 style="font-size: 1.2rem;">Edit Subtask</h2><button class="action-btn" onclick="closeModal('editSubtaskModal')">&times;</button></div><form id="editSubtaskForm" onsubmit="submitEditSubtaskForm(event)"><input type="hidden" name="taskId" id="editSubtaskTaskId"><input type="hidden" name="subtaskId" id="editSubtaskId"><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.85rem; font-weight: 600;">Title *</label><input type="text" class="form-control" name="title" id="editSubtaskTitle" required maxlength="100"></div><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.85rem; font-weight: 600;">Description</label><textarea class="form-control" name="description" id="editSubtaskDescription" rows="3"></textarea></div><div style="display: flex; gap: 12px; margin-top: 16px;"><button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('editSubtaskModal')">Cancel</button><button type="submit" class="btn btn-primary" style="flex: 1;">Update</button></div></form></div></div>
-    <div class="modal" id="addNoteModal"><div class="modal-content"><div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;"><h2 style="font-size: 1.2rem;">Create Note</h2><button class="action-btn" onclick="closeModal('addNoteModal')">&times;</button></div><form id="addNoteForm" onsubmit="submitNoteForm(event)"><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.85rem; font-weight: 600;">Title *</label><input type="text" class="form-control" name="title" required maxlength="200"></div><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.85rem; font-weight: 600;">Content</label><textarea class="form-control" name="description" rows="4"></textarea></div><div style="display: flex; gap: 12px; margin-top: 16px;"><button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('addNoteModal')">Cancel</button><button type="submit" class="btn btn-primary" style="flex: 1;">Save</button></div></form></div></div>
-    <div class="modal" id="editNoteModal"><div class="modal-content"><div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;"><h2 style="font-size: 1.2rem;">Edit Note</h2><button class="action-btn" onclick="closeModal('editNoteModal')">&times;</button></div><form id="editNoteForm" onsubmit="submitEditNoteForm(event)"><input type="hidden" name="noteId" id="editNoteId"><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.85rem; font-weight: 600;">Title *</label><input type="text" class="form-control" name="title" id="editNoteTitle" required maxlength="200"></div><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.85rem; font-weight: 600;">Content</label><textarea class="form-control" name="description" id="editNoteDescription" rows="4"></textarea></div><div style="display: flex; gap: 12px; margin-top: 16px;"><button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('editNoteModal')">Cancel</button><button type="submit" class="btn btn-primary" style="flex: 1;">Update</button></div></form></div></div>
+    <div class="modal" id="addSubtaskModal"><div class="modal-content"><div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;"><h2 style="font-size: 1.1rem;">Add Subtask</h2><button class="action-btn" onclick="closeModal('addSubtaskModal')">&times;</button></div><form id="addSubtaskForm" onsubmit="submitSubtaskForm(event)"><input type="hidden" name="taskId" id="subtaskTaskId"><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.8rem; font-weight: 600;">Title *</label><input type="text" class="form-control" name="title" required maxlength="100"></div><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.8rem; font-weight: 600;">Description</label><textarea class="form-control" name="description" rows="3"></textarea></div><div style="display: flex; gap: 12px; margin-top: 16px;"><button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('addSubtaskModal')">Cancel</button><button type="submit" class="btn btn-primary" style="flex: 1;">Add</button></div></form></div></div>
+    <div class="modal" id="editSubtaskModal"><div class="modal-content"><div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;"><h2 style="font-size: 1.1rem;">Edit Subtask</h2><button class="action-btn" onclick="closeModal('editSubtaskModal')">&times;</button></div><form id="editSubtaskForm" onsubmit="submitEditSubtaskForm(event)"><input type="hidden" name="taskId" id="editSubtaskTaskId"><input type="hidden" name="subtaskId" id="editSubtaskId"><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.8rem; font-weight: 600;">Title *</label><input type="text" class="form-control" name="title" id="editSubtaskTitle" required maxlength="100"></div><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.8rem; font-weight: 600;">Description</label><textarea class="form-control" name="description" id="editSubtaskDescription" rows="3"></textarea></div><div style="display: flex; gap: 12px; margin-top: 16px;"><button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('editSubtaskModal')">Cancel</button><button type="submit" class="btn btn-primary" style="flex: 1;">Update</button></div></form></div></div>
+    <div class="modal" id="addNoteModal"><div class="modal-content"><div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;"><h2 style="font-size: 1.1rem;">Create Note</h2><button class="action-btn" onclick="closeModal('addNoteModal')">&times;</button></div><form id="addNoteForm" onsubmit="submitNoteForm(event)"><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.8rem; font-weight: 600;">Title *</label><input type="text" class="form-control" name="title" required maxlength="200"></div><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.8rem; font-weight: 600;">Content</label><textarea class="form-control" name="description" rows="4"></textarea></div><div style="display: flex; gap: 12px; margin-top: 16px;"><button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('addNoteModal')">Cancel</button><button type="submit" class="btn btn-primary" style="flex: 1;">Save</button></div></form></div></div>
+    <div class="modal" id="editNoteModal"><div class="modal-content"><div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;"><h2 style="font-size: 1.1rem;">Edit Note</h2><button class="action-btn" onclick="closeModal('editNoteModal')">&times;</button></div><form id="editNoteForm" onsubmit="submitEditNoteForm(event)"><input type="hidden" name="noteId" id="editNoteId"><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.8rem; font-weight: 600;">Title *</label><input type="text" class="form-control" name="title" id="editNoteTitle" required maxlength="200"></div><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.8rem; font-weight: 600;">Content</label><textarea class="form-control" name="description" id="editNoteDescription" rows="4"></textarea></div><div style="display: flex; gap: 12px; margin-top: 16px;"><button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('editNoteModal')">Cancel</button><button type="submit" class="btn btn-primary" style="flex: 1;">Update</button></div></form></div></div>
 
     <script>
         const tg = window.Telegram.WebApp;
@@ -675,7 +675,7 @@ function writeMainEJS() {
             
             const fabBtn = document.getElementById("fabButton");
             if(growTrackerData.items && growTrackerData.items.length >= 8) {
-                fabBtn.style.opacity = "0.75";
+                fabBtn.style.opacity = "0.5";
             } else {
                 fabBtn.style.opacity = "1";
             }
@@ -872,7 +872,7 @@ function writeMainEJS() {
             const d = new Date(date+"T00:00:00");
             
             let html = '<div class="grow-bubble-date">' + d.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}) + '</div>';
-            if(!active.length) html += "<div style='text-align:center;font-size:0.8rem;color:var(--text-secondary-light);'>No tasks active.</div>";
+            if(!active.length) html += "<div style='text-align:center;font-size:0.75rem;color:var(--text-secondary-light);'>No tasks active.</div>";
             else {
                 for(let i=0; i<active.length; i++) {
                     const g = active[i];
@@ -1149,7 +1149,7 @@ function writeMainEJS() {
                     html += '<div class="task-time-row"><span class="date-chip"><i class="fas fa-calendar-alt"></i> ' + displayDate + '</span><span class="time-chip"><i class="fas fa-clock"></i> ' + (task.startTimeIST || task.startTimeStr) + '-' + (task.endTimeIST || task.endTimeStr) + '</span></div>';
                     
                     if (totalSubtasks > 0) {
-                        html += '<details class="task-subtasks"><summary class="flex-row" style="cursor: pointer;"><div class="progress-ring-small"><svg width="40" height="40"><circle class="progress-ring-circle-small" stroke="var(--progress-bg-light)" stroke-width="3" fill="transparent" r="16" cx="20" cy="20"/><circle class="progress-ring-circle-small" stroke="var(--accent-light)" stroke-width="3" fill="transparent" r="16" cx="20" cy="20" style="stroke-dasharray: ' + circleCircumference + '; stroke-dashoffset: ' + circleOffset + '; "/></svg><span class="progress-text-small">' + progress + '%</span></div><span style="font-size: 0.8rem; color: var(--text-secondary-light);">' + completedSubtasks + '/' + totalSubtasks + ' subtasks</span></summary><div class="subtasks-container w-100">';
+                        html += '<details class="task-subtasks"><summary class="flex-row" style="cursor: pointer;"><div class="progress-ring-small"><svg width="40" height="40"><circle class="progress-ring-circle-small" stroke="var(--progress-bg-light)" stroke-width="3" fill="transparent" r="16" cx="20" cy="20"/><circle class="progress-ring-circle-small" stroke="var(--accent-light)" stroke-width="3" fill="transparent" r="16" cx="20" cy="20" style="stroke-dasharray: ' + circleCircumference + '; stroke-dashoffset: ' + circleOffset + '; "/></svg><span class="progress-text-small">' + progress + '%</span></div><span style="font-size: 0.75rem; color: var(--text-secondary-light);">' + completedSubtasks + '/' + totalSubtasks + ' subtasks</span></summary><div class="subtasks-container w-100">';
                         task.subtasks.sort((a, b) => { if (a.completed === b.completed) return 0; return a.completed ? 1 : -1; }).forEach((subtask) => {
                             const subtaskHasDesc = hasContent(subtask.description);
                             const subtaskDescId = 'subtask_desc_' + task.taskId + '_' + subtask.id;
@@ -1160,7 +1160,7 @@ function writeMainEJS() {
                             html += '</div>';
                         });
                         html += '</div></details>';
-                    } else { html += '<div class="flex-row" style="margin-top: 8px;"><span style="font-size: 0.8rem; color: var(--text-secondary-light);"><i class="fas fa-tasks"></i> No subtasks</span></div>'; }
+                    } else { html += '<div class="flex-row" style="margin-top: 8px;"><span style="font-size: 0.75rem; color: var(--text-secondary-light);"><i class="fas fa-tasks"></i> No subtasks</span></div>'; }
                     html += '<div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;"><span class="badge"><i class="fas fa-repeat"></i> ' + (task.repeat && task.repeat !== 'none' ? (task.repeat === 'daily' ? 'Daily' : 'Weekly') : 'No Repeat') + '</span><span class="badge"><i class="fas fa-hourglass-half"></i> ' + task.durationFormatted + '</span>';
                     if (task.repeatCount > 0) html += '<span class="badge"><i class="fas fa-hashtag"></i> ' + task.repeatCount + ' left</span>';
                     html += '</div></div>';
@@ -1203,7 +1203,7 @@ function writeMainEJS() {
                         const parts = date.split('-'); displayDateHeader = parts[2] + '-' + parts[1] + '-' + parts[0];
                     }
                     html += '<div class="history-date-card"><details class="history-details">';
-                    html += '<summary><i class="fas fa-calendar-alt"></i><span style="font-weight: 600;">' + displayDateHeader + '</span><span class="badge" style="margin-left: auto;">' + tasks.length + ' tasks</span></summary>';
+                    html += '<summary><i class="fas fa-calendar-alt"></i><span style="font-weight: 600;">' + displayDateHeader + '</span><span class="badge" style="margin-left: auto;">' + tasks.length + ' task(s)</span></summary>';
                     html += '<div class="history-tasks-grid">';
                     
                     tasks.forEach(task => {
@@ -1214,11 +1214,11 @@ function writeMainEJS() {
                         if (hasDescription) html += '<div id="' + historyDescId + '" class="history-description-container hidden"><div class="history-description">' + preserveLineBreaks(task.description) + '</div></div>';
                         html += '<div style="display: flex; gap: 6px; margin: 8px 0; flex-wrap: wrap;"><span class="badge"><i class="fas fa-clock"></i> ' + task.startTimeIST + '-' + task.endTimeIST + '</span><span class="badge"><i class="fas fa-hourglass-half"></i> ' + task.durationFormatted + '</span>' + (task.repeat && task.repeat !== 'none' ? '<span class="badge"><i class="fas fa-repeat"></i> ' + (task.repeat === 'daily' ? 'Daily' : 'Weekly') + '</span>' : '') + '</div>';
                         if (task.subtasks && task.subtasks.length > 0) {
-                            html += '<details style="margin-top: 8px;"><summary style="cursor: pointer; color: var(--accent-light); font-weight: 600; font-size: 0.8rem;"><i class="fas fa-tasks"></i> Subtasks (' + task.subtasks.filter(s => s.completed).length + '/' + task.subtasks.length + ')</summary><div style="margin-top: 8px;">';
+                            html += '<details style="margin-top: 8px;"><summary style="cursor: pointer; color: var(--accent-light); font-weight: 600; font-size: 0.75rem;"><i class="fas fa-tasks"></i> Subtasks (' + task.subtasks.filter(s => s.completed).length + '/' + task.subtasks.length + ')</summary><div style="margin-top: 8px;">';
                             task.subtasks.forEach(subtask => {
                                 const subtaskHasDesc = hasContent(subtask.description);
                                 const historySubtaskDescId = 'history_subtask_desc_' + task._id + '_' + subtask.id;
-                                html += '<div class="history-subtask"><div style="display: flex; align-items: flex-start; gap: 6px;"><span style="color: ' + (subtask.completed ? 'var(--success-light)' : 'var(--text-secondary-light)') + '"><i class="fas fa-' + (subtask.completed ? 'check-circle' : 'circle') + '"></i></span><div style="flex: 1;"><div class="task-title-container" onclick="toggleDescription(\\'' + historySubtaskDescId + '\\')"><span style="font-weight: 600; font-size: 0.8rem;">' + escapeHtml(subtask.title) + '</span></div>' + (subtaskHasDesc ? '<div id="' + historySubtaskDescId + '" class="history-description-container hidden"><div class="history-description" style="border-left-color: var(--accent-light);">' + preserveLineBreaks(subtask.description) + '</div></div>' : '') + '</div></div></div>';
+                                html += '<div class="history-subtask"><div style="display: flex; align-items: flex-start; gap: 6px;"><span style="color: ' + (subtask.completed ? 'var(--success-light)' : 'var(--text-secondary-light)') + '"><i class="fas fa-' + (subtask.completed ? 'check-circle' : 'circle') + '"></i></span><div style="flex: 1;"><div class="task-title-container" onclick="toggleDescription(\\'' + historySubtaskDescId + '\\')"><span style="font-weight: 500; font-size: 0.75rem;">' + escapeHtml(subtask.title) + '</span></div>' + (subtaskHasDesc ? '<div id="' + historySubtaskDescId + '" class="history-description-container hidden"><div class="history-description" style="border-left-color: var(--accent-light);">' + preserveLineBreaks(subtask.description) + '</div></div>' : '') + '</div></div></div>';
                             });
                             html += '</div></details>';
                         }
@@ -1420,8 +1420,8 @@ const activeSchedules = new Map();
 let isShuttingDown = false;
 
 bot.command('start', async (ctx) => {
-    const keyboard = Markup.inlineKeyboard([[Markup.button.webApp('🌐 Task Manager', WEB_APP_URL)]]);
-    await ctx.reply('🌟 <b>Open Task Manager</b>', { parse_mode: 'HTML', reply_markup: keyboard.reply_markup });
+    const keyboard = Markup.inlineKeyboard([[Markup.button.webApp('🌐 Open Web App', WEB_APP_URL)]]);
+    await ctx.reply('🌟 <b>Global Task Manager</b>\n\nManage your tasks using the Web App below.', { parse_mode: 'HTML', reply_markup: keyboard.reply_markup });
 });
 
 function scheduleTask(task) {
@@ -1452,13 +1452,13 @@ function scheduleTask(task) {
                         activeSchedule.interval = null;
                     }
                     if (currentTimeUTC >= targetTimeUTC) {
-                        try { await bot.telegram.sendMessage(CHAT_ID, `🚀 <b>START NOW:</b> ${task.title}\n🕒 <b>Time:</b> ${task.startTimeStr} - ${task.endTimeStr}`, { parse_mode: 'HTML' }); } catch (e) {}
+                        try { await bot.telegram.sendMessage(CHAT_ID, `🚀 <b>START NOW:</b> ${task.title}\n🕒 <b>Time:</b> ${task.startTimeStr} to ${task.endTimeStr}`, { parse_mode: 'HTML' }); } catch (e) {}
                     }
                     return;
                 }
                 const minutesLeft = Math.ceil((targetTimeUTC - currentTimeUTC) / 60000);
                 if (minutesLeft > 0) {
-                    try { await bot.telegram.sendMessage(CHAT_ID, `🔔 <b>In ${minutesLeft}m:</b> ${task.title}\n🕒 <b>Time:</b> ${task.startTimeStr} - ${task.endTimeStr}`, { parse_mode: 'HTML' }); } catch (e) {}
+                    try { await bot.telegram.sendMessage(CHAT_ID, `🔔 <b>In ${minutesLeft}m:</b> ${task.title}\n🕒 <b>Time:</b> ${task.startTimeStr} to ${task.endTimeStr}`, { parse_mode: 'HTML' }); } catch (e) {}
                 }
                 count++;
             };
@@ -1507,7 +1507,7 @@ function setupAutoCompletion() {
     schedule.scheduleJob(rule, async function() {
         if (isShuttingDown) return;
         try {
-            console.log('🌙 Running auto-completion - 23:57 IST.');
+            console.log('🌙 Running auto-completion for all pending tasks at 23:57 IST...');
             const istDateObj = getCurrentISTDisplay();
             const startOfDayUTC = istToUTC(istDateObj.date, "00:00");
             const endOfDayUTC = istToUTC(istDateObj.date, "23:59");
@@ -1604,20 +1604,20 @@ function setupHourlyNotifications() {
 
             if (pendingTasks.length === 0 && completedTasks.length === 0) return;
 
-            let msg = `🕒 <b>Hourly Update:</b>\n\n`;
+            let msg = `🕒 <b>Hourly Status Update</b>\n📅 ${istDateObj.displayDate} - ${istDateObj.time}\n\n`;
 
             if (completedTasks.length > 0) {
-                msg += ``;
+                msg += `<b>✅ Completed Today:</b>\n`;
                 completedTasks.forEach(t => {
-                    msg += `<blockquote>✅ <b>${t.title}</b> (${t.startTimeStr} - ${t.endTimeStr})\n</blockquote>`;
+                    msg += `✅ <b>${t.title}</b> (${t.startTimeStr} - ${t.endTimeStr})\n`;
                 });
-                msg += ``;
+                msg += `\n`;
             }
 
             if (pendingTasks.length > 0) {
-                msg += ``;
+                msg += `<b>❌ Pending Today:</b>\n`;
                 pendingTasks.forEach(t => {
-                    msg += `<blockquote>❌ <b>${t.title}</b> (${t.startTimeStr} - ${t.endTimeStr})\n</blockquote>`;
+                    msg += `❌ <b>${t.title}</b> (${t.startTimeStr} - ${t.endTimeStr})\n`;
                 });
             }
 
@@ -1762,7 +1762,7 @@ app.post('/api/grow', async (req, res) => {
         }
         
         await db.collection('grow').updateOne({ type: 'tracker' }, { $push: { items: item } }, { upsert: true });
-        try { await bot.telegram.sendMessage(CHAT_ID, `🌱 <b>Growth Added:</b> ${title}`, { parse_mode: 'HTML' }); } catch(e) {}
+        try { await bot.telegram.sendMessage(CHAT_ID, `🌱 <b>Grow Tracker Added:</b> ${title}`, { parse_mode: 'HTML' }); } catch(e) {}
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
@@ -1805,7 +1805,7 @@ app.post('/api/grow/:id/delete', async (req, res) => {
             Object.keys(prog).forEach(date => { if (prog[date] && prog[date][req.params.id] !== undefined) delete prog[date][req.params.id]; });
             await db.collection('grow').updateOne({ type: 'tracker' }, { $set: { progress: prog } });
         }
-        try { await bot.telegram.sendMessage(CHAT_ID, `🗑️ <b>Growth Deleted:</b> ${item?.title || 'Unknown'}`, { parse_mode: 'HTML' }); } catch(e) {}
+        try { await bot.telegram.sendMessage(CHAT_ID, `🗑️ <b>Grow Tracker Deleted:</b> ${item?.title || 'Unknown'}`, { parse_mode: 'HTML' }); } catch(e) {}
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
@@ -1817,7 +1817,7 @@ app.post('/api/grow/log', async (req, res) => {
         const item = tracker?.items.find(i => i.id === itemId);
         
         await db.collection('grow').updateOne({ type: 'tracker' }, { $set: { [`progress.${dateStr}.${itemId}`]: value } });
-        try { await bot.telegram.sendMessage(CHAT_ID, `✅ <b>Growth Logged:</b> ${item?.title || 'Unknown'}`, { parse_mode: 'HTML' }); } catch(e) {}
+        try { await bot.telegram.sendMessage(CHAT_ID, `✅ <b>Grow Logged:</b> ${item?.title || 'Unknown'}`, { parse_mode: 'HTML' }); } catch(e) {}
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
@@ -1855,7 +1855,7 @@ app.post('/api/tasks', async (req, res) => {
         };
         await db.collection('tasks').insertOne(task);
         if (task.startDate > new Date()) scheduleTask(task);
-        try { await bot.telegram.sendMessage(CHAT_ID, `➕ <b>Added Task:</b> ${task.title}\n🕒 <b>Time:</b> ${task.startTimeStr} - ${task.endTimeStr}\n<blockquote>${task.description || 'None'}</blockquote>`, { parse_mode: 'HTML' }); } catch(e){}
+        try { await bot.telegram.sendMessage(CHAT_ID, `➕ <b>Added Task:</b> ${task.title}\n🕒 <b>Time:</b> ${task.startTimeStr} to ${task.endTimeStr}\n📝 <b>Details:</b> ${task.description || 'None'}`, { parse_mode: 'HTML' }); } catch(e){}
         res.redirect('/tasks');
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -1905,12 +1905,12 @@ app.post('/api/tasks/:taskId/complete', async (req, res) => {
             await db.collection('tasks').updateOne({ taskId: task.taskId }, { $set: { nextOccurrence: nextUTC, repeatCount: task.repeatCount - 1, startDate: nextUTC, startDateStr: nextISTDisplay, endDate: new Date(nextUTC.getTime() + (task.endDate.getTime() - task.startDate.getTime())), subtasks: (task.subtasks || []).map(s => ({...s, completed: false})) } });
             const t = await db.collection('tasks').findOne({ taskId: task.taskId });
             if (t && t.nextOccurrence > new Date()) scheduleTask(t);
-            try { await bot.telegram.sendMessage(CHAT_ID, `✅ <b>Completed Task:</b> ${task.title}\n🕒 <b>Time:</b> ${task.startTimeStr} - ${task.endTimeStr}\n<blockquote>${task.description || 'None'}</blockquote>\n🔄 <b>Next:</b> ${nextISTDisplay}`, { parse_mode: 'HTML' }); } catch(e){}
+            try { await bot.telegram.sendMessage(CHAT_ID, `✅ <b>Completed Task:</b> ${task.title}\n🕒 <b>Time:</b> ${task.startTimeStr} to ${task.endTimeStr}\n📝 <b>Details:</b> ${task.description || 'None'}\n🔄 <b>Next:</b> ${nextISTDisplay}`, { parse_mode: 'HTML' }); } catch(e){}
         } else {
             // Move non-repeating completely to deleted_tasks
             await db.collection('deleted_tasks').insertOne({ ...task, deletedAt: new Date(), deleteReason: 'completed' });
             await db.collection('tasks').deleteOne({ taskId: task.taskId });
-            try { await bot.telegram.sendMessage(CHAT_ID, `✅ <b>Completed Task:</b> ${task.title}\n🕒 <b>Time:</b> ${task.startTimeStr} - ${task.endTimeStr}\n<blockquote>${task.description || 'None'}</blockquote>`, { parse_mode: 'HTML' }); } catch(e){}
+            try { await bot.telegram.sendMessage(CHAT_ID, `✅ <b>Completed Task:</b> ${task.title}\n🕒 <b>Time:</b> ${task.startTimeStr} to ${task.endTimeStr}\n📝 <b>Details:</b> ${task.description || 'None'}`, { parse_mode: 'HTML' }); } catch(e){}
         }
         res.redirect('/tasks');
     } catch (error) { res.status(500).send(error.message); }
@@ -1924,7 +1924,7 @@ app.post('/api/tasks/:taskId/delete', async (req, res) => {
         if(t) {
             await db.collection('deleted_tasks').insertOne({ ...t, deletedAt: new Date(), deleteReason: 'manual' });
             await db.collection('tasks').deleteOne({ taskId: req.params.taskId });
-            try { await bot.telegram.sendMessage(CHAT_ID, `🗑️ <b>Deleted Task:</b> ${t.title}\n🕒 <b>Time:</b> ${t.startTimeStr} - ${t.endTimeStr}`, { parse_mode: 'HTML' }); } catch(e){}
+            try { await bot.telegram.sendMessage(CHAT_ID, `🗑️ <b>Deleted Task:</b> ${t.title}\n🕒 <b>Time:</b> ${t.startTimeStr} to ${t.endTimeStr}`, { parse_mode: 'HTML' }); } catch(e){}
         }
         res.redirect('/tasks');
     } catch (error) { res.status(500).send(error.message); }
