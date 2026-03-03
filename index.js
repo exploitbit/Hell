@@ -54,6 +54,8 @@ function getCurrentISTDisplay() {
     const minutes = String(istDate.getUTCMinutes()).padStart(2, '0');
     return {
         date: `${year}-${month}-${day}`,
+        monthIndex: istDate.getUTCMonth(),
+        yearNum: year,
         time: `${hours}:${minutes}`,
         dateTime: `${day}-${month}-${year} at ${hours}:${minutes}`,
         displayDate: `${day}-${month}-${year}`,
@@ -67,143 +69,6 @@ function formatLegacyIST(utcDate, type) {
     if (type === 'date') return `${String(istDate.getUTCDate()).padStart(2, '0')}-${String(istDate.getUTCMonth() + 1).padStart(2, '0')}-${istDate.getUTCFullYear()}`;
     if (type === 'time') return `${String(istDate.getUTCHours()).padStart(2, '0')}:${String(istDate.getUTCMinutes()).padStart(2, '0')}`;
     return '';
-}
-
-function generateId() { return 'g' + Date.now() + Math.random().toString(36).substring(2, 6); }
-
-// ==========================================
-// 🗄️ DATABASE CONNECTION
-// ==========================================
-let db;
-let client;
-
-async function connectDB() {
-    let retries = 5;
-    while (retries > 0) {
-        try {
-            client = new MongoClient(MONGODB_URI, { serverSelectionTimeoutMS: 5000, maxPoolSize: 10 });
-            await client.connect();
-            db = client.db('telegram_bot');
-            console.log('✅ Connected to MongoDB');
-            
-            // Initialize grow collection if needed
-            const exists = await db.collection('grow').findOne({ type: 'tracker' });
-            if (!exists) {
-                await db.collection('grow').insertOne({ 
-                    type: 'tracker', 
-                    items: [], 
-                    progress: {} 
-                });
-                console.log('✅ Initialized grow collection');
-            }
-            return true;
-        } catch (error) {
-            retries--;
-            if (retries === 0) return false;
-            await new Promise(resolve => setTimeout(resolve, 5000));
-        }
-    }
-    return false;
-}
-
-// ==========================================
-// 🛠️ UTILITY FUNCTIONS
-// ==========================================
-function generateTaskId() { return Math.random().toString(36).substring(2, 10); }
-function generateSubtaskId() { return 'sub_' + Date.now().toString(36); }
-function calculateDuration(startDate, endDate) { return Math.round((endDate - startDate) / 60000); }
-function formatDuration(minutes) {
-    if (minutes < 0) return '0 mins';
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    if (hours === 0) return mins + ' mins';
-    if (mins === 0) return hours + ' hours';
-    return hours + 'h ' + mins + 'm';
-}
-function calculateSubtaskProgress(subtasks) {
-    if (!subtasks || subtasks.length === 0) return 0;
-    return Math.round((subtasks.filter(s => s.completed).length / subtasks.length) * 100);
-}
-
-// ==========================================
-// 🤖 BOT SETUP & SCHEDULER
-// ==========================================
-const bot = new Telegraf(BOT_TOKEN);
-const activeSchedules = new Map();
-let isShuttingDown = false;
-
-bot.command('start', async (ctx) => {
-    const keyboard = Markup.inlineKeyboard([[Markup.button.webApp('🌐 Open Web App', WEB_APP_URL)]]);
-    await ctx.reply('🌟 <b>Global Task Manager</b>\n\nManage your tasks using the Web App below. I will send you notifications here.', { parse_mode: 'HTML', reply_markup: keyboard.reply_markup });
-});
-
-function scheduleTask(task) {
-    if (!task || !task.taskId || !task.startDate) return;
-    try {
-        const taskId = task.taskId;
-        const startTimeUTC = new Date(task.startDate);
-        const nowUTC = new Date();
-
-        cancelTaskSchedule(taskId);
-        if (startTimeUTC <= nowUTC) return;
-
-        const notifyTimeUTC = new Date(startTimeUTC.getTime() - 10 * 60000);
-        const triggerDateUTC = notifyTimeUTC > nowUTC ? notifyTimeUTC : nowUTC;
-
-        const startJob = schedule.scheduleJob(triggerDateUTC, async function() {
-            if (isShuttingDown) return;
-            let count = 0;
-            const maxNotifications = 10;
-            
-            const sendNotification = async () => {
-                if (isShuttingDown) return;
-                const currentTimeUTC = new Date();
-                if (currentTimeUTC >= startTimeUTC || count >= maxNotifications) {
-                    const activeSchedule = activeSchedules.get(taskId);
-                    if (activeSchedule && activeSchedule.interval) {
-                        clearInterval(activeSchedule.interval);
-                        activeSchedule.interval = null;
-                    }
-                    if (currentTimeUTC >= startTimeUTC) {
-                        try { await bot.telegram.sendMessage(CHAT_ID, `🚀 <b>START NOW:</b> ${task.title}`, { parse_mode: 'HTML' }); } catch (e) {}
-                    }
-                    return;
-                }
-                const minutesLeft = Math.ceil((startTimeUTC - currentTimeUTC) / 60000);
-                if (minutesLeft > 0) {
-                    try { await bot.telegram.sendMessage(CHAT_ID, `🔔 <b>In ${minutesLeft}m:</b> ${task.title}`, { parse_mode: 'HTML' }); } catch (e) {}
-                }
-                count++;
-            };
-            await sendNotification();
-            const interval = setInterval(sendNotification, 60000);
-            if (activeSchedules.has(taskId)) {
-                if (activeSchedules.get(taskId).interval) clearInterval(activeSchedules.get(taskId).interval);
-                activeSchedules.get(taskId).interval = interval;
-            } else { activeSchedules.set(taskId, { startJob, interval }); }
-        });
-        
-        if (activeSchedules.has(taskId)) {
-            if (activeSchedules.get(taskId).startJob) activeSchedules.get(taskId).startJob.cancel();
-            activeSchedules.get(taskId).startJob = startJob;
-        } else { activeSchedules.set(taskId, { startJob }); }
-    } catch (error) {}
-}
-
-function cancelTaskSchedule(taskId) {
-    if (activeSchedules.has(taskId)) {
-        const s = activeSchedules.get(taskId);
-        if (s.startJob) try { s.startJob.cancel(); } catch (e) {}
-        if (s.interval) try { clearInterval(s.interval); } catch (e) {}
-        activeSchedules.delete(taskId);
-    }
-}
-
-async function rescheduleAllPending() {
-    try {
-        const tasks = await db.collection('tasks').find({ status: 'pending', startDate: { $gt: new Date() } }).toArray();
-        tasks.forEach(task => scheduleTask(task));
-    } catch (error) {}
 }
 
 // ==========================================
@@ -226,9 +91,6 @@ function writeMainEJS() {
             --bg-dark: #0f172a; --card-bg-dark: #1e293b; --text-primary-dark: #f8fafc; --text-secondary-dark: #cbd5e1;
             --border-dark: #334155; --accent-dark: #60a5fa; --accent-soft-dark: #1e3a5f; --success-dark: #34d399;
             --warning-dark: #fbbf24; --danger-dark: #f87171; --hover-dark: #2d3b4f; --progress-bg-dark: #334155;
-            
-            /* Grow tracker specific colors */
-            --grow-accent: #059669; --grow-accent-dark: #34d399;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
@@ -255,110 +117,6 @@ function writeMainEJS() {
         .main-content { max-width: 1400px; margin: 16px auto; padding: 0 16px; padding-bottom: 80px; }
         .page-title { font-size: 1.5rem; font-weight: 700; margin-bottom: 16px; text-align: center; }
         
-        /* ===== GROW TRACKER STYLES (MERGED) ===== */
-        .grow-panel { max-width: 600px; margin: 0 auto 12px; background: var(--card-bg-light); border: 1px solid var(--border-light); border-radius: 16px; overflow: hidden; }
-        @media (prefers-color-scheme: dark) { .grow-panel { background: var(--card-bg-dark); border-color: var(--border-dark); } }
-        .grow-panel summary { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; font-size: 1rem; font-weight: 700; cursor: pointer; background: var(--card-bg-light); list-style: none; }
-        @media (prefers-color-scheme: dark) { .grow-panel summary { background: var(--card-bg-dark); } }
-        .grow-panel summary::-webkit-details-marker { display: none; }
-        .grow-panel > summary > i { transition: transform 0.3s; color: var(--text-secondary-light); }
-        @media (prefers-color-scheme: dark) { .grow-panel > summary > i { color: var(--text-secondary-dark); } }
-        .grow-panel[open] > summary > i { transform: rotate(180deg); }
-        .grow-panel-body { padding: 16px; border-top: 1px solid var(--border-light); }
-        @media (prefers-color-scheme: dark) { .grow-panel-body { border-top-color: var(--border-dark); } }
-        
-        .grow-graph-container { width: 100%; aspect-ratio: 1; display: flex; flex-direction: column; }
-        .grow-graph { display: flex; justify-content: space-around; align-items: flex-end; flex: 1; margin-top: 10px;}
-        .grow-bar { display: flex; flex-direction: column; align-items: center; width: 10%; max-width: 35px; height: 100%; }
-        .grow-bar-track { width: 100%; height: 90%; border-radius: 6px; position: relative; display: flex; align-items: flex-end; background: var(--hover-light); overflow: hidden; border: 1px solid var(--border-light); }
-        @media (prefers-color-scheme: dark) { .grow-bar-track { background: var(--hover-dark); border-color: var(--border-dark); } }
-        .grow-bar-fill { width: 100%; border-radius: 4px; transition: height 0.6s ease; }
-        .grow-bar-label { position: absolute; top: 0; bottom: 0; left: 0; right: 0; writing-mode: vertical-rl; transform: rotate(180deg); display: flex; align-items: center; justify-content: center; text-align: center; color: var(--text-primary-light); font-size: 0.85rem; font-weight: 700; pointer-events: none; }
-        @media (prefers-color-scheme: dark) { .grow-bar-label { color: var(--text-primary-dark); } }
-        .grow-bar-pct { font-size: 0.75rem; font-weight: 700; margin-bottom: 5px; color: var(--text-primary-light); }
-        @media (prefers-color-scheme: dark) { .grow-bar-pct { color: var(--text-primary-dark); } }
-        
-        .grow-month-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-        .grow-month-nav h2 { font-size: 1rem; font-weight: 700; background: var(--hover-light); padding: 5px 14px; border-radius: 30px; border: 1px solid var(--border-light); }
-        @media (prefers-color-scheme: dark) { .grow-month-nav h2 { background: var(--hover-dark); border-color: var(--border-dark); } }
-        .grow-nav-btn { background: var(--bg-light); border: 1px solid var(--border-light); width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 0.8rem; color: var(--text-secondary-light); display: flex; align-items: center; justify-content: center; transition: 0.2s;}
-        @media (prefers-color-scheme: dark) { .grow-nav-btn { background: var(--bg-dark); border-color: var(--border-dark); color: var(--text-secondary-dark); } }
-        .grow-nav-btn:hover { background: var(--hover-light); color: var(--text-primary-light); }
-        @media (prefers-color-scheme: dark) { .grow-nav-btn:hover { background: var(--hover-dark); color: var(--text-primary-dark); } }
-        
-        .grow-calendar { width: 100%; aspect-ratio: 1 / 1; display: flex; flex-direction: column; }
-        .grow-grid { flex: 1; width: 100%; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-template-rows: auto repeat(6, minmax(0, 1fr)); gap: 4px; }
-        .grow-weekday { display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.75rem; color: var(--text-secondary-light); text-transform: uppercase; }
-        @media (prefers-color-scheme: dark) { .grow-weekday { color: var(--text-secondary-dark); } }
-        .grow-day { display: flex; align-items: center; justify-content: center; border-radius: 10px; position: relative; width: 100%; height: 100%; }
-        .grow-day.empty { pointer-events: none; background: transparent; }
-        .grow-day:hover:not(.empty) { background: var(--hover-light); cursor: pointer; }
-        @media (prefers-color-scheme: dark) { .grow-day:hover:not(.empty) { background: var(--hover-dark); } }
-        
-        .grow-circle { width: 100%; max-width: 36px; aspect-ratio: 1 / 1; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; transition: transform 0.2s; margin: auto; }
-        .grow-day:hover .grow-circle { transform: scale(1.1); }
-        .grow-circle.has-data { color: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.2); text-shadow: 0 1px 2px rgba(0,0,0,0.6); }
-        .grow-circle.today { box-shadow: 0 0 0 2px var(--card-bg-light), 0 0 0 4px var(--grow-accent); color: var(--grow-accent); }
-        @media (prefers-color-scheme: dark) { .grow-circle.today { box-shadow: 0 0 0 2px var(--card-bg-dark), 0 0 0 4px var(--grow-accent-dark); color: var(--grow-accent-dark); } }
-        .grow-circle.today.has-data { color: #fff; }
-
-        .grow-bubble { position: fixed; background: var(--card-bg-light); border: 1px solid var(--border-light); border-radius: 12px; padding: 10px; z-index: 1000; min-width: 160px; max-width: 200px; pointer-events: none; box-shadow: 0 10px 25px rgba(0,0,0,0.25); display: none; opacity: 0; transition: opacity 0.2s; }
-        @media (prefers-color-scheme: dark) { .grow-bubble { background: var(--card-bg-dark); border-color: var(--border-dark); } }
-        .grow-bubble.show { opacity: 1; }
-        .grow-tail { position: absolute; width: 12px; height: 12px; background: var(--card-bg-light); transform: rotate(45deg); z-index: -1; }
-        @media (prefers-color-scheme: dark) { .grow-tail { background: var(--card-bg-dark); } }
-        .grow-bubble-date { font-size: 0.75rem; font-weight: 700; color: var(--text-secondary-light); margin-bottom: 5px; border-bottom: 1px solid var(--border-light); padding-bottom: 5px; }
-        @media (prefers-color-scheme: dark) { .grow-bubble-date { border-bottom-color: var(--border-dark); color: var(--text-secondary-dark); } }
-        .grow-bubble-item { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 0.8rem; font-weight: 600; }
-        
-        .grow-card { background: var(--card-bg-light); border: 1px solid var(--border-light); border-radius: 14px; padding: 12px; margin-bottom: 10px; transition: 0.2s;}
-        @media (prefers-color-scheme: dark) { .grow-card { background: var(--card-bg-dark); border-color: var(--border-dark); } }
-        .grow-card summary { display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none; outline: none; padding: 4px 0;}
-        .grow-card summary::-webkit-details-marker { display: none; }
-        .grow-title-section { display: flex; align-items: center; gap: 8px; flex: 1;}
-        .grow-title-section i { font-size: 0.8rem; color: var(--text-secondary-light); transition: transform 0.2s; }
-        @media (prefers-color-scheme: dark) { .grow-title-section i { color: var(--text-secondary-dark); } }
-        details[open] .grow-title-section i { transform: rotate(90deg); }
-        .grow-title { font-weight: 700; font-size: 1rem; color: var(--text-primary-light); }
-        @media (prefers-color-scheme: dark) { .grow-title { color: var(--text-primary-dark); } }
-        .grow-actions { display: flex; gap: 6px; margin-left: 10px; align-items: center; }
-        .grow-btn-icon { width: 32px; height: 32px; border-radius: 8px; border: none; background: var(--hover-light); color: var(--text-secondary-light); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.85rem; transition: 0.2s; padding: 0; margin: 0;}
-        @media (prefers-color-scheme: dark) { .grow-btn-icon { background: var(--hover-dark); color: var(--text-secondary-dark); } }
-        .grow-btn-icon:hover { background: var(--grow-accent); color: white; }
-        @media (prefers-color-scheme: dark) { .grow-btn-icon:hover { background: var(--grow-accent-dark); } }
-        .grow-btn-icon.del:hover { background: var(--danger-light); }
-        .grow-desc-container { width: 100%; margin-top: 10px; }
-        .grow-desc { font-size: 0.85rem; color: var(--text-secondary-light); padding: 8px 12px; background: var(--hover-light); border-radius: 8px; border-left: 3px solid; word-break: break-word; line-height: 1.4;}
-        @media (prefers-color-scheme: dark) { .grow-desc { background: var(--hover-dark); color: var(--text-secondary-dark); } }
-        
-        .grow-progress-bar-container { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border-light); width: 100%; }
-        @media (prefers-color-scheme: dark) { .grow-progress-bar-container { border-top-color: var(--border-dark); } }
-        .grow-progress-bar { width: 100%; height: 8px; background: var(--hover-light); border-radius: 10px; overflow: hidden; margin: 8px 0; border: 1px solid var(--border-light); }
-        @media (prefers-color-scheme: dark) { .grow-progress-bar { background: var(--hover-dark); border-color: var(--border-dark); } }
-        .grow-progress-fill { height: 100%; border-radius: 10px; transition: width 0.5s ease-out; }
-        .grow-progress-stats { display: flex; justify-content: space-between; gap: 8px; font-size: 0.75rem; color: var(--text-secondary-light); font-weight: 600; align-items: center;}
-        @media (prefers-color-scheme: dark) { .grow-progress-stats { color: var(--text-secondary-dark); } }
-        .grow-progress-stats strong { color: var(--text-primary-light); font-size: 0.85rem;}
-        @media (prefers-color-scheme: dark) { .grow-progress-stats strong { color: var(--text-primary-dark); } }
-        .grow-progress-stats span:last-child { white-space: nowrap; flex-shrink: 0; text-align: right; }
-        .grow-progress-stats span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        
-        .grow-palette { display: flex; justify-content: space-between; margin-top: 6px; }
-        .grow-swatch { width: 26px; height: 26px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: 0.1s;}
-        .grow-swatch.selected { transform: scale(1.15); box-shadow: 0 0 0 2px var(--card-bg-light), 0 0 0 4px var(--text-primary-light); }
-        @media (prefers-color-scheme: dark) { .grow-swatch.selected { box-shadow: 0 0 0 2px var(--card-bg-dark), 0 0 0 4px var(--text-primary-dark); } }
-        .grow-swatch.hidden { display: none; }
-        .grow-checkbox { display: flex; align-items: center; gap: 8px; margin: 12px 0; font-size: 0.85rem; font-weight: 600; cursor: pointer; color: var(--text-primary-light);}
-        @media (prefers-color-scheme: dark) { .grow-checkbox { color: var(--text-primary-dark); } }
-        .grow-checkbox input { width: 18px; height: 18px; accent-color: var(--grow-accent); cursor: pointer; }
-        .grow-hidden-fields { display: none; background: var(--hover-light); padding: 12px; border-radius: 10px; margin-bottom: 12px; }
-        @media (prefers-color-scheme: dark) { .grow-hidden-fields { background: var(--hover-dark); } }
-        .grow-empty { text-align: center; color: var(--text-secondary-light); padding: 30px; font-size: 0.9rem; background: transparent; border-radius: 12px; }
-        @media (prefers-color-scheme: dark) { .grow-empty { color: var(--text-secondary-dark); } }
-        .grow-log-list-view { display: block; }
-        .grow-log-question-view { display: none; }
-        
-        /* Tasks/Notes common styles */
         .tasks-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; margin-top: 16px; }
         .task-card, .note-card, .history-date-card { background: var(--card-bg-light); border: 1px solid var(--border-light); border-radius: 16px; padding: 16px; transition: all 0.2s ease; word-wrap: break-word; overflow-wrap: break-word; }
         @media (prefers-color-scheme: dark) { .task-card, .note-card, .history-date-card { background: var(--card-bg-dark); border: 1px solid var(--border-dark); } }
@@ -457,44 +215,27 @@ function writeMainEJS() {
         .fab:hover { transform: scale(1.05); }
         
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); align-items: center; justify-content: center; z-index: 1000; }
-        .modal-content { background: var(--card-bg-light); border: 1px solid var(--border-light); border-radius: 24px; padding: 24px; width: 90%; max-width: 500px; max-height: 85vh; overflow-y: auto; animation: modalIn 0.3s ease; }
+        .modal-content { background: var(--card-bg-light); border: 1px solid var(--border-light); border-radius: 24px; padding: 24px; width: 90%; max-width: 500px; max-height: 85vh; overflow-y: auto; }
         @media (prefers-color-scheme: dark) { .modal-content { background: var(--card-bg-dark); border: 1px solid var(--border-dark); } }
-        @keyframes modalIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
         
-        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--border-light); padding-bottom: 10px; }
-        @media (prefers-color-scheme: dark) { .modal-header { border-bottom-color: var(--border-dark); } }
-        .modal-header h2 { font-size: 1.1rem; font-weight: 700; color: var(--text-primary-light); }
-        @media (prefers-color-scheme: dark) { .modal-header h2 { color: var(--text-primary-dark); } }
-        .close { background: var(--hover-light); border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; color: var(--text-secondary-light); transition: 0.2s;}
-        @media (prefers-color-scheme: dark) { .close { background: var(--hover-dark); color: var(--text-secondary-dark); } }
-        .close:hover { background: var(--danger-light); color: white; }
-        
-        .form-control { width: 100%; padding: 10px; border: 1px solid var(--border-light); border-radius: 8px; font-size: 0.85rem; outline: none; background: var(--bg-light); color: var(--text-primary-light); transition: border 0.2s; resize: vertical; }
+        .form-control { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--border-light); background: var(--bg-light); color: var(--text-primary-light); font-size: 0.9rem; font-family: 'Inter', sans-serif; resize: vertical; }
         textarea.form-control { min-height: 80px; }
         @media (prefers-color-scheme: dark) { .form-control { background: var(--bg-dark); border: 1px solid var(--border-dark); color: var(--text-primary-dark); } }
-        .form-control:focus { border-color: var(--accent-light); }
-        @media (prefers-color-scheme: dark) { .form-control:focus { border-color: var(--accent-dark); } }
         
         .btn { padding: 12px 20px; border-radius: 100px; border: none; font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: all 0.2s ease; }
         .btn-primary { background: var(--accent-light); color: white; }
         @media (prefers-color-scheme: dark) { .btn-primary { background: var(--accent-dark); } }
         .btn-secondary { background: var(--hover-light); color: var(--text-secondary-light); }
         @media (prefers-color-scheme: dark) { .btn-secondary { background: var(--hover-dark); color: var(--text-secondary-dark); } }
-        .btn-submit { width: 100%; padding: 12px; background: var(--grow-accent); color: white; border: none; border-radius: 10px; font-weight: 700; font-size: 0.9rem; cursor: pointer; margin-top: 10px; transition: 0.2s; display: flex; justify-content: center; align-items: center; gap: 8px;}
-        .btn-submit:active { transform: scale(0.98); }
         
-        .toast-container { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); background: var(--card-bg-light); color: var(--text-primary-light); padding: 12px 24px; border-radius: 30px; box-shadow: 0 10px 40px rgba(0,0,0,0.25); transition: top 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55); z-index: 10000; font-weight: 600; font-size: 0.9rem; border: 1px solid var(--border-light); display: flex; align-items: center; gap: 10px; }
-        @media (prefers-color-scheme: dark) { .toast-container { background: var(--card-bg-dark); color: var(--text-primary-dark); border-color: var(--border-dark); } }
-        .toast-container.show { top: 25px; }
-        .toast-container.success { border-left: 4px solid var(--grow-accent); }
-        .toast-container.error { border-left: 4px solid var(--danger-light); }
+        .toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; }
+        .toast { background: #1e293b; color: white; padding: 10px 20px; border-radius: 100px; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-size: 0.85rem; font-weight: 500; }
+        @media (prefers-color-scheme: dark) { .toast { background: #0f172a; } }
         
-        .global-loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.5); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); z-index: 9999; display: none; flex-direction: column; align-items: center; justify-content: center; }
-        @media (prefers-color-scheme: dark) { .global-loader { background: rgba(15, 23, 42, 0.6); } }
-        .global-loader.show { display: flex; }
-        .spinner { width: 45px; height: 45px; border: 4px solid var(--border-light); border-top-color: var(--grow-accent); border-radius: 50%; animation: spin 1s linear infinite; }
-        @media (prefers-color-scheme: dark) { .spinner { border-color: var(--border-dark); border-top-color: var(--grow-accent-dark); } }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
+        .loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 9998; }
+        .spinner { width: 48px; height: 48px; border: 4px solid var(--border-light); border-top: 4px solid var(--accent-light); border-radius: 50%; animation: spin 1s linear infinite; }
+        @media (prefers-color-scheme: dark) { .spinner { border: 4px solid var(--border-dark); border-top: 4px solid var(--accent-dark); } }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
         .empty-state { text-align: center; padding: 40px 20px; color: var(--text-secondary-light); background: var(--hover-light); border-radius: 24px; }
         @media (prefers-color-scheme: dark) { .empty-state { background: var(--hover-dark); color: var(--text-secondary-dark); } }
@@ -506,6 +247,91 @@ function writeMainEJS() {
         .word-break { word-break: break-word; overflow-wrap: break-word; }
         .flex-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
         .w-100 { width: 100%; }
+
+        /* ================= GROW CSS ================= */
+        .grow-panel { max-width: 600px; margin: 0 auto 12px; background: var(--card-bg-light); border: 1px solid var(--border-light); border-radius: 16px; overflow: hidden; }
+        @media (prefers-color-scheme: dark) { .grow-panel { background: var(--card-bg-dark); border-color: var(--border-dark); } }
+        .grow-panel summary { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; font-size: 1rem; font-weight: 700; cursor: pointer; background: transparent; list-style: none; }
+        .grow-panel summary::-webkit-details-marker { display: none; }
+        .grow-panel > summary > i { transition: transform 0.3s; color: var(--text-secondary-light); }
+        @media (prefers-color-scheme: dark) { .grow-panel > summary > i { color: var(--text-secondary-dark); } }
+        .grow-panel[open] > summary > i { transform: rotate(180deg); }
+        .grow-panel-body { padding: 16px; border-top: 1px solid var(--border-light); }
+        @media (prefers-color-scheme: dark) { .grow-panel-body { border-top-color: var(--border-dark); } }
+        
+        .grow-graph-container { width: 100%; aspect-ratio: 1; display: flex; flex-direction: column; }
+        .grow-graph { display: flex; justify-content: space-around; align-items: flex-end; flex: 1; margin-top: 10px;}
+        .grow-bar { display: flex; flex-direction: column; align-items: center; width: 10%; max-width: 35px; height: 100%; }
+        .grow-bar-track { width: 100%; height: 90%; border-radius: 6px; position: relative; display: flex; align-items: flex-end; background: var(--hover-light); overflow: hidden; border: 1px solid var(--border-light); }
+        @media (prefers-color-scheme: dark) { .grow-bar-track { background: var(--hover-dark); border-color: var(--border-dark); } }
+        .grow-bar-fill { width: 100%; border-radius: 4px; transition: height 0.6s ease; }
+        .grow-bar-label { position: absolute; top: 0; bottom: 0; left: 0; right: 0; writing-mode: vertical-rl; transform: rotate(180deg); display: flex; align-items: center; justify-content: center; text-align: center; color: var(--text-primary-light); font-size: 0.85rem; font-weight: 700; pointer-events: none; }
+        @media (prefers-color-scheme: dark) { .grow-bar-label { color: var(--text-primary-dark); } }
+        .grow-bar-pct { font-size: 0.75rem; font-weight: 700; margin-bottom: 5px; color: var(--text-primary-light); }
+        @media (prefers-color-scheme: dark) { .grow-bar-pct { color: var(--text-primary-dark); } }
+        
+        .grow-month-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+        .grow-month-nav h2 { font-size: 1rem; font-weight: 700; background: var(--hover-light); padding: 5px 14px; border-radius: 30px; border: 1px solid var(--border-light); }
+        @media (prefers-color-scheme: dark) { .grow-month-nav h2 { background: var(--hover-dark); border-color: var(--border-dark); } }
+        
+        .grow-calendar { width: 100%; aspect-ratio: 1 / 1; display: flex; flex-direction: column; }
+        .grow-grid { flex: 1; width: 100%; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-template-rows: auto repeat(6, minmax(0, 1fr)); gap: 4px; }
+        .grow-weekday { display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.75rem; color: var(--text-secondary-light); text-transform: uppercase; }
+        @media (prefers-color-scheme: dark) { .grow-weekday { color: var(--text-secondary-dark); } }
+        .grow-day { display: flex; align-items: center; justify-content: center; border-radius: 10px; position: relative; width: 100%; height: 100%; }
+        .grow-day.empty { pointer-events: none; background: transparent; }
+        .grow-day:hover:not(.empty) { background: var(--hover-light); cursor: pointer; }
+        @media (prefers-color-scheme: dark) { .grow-day:hover:not(.empty) { background: var(--hover-dark); } }
+        
+        .grow-circle { width: 100%; max-width: 36px; aspect-ratio: 1 / 1; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; transition: transform 0.2s; margin: auto; }
+        .grow-day:hover .grow-circle { transform: scale(1.1); }
+        .grow-circle.has-data { color: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.2); text-shadow: 0 1px 2px rgba(0,0,0,0.6); }
+        .grow-circle.today { box-shadow: 0 0 0 2px var(--card-bg-light), 0 0 0 4px var(--success-light); color: var(--success-light); }
+        @media (prefers-color-scheme: dark) { .grow-circle.today { box-shadow: 0 0 0 2px var(--card-bg-dark), 0 0 0 4px var(--success-dark); color: var(--success-dark); } }
+        .grow-circle.today.has-data { color: #fff; }
+
+        .grow-bubble { position: fixed; background: var(--card-bg-light); border: 1px solid var(--border-light); border-radius: 12px; padding: 10px; z-index: 1000; min-width: 160px; max-width: 200px; pointer-events: none; box-shadow: 0 10px 25px rgba(0,0,0,0.25); display: none; opacity: 0; transition: opacity 0.2s; }
+        @media (prefers-color-scheme: dark) { .grow-bubble { background: var(--card-bg-dark); border-color: var(--border-dark); } }
+        .grow-bubble.show { opacity: 1; }
+        .grow-tail { position: absolute; width: 12px; height: 12px; background: var(--card-bg-light); transform: rotate(45deg); z-index: -1; }
+        @media (prefers-color-scheme: dark) { .grow-tail { background: var(--card-bg-dark); } }
+        .grow-bubble-date { font-size: 0.75rem; font-weight: 700; color: var(--text-secondary-light); margin-bottom: 5px; border-bottom: 1px solid var(--border-light); padding-bottom: 5px; }
+        @media (prefers-color-scheme: dark) { .grow-bubble-date { color: var(--text-secondary-dark); border-color: var(--border-dark); } }
+        .grow-bubble-item { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 0.8rem; font-weight: 600; }
+        
+        .grow-card { background: var(--card-bg-light); border: 1px solid var(--border-light); border-radius: 14px; padding: 12px; margin-bottom: 10px; transition: 0.2s;}
+        @media (prefers-color-scheme: dark) { .grow-card { background: var(--card-bg-dark); border-color: var(--border-dark); } }
+        .grow-card summary { display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none; outline: none; padding: 4px 0;}
+        .grow-card summary::-webkit-details-marker { display: none; }
+        .grow-title-section { display: flex; align-items: center; gap: 8px; flex: 1;}
+        .grow-title-section i { font-size: 0.8rem; color: var(--text-secondary-light); transition: transform 0.2s; }
+        @media (prefers-color-scheme: dark) { .grow-title-section i { color: var(--text-secondary-dark); } }
+        details[open] .grow-title-section i { transform: rotate(90deg); }
+        .grow-title { font-weight: 700; font-size: 1rem; color: var(--text-primary-light); }
+        @media (prefers-color-scheme: dark) { .grow-title { color: var(--text-primary-dark); } }
+        
+        .grow-progress-bar-container { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border-light); width: 100%; }
+        @media (prefers-color-scheme: dark) { .grow-progress-bar-container { border-top-color: var(--border-dark); } }
+        .grow-progress-bar { width: 100%; height: 8px; background: var(--hover-light); border-radius: 10px; overflow: hidden; margin: 8px 0; border: 1px solid var(--border-light); }
+        @media (prefers-color-scheme: dark) { .grow-progress-bar { background: var(--hover-dark); border-color: var(--border-dark); } }
+        .grow-progress-fill { height: 100%; border-radius: 10px; transition: width 0.5s ease-out; }
+        .grow-progress-stats { display: flex; justify-content: space-between; gap: 8px; font-size: 0.75rem; color: var(--text-secondary-light); font-weight: 600; align-items: center;}
+        @media (prefers-color-scheme: dark) { .grow-progress-stats { color: var(--text-secondary-dark); } }
+        .grow-progress-stats strong { color: var(--text-primary-light); font-size: 0.85rem;}
+        @media (prefers-color-scheme: dark) { .grow-progress-stats strong { color: var(--text-primary-dark); } }
+        .grow-progress-stats span:last-child { white-space: nowrap; flex-shrink: 0; text-align: right; }
+        .grow-progress-stats span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        
+        .grow-palette { display: flex; justify-content: space-between; margin-top: 6px; }
+        .grow-swatch { width: 26px; height: 26px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: 0.1s;}
+        .grow-swatch.selected { transform: scale(1.15); box-shadow: 0 0 0 2px var(--card-bg-light), 0 0 0 4px var(--text-primary-light); }
+        @media (prefers-color-scheme: dark) { .grow-swatch.selected { box-shadow: 0 0 0 2px var(--card-bg-dark), 0 0 0 4px var(--text-primary-dark); } }
+        .grow-swatch.hidden { display: none; }
+        
+        .grow-checkbox { display: flex; align-items: center; gap: 8px; margin: 12px 0; font-size: 0.85rem; font-weight: 600; cursor: pointer; color: var(--text-primary-light);}
+        @media (prefers-color-scheme: dark) { .grow-checkbox { color: var(--text-primary-dark); } }
+        .grow-hidden-fields { display: none; background: var(--hover-light); padding: 12px; border-radius: 10px; margin-bottom: 12px; }
+        @media (prefers-color-scheme: dark) { .grow-hidden-fields { background: var(--hover-dark); } }
         
         @media (max-width: 768px) { 
             .nav-container { flex-direction: column; align-items: stretch; gap: 8px; } 
@@ -517,12 +343,8 @@ function writeMainEJS() {
     </style>
 </head>
 <body>
-    <div id="toast" class="toast-container"></div>
-    
-    <div id="globalLoader" class="global-loader">
-        <div class="spinner"></div>
-        <div style="margin-top:12px; font-weight:600; color:var(--text-primary-light); font-size:0.9rem;">Processing...</div>
-    </div>
+    <div class="loader" id="loader"><div class="spinner"></div></div>
+    <div class="toast-container" id="toastContainer"></div>
 
     <div class="app-header">
         <div class="nav-container">
@@ -549,13 +371,14 @@ function writeMainEJS() {
 
     <button class="fab" id="fabButton" onclick="openAddModal()" title="Add New"><i class="fas fa-plus"></i></button>
     <div class="main-content" id="mainContent"></div>
+    
+    <div class="grow-bubble" id="growBubble"><div id="growBubbleContent"></div><div class="grow-tail" id="growTail"></div></div>
 
-    <!-- Task Modals -->
     <div class="modal" id="addTaskModal">
         <div class="modal-content">
-            <div class="modal-header">
-                <h2>Create New Task</h2>
-                <button class="close" onclick="closeModal('addTaskModal')">&times;</button>
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h2 style="font-size: 1.2rem;">Create New Task</h2>
+                <button class="action-btn" onclick="closeModal('addTaskModal')">&times;</button>
             </div>
             <form id="addTaskForm" onsubmit="submitTaskForm(event)">
                 <div class="form-group" style="margin-bottom: 12px;">
@@ -594,9 +417,9 @@ function writeMainEJS() {
 
     <div class="modal" id="editTaskModal">
         <div class="modal-content">
-            <div class="modal-header">
-                <h2>Edit Task</h2>
-                <button class="close" onclick="closeModal('editTaskModal')">&times;</button>
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h2 style="font-size: 1.2rem;">Edit Task</h2>
+                <button class="action-btn" onclick="closeModal('editTaskModal')">&times;</button>
             </div>
             <form id="editTaskForm" onsubmit="submitEditTaskForm(event)">
                 <input type="hidden" name="taskId" id="editTaskId">
@@ -634,224 +457,149 @@ function writeMainEJS() {
         </div>
     </div>
 
-    <!-- Subtask Modals -->
-    <div class="modal" id="addSubtaskModal">
+    <div class="modal" id="addGrowModal">
         <div class="modal-content">
-            <div class="modal-header">
-                <h2>Add Subtask</h2>
-                <button class="close" onclick="closeModal('addSubtaskModal')">&times;</button>
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h2 style="font-size: 1.2rem;">Add New Growth</h2>
+                <button class="action-btn" onclick="closeModal('addGrowModal')">&times;</button>
             </div>
-            <form id="addSubtaskForm" onsubmit="submitSubtaskForm(event)">
-                <input type="hidden" name="taskId" id="subtaskTaskId">
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Title *</label>
-                    <input type="text" class="form-control" name="title" required maxlength="100">
+            <form id="addGrowForm">
+                <div class="form-group"><label>Title</label><input type="text" class="form-control" id="addGrowTitle" required placeholder="E.g. Daily Walk"></div>
+                <div class="form-group" style="margin-top: 12px;"><label>Description (Optional)</label><textarea class="form-control" id="addGrowDesc" rows="2" placeholder="Brief details..."></textarea></div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px; margin-top: 12px;">
+                    <div class="form-group"><label>Start Date</label><input type="date" class="form-control" id="addGrowStart" required></div>
+                    <div class="form-group"><label>Duration (Days)</label><input type="number" class="form-control" id="addGrowDays" value="365" required></div>
                 </div>
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Description</label>
-                    <textarea class="form-control" name="description" rows="3"></textarea>
-                </div>
-                <div style="display: flex; gap: 12px; margin-top: 16px;">
-                    <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('addSubtaskModal')">Cancel</button>
-                    <button type="submit" class="btn btn-primary" style="flex: 1;">Add</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div class="modal" id="editSubtaskModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Edit Subtask</h2>
-                <button class="close" onclick="closeModal('editSubtaskModal')">&times;</button>
-            </div>
-            <form id="editSubtaskForm" onsubmit="submitEditSubtaskForm(event)">
-                <input type="hidden" name="taskId" id="editSubtaskTaskId">
-                <input type="hidden" name="subtaskId" id="editSubtaskId">
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Title *</label>
-                    <input type="text" class="form-control" name="title" id="editSubtaskTitle" required maxlength="100">
-                </div>
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Description</label>
-                    <textarea class="form-control" name="description" id="editSubtaskDescription" rows="3"></textarea>
-                </div>
-                <div style="display: flex; gap: 12px; margin-top: 16px;">
-                    <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('editSubtaskModal')">Cancel</button>
-                    <button type="submit" class="btn btn-primary" style="flex: 1;">Update</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Note Modals -->
-    <div class="modal" id="addNoteModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Create Note</h2>
-                <button class="close" onclick="closeModal('addNoteModal')">&times;</button>
-            </div>
-            <form id="addNoteForm" onsubmit="submitNoteForm(event)">
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Title *</label>
-                    <input type="text" class="form-control" name="title" required maxlength="200">
-                </div>
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Content</label>
-                    <textarea class="form-control" name="description" rows="4"></textarea>
-                </div>
-                <div style="display: flex; gap: 12px; margin-top: 16px;">
-                    <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('addNoteModal')">Cancel</button>
-                    <button type="submit" class="btn btn-primary" style="flex: 1;">Save</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div class="modal" id="editNoteModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Edit Note</h2>
-                <button class="close" onclick="closeModal('editNoteModal')">&times;</button>
-            </div>
-            <form id="editNoteForm" onsubmit="submitEditNoteForm(event)">
-                <input type="hidden" name="noteId" id="editNoteId">
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Title *</label>
-                    <input type="text" class="form-control" name="title" id="editNoteTitle" required maxlength="200">
-                </div>
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Content</label>
-                    <textarea class="form-control" name="description" id="editNoteDescription" rows="4"></textarea>
-                </div>
-                <div style="display: flex; gap: 12px; margin-top: 16px;">
-                    <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('editNoteModal')">Cancel</button>
-                    <button type="submit" class="btn btn-primary" style="flex: 1;">Update</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Grow Tracker Modals -->
-    <div class="modal" id="growAddModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Add New Growth</h2>
-                <button class="close" onclick="closeModal('growAddModal')">&times;</button>
-            </div>
-            <form id="growAddForm">
-                <div class="form-group"><label>Title</label><input type="text" class="form-control" id="growAddTitle" required placeholder="E.g. Daily Walk"></div>
-                <div class="form-group"><label>Description (Optional)</label><textarea class="form-control" id="growAddDesc" rows="2" placeholder="Brief details..."></textarea></div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-                    <div class="form-group"><label>Start Date</label><input type="date" class="form-control" id="growAddStart" required></div>
-                    <div class="form-group"><label>Duration (Days)</label><input type="number" class="form-control" id="growAddDays" value="365" required></div>
-                </div>
-                <div class="form-group"><label>Color Tag</label><div class="grow-palette" id="growAddPalette"></div><input type="hidden" id="growAddColor" required></div>
+                <div class="form-group" style="margin-top: 12px;"><label>Color Tag</label><div class="grow-palette" id="addGrowPalette"></div><input type="hidden" id="addGrowColor" required></div>
                 
-                <label class="grow-checkbox"><input type="checkbox" id="growAddHasData" onchange="growToggleDataFields('add')"> Track Quantitative Data?</label>
+                <label class="grow-checkbox"><input type="checkbox" id="addGrowHasData" onchange="toggleGrowDataFields('add')"> Track Quantitative Data?</label>
                 
-                <div class="grow-hidden-fields" id="growAddDataFields">
-                    <div class="form-group"><label>Question Prompt</label><input type="text" class="form-control" id="growAddQuestion" placeholder="E.g. Weight lost?"></div>
-                    <div class="form-group"><label>Data Type</label><select class="form-control" id="growAddType"><option value="integer">Whole Number</option><option value="float">Decimal (Float)</option></select></div>
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-                        <div class="form-group"><label>Start Value</label><input type="number" step="0.01" class="form-control" id="growAddMin" value="0"></div>
-                        <div class="form-group"><label>Target Value</label><input type="number" step="0.01" class="form-control" id="growAddMax" value="100"></div>
+                <div class="grow-hidden-fields" id="addGrowDataFields">
+                    <div class="form-group"><label>Question Prompt</label><input type="text" class="form-control" id="addGrowQuestion" placeholder="E.g. Weight lost?"></div>
+                    <div class="form-group" style="margin-top: 12px;"><label>Data Type</label><select class="form-control" id="addGrowType"><option value="integer">Whole Number</option><option value="float">Decimal (Float)</option></select></div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px; margin-top: 12px;">
+                        <div class="form-group"><label>Start Value</label><input type="number" step="0.01" class="form-control" id="addGrowMin" value="0"></div>
+                        <div class="form-group"><label>Target Value</label><input type="number" step="0.01" class="form-control" id="addGrowMax" value="100"></div>
                     </div>
                 </div>
-                <button type="submit" class="btn-submit">Create Tracker</button>
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 16px;">Create Tracker</button>
             </form>
         </div>
     </div>
-    
-    <div class="modal" id="growEditModal">
+
+    <div class="modal" id="editGrowModal">
         <div class="modal-content">
-            <div class="modal-header">
-                <h2>Edit Growth</h2>
-                <button class="close" onclick="closeModal('growEditModal')">&times;</button>
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h2 style="font-size: 1.2rem;">Edit Growth</h2>
+                <button class="action-btn" onclick="closeModal('editGrowModal')">&times;</button>
             </div>
-            <form id="growEditForm">
-                <input type="hidden" id="growEditId">
-                <div class="form-group"><label>Title</label><input type="text" class="form-control" id="growEditTitle" required></div>
-                <div class="form-group"><label>Description (Optional)</label><textarea class="form-control" id="growEditDesc" rows="2"></textarea></div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-                    <div class="form-group"><label>Start Date</label><input type="date" class="form-control" id="growEditStart" required></div>
-                    <div class="form-group"><label>Duration (Days)</label><input type="number" class="form-control" id="growEditDays" required></div>
+            <form id="editGrowForm">
+                <input type="hidden" id="editGrowId">
+                <div class="form-group"><label>Title</label><input type="text" class="form-control" id="editGrowTitle" required></div>
+                <div class="form-group" style="margin-top: 12px;"><label>Description (Optional)</label><textarea class="form-control" id="editGrowDesc" rows="2"></textarea></div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px; margin-top: 12px;">
+                    <div class="form-group"><label>Start Date</label><input type="date" class="form-control" id="editGrowStart" required></div>
+                    <div class="form-group"><label>Duration (Days)</label><input type="number" class="form-control" id="editGrowDays" required></div>
                 </div>
-                <div class="form-group"><label>Color Tag</label><div class="grow-palette" id="growEditPalette"></div><input type="hidden" id="growEditColor" required></div>
+                <div class="form-group" style="margin-top: 12px;"><label>Color Tag (Auto-Swaps)</label><div class="grow-palette" id="editGrowPalette"></div><input type="hidden" id="editGrowColor" required></div>
                 
-                <label class="grow-checkbox"><input type="checkbox" id="growEditHasData" onchange="growToggleDataFields('edit')"> Track Quantitative Data?</label>
+                <label class="grow-checkbox"><input type="checkbox" id="editGrowHasData" onchange="toggleGrowDataFields('edit')"> Track Quantitative Data?</label>
                 
-                <div class="grow-hidden-fields" id="growEditDataFields">
-                    <div class="form-group"><label>Question Prompt</label><input type="text" class="form-control" id="growEditQuestion"></div>
-                    <div class="form-group"><label>Data Type</label><select class="form-control" id="growEditType"><option value="integer">Whole Number</option><option value="float">Decimal (Float)</option></select></div>
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-                        <div class="form-group"><label>Start Value</label><input type="number" step="0.01" class="form-control" id="growEditMin"></div>
-                        <div class="form-group"><label>Target Value</label><input type="number" step="0.01" class="form-control" id="growEditMax"></div>
+                <div class="grow-hidden-fields" id="editGrowDataFields">
+                    <div class="form-group"><label>Question Prompt</label><input type="text" class="form-control" id="editGrowQuestion"></div>
+                    <div class="form-group" style="margin-top: 12px;"><label>Data Type</label><select class="form-control" id="editGrowType"><option value="integer">Whole Number</option><option value="float">Decimal (Float)</option></select></div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px; margin-top: 12px;">
+                        <div class="form-group"><label>Start Value</label><input type="number" step="0.01" class="form-control" id="editGrowMin"></div>
+                        <div class="form-group"><label>Target Value</label><input type="number" step="0.01" class="form-control" id="editGrowMax"></div>
                     </div>
                 </div>
-                <button type="submit" class="btn-submit">Update Tracker</button>
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 16px;">Update Tracker</button>
             </form>
         </div>
     </div>
-    
-    <div class="modal" id="growLogModal">
+
+    <div class="modal" id="logGrowModal">
         <div class="modal-content">
-            <div id="growLogListView">
-                <div class="modal-header">
-                    <h2 id="growLogTitle">Log Progress</h2>
-                    <button class="close" onclick="closeModal('growLogModal')">&times;</button>
+            <div id="logGrowListView">
+                <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h2 id="logGrowTitle" style="font-size: 1.2rem;">Log Progress</h2>
+                    <button class="action-btn" onclick="closeModal('logGrowModal')">&times;</button>
                 </div>
-                <div id="growDailyList"></div>
+                <div id="dailyGrowList"></div>
             </div>
-            <div id="growLogQuestionView">
-                <div class="modal-header">
-                    <h2 id="growQTitle"></h2>
-                    <button class="close" onclick="growShowLogList()">&times;</button>
+            <div id="logGrowQuestionView" style="display: none;">
+                <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h2 id="qGrowTitle" style="font-size: 1.2rem;"></h2>
+                    <button class="action-btn" onclick="showGrowLogList()"><i class="fas fa-arrow-left"></i></button>
                 </div>
-                <div id="growQDesc"></div>
-                <div class="form-group"><label id="growQLabel" style="font-size:0.9rem;"></label><div id="growQInput"></div></div>
-                <button class="btn-submit" id="growSaveLogBtn">Save Value</button>
+                <div id="qGrowDesc"></div>
+                <div class="form-group" style="margin-bottom: 12px;"><label id="qGrowLabel" style="font-size:0.9rem; color:var(--text-primary-light);"></label><div id="qGrowInput"></div></div>
+                <button class="btn btn-primary" id="saveGrowLogBtn" style="width: 100%;">Save Value</button>
             </div>
         </div>
     </div>
     
-    <div class="grow-bubble" id="growBubble"><div id="growBubbleContent"></div><div class="grow-tail" id="growTail"></div></div>
+    <div class="modal" id="addSubtaskModal"><div class="modal-content"><div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;"><h2 style="font-size: 1.2rem;">Add Subtask</h2><button class="action-btn" onclick="closeModal('addSubtaskModal')">&times;</button></div><form id="addSubtaskForm" onsubmit="submitSubtaskForm(event)"><input type="hidden" name="taskId" id="subtaskTaskId"><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.85rem; font-weight: 600;">Title *</label><input type="text" class="form-control" name="title" required maxlength="100"></div><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.85rem; font-weight: 600;">Description</label><textarea class="form-control" name="description" rows="3"></textarea></div><div style="display: flex; gap: 12px; margin-top: 16px;"><button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('addSubtaskModal')">Cancel</button><button type="submit" class="btn btn-primary" style="flex: 1;">Add</button></div></form></div></div>
+    <div class="modal" id="editSubtaskModal"><div class="modal-content"><div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;"><h2 style="font-size: 1.2rem;">Edit Subtask</h2><button class="action-btn" onclick="closeModal('editSubtaskModal')">&times;</button></div><form id="editSubtaskForm" onsubmit="submitEditSubtaskForm(event)"><input type="hidden" name="taskId" id="editSubtaskTaskId"><input type="hidden" name="subtaskId" id="editSubtaskId"><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.85rem; font-weight: 600;">Title *</label><input type="text" class="form-control" name="title" id="editSubtaskTitle" required maxlength="100"></div><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.85rem; font-weight: 600;">Description</label><textarea class="form-control" name="description" id="editSubtaskDescription" rows="3"></textarea></div><div style="display: flex; gap: 12px; margin-top: 16px;"><button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('editSubtaskModal')">Cancel</button><button type="submit" class="btn btn-primary" style="flex: 1;">Update</button></div></form></div></div>
+    <div class="modal" id="addNoteModal"><div class="modal-content"><div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;"><h2 style="font-size: 1.2rem;">Create Note</h2><button class="action-btn" onclick="closeModal('addNoteModal')">&times;</button></div><form id="addNoteForm" onsubmit="submitNoteForm(event)"><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.85rem; font-weight: 600;">Title *</label><input type="text" class="form-control" name="title" required maxlength="200"></div><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.85rem; font-weight: 600;">Content</label><textarea class="form-control" name="description" rows="4"></textarea></div><div style="display: flex; gap: 12px; margin-top: 16px;"><button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('addNoteModal')">Cancel</button><button type="submit" class="btn btn-primary" style="flex: 1;">Save</button></div></form></div></div>
+    <div class="modal" id="editNoteModal"><div class="modal-content"><div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;"><h2 style="font-size: 1.2rem;">Edit Note</h2><button class="action-btn" onclick="closeModal('editNoteModal')">&times;</button></div><form id="editNoteForm" onsubmit="submitEditNoteForm(event)"><input type="hidden" name="noteId" id="editNoteId"><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.85rem; font-weight: 600;">Title *</label><input type="text" class="form-control" name="title" id="editNoteTitle" required maxlength="200"></div><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.85rem; font-weight: 600;">Content</label><textarea class="form-control" name="description" id="editNoteDescription" rows="4"></textarea></div><div style="display: flex; gap: 12px; margin-top: 16px;"><button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('editNoteModal')">Cancel</button><button type="submit" class="btn btn-primary" style="flex: 1;">Update</button></div></form></div></div>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.ready(); tg.expand();
 
-        function showToast(msg, type = "success") {
-            const toast = document.getElementById("toast");
-            toast.innerHTML = \`<i class="fas \${type==='success'?'fa-check-circle':'fa-exclamation-circle'}" style="color:var(--\${type==='success'?'grow-accent':'danger-light'})"></i> \${msg}\`;
-            toast.className = \`toast-container show \${type}\`;
-            setTimeout(() => toast.classList.remove("show"), 3000);
+        function setupBrowserNotifications() {
+            if (!("Notification" in window)) return;
+            if (Notification.permission !== "granted" && Notification.permission !== "denied") Notification.requestPermission();
+        }
+        function showBrowserNotification(title, bodyText) {
+            if ("Notification" in window && Notification.permission === "granted") {
+                const n = new Notification(title, { body: bodyText, icon: "https://telegram.org/favicon.ico" });
+                setTimeout(() => n.close(), 5000);
+            }
+        }
+        setupBrowserNotifications();
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            if (type === 'error') toast.style.background = '#dc2626';
+            else if (type === 'warning') toast.style.background = '#d97706';
+            let icon = type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle';
+            toast.innerHTML = '<i class="fas ' + icon + '"></i><span>' + message + '</span>';
+            container.appendChild(toast);
+            showBrowserNotification("Task Manager", message);
+            setTimeout(() => {
+                toast.style.opacity = '0'; toast.style.transform = 'translateX(100%)'; toast.style.transition = 'all 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
         }
 
-        function showLoader() { document.getElementById('globalLoader').classList.add('show'); }
-        function hideLoader() { document.getElementById('globalLoader').classList.remove('show'); }
+        function showLoader() { document.getElementById('loader').style.display = 'flex'; }
+        function hideLoader() { document.getElementById('loader').style.display = 'none'; }
 
         let currentPage = '<%= currentPage %>';
         let tasksData = <%- JSON.stringify(tasks || []) %>;
         let notesData = <%- JSON.stringify(notes || []) %>;
         let historyData = <%- JSON.stringify(groupedHistory || {}) %>;
-        
-        // Grow tracker data
-        let growData = { items: [], progress: {} };
-        let growToday = "", growMonth = 0, growYear = 2026, growLogContext = null;
-        const growColors = ["#ec4899","#a855f7","#38bdf8","#ef4444","#f97316","#16a34a","#84cc16","#3b82f6"];
+        let growTrackerData = <%- JSON.stringify(growData || {items: [], progress: {}}) %>;
         
         let currentMonth = new Date().getMonth();
         let currentYear = new Date().getFullYear();
 
-        function getIST() {
+        // Grow state variables
+        let growToday = "", growMonth = 0, growYear = 2026, growLogContext = null;
+        const growColors = ["#ec4899","#a855f7","#38bdf8","#ef4444","#f97316","#16a34a","#84cc16","#3b82f6"];
+
+        function getGrowIST() {
             const d = new Date();
             const ist = new Date(d.getTime() + 5.5*3600000);
             return {
-                date: ist.getUTCFullYear() + "-" + String(ist.getUTCMonth()+1).padStart(2,"0") + "-" + String(ist.getUTCDate()).padStart(2,"0"),
+                date: ist.getUTCFullYear()+"-"+String(ist.getUTCMonth()+1).padStart(2,"0")+"-"+String(ist.getUTCDate()).padStart(2,"0"),
                 month: ist.getUTCMonth(),
                 year: ist.getUTCFullYear(),
-                time: String(ist.getUTCHours()).padStart(2,"0") + ":" + String(ist.getUTCMinutes()).padStart(2,"0")
+                time: String(ist.getUTCHours()).padStart(2,"0")+":"+String(ist.getUTCMinutes()).padStart(2,"0")
             };
         }
 
@@ -862,7 +610,11 @@ function writeMainEJS() {
                 if(data.tasks) tasksData = data.tasks;
                 if(data.notes) notesData = data.notes;
                 if(data.groupedHistory) historyData = data.groupedHistory;
-                renderPage(); updateActiveNav(); hideLoader();
+                if(data.growData) growTrackerData = data.growData;
+                
+                renderPage(); 
+                updateActiveNav(); 
+                hideLoader();
             }).catch(err => { showToast('Error loading page', 'error'); hideLoader(); });
         }
 
@@ -877,98 +629,103 @@ function writeMainEJS() {
             const content = document.getElementById('mainContent');
             const fabButton = document.getElementById('fabButton');
             
-            if (currentPage === 'tasks') { 
+            if (currentPage === 'tasks') { fabButton.style.display = 'flex'; content.innerHTML = renderTasksPage(); } 
+            else if (currentPage === 'grow') { 
                 fabButton.style.display = 'flex'; 
-                content.innerHTML = renderTasksPage(); 
-            } else if (currentPage === 'grow') { 
-                fabButton.style.display = 'none'; 
-                content.innerHTML = renderGrowPage(); 
-                growInit();
-            } else if (currentPage === 'notes') { 
-                fabButton.style.display = 'flex'; 
-                content.innerHTML = renderNotesPage(); 
-            } else if (currentPage === 'history') { 
-                fabButton.style.display = 'none'; 
-                content.innerHTML = renderHistoryPage(); 
+                content.innerHTML = renderGrowPageStaticShell();
+                renderGrowAll();
+            }
+            else if (currentPage === 'notes') { fabButton.style.display = 'flex'; content.innerHTML = renderNotesPage(); } 
+            else if (currentPage === 'history') { fabButton.style.display = 'none'; content.innerHTML = renderHistoryPage(); }
+        }
+
+        function hasContent(text) { return text && text.trim().length > 0; }
+        function escapeHtml(text) {
+            if (!text) return '';
+            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+        }
+        function preserveLineBreaks(text) { return escapeHtml(text).replace(/\\n/g, '<br>'); }
+        function escapeJsString(str) {
+            if (!str) return '';
+            return str.replace(/\\\\/g, '\\\\\\\\').replace(/'/g, "\\\\'").replace(/"/g, '\\\\"').replace(/\\n/g, '\\\\n').replace(/\\r/g, '\\\\r').replace(/\\t/g, '\\\\t');
+        }
+        function toggleDescription(elementId) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                if (element.classList.contains('hidden')) element.classList.remove('hidden');
+                else element.classList.add('hidden');
             }
         }
 
-        // ===== GROW TRACKER FUNCTIONS =====
-        async function growInit() {
-            const ist = getIST();
-            growToday = ist.date;
-            growMonth = ist.month;
-            growYear = ist.year;
+        // ==========================================
+        // 🌱 GROW FRONTEND LOGIC
+        // ==========================================
+        function renderGrowPageStaticShell() {
+            const istObj = getGrowIST();
+            return '<h1 class="page-title">Grow Tracker</h1>' +
+                '<details class="grow-panel"><summary><span>Progress Overview</span><i class="fas fa-chevron-down"></i></summary>' +
+                '<div class="grow-panel-body" id="growGraphs"></div></details>' +
+                '<details class="grow-panel" open><summary><span>Activity Calendar</span><i class="fas fa-chevron-down"></i></summary>' +
+                '<div class="grow-panel-body"><div class="grow-month-nav"><button class="action-btn" onclick="changeGrowMonth(-1)"><i class="fas fa-chevron-left"></i></button><h2 id="growMonthYear">' + 
+                ["January","February","March","April","May","June","July","August","September","October","November","December"][growMonth] + ' ' + growYear + 
+                '</h2><button class="action-btn" onclick="changeGrowMonth(1)"><i class="fas fa-chevron-right"></i></button></div>' +
+                '<div class="grow-calendar"><div class="grow-grid" id="growCalendar"></div></div></div></details>' +
+                '<details class="grow-panel" open><summary><span>Manage Growth</span><i class="fas fa-chevron-down"></i></summary>' +
+                '<div class="grow-panel-body" id="growList"></div></details>';
+        }
+
+        function renderGrowAll() {
+            renderGrowCalendar();
+            renderGrowGraphs();
+            renderGrowList();
             
-            showLoader();
-            await growFetchData();
-            hideLoader();
+            const fabBtn = document.getElementById("fabButton");
+            if(growTrackerData.items && growTrackerData.items.length >= 8) {
+                fabBtn.style.opacity = "0.5";
+            } else {
+                fabBtn.style.opacity = "1";
+            }
             
-            document.getElementById("mainContent").addEventListener("click", function(e) {
-                const cell = e.target.closest(".grow-day");
-                if(cell && !cell.classList.contains("empty")) {
-                    const d = cell.dataset.date;
-                    const active = growData.items.filter(g => growIsActive(g, d));
-                    const dayData = growData.progress[d] || {};
-                    const allDone = active.length && active.every(g => dayData[g.id] !== undefined);
-                    
-                    if(d === growToday && !allDone) {
-                        growOpenLogModal(d);
-                    } else {
-                        growShowBubble(cell, d);
+            // Re-attach event listeners safely
+            const cal = document.getElementById("growCalendar");
+            if(cal) {
+                cal.onclick = function(e) {
+                    const cell = e.target.closest(".grow-day");
+                    if(cell && !cell.classList.contains("empty")) {
+                        const d = cell.dataset.date;
+                        const active = (growTrackerData.items || []).filter(g => isGrowActive(g, d));
+                        const dayData = (growTrackerData.progress || {})[d] || {};
+                        const allDone = active.length && active.every(g => dayData[g.id] !== undefined);
+                        
+                        if(d === growToday && !allDone) {
+                            openLogGrowModal(d);
+                        } else {
+                            showGrowBubble(cell, d);
+                        }
                     }
-                }
-            });
-
-            document.addEventListener("click", function(e) {
-                if(!e.target.closest(".grow-day") && !e.target.closest(".grow-bubble")) {
-                    growHideBubble();
-                }
-            });
-        }
-
-        async function growFetchData() {
-            try {
-                const res = await fetch("/api/grow/data");
-                growData = await res.json();
-                if(!growData.items) growData.items = [];
-                if(!growData.progress) growData.progress = {};
-                growRenderAll();
-            } catch(e) { 
-                showToast("Failed to fetch data", "error"); 
+                };
             }
         }
-
-        function growRenderAll() { 
-            growRenderCalendar(); 
-            growRenderGraphs(); 
-            growRenderList(); 
-        }
-
-        function growIsActive(item, d) {
+        
+        function isGrowActive(item, d) {
             const start = new Date(item.startDate + "T00:00:00");
             const target = new Date(d + "T00:00:00");
             const days = Math.floor((target - start) / 86400000);
             return days >= 0 && days < item.endCount;
         }
 
-        function escapeHtml(text) {
-            if (!text) return '';
-            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
-            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
-        }
-
-        function preserveLineBreaks(text) { return escapeHtml(text).replace(/\\n/g, '<br>'); }
-
-        function growRenderList() {
+        function renderGrowList() {
             const container = document.getElementById("growList");
-            if(!container) return;
-            if(!growData.items.length) { container.innerHTML = "<div class='grow-empty'><i class='fas fa-seedling' style='font-size:2rem;margin-bottom:10px;'></i><br>No items tracked. Click + to add.</div>"; return; }
+            if(!growTrackerData.items || !growTrackerData.items.length) { 
+                container.innerHTML = '<div class="empty-state"><i class="fas fa-seedling" style="font-size:2rem;margin-bottom:10px;"></i><br>No items tracked. Click + to add.</div>'; 
+                return; 
+            }
             let html = "";
             const now = new Date(growToday + "T00:00:00");
             
-            for(let i=0; i<growData.items.length; i++) {
-                const item = growData.items[i];
+            for(let i=0; i<growTrackerData.items.length; i++) {
+                const item = growTrackerData.items[i];
                 const start = new Date(item.startDate + "T00:00:00");
                 
                 let passed = Math.floor((now - start) / 86400000);
@@ -976,37 +733,29 @@ function writeMainEJS() {
                 let left = item.endCount - passed;
                 if(left < 0) left = 0;
                 
-                html += \`<div class="grow-card">
-                    <details>
-                        <summary>
-                            <div class="grow-title-section"><i class="fas fa-chevron-right"></i><span class="grow-title">\${escapeHtml(item.title)}</span></div>
-                            <div class="grow-actions">
-                                <button class="grow-btn-icon" onclick="event.preventDefault(); growOpenEdit('\${item.id}')" title="Edit"><i class="fas fa-pencil"></i></button>
-                                <button class="grow-btn-icon del" onclick="event.preventDefault(); growDelete('\${item.id}')" title="Delete"><i class="fas fa-trash"></i></button>
-                            </div>
-                        </summary>\`;
+                html += '<div class="grow-card"><details><summary><div class="grow-title-section"><i class="fas fa-chevron-right"></i><span class="grow-title">' + escapeHtml(item.title) + '</span></div>' +
+                        '<div class="task-actions"><button class="action-btn" onclick="event.preventDefault(); openEditGrowModal(\\'' + item.id + '\\')" title="Edit"><i class="fas fa-pencil"></i></button>' +
+                        '<button class="action-btn delete" onclick="event.preventDefault(); deleteGrowTracker(\\'' + item.id + '\\')" title="Delete"><i class="fas fa-trash"></i></button></div></summary>';
                         
                 if(item.description) {
-                    html += \`<div class="grow-desc-container"><div class="grow-desc" style="border-left-color:var(--grow-accent)">\${escapeHtml(item.description)}</div></div>\`;
+                    html += '<div class="task-description-container"><div class="task-description" style="border-left-color:var(--accent-light)">' + escapeHtml(item.description) + '</div></div>';
                 }
                 
                 let timePct = item.endCount > 0 ? (passed / item.endCount) * 100 : 0;
                 timePct = Math.max(0, Math.min(100, timePct));
                 
-                html += \`<div class="grow-progress-bar-container">
-                    <div class="grow-progress-stats"><span><strong>Time Elapsed</strong></span><span>\${passed} / \${item.endCount} Days</span></div>
-                    <div class="grow-progress-bar"><div class="grow-progress-fill" style="width:\${timePct}%; background:\${item.color}cc"></div></div>
-                    <div class="grow-progress-stats"><span>Started: \${item.startDate}</span><span>\${Math.round(timePct)}% Complete</span></div>
-                </div>\`;
+                html += '<div class="grow-progress-bar-container"><div class="grow-progress-stats"><span><strong>Time Elapsed</strong></span><span>' + passed + ' / ' + item.endCount + ' Days</span></div>' +
+                        '<div class="grow-progress-bar"><div class="grow-progress-fill" style="width:' + timePct + '%; background:' + item.color + 'cc"></div></div>' +
+                        '<div class="grow-progress-stats"><span>Started: ' + item.startDate + '</span><span>' + Math.round(timePct) + '% Complete</span></div></div>';
 
                 if(item.hasData && item.type !== "boolean") {
-                    html += \`<hr style="border: none; border-top: 1px solid var(--border-light); margin: 16px 0 8px 0;">\`;
+                    html += '<hr style="border: none; border-top: 1px solid var(--border-light); margin: 16px 0 8px 0;">';
                     
                     let latestValue = item.start !== undefined ? item.start : 0;
-                    let sortedDates = Object.keys(growData.progress).sort();
+                    let sortedDates = Object.keys(growTrackerData.progress || {}).sort();
                     for(let d of sortedDates) {
-                        if(growData.progress[d][item.id] !== undefined && typeof growData.progress[d][item.id] === 'number') {
-                            latestValue = growData.progress[d][item.id];
+                        if(growTrackerData.progress[d][item.id] !== undefined && typeof growTrackerData.progress[d][item.id] === 'number') {
+                            latestValue = growTrackerData.progress[d][item.id];
                         }
                     }
                     if(item.start !== undefined && item.end !== undefined) {
@@ -1016,122 +765,82 @@ function writeMainEJS() {
                         let pct = range === 0 ? 0 : ((latestValue - min) / range) * 100;
                         pct = Math.max(0, Math.min(100, pct));
                         
-                        html += \`<div class="grow-progress-bar-container" style="border-top: none; padding-top: 0; margin-top: 0;">
-                            <div class="grow-progress-stats"><span><strong>\${escapeHtml(item.question)}</strong></span><span>Current: \${latestValue}</span></div>
-                            <div class="grow-progress-bar"><div class="grow-progress-fill" style="width:\${pct}%; background:\${item.color}"></div></div>
-                            <div class="grow-progress-stats"><span>Start: \${item.start}</span><span>Goal: \${item.end}</span></div>
-                        </div>\`;
+                        html += '<div class="grow-progress-bar-container" style="border-top: none; padding-top: 0; margin-top: 0;">' +
+                                '<div class="grow-progress-stats"><span><strong>' + escapeHtml(item.question) + '</strong></span><span>Current: ' + latestValue + '</span></div>' +
+                                '<div class="grow-progress-bar"><div class="grow-progress-fill" style="width:' + pct + '%; background:' + item.color + '"></div></div>' +
+                                '<div class="grow-progress-stats"><span>Start: ' + item.start + '</span><span>Goal: ' + item.end + '</span></div></div>';
                     }
                 }
-                
-                html += \`</details></div>\`;
+                html += '</details></div>';
             }
             container.innerHTML = html;
         }
 
-        async function growDelete(id) { 
-            if(confirm("Delete this tracker and all its logs?")) { 
-                showLoader();
-                try {
-                    await fetch("/api/grow/"+id+"/delete", {method:"POST"}); 
-                    await growFetchData(); 
-                    showToast("Tracker deleted successfully!", "success");
-                } catch(e) {
-                    showToast("Error deleting tracker", "error");
-                }
-                hideLoader();
-            } 
-        }
-
-        function growOpenEdit(id) {
-            const item = growData.items.find(g => g.id === id);
-            if(!item) return;
-            document.getElementById("growEditId").value = item.id;
-            document.getElementById("growEditTitle").value = item.title;
-            document.getElementById("growEditDesc").value = item.description || "";
-            document.getElementById("growEditStart").value = item.startDate;
-            document.getElementById("growEditDays").value = item.endCount;
-            document.getElementById("growEditHasData").checked = item.hasData || false;
-            
-            growToggleDataFields("edit");
-            if(item.hasData) {
-                document.getElementById("growEditQuestion").value = item.question || "";
-                document.getElementById("growEditType").value = item.type || "float";
-                document.getElementById("growEditMin").value = item.start !== undefined ? item.start : 0;
-                document.getElementById("growEditMax").value = item.end !== undefined ? item.end : 100;
-            }
-            growInitEditPalette(item.color);
-            openModal('growEditModal');
-        }
-
-        function growRenderGraphs() {
+        function renderGrowGraphs() {
             const container = document.getElementById("growGraphs");
-            if(!container) return;
-            if(!growData.items.length) { container.innerHTML = "<div class='grow-empty'>No data available.</div>"; return; }
+            if(!growTrackerData.items || !growTrackerData.items.length) { container.innerHTML = "<div class='empty-state'>No data available.</div>"; return; }
             let html = "<div class='grow-graph-container'><div class='grow-graph'>";
             const now = new Date(growToday + "T00:00:00");
             
-            for(let i=0; i<growData.items.length; i++) {
-                const item = growData.items[i];
+            for(let i=0; i<growTrackerData.items.length; i++) {
+                const item = growTrackerData.items[i];
                 const start = new Date(item.startDate + "T00:00:00");
                 let totalDaysSoFar = Math.floor((now - start) / 86400000) + 1;
                 if(totalDaysSoFar < 1) totalDaysSoFar = 0;
                 if(totalDaysSoFar > item.endCount) totalDaysSoFar = item.endCount;
                 
                 let completed = 0;
-                for(let d in growData.progress) {
+                const prog = growTrackerData.progress || {};
+                for(let d in prog) {
                     const dObj = new Date(d + "T00:00:00");
-                    if(dObj >= start && dObj <= now && growData.progress[d] && growData.progress[d][item.id] !== undefined) completed++;
+                    if(dObj >= start && dObj <= now && prog[d] && prog[d][item.id] !== undefined) completed++;
                 }
                 
                 let pct = totalDaysSoFar ? Math.min(100, completed/totalDaysSoFar*100) : 0;
                 
-                html += \`<div class="grow-bar">
-                    <div class="grow-bar-pct">\${Math.round(pct)}%</div>
-                    <div class="grow-bar-track" style="background:\${item.color}40">
-                        <div class="grow-bar-fill" style="height:\${pct}%; background:\${item.color}"></div>
-                        <div class="grow-bar-label">\${escapeHtml(item.title)}</div>
-                    </div>
-                </div>\`;
+                html += '<div class="grow-bar"><div class="grow-bar-pct">' + Math.round(pct) + '%</div>' +
+                        '<div class="grow-bar-track" style="background:' + item.color + '40">' +
+                        '<div class="grow-bar-fill" style="height:' + pct + '%; background:' + item.color + '"></div>' +
+                        '<div class="grow-bar-label">' + escapeHtml(item.title) + '</div></div></div>';
             }
             html += "</div></div>";
             container.innerHTML = html;
         }
 
-        function growChangeMonth(dir) {
+        function changeGrowMonth(dir) {
             growMonth += dir;
             if(growMonth > 11) { growMonth = 0; growYear++; }
             else if(growMonth < 0) { growMonth = 11; growYear--; }
-            growRenderCalendar();
+            renderGrowCalendar();
         }
 
-        function growRenderCalendar() {
+        function renderGrowCalendar() {
             const grid = document.getElementById("growCalendar");
             if(!grid) return;
             const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-            const monthYearEl = document.getElementById("growMonthYear");
-            if(monthYearEl) monthYearEl.innerText = months[growMonth] + " " + growYear;
+            document.getElementById("growMonthYear").innerText = months[growMonth] + " " + growYear;
             
             const firstDay = new Date(growYear, growMonth, 1).getDay();
             const daysInMonth = new Date(growYear, growMonth+1, 0).getDate();
             
             let html = "";
-            
-            ["Su","Mo","Tu","We","Th","Fr","Sa"].forEach(d => html += \`<div class="grow-weekday">\${d}</div>\`);
+            ["Su","Mo","Tu","We","Th","Fr","Sa"].forEach(d => html += '<div class="grow-weekday">' + d + '</div>');
             
             let currentDay = 1;
+            const prog = growTrackerData.progress || {};
+            
             for(let i = 0; i < 42; i++) {
                 if(i < firstDay || currentDay > daysInMonth) {
-                    html += \`<div class="grow-day empty"></div>\`;
+                    html += '<div class="grow-day empty"></div>';
                 } else {
                     const date = growYear + "-" + String(growMonth+1).padStart(2,"0") + "-" + String(currentDay).padStart(2,"0");
                     const isToday = date === growToday;
-                    const dayData = growData.progress[date] || {};
+                    const dayData = prog[date] || {};
                     const activeColors = [];
                     
-                    for(let j=0; j<growData.items.length; j++) {
-                        const g = growData.items[j];
-                        if(growIsActive(g, date) && dayData[g.id] !== undefined) activeColors.push(g.color);
+                    for(let j=0; j<(growTrackerData.items||[]).length; j++) {
+                        const g = growTrackerData.items[j];
+                        if(isGrowActive(g, date) && dayData[g.id] !== undefined) activeColors.push(g.color);
                     }
                     
                     let bg = "transparent", cls = "";
@@ -1147,14 +856,14 @@ function writeMainEJS() {
                         cls = "has-data";
                     }
                     
-                    html += \`<div class="grow-day" data-date="\${date}"><div class="grow-circle \${isToday?'today ':''}\${cls}" style="background:\${bg}">\${currentDay}</div></div>\`;
+                    html += '<div class="grow-day" data-date="' + date + '"><div class="grow-circle ' + (isToday?'today ':'') + cls + '" style="background:' + bg + '">' + currentDay + '</div></div>';
                     currentDay++;
                 }
             }
             grid.innerHTML = html;
         }
 
-        function growHideBubble() {
+        function hideGrowBubble() {
             const bubble = document.getElementById("growBubble");
             if(bubble) {
                 bubble.classList.remove("show");
@@ -1162,21 +871,21 @@ function writeMainEJS() {
             }
         }
 
-        function growShowBubble(cell, date) {
+        function showGrowBubble(cell, date) {
             const bubble = document.getElementById("growBubble");
             const content = document.getElementById("growBubbleContent");
             const tail = document.getElementById("growTail");
-            const active = growData.items.filter(g => growIsActive(g, date));
-            const dayData = growData.progress[date] || {};
+            const active = (growTrackerData.items || []).filter(g => isGrowActive(g, date));
+            const dayData = (growTrackerData.progress || {})[date] || {};
             const d = new Date(date+"T00:00:00");
             
-            let html = \`<div class="grow-bubble-date">\${d.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>\`;
+            let html = '<div class="grow-bubble-date">' + d.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}) + '</div>';
             if(!active.length) html += "<div style='text-align:center;font-size:0.8rem;color:var(--text-secondary-light);'>No tasks active.</div>";
             else {
                 for(let i=0; i<active.length; i++) {
                     const g = active[i];
                     const isDone = dayData[g.id] !== undefined;
-                    html += \`<div class="grow-bubble-item" style="color:\${g.color}"><span>\${escapeHtml(g.title)}</span><i class="fas \${isDone?'fa-check-circle':'fa-circle'}"></i></div>\`;
+                    html += '<div class="grow-bubble-item" style="color:' + g.color + '"><span>' + escapeHtml(g.title) + '</span><i class="fas ' + (isDone?'fa-check-circle':'fa-circle') + '"></i></div>';
                 }
             }
             content.innerHTML = html;
@@ -1204,49 +913,38 @@ function writeMainEJS() {
             
             let tailLeft = (cRect.left + cRect.width / 2) - left;
             tailLeft = Math.max(12, Math.min(bRect.width - 24, tailLeft));
-            
             tail.style.left = (tailLeft - 6) + "px";
             
             if(placement === 'top') {
-                tail.style.bottom = "-6px";
-                tail.style.top = "auto";
-                tail.style.borderTop = "none";
-                tail.style.borderLeft = "none";
-                tail.style.borderBottom = "1px solid var(--border-light)";
-                tail.style.borderRight = "1px solid var(--border-light)";
+                tail.style.bottom = "-6px"; tail.style.top = "auto";
+                tail.style.borderTop = "none"; tail.style.borderLeft = "none";
+                tail.style.borderBottom = "1px solid var(--border-light)"; tail.style.borderRight = "1px solid var(--border-light)";
             } else {
-                tail.style.top = "-6px";
-                tail.style.bottom = "auto";
-                tail.style.borderTop = "1px solid var(--border-light)";
-                tail.style.borderLeft = "1px solid var(--border-light)";
-                tail.style.borderBottom = "none";
-                tail.style.borderRight = "none";
+                tail.style.top = "-6px"; tail.style.bottom = "auto";
+                tail.style.borderTop = "1px solid var(--border-light)"; tail.style.borderLeft = "1px solid var(--border-light)";
+                tail.style.borderBottom = "none"; tail.style.borderRight = "none";
             }
             
-            setTimeout(() => {
-                bubble.style.opacity = "1";
-                bubble.classList.add("show");
-            }, 10);
+            setTimeout(() => { bubble.style.opacity = "1"; bubble.classList.add("show"); }, 10);
         }
 
-        function growInitAddPalette() {
-            const container = document.getElementById("growAddPalette");
-            if(!container) return;
-            const input = document.getElementById("growAddColor");
-            const used = growData.items.map(g => g.color);
+        function initAddGrowPalette() {
+            const container = document.getElementById("addGrowPalette");
+            const input = document.getElementById("addGrowColor");
+            const used = (growTrackerData.items || []).map(g => g.color);
             let html = "", first = null;
             
             for(let i=0; i<growColors.length; i++) {
                 const c = growColors[i];
                 const isUsed = used.includes(c);
                 if(!isUsed && !first) first = c;
-                html += \`<div class="grow-swatch \${isUsed?'hidden':''}" style="background:\${c}" data-color="\${c}"></div>\`;
+                html += '<div class="grow-swatch ' + (isUsed?'hidden':'') + '" style="background:' + c + '" data-color="' + c + '"></div>';
             }
             container.innerHTML = html;
             
             if(first) {
                 input.value = first;
-                const firstSwatch = container.querySelector(\`[data-color="\${first}"]\`);
+                const firstSwatch = container.querySelector('[data-color="' + first + '"]');
                 if(firstSwatch) firstSwatch.classList.add("selected");
             }
             
@@ -1259,14 +957,13 @@ function writeMainEJS() {
             };
         }
 
-        function growInitEditPalette(current) {
-            const container = document.getElementById("growEditPalette");
-            if(!container) return;
-            const input = document.getElementById("growEditColor");
+        function initEditGrowPalette(current) {
+            const container = document.getElementById("editGrowPalette");
+            const input = document.getElementById("editGrowColor");
             let html = "";
             for(let i=0; i<growColors.length; i++) {
                 const c = growColors[i];
-                html += \`<div class="grow-swatch \${c===current?'selected':''}" style="background:\${c}" data-color="\${c}"></div>\`;
+                html += '<div class="grow-swatch ' + (c===current?'selected':'') + '" style="background:' + c + '" data-color="' + c + '"></div>';
             }
             container.innerHTML = html;
             input.value = current;
@@ -1280,267 +977,169 @@ function writeMainEJS() {
             };
         }
 
-        function growOpenAddModal() {
-            if (growData.items.length >= 8) {
+        window.toggleGrowDataFields = function(mode) {
+            const prefix = mode === "add" ? "addGrow" : "editGrow";
+            const checked = document.getElementById(prefix+"HasData").checked;
+            document.getElementById(prefix+"DataFields").style.display = checked ? "block" : "none";
+        };
+
+        window.openAddGrowModal = function() {
+            if (growTrackerData.items && growTrackerData.items.length >= 8) {
                 showToast("All colors occupied! Cannot add more.", "error");
                 return;
             }
-            document.getElementById("growAddStart").value = growToday;
-            document.getElementById("growAddType").value = "integer";
-            growInitAddPalette();
-            openModal('growAddModal');
-        }
+            document.getElementById("addGrowStart").value = growToday;
+            document.getElementById("addGrowType").value = "integer";
+            initAddGrowPalette();
+            openModal("addGrowModal");
+        };
 
-        function growToggleDataFields(mode) {
-            const prefix = mode === "add" ? "growAdd" : "growEdit";
-            const checked = document.getElementById(prefix+"HasData").checked;
-            document.getElementById(prefix+"DataFields").style.display = checked ? "block" : "none";
-        }
+        window.openEditGrowModal = function(id) {
+            const item = growTrackerData.items.find(g => g.id === id);
+            if(!item) return;
+            document.getElementById("editGrowId").value = item.id;
+            document.getElementById("editGrowTitle").value = item.title;
+            document.getElementById("editGrowDesc").value = item.description || "";
+            document.getElementById("editGrowStart").value = item.startDate;
+            document.getElementById("editGrowDays").value = item.endCount;
+            document.getElementById("editGrowHasData").checked = item.hasData || false;
+            
+            toggleGrowDataFields("edit");
+            if(item.hasData) {
+                document.getElementById("editGrowQuestion").value = item.question || "";
+                document.getElementById("editGrowType").value = item.type || "float";
+                document.getElementById("editGrowMin").value = item.start !== undefined ? item.start : 0;
+                document.getElementById("editGrowMax").value = item.end !== undefined ? item.end : 100;
+            }
+            initEditGrowPalette(item.color);
+            openModal("editGrowModal");
+        };
 
-        function growOpenLogModal(date) {
-            const active = growData.items.filter(g => growIsActive(g, date));
+        document.getElementById("addGrowForm").addEventListener("submit", async function(e) {
+            e.preventDefault(); showLoader();
+            const payload = {
+                title: document.getElementById("addGrowTitle").value.trim(),
+                description: document.getElementById("addGrowDesc").value.trim(),
+                startDate: document.getElementById("addGrowStart").value,
+                endCount: parseInt(document.getElementById("addGrowDays").value),
+                color: document.getElementById("addGrowColor").value,
+                hasData: document.getElementById("addGrowHasData").checked,
+                type: document.getElementById("addGrowType").value,
+                question: document.getElementById("addGrowQuestion").value.trim(),
+                start: document.getElementById("addGrowMin").value,
+                end: document.getElementById("addGrowMax").value
+            };
+            try {
+                const res = await fetch("/api/grow", { method:"POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload) });
+                if(res.ok) { closeModal("addGrowModal"); document.getElementById("addGrowForm").reset(); showToast("Tracker created!"); switchPage("grow"); }
+                else throw new Error("Failed");
+            } catch(e) { showToast("Failed to create tracker", "error"); hideLoader(); }
+        });
+
+        document.getElementById("editGrowForm").addEventListener("submit", async function(e) {
+            e.preventDefault(); showLoader();
+            const id = document.getElementById("editGrowId").value;
+            const payload = {
+                id: id, title: document.getElementById("editGrowTitle").value.trim(), description: document.getElementById("editGrowDesc").value.trim(),
+                startDate: document.getElementById("editGrowStart").value, endCount: parseInt(document.getElementById("editGrowDays").value),
+                color: document.getElementById("editGrowColor").value, hasData: document.getElementById("editGrowHasData").checked,
+                type: document.getElementById("editGrowType").value, question: document.getElementById("editGrowQuestion").value.trim(),
+                start: document.getElementById("editGrowMin").value, end: document.getElementById("editGrowMax").value
+            };
+            try {
+                const res = await fetch("/api/grow/" + id + "/update", { method:"POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload) });
+                if(res.ok) { closeModal("editGrowModal"); showToast("Tracker updated!"); switchPage("grow"); }
+                else throw new Error("Failed");
+            } catch(e) { showToast("Failed to update", "error"); hideLoader(); }
+        });
+
+        window.deleteGrowTracker = async function(id) {
+            if(confirm("Delete this tracker and all its logs?")) { 
+                showLoader();
+                try {
+                    const res = await fetch("/api/grow/" + id + "/delete", {method:"POST"}); 
+                    if(res.ok) { showToast("Tracker deleted!"); switchPage("grow"); }
+                    else throw new Error("Failed");
+                } catch(e) { showToast("Error deleting tracker", "error"); hideLoader(); }
+            }
+        };
+
+        window.openLogGrowModal = function(date) {
+            const active = growTrackerData.items.filter(g => isGrowActive(g, date));
             const d = new Date(date+"T00:00:00");
-            document.getElementById("growLogTitle").innerText = d.toLocaleDateString("en-US",{month:"long",day:"numeric"});
+            document.getElementById("logGrowTitle").innerText = d.toLocaleDateString("en-US",{month:"long",day:"numeric"});
             let html = "";
-            const dayData = growData.progress[date] || {};
+            const dayData = (growTrackerData.progress || {})[date] || {};
             
             for(let i=0; i<active.length; i++) {
                 const item = active[i];
                 const done = dayData[item.id] !== undefined;
                 
-                html += \`<div class="grow-card">
-                    <details style="display:contents;">
-                        <summary style="outline:none; list-style:none;">
-                            <div class="grow-title-section"><i class="fas fa-chevron-right"></i><span class="grow-title">\${escapeHtml(item.title)}</span></div>
-                            <div class="grow-actions">
-                                <button class="grow-btn-icon" onclick="event.preventDefault(); growHandleLogClick('\${item.id}','\${date}')" style="background:\${done?'var(--hover-light)':'var(--grow-accent)'};color:\${done?'var(--text-secondary-light)':'white'}; width:36px; height:36px;" \${done?'disabled':''}><i class="fas fa-check"></i></button>
-                            </div>
-                        </summary>\`;
-                if(item.description) html += \`<div class="grow-desc-container"><div class="grow-desc" style="border-left-color:var(--grow-accent)">\${escapeHtml(item.description)}</div></div>\`;
-                html += \`</details></div>\`;
+                html += '<div class="grow-card"><details style="display:contents;"><summary style="outline:none; list-style:none;">' +
+                        '<div class="grow-title-section"><i class="fas fa-chevron-right"></i><span class="grow-title">' + escapeHtml(item.title) + '</span></div>' +
+                        '<div class="task-actions"><button class="action-btn" onclick="event.preventDefault(); handleGrowLogClick(\\'' + item.id + '\\',\\'' + date + '\\')" style="background:' + (done?'var(--hover-light)':'var(--accent-light)') + ';color:' + (done?'var(--text-secondary-light)':'white') + '; width:36px; height:36px;" ' + (done?'disabled':'') + '><i class="fas fa-check"></i></button></div></summary>';
+                if(item.description) html += '<div class="task-description-container"><div class="task-description" style="border-left-color:var(--accent-light)">' + escapeHtml(item.description) + '</div></div>';
+                html += '</details></div>';
             }
-            document.getElementById("growDailyList").innerHTML = html;
-            growShowLogList();
-            openModal('growLogModal');
-        }
+            document.getElementById("dailyGrowList").innerHTML = html;
+            showGrowLogList();
+            openModal("logGrowModal");
+        };
 
-        function growHandleLogClick(id, date) {
-            const item = growData.items.find(g => g.id === id);
-            if(item.hasData) {
-                growOpenLogQuestion(item, date);
-            } else {
-                growSaveLog(item, date, true);
-            }
-        }
+        window.handleGrowLogClick = function(id, date) {
+            const item = growTrackerData.items.find(g => g.id === id);
+            if(item.hasData) { openLogGrowQuestion(item, date); } 
+            else { saveGrowLog(item, date, true); }
+        };
 
-        function growOpenLogQuestion(item, date) {
+        function openLogGrowQuestion(item, date) {
             growLogContext = {item, date};
-            document.getElementById("growQTitle").innerText = item.title;
-            document.getElementById("growQDesc").innerHTML = item.description ? \`<div class="grow-desc" style="border-left-color:var(--grow-accent);margin-bottom:12px;">\${escapeHtml(item.description)}</div>\` : "";
-            document.getElementById("growQLabel").innerText = item.question;
+            document.getElementById("qGrowTitle").innerText = item.title;
+            document.getElementById("qGrowDesc").innerHTML = item.description ? '<div class="task-description" style="border-left-color:var(--accent-light);margin-bottom:12px;">' + escapeHtml(item.description) + '</div>' : "";
+            document.getElementById("qGrowLabel").innerText = item.question;
             
-            const wrapper = document.getElementById("growQInput");
+            const wrapper = document.getElementById("qGrowInput");
             const step = item.type === "float" ? "0.01" : "1";
-            wrapper.innerHTML = \`<input type="number" step="\${step}" class="form-control" id="growLogValue" placeholder="Enter numerical value">\`;
+            wrapper.innerHTML = '<input type="number" step="' + step + '" class="form-control" id="logGrowValue" placeholder="Enter numerical value">';
             
-            document.getElementById("growLogListView").style.display = "none";
-            document.getElementById("growLogQuestionView").style.display = "block";
+            document.getElementById("logGrowListView").style.display = "none";
+            document.getElementById("logGrowQuestionView").style.display = "block";
         }
 
-        async function growSaveLog(item, date, val) {
+        async function saveGrowLog(item, date, val) {
             showLoader();
             try {
                 const payload = { itemId: item.id, dateStr: date, value: val };
-                await fetch("/api/grow/log", {
-                    method:"POST", 
-                    headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify(payload)
-                });
-                await growFetchData();
-                showToast("Growth progress logged successfully!", "success");
-                
-                const active = growData.items.filter(g => growIsActive(g, date));
-                const dayData = growData.progress[date] || {};
-                const allDone = active.length && active.every(g => dayData[g.id] !== undefined);
-                
-                if(allDone) {
-                    closeModal('growLogModal');
-                    const cell = document.querySelector(\`.grow-day[data-date="\${date}"]\`);
-                    if(cell) growShowBubble(cell, date);
-                } else {
-                    growOpenLogModal(date); 
-                }
-            } catch (err) {
-                showToast("Failed to save progress.", "error");
-            }
-            hideLoader();
+                const res = await fetch("/api/grow/log", { method:"POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload) });
+                if(res.ok) { 
+                    showToast("Progress logged!");
+                    // Rapid reload page state to see changes
+                    switchPage("grow"); 
+                    closeModal("logGrowModal");
+                } else throw new Error("Failed");
+            } catch (err) { showToast("Failed to save progress.", "error"); hideLoader(); }
         }
 
-        function growShowLogList() { 
-            document.getElementById("growLogListView").style.display = "block"; 
-            document.getElementById("growLogQuestionView").style.display = "none"; 
-        }
+        document.getElementById("saveGrowLogBtn").addEventListener("click", async function() {
+            const input = document.getElementById("logGrowValue");
+            if(!input || !input.value) { showToast("Please enter a valid numerical value.", "error"); return; }
+            const {item, date} = growLogContext;
+            const val = item.type === "float" ? parseFloat(input.value) : parseInt(input.value);
+            await saveGrowLog(item, date, val);
+        });
 
-        function renderGrowPage() {
-            return \`
-                <details class="grow-panel">
-                    <summary><span>Progress Overview</span><i class="fas fa-chevron-down"></i></summary>
-                    <div class="grow-panel-body" id="growGraphs"></div>
-                </details>
-                
-                <details class="grow-panel" open>
-                    <summary><span>Activity Calendar</span><i class="fas fa-chevron-down"></i></summary>
-                    <div class="grow-panel-body">
-                        <div class="grow-month-nav">
-                            <button class="grow-nav-btn" onclick="growChangeMonth(-1)"><i class="fas fa-chevron-left"></i></button>
-                            <h2 id="growMonthYear"></h2>
-                            <button class="grow-nav-btn" onclick="growChangeMonth(1)"><i class="fas fa-chevron-right"></i></button>
-                        </div>
-                        <div class="grow-calendar"><div class="grow-grid" id="growCalendar"></div></div>
-                    </div>
-                </details>
-                
-                <details class="grow-panel" open>
-                    <summary><span>Manage Growth</span><i class="fas fa-chevron-down"></i></summary>
-                    <div class="grow-panel-body" id="growList"></div>
-                </details>
-                
-                <button class="fab" style="background: var(--grow-accent);" onclick="growOpenAddModal()"><i class="fas fa-plus"></i></button>
-            \`;
-        }
+        window.showGrowLogList = function() { document.getElementById("logGrowListView").style.display = "block"; document.getElementById("logGrowQuestionView").style.display = "none"; };
 
-        // ===== TASKS PAGE FUNCTIONS =====
-        function renderTasksPage() {
-            let html = '<h1 class="page-title">Today\'s Tasks</h1><div class="tasks-grid">';
-            if (!tasksData || tasksData.length === 0) {
-                html += '<div class="empty-state" style="grid-column: 1/-1;"><i class="fas fa-clipboard-list" style="font-size: 2rem;"></i><h3 style="margin-top: 12px;">No tasks</h3></div>';
-            } else {
-                tasksData.forEach((task) => {
-                    const hasDescription = task.description && task.description.trim().length > 0;
-                    const progress = task.subtaskProgress || 0;
-                    const circleCircumference = 2 * Math.PI * 16;
-                    const circleOffset = circleCircumference - (progress / 100) * circleCircumference;
-                    const completedSubtasks = task.subtasks ? task.subtasks.filter(s => s.completed).length : 0;
-                    const totalSubtasks = task.subtasks ? task.subtasks.length : 0;
-                    const descriptionId = 'task_desc_' + task.taskId;
-                    const escapedTitle = escapeHtml(task.title);
-                    
-                    html += '<div class="task-card"><div class="task-header"><div class="task-title-section"><div class="task-title-container" onclick="toggleDescription(\\'' + descriptionId + '\\')"><i class="fas fa-chevron-right" id="' + descriptionId + '_icon"></i><span class="task-title">' + escapedTitle + '</span></div></div><div class="task-actions">';
-                    if (totalSubtasks < 10) html += '<button class="action-btn" onclick="openAddSubtaskModal(\\'' + task.taskId + '\\')"><i class="fas fa-plus"></i></button>';
-                    html += '<button class="action-btn" onclick="openEditTaskModal(\\'' + task.taskId + '\\')"><i class="fas fa-pencil-alt"></i></button><button class="action-btn" onclick="completeTask(\\'' + task.taskId + '\\')"><i class="fas fa-check"></i></button><button class="action-btn delete" onclick="deleteTask(\\'' + task.taskId + '\\')"><i class="fas fa-trash"></i></button></div></div>';
-                    if (hasDescription) html += '<div id="' + descriptionId + '" class="task-description-container hidden"><div class="task-description">' + preserveLineBreaks(task.description) + '</div></div>';
-                    
-                    let displayDate = task.dateIST || task.startDateStr;
-                    if (displayDate && displayDate.includes('-') && displayDate.split('-')[0].length === 4) {
-                        const parts = displayDate.split('-');
-                        displayDate = parts[2] + '-' + parts[1] + '-' + parts[0];
-                    }
-                    html += '<div class="task-time-row"><span class="date-chip"><i class="fas fa-calendar-alt"></i> ' + displayDate + '</span><span class="time-chip"><i class="fas fa-clock"></i> ' + (task.startTimeIST || task.startTimeStr) + '-' + (task.endTimeIST || task.endTimeStr) + '</span></div>';
-                    
-                    if (totalSubtasks > 0) {
-                        html += '<details class="task-subtasks"><summary class="flex-row" style="cursor: pointer;"><div class="progress-ring-small"><svg width="40" height="40"><circle class="progress-ring-circle-small" stroke="var(--progress-bg-light)" stroke-width="3" fill="transparent" r="16" cx="20" cy="20"/><circle class="progress-ring-circle-small" stroke="var(--accent-light)" stroke-width="3" fill="transparent" r="16" cx="20" cy="20" style="stroke-dasharray: ' + circleCircumference + '; stroke-dashoffset: ' + circleOffset + '; "/></svg><span class="progress-text-small">' + progress + '%</span></div><span style="font-size: 0.8rem; color: var(--text-secondary-light);">' + completedSubtasks + '/' + totalSubtasks + ' subtasks</span></summary><div class="subtasks-container w-100">';
-                        task.subtasks.sort((a, b) => { if (a.completed === b.completed) return 0; return a.completed ? 1 : -1; }).forEach((subtask) => {
-                            const subtaskHasDesc = subtask.description && subtask.description.trim().length > 0;
-                            const subtaskDescId = 'subtask_desc_' + task.taskId + '_' + subtask.id;
-                            const escapedSubtaskTitle = escapeHtml(subtask.title);
-                            html += '<div class="subtask-item"><div class="subtask-main-row"><div class="subtask-checkbox ' + (subtask.completed ? 'completed' : '') + '" onclick="toggleSubtask(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\')">' + (subtask.completed ? '<i class="fas fa-check"></i>' : '') + '</div><div class="subtask-details"><div class="subtask-title-container" onclick="toggleDescription(\\'' + subtaskDescId + '\\')"><span class="subtask-title ' + (subtask.completed ? 'completed' : '') + '">' + escapedSubtaskTitle + '</span></div></div><div class="subtask-actions"><button class="subtask-btn" onclick="editSubtask(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\', \\'' + escapedSubtaskTitle.replace(/'/g, "\\\\'") + '\\', \\'' + (subtask.description || '').replace(/'/g, "\\\\'") + '\\')"><i class="fas fa-pencil-alt"></i></button><button class="subtask-btn delete" onclick="deleteSubtask(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\')"><i class="fas fa-trash"></i></button></div></div>';
-                            if (subtaskHasDesc) html += '<div id="' + subtaskDescId + '" class="subtask-description-container hidden"><div class="subtask-description">' + preserveLineBreaks(subtask.description) + '</div></div>';
-                            html += '</div>';
-                        });
-                        html += '</div></details>';
-                    } else { html += '<div class="flex-row" style="margin-top: 8px;"><span style="font-size: 0.8rem; color: var(--text-secondary-light);"><i class="fas fa-tasks"></i> No subtasks</span></div>'; }
-                    html += '<div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;"><span class="badge"><i class="fas fa-repeat"></i> ' + (task.repeat && task.repeat !== 'none' ? (task.repeat === 'daily' ? 'Daily' : 'Weekly') : 'No Repeat') + '</span><span class="badge"><i class="fas fa-hourglass-half"></i> ' + task.durationFormatted + '</span>';
-                    if (task.repeatCount > 0) html += '<span class="badge"><i class="fas fa-hashtag"></i> ' + task.repeatCount + ' left</span>';
-                    html += '</div></div>';
-                });
-            }
-            html += '</div>';
-            return html;
-        }
-
-        function renderNotesPage() {
-            let html = '<h1 class="page-title">Notes</h1><div class="tasks-grid">';
-            if (!notesData || notesData.length === 0) { html += '<div class="empty-state" style="grid-column: 1/-1;"><i class="fas fa-note-sticky" style="font-size: 2rem;"></i><h3 style="margin-top: 12px;">No notes</h3></div>'; } 
-            else {
-                notesData.forEach(note => {
-                    const hasDescription = note.description && note.description.trim().length > 0;
-                    const noteDescId = 'note_desc_' + note.noteId;
-                    const escapedNoteTitle = escapeHtml(note.title);
-                    html += '<div class="note-card"><div class="note-header"><div class="task-title-container" onclick="toggleDescription(\\'' + noteDescId + '\\')"><i class="fas fa-chevron-right" id="' + noteDescId + '_icon"></i><span class="note-title">' + escapedNoteTitle + '</span></div><div style="display: flex; gap: 4px;"><button class="action-btn" onclick="moveNote(\\'' + note.noteId + '\\', \\'up\\')"><i class="fas fa-arrow-up"></i></button><button class="action-btn" onclick="moveNote(\\'' + note.noteId + '\\', \\'down\\')"><i class="fas fa-arrow-down"></i></button><button class="action-btn" onclick="openEditNoteModal(\\'' + note.noteId + '\\', \\'' + escapedNoteTitle.replace(/'/g, "\\\\'") + '\\', \\'' + (note.description || '').replace(/'/g, "\\\\'") + '\\')"><i class="fas fa-pencil-alt"></i></button><button class="action-btn delete" onclick="deleteNote(\\'' + note.noteId + '\\')"><i class="fas fa-trash"></i></button></div></div>';
-                    if (hasDescription) html += '<div id="' + noteDescId + '" class="note-content-container hidden"><div class="note-content">' + preserveLineBreaks(note.description) + '</div></div>';
-                    html += '<div class="note-meta"><span><i class="fas fa-clock"></i> ' + note.createdAtIST + '</span>' + (note.updatedAtIST !== note.createdAtIST ? '<span><i class="fas fa-pencil-alt"></i> ' + note.updatedAtIST + '</span>' : '') + '</div></div>';
-                });
-            }
-            html += '</div>'; return html;
-        }
-
-        function renderHistoryPage() {
-            let html = '<h1 class="page-title">History</h1>';
-            html += '<div class="history-header"><div class="month-selector"><button class="month-btn" onclick="changeMonth(-1)"><i class="fas fa-chevron-left"></i> Prev</button><span style="font-weight: 600;">' + new Date(currentYear, currentMonth).toLocaleString('default', { month: 'long' }) + ' ' + currentYear + '</span><button class="month-btn" onclick="changeMonth(1)">Next <i class="fas fa-chevron-right"></i></button></div></div>';
-            html += '<div class="history-grid">';
-            
-            const filteredHistory = filterHistoryByMonth(historyData, currentYear, currentMonth);
-            const dates = Object.keys(filteredHistory).sort().reverse();
-            
-            if (dates.length === 0) { html += '<div class="empty-state"><i class="fas fa-history" style="font-size: 2rem;"></i><h3 style="margin-top: 12px;">No history</h3></div>'; } 
-            else {
-                dates.forEach(date => {
-                    const tasks = filteredHistory[date];
-                    let displayDateHeader = date;
-                    if (date.includes('-') && date.split('-')[0].length === 4) {
-                        const parts = date.split('-'); displayDateHeader = parts[2] + '-' + parts[1] + '-' + parts[0];
-                    }
-                    html += '<div class="history-date-card"><details class="history-details">';
-                    html += '<summary><i class="fas fa-calendar-alt"></i><span style="font-weight: 600;">' + displayDateHeader + '</span><span class="badge" style="margin-left: auto;">' + tasks.length + ' task(s)</span></summary>';
-                    html += '<div class="history-tasks-grid">';
-                    
-                    tasks.forEach(task => {
-                        const hasDescription = task.description && task.description.trim().length > 0;
-                        const historyDescId = 'history_desc_' + task._id;
-                        const escapedHistoryTitle = escapeHtml(task.title);
-                        html += '<div class="history-task-card"><div class="history-task-header"><div class="task-title-container" onclick="toggleDescription(\\'' + historyDescId + '\\')"><i class="fas fa-chevron-right"></i><span class="history-task-title">' + escapedHistoryTitle + '</span></div><span class="history-task-time"><i class="fas fa-check-circle" style="color: var(--success-light);"></i> ' + task.completedTimeIST + '</span></div>';
-                        if (hasDescription) html += '<div id="' + historyDescId + '" class="history-description-container hidden"><div class="history-description">' + preserveLineBreaks(task.description) + '</div></div>';
-                        html += '<div style="display: flex; gap: 6px; margin: 8px 0; flex-wrap: wrap;"><span class="badge"><i class="fas fa-clock"></i> ' + task.startTimeIST + '-' + task.endTimeIST + '</span><span class="badge"><i class="fas fa-hourglass-half"></i> ' + task.durationFormatted + '</span>' + (task.repeat && task.repeat !== 'none' ? '<span class="badge"><i class="fas fa-repeat"></i> ' + (task.repeat === 'daily' ? 'Daily' : 'Weekly') + '</span>' : '') + '</div>';
-                        if (task.subtasks && task.subtasks.length > 0) {
-                            html += '<details style="margin-top: 8px;"><summary style="cursor: pointer; color: var(--accent-light); font-weight: 600; font-size: 0.8rem;"><i class="fas fa-tasks"></i> Subtasks (' + task.subtasks.filter(s => s.completed).length + '/' + task.subtasks.length + ')</summary><div style="margin-top: 8px;">';
-                            task.subtasks.forEach(subtask => {
-                                const subtaskHasDesc = subtask.description && subtask.description.trim().length > 0;
-                                const historySubtaskDescId = 'history_subtask_desc_' + task._id + '_' + subtask.id;
-                                html += '<div class="history-subtask"><div style="display: flex; align-items: flex-start; gap: 6px;"><span style="color: ' + (subtask.completed ? 'var(--success-light)' : 'var(--text-secondary-light)') + '"><i class="fas fa-' + (subtask.completed ? 'check-circle' : 'circle') + '"></i></span><div style="flex: 1;"><div class="task-title-container" onclick="toggleDescription(\\'' + historySubtaskDescId + '\\')"><span style="font-weight: 600; font-size: 0.8rem;">' + escapeHtml(subtask.title) + '</span></div>' + (subtaskHasDesc ? '<div id="' + historySubtaskDescId + '" class="history-description-container hidden"><div class="history-description" style="border-left-color: var(--accent-light);">' + preserveLineBreaks(subtask.description) + '</div></div>' : '') + '</div></div></div>';
-                            });
-                            html += '</div></details>';
-                        }
-                        html += '</div>';
-                    });
-                    html += '</div></details></div>';
-                });
-            }
-            html += '</div>'; return html;
-        }
-
-        function filterHistoryByMonth(history, year, month) {
-            const filtered = {};
-            Object.keys(history).forEach(dateStr => {
-                let parts;
-                if(dateStr.includes('-') && dateStr.split('-')[0].length === 4) parts = dateStr.split('-');
-                else parts = dateStr.split('-').reverse();
-                
-                const yearNum = parseInt(parts[0]);
-                const monthNum = parseInt(parts[1]);
-                if (yearNum === year && monthNum - 1 === month) filtered[dateStr] = history[dateStr];
-            });
-            return filtered;
-        }
-
-        function changeMonth(delta) {
-            currentMonth += delta;
-            if (currentMonth < 0) { currentMonth = 11; currentYear--; } else if (currentMonth > 11) { currentMonth = 0; currentYear++; }
-            renderPage();
-        }
-
+        // ==========================================
+        // OVERRIDE GLOBAL FUNCTIONS
+        // ==========================================
         function openModal(modalId) { document.getElementById(modalId).style.display = 'flex'; document.body.style.overflow = 'hidden'; }
         function closeModal(modalId) { document.getElementById(modalId).style.display = 'none'; document.body.style.overflow = 'auto'; }
-        function openAddModal() { if (currentPage === 'tasks') openAddTaskModal(); else if (currentPage === 'notes') openAddNoteModal(); }
+        function openAddModal() { 
+            if (currentPage === 'tasks') openAddTaskModal(); 
+            else if (currentPage === 'notes') openAddNoteModal(); 
+            else if (currentPage === 'grow') openAddGrowModal();
+        }
 
         function openAddTaskModal() {
             const istNow = new Date(new Date().getTime() + 5.5 * 60 * 60 * 1000);
@@ -1572,20 +1171,9 @@ function writeMainEJS() {
         }
 
         function openAddSubtaskModal(taskId) { document.getElementById('subtaskTaskId').value = taskId; openModal('addSubtaskModal'); }
-        function editSubtask(taskId, subtaskId, title, description) { 
-            document.getElementById('editSubtaskTaskId').value = taskId; 
-            document.getElementById('editSubtaskId').value = subtaskId; 
-            document.getElementById('editSubtaskTitle').value = title; 
-            document.getElementById('editSubtaskDescription').value = description || ''; 
-            openModal('editSubtaskModal'); 
-        }
+        function editSubtask(taskId, subtaskId, title, description) { document.getElementById('editSubtaskTaskId').value = taskId; document.getElementById('editSubtaskId').value = subtaskId; document.getElementById('editSubtaskTitle').value = title; document.getElementById('editSubtaskDescription').value = description || ''; openModal('editSubtaskModal'); }
         function openAddNoteModal() { openModal('addNoteModal'); }
-        function openEditNoteModal(noteId, title, description) { 
-            document.getElementById('editNoteId').value = noteId; 
-            document.getElementById('editNoteTitle').value = title; 
-            document.getElementById('editNoteDescription').value = description || ''; 
-            openModal('editNoteModal'); 
-        }
+        function openEditNoteModal(noteId, title, description) { document.getElementById('editNoteId').value = noteId; document.getElementById('editNoteTitle').value = title; document.getElementById('editNoteDescription').value = description || ''; openModal('editNoteModal'); }
 
         function submitTaskForm(event) {
             event.preventDefault(); showLoader();
@@ -1602,52 +1190,13 @@ function writeMainEJS() {
             .catch(err => { showToast(err.message || 'Error updating task', 'error'); hideLoader(); });
         }
 
-        function submitSubtaskForm(event) { 
-            event.preventDefault(); showLoader(); 
-            const formData = new FormData(event.target); 
-            fetch('/api/tasks/' + formData.get('taskId') + '/subtasks', { method: 'POST', body: new URLSearchParams(formData) })
-            .then(res => { if(res.ok){ closeModal('addSubtaskModal'); showToast('Subtask added!'); switchPage('tasks'); } else throw new Error(''); })
-            .catch(err => { showToast('Error adding subtask', 'error'); hideLoader(); }); 
-        }
-
-        function submitEditSubtaskForm(event) { 
-            event.preventDefault(); showLoader(); 
-            const formData = new FormData(event.target); 
-            fetch('/api/tasks/' + formData.get('taskId') + '/subtasks/' + formData.get('subtaskId') + '/update', { method: 'POST', body: new URLSearchParams(formData) })
-            .then(res => { if(res.ok){ closeModal('editSubtaskModal'); showToast('Subtask updated!'); switchPage('tasks'); } else throw new Error(''); })
-            .catch(err => { showToast('Error updating subtask', 'error'); hideLoader(); }); 
-        }
-
-        function submitNoteForm(event) { 
-            event.preventDefault(); showLoader(); 
-            fetch('/api/notes', { method: 'POST', body: new URLSearchParams(new FormData(event.target)) })
-            .then(res => { if(res.ok){ closeModal('addNoteModal'); showToast('Note created!'); switchPage('notes'); } else throw new Error(''); })
-            .catch(err => { showToast('Error creating note', 'error'); hideLoader(); }); 
-        }
-
-        function submitEditNoteForm(event) { 
-            event.preventDefault(); showLoader(); 
-            const formData = new FormData(event.target); 
-            fetch('/api/notes/' + formData.get('noteId') + '/update', { method: 'POST', body: new URLSearchParams(formData) })
-            .then(res => { if(res.ok){ closeModal('editNoteModal'); showToast('Note updated!'); switchPage('notes'); } else throw new Error(''); })
-            .catch(err => { showToast('Error updating note', 'error'); hideLoader(); }); 
-        }
-
-        function toggleSubtask(taskId, subtaskId) { 
-            showLoader(); 
-            fetch('/api/tasks/' + taskId + '/subtasks/' + subtaskId + '/toggle', { method: 'POST' })
-            .then(res => { if(res.ok){ showToast('Subtask toggled'); switchPage('tasks'); } else throw new Error(''); })
-            .catch(err => { showToast('Error toggling', 'error'); hideLoader(); }); 
-        }
-
-        function deleteSubtask(taskId, subtaskId) { 
-            if (!confirm('Delete this subtask?')) return; 
-            showLoader(); 
-            fetch('/api/tasks/' + taskId + '/subtasks/' + subtaskId + '/delete', { method: 'POST' })
-            .then(res => { if(res.ok){ showToast('Subtask deleted'); switchPage('tasks'); } else throw new Error(''); })
-            .catch(err => { showToast('Error deleting', 'error'); hideLoader(); }); 
-        }
-
+        function submitSubtaskForm(event) { event.preventDefault(); showLoader(); const formData = new FormData(event.target); fetch('/api/tasks/' + formData.get('taskId') + '/subtasks', { method: 'POST', body: new URLSearchParams(formData) }).then(res => { if(res.ok){ closeModal('addSubtaskModal'); showToast('Subtask added!'); switchPage('tasks'); } else throw new Error(''); }).catch(err => { showToast('Error adding subtask', 'error'); hideLoader(); }); }
+        function submitEditSubtaskForm(event) { event.preventDefault(); showLoader(); const formData = new FormData(event.target); fetch('/api/tasks/' + formData.get('taskId') + '/subtasks/' + formData.get('subtaskId') + '/update', { method: 'POST', body: new URLSearchParams(formData) }).then(res => { if(res.ok){ closeModal('editSubtaskModal'); showToast('Subtask updated!'); switchPage('tasks'); } else throw new Error(''); }).catch(err => { showToast('Error updating subtask', 'error'); hideLoader(); }); }
+        function submitNoteForm(event) { event.preventDefault(); showLoader(); fetch('/api/notes', { method: 'POST', body: new URLSearchParams(new FormData(event.target)) }).then(res => { if(res.ok){ closeModal('addNoteModal'); showToast('Note created!'); switchPage('notes'); } else throw new Error(''); }).catch(err => { showToast('Error creating note', 'error'); hideLoader(); }); }
+        function submitEditNoteForm(event) { event.preventDefault(); showLoader(); const formData = new FormData(event.target); fetch('/api/notes/' + formData.get('noteId') + '/update', { method: 'POST', body: new URLSearchParams(formData) }).then(res => { if(res.ok){ closeModal('editNoteModal'); showToast('Note updated!'); switchPage('notes'); } else throw new Error(''); }).catch(err => { showToast('Error updating note', 'error'); hideLoader(); }); }
+        function toggleSubtask(taskId, subtaskId) { showLoader(); fetch('/api/tasks/' + taskId + '/subtasks/' + subtaskId + '/toggle', { method: 'POST' }).then(res => { if(res.ok){ showToast('Subtask toggled'); switchPage('tasks'); } else throw new Error(''); }).catch(err => { showToast('Error toggling', 'error'); hideLoader(); }); }
+        function deleteSubtask(taskId, subtaskId) { if (!confirm('Delete this subtask?')) return; showLoader(); fetch('/api/tasks/' + taskId + '/subtasks/' + subtaskId + '/delete', { method: 'POST' }).then(res => { if(res.ok){ showToast('Subtask deleted'); switchPage('tasks'); } else throw new Error(''); }).catch(err => { showToast('Error deleting', 'error'); hideLoader(); }); }
+        
         function completeTask(taskId) {
             if (!confirm('Complete this task?')) return;
             showLoader();
@@ -1655,132 +1204,31 @@ function writeMainEJS() {
             .then(res => { if(res.ok){ showToast('Task completed!'); switchPage('tasks'); } else { return res.text().then(t => {throw new Error(t);}); } })
             .catch(err => { showToast(err.message || 'Error completing task', 'error'); hideLoader(); });
         }
-
-        function deleteTask(taskId) { 
-            if (!confirm('Delete this task?')) return; 
-            showLoader(); 
-            fetch('/api/tasks/' + taskId + '/delete', { method: 'POST' })
-            .then(res => { if(res.ok){ showToast('Task deleted'); switchPage('tasks'); } else throw new Error(''); })
-            .catch(err => { showToast('Error deleting', 'error'); hideLoader(); }); 
-        }
-
-        function deleteNote(noteId) { 
-            if (!confirm('Delete this note?')) return; 
-            showLoader(); 
-            fetch('/api/notes/' + noteId + '/delete', { method: 'POST' })
-            .then(res => { if(res.ok){ showToast('Note deleted'); switchPage('notes'); } else throw new Error(''); })
-            .catch(err => { showToast('Error deleting', 'error'); hideLoader(); }); 
-        }
-
-        function moveNote(noteId, direction) { 
-            showLoader(); 
-            const formData = new FormData(); 
-            formData.append('direction', direction); 
-            fetch('/api/notes/' + noteId + '/move', { method: 'POST', body: new URLSearchParams(formData) })
-            .then(res => { if(res.ok){ showToast('Moved'); switchPage('notes'); } else throw new Error(''); })
-            .catch(err => { showToast('Error moving', 'error'); hideLoader(); }); 
-        }
-
-        function toggleDescription(elementId) {
-            const element = document.getElementById(elementId);
-            if (element) {
-                if (element.classList.contains('hidden')) element.classList.remove('hidden');
-                else element.classList.add('hidden');
-            }
-        }
+        
+        function deleteTask(taskId) { if (!confirm('Delete this task?')) return; showLoader(); fetch('/api/tasks/' + taskId + '/delete', { method: 'POST' }).then(res => { if(res.ok){ showToast('Task deleted'); switchPage('tasks'); } else throw new Error(''); }).catch(err => { showToast('Error deleting', 'error'); hideLoader(); }); }
+        function deleteNote(noteId) { if (!confirm('Delete this note?')) return; showLoader(); fetch('/api/notes/' + noteId + '/delete', { method: 'POST' }).then(res => { if(res.ok){ showToast('Note deleted'); switchPage('notes'); } else throw new Error(''); }).catch(err => { showToast('Error deleting', 'error'); hideLoader(); }); }
+        function moveNote(noteId, direction) { showLoader(); const formData = new FormData(); formData.append('direction', direction); fetch('/api/notes/' + noteId + '/move', { method: 'POST', body: new URLSearchParams(formData) }).then(res => { if(res.ok){ showToast('Moved'); switchPage('notes'); } else throw new Error(''); }).catch(err => { showToast('Error moving', 'error'); hideLoader(); }); }
 
         document.addEventListener('DOMContentLoaded', function() {
-            renderPage(); 
-            updateActiveNav();
+            // Initialize Grow Context Data
+            const gIst = getGrowIST();
+            growToday = gIst.date; growMonth = gIst.month; growYear = gIst.year;
+            
+            renderPage(); updateActiveNav();
+            
             setInterval(() => {
                 const now = new Date();
                 const istNow = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
                 document.getElementById('currentTimeDisplay').innerHTML = String(istNow.getUTCHours()).padStart(2, '0') + ':' + String(istNow.getUTCMinutes()).padStart(2, '0');
                 document.getElementById('currentDateDisplay').innerHTML = String(istNow.getUTCDate()).padStart(2, '0') + '-' + String(istNow.getUTCMonth() + 1).padStart(2, '0') + '-' + istNow.getUTCFullYear();
             }, 1000);
+            
             document.getElementById('repeatSelect').addEventListener('change', function() { document.getElementById('repeatCountGroup').style.display = this.value === 'none' ? 'none' : 'block'; });
             document.getElementById('editRepeatSelect').addEventListener('change', function() { document.getElementById('editRepeatCountGroup').style.display = this.value === 'none' ? 'none' : 'block'; });
-            window.addEventListener('click', function(event) { if (event.target.classList.contains('modal')) { event.target.style.display = 'none'; document.body.style.overflow = 'auto'; } });
             
-            // Grow form listeners
-            document.getElementById('growAddForm')?.addEventListener('submit', async function(e) {
-                e.preventDefault();
-                showLoader();
-                
-                const payload = {
-                    title: document.getElementById('growAddTitle').value.trim(),
-                    description: document.getElementById('growAddDesc').value.trim(),
-                    startDate: document.getElementById('growAddStart').value,
-                    endCount: parseInt(document.getElementById('growAddDays').value),
-                    color: document.getElementById('growAddColor').value,
-                    hasData: document.getElementById('growAddHasData').checked,
-                    type: document.getElementById('growAddType').value,
-                    question: document.getElementById('growAddQuestion').value.trim(),
-                    start: document.getElementById('growAddMin').value,
-                    end: document.getElementById('growAddMax').value
-                };
-                
-                try {
-                    await fetch("/api/grow", {
-                        method:"POST", 
-                        headers: {"Content-Type": "application/json"},
-                        body: JSON.stringify(payload)
-                    });
-                    
-                    closeModal('growAddModal');
-                    document.getElementById('growAddForm').reset();
-                    document.getElementById('growAddDataFields').style.display = "none";
-                    await growFetchData();
-                    showToast("New tracker created successfully!", "success");
-                } catch(e) {
-                    showToast("Failed to create tracker", "error");
-                }
-                hideLoader();
-            });
-
-            document.getElementById('growEditForm')?.addEventListener('submit', async function(e) {
-                e.preventDefault();
-                showLoader();
-                
-                const id = document.getElementById('growEditId').value;
-                const payload = {
-                    id: id,
-                    title: document.getElementById('growEditTitle').value.trim(),
-                    description: document.getElementById('growEditDesc').value.trim(),
-                    startDate: document.getElementById('growEditStart').value,
-                    endCount: parseInt(document.getElementById('growEditDays').value),
-                    color: document.getElementById('growEditColor').value,
-                    hasData: document.getElementById('growEditHasData').checked,
-                    type: document.getElementById('growEditType').value,
-                    question: document.getElementById('growEditQuestion').value.trim(),
-                    start: document.getElementById('growEditMin').value,
-                    end: document.getElementById('growEditMax').value
-                };
-                
-                try {
-                    await fetch("/api/grow/"+id+"/update", {
-                        method:"POST", 
-                        headers: {"Content-Type": "application/json"},
-                        body: JSON.stringify(payload)
-                    });
-                    closeModal('growEditModal');
-                    await growFetchData();
-                    showToast("Tracker updated!", "success");
-                } catch(e) {
-                    showToast("Failed to update", "error");
-                }
-                hideLoader();
-            });
-
-            document.getElementById('growSaveLogBtn')?.addEventListener('click', async function() {
-                const input = document.getElementById('growLogValue');
-                if(!input || !input.value) {
-                    showToast("Please enter a valid numerical value.", "error");
-                    return;
-                }
-                const {item, date} = growLogContext;
-                const val = item.type === "float" ? parseFloat(input.value) : parseInt(input.value);
-                await growSaveLog(item, date, val);
+            window.addEventListener('click', function(event) { 
+                if (event.target.classList.contains('modal')) { event.target.style.display = 'none'; document.body.style.overflow = 'auto'; } 
+                if(!event.target.closest(".grow-day") && !event.target.closest(".grow-bubble")) hideGrowBubble();
             });
         });
     </script>
@@ -1790,6 +1238,137 @@ function writeMainEJS() {
     fs.writeFileSync(path.join(viewsDir, 'index.ejs'), mainEJS);
 }
 writeMainEJS();
+
+// ==========================================
+// 🗄️ DATABASE CONNECTION
+// ==========================================
+let db;
+let client;
+
+async function connectDB() {
+    let retries = 5;
+    while (retries > 0) {
+        try {
+            client = new MongoClient(MONGODB_URI, { serverSelectionTimeoutMS: 5000, maxPoolSize: 10 });
+            await client.connect();
+            db = client.db('telegram_bot');
+            console.log('✅ Connected to MongoDB');
+            
+            // Initialize Grow Collection if it doesn't exist
+            const exists = await db.collection('grow').findOne({ type: 'tracker' });
+            if (!exists) {
+                await db.collection('grow').insertOne({ type: 'tracker', items: [], progress: {} });
+                console.log('✅ Initialized grow collection');
+            }
+            return true;
+        } catch (error) {
+            retries--;
+            if (retries === 0) return false;
+            await new Promise(resolve => setTimeout(resolve, 5000));
+        }
+    }
+    return false;
+}
+
+// ==========================================
+// 🛠️ UTILITY FUNCTIONS
+// ==========================================
+function generateId(type = 'task') { return type.charAt(0) + Math.random().toString(36).substring(2, 10); }
+function generateSubtaskId() { return 'sub_' + Date.now().toString(36); }
+function calculateDuration(startDate, endDate) { return Math.round((endDate - startDate) / 60000); }
+function formatDuration(minutes) {
+    if (minutes < 0) return '0 mins';
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    if (hours === 0) return mins + ' mins';
+    if (mins === 0) return hours + ' hours';
+    return hours + 'h ' + mins + 'm';
+}
+function calculateSubtaskProgress(subtasks) {
+    if (!subtasks || subtasks.length === 0) return 0;
+    return Math.round((subtasks.filter(s => s.completed).length / subtasks.length) * 100);
+}
+
+// ==========================================
+// 🤖 BOT SETUP & SCHEDULER
+// ==========================================
+const bot = new Telegraf(BOT_TOKEN);
+const activeSchedules = new Map();
+let isShuttingDown = false;
+
+bot.command('start', async (ctx) => {
+    const keyboard = Markup.inlineKeyboard([[Markup.button.webApp('🌐 Open Web App', WEB_APP_URL)]]);
+    await ctx.reply('🌟 <b>Global Task Manager</b>\n\nManage your tasks & habits using the Web App below. I will send you notifications here.', { parse_mode: 'HTML', reply_markup: keyboard.reply_markup });
+});
+
+function scheduleTask(task) {
+    if (!task || !task.taskId || !task.startDate) return;
+    try {
+        const taskId = task.taskId;
+        const startTimeUTC = new Date(task.startDate);
+        const nowUTC = new Date();
+
+        cancelTaskSchedule(taskId);
+        if (startTimeUTC <= nowUTC) return;
+
+        const notifyTimeUTC = new Date(startTimeUTC.getTime() - 10 * 60000);
+        const triggerDateUTC = notifyTimeUTC > nowUTC ? notifyTimeUTC : nowUTC;
+
+        const startJob = schedule.scheduleJob(triggerDateUTC, async function() {
+            if (isShuttingDown) return;
+            let count = 0;
+            const maxNotifications = 10;
+            
+            const sendNotification = async () => {
+                if (isShuttingDown) return;
+                const currentTimeUTC = new Date();
+                if (currentTimeUTC >= startTimeUTC || count >= maxNotifications) {
+                    const activeSchedule = activeSchedules.get(taskId);
+                    if (activeSchedule && activeSchedule.interval) {
+                        clearInterval(activeSchedule.interval);
+                        activeSchedule.interval = null;
+                    }
+                    if (currentTimeUTC >= startTimeUTC) {
+                        try { await bot.telegram.sendMessage(CHAT_ID, `🚀 <b>START NOW:</b> ${task.title}`, { parse_mode: 'HTML' }); } catch (e) {}
+                    }
+                    return;
+                }
+                const minutesLeft = Math.ceil((startTimeUTC - currentTimeUTC) / 60000);
+                if (minutesLeft > 0) {
+                    try { await bot.telegram.sendMessage(CHAT_ID, `🔔 <b>In ${minutesLeft}m:</b> ${task.title}`, { parse_mode: 'HTML' }); } catch (e) {}
+                }
+                count++;
+            };
+            await sendNotification();
+            const interval = setInterval(sendNotification, 60000);
+            if (activeSchedules.has(taskId)) {
+                if (activeSchedules.get(taskId).interval) clearInterval(activeSchedules.get(taskId).interval);
+                activeSchedules.get(taskId).interval = interval;
+            } else { activeSchedules.set(taskId, { startJob, interval }); }
+        });
+        
+        if (activeSchedules.has(taskId)) {
+            if (activeSchedules.get(taskId).startJob) activeSchedules.get(taskId).startJob.cancel();
+            activeSchedules.get(taskId).startJob = startJob;
+        } else { activeSchedules.set(taskId, { startJob }); }
+    } catch (error) {}
+}
+
+function cancelTaskSchedule(taskId) {
+    if (activeSchedules.has(taskId)) {
+        const s = activeSchedules.get(taskId);
+        if (s.startJob) try { s.startJob.cancel(); } catch (e) {}
+        if (s.interval) try { clearInterval(s.interval); } catch (e) {}
+        activeSchedules.delete(taskId);
+    }
+}
+
+async function rescheduleAllPending() {
+    try {
+        const tasks = await db.collection('tasks').find({ status: 'pending', startDate: { $gt: new Date() } }).toArray();
+        tasks.forEach(task => scheduleTask(task));
+    } catch (error) {}
+}
 
 // ==========================================
 // 📱 WEB INTERFACE ROUTES
@@ -1815,7 +1394,7 @@ app.get('/tasks', async (req, res) => {
                 subtaskProgress: calculateSubtaskProgress(task.subtasks), 
                 subtasks: task.subtasks || []
             })),
-            notes: [], groupedHistory: {}, currentTime: istDateObj.displayTime, currentDate: istDateObj.displayDate
+            notes: [], groupedHistory: {}, growData: {items:[], progress:{}}, currentTime: istDateObj.displayTime, currentDate: istDateObj.displayDate
         });
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -1823,7 +1402,9 @@ app.get('/tasks', async (req, res) => {
 app.get('/grow', async (req, res) => {
     try {
         const istDateObj = getCurrentISTDisplay();
-        res.render('index', { currentPage: 'grow', tasks: [], notes: [], groupedHistory: {}, currentTime: istDateObj.displayTime, currentDate: istDateObj.displayDate });
+        const data = await db.collection('grow').findOne({ type: 'tracker' });
+        const cleanData = data ? { items: data.items || [], progress: data.progress || {} } : { items: [], progress: {} };
+        res.render('index', { currentPage: 'grow', tasks: [], notes: [], groupedHistory: {}, growData: cleanData, currentTime: istDateObj.displayTime, currentDate: istDateObj.displayDate });
     } catch (error) { res.status(500).send(error.message); }
 });
 
@@ -1831,18 +1412,7 @@ app.get('/notes', async (req, res) => {
     try {
         const notes = await db.collection('notes').find().sort({ orderIndex: 1, createdAt: -1 }).toArray();
         const istDateObj = getCurrentISTDisplay();
-        res.render('index', { 
-            currentPage: 'notes', 
-            tasks: [], 
-            notes: notes.map(n => ({ 
-                ...n, 
-                createdAtIST: formatLegacyIST(n.createdAt, 'date') + ' ' + formatLegacyIST(n.createdAt, 'time'), 
-                updatedAtIST: n.updatedAt ? formatLegacyIST(n.updatedAt, 'date') + ' ' + formatLegacyIST(n.updatedAt, 'time') : '' 
-            })), 
-            groupedHistory: {}, 
-            currentTime: istDateObj.displayTime, 
-            currentDate: istDateObj.displayDate 
-        });
+        res.render('index', { currentPage: 'notes', tasks: [], notes: notes.map(n => ({ ...n, createdAtIST: formatLegacyIST(n.createdAt, 'date') + ' ' + formatLegacyIST(n.createdAt, 'time'), updatedAtIST: n.updatedAt ? formatLegacyIST(n.updatedAt, 'date') + ' ' + formatLegacyIST(n.updatedAt, 'time') : '' })), groupedHistory: {}, growData: {items:[], progress:{}}, currentTime: istDateObj.displayTime, currentDate: istDateObj.displayDate });
     } catch (error) { res.status(500).send(error.message); }
 });
 
@@ -1862,14 +1432,7 @@ app.get('/history', async (req, res) => {
             });
         });
         const istDateObj = getCurrentISTDisplay();
-        res.render('index', { 
-            currentPage: 'history', 
-            tasks: [], 
-            notes: [], 
-            groupedHistory, 
-            currentTime: istDateObj.displayTime, 
-            currentDate: istDateObj.displayDate 
-        });
+        res.render('index', { currentPage: 'history', tasks: [], notes: [], groupedHistory, growData: {items:[], progress:{}}, currentTime: istDateObj.displayTime, currentDate: istDateObj.displayDate });
     } catch (error) { res.status(500).send(error.message); }
 });
 
@@ -1881,52 +1444,113 @@ app.get('/api/page/:page', async (req, res) => {
             const startOfDayUTC = istToUTC(istDateObj.date, "00:00");
             const endOfDayUTC = istToUTC(istDateObj.date, "23:59");
             const tasks = await db.collection('tasks').find({ status: 'pending', nextOccurrence: { $gte: startOfDayUTC, $lt: endOfDayUTC } }).sort({ orderIndex: 1, nextOccurrence: 1 }).toArray();
-            res.json({ tasks: tasks.map(task => ({ 
-                ...task, 
-                startTimeIST: task.startTimeStr || formatLegacyIST(task.startDate, 'time'), 
-                endTimeIST: task.endTimeStr || formatLegacyIST(task.endDate, 'time'), 
-                dateIST: task.startDateStr || formatLegacyIST(task.startDate, 'date'), 
-                durationFormatted: formatDuration(calculateDuration(task.startDate, task.endDate)), 
-                subtaskProgress: calculateSubtaskProgress(task.subtasks) 
-            })) });
+            res.json({ tasks: tasks.map(task => ({ ...task, startTimeIST: task.startTimeStr || formatLegacyIST(task.startDate, 'time'), endTimeIST: task.endTimeStr || formatLegacyIST(task.endDate, 'time'), dateIST: task.startDateStr || formatLegacyIST(task.startDate, 'date'), durationFormatted: formatDuration(calculateDuration(task.startDate, task.endDate)), subtaskProgress: calculateSubtaskProgress(task.subtasks) })) });
         } else if (page === 'grow') {
-            res.json({});
+            const data = await db.collection('grow').findOne({ type: 'tracker' });
+            res.json({ growData: data ? { items: data.items || [], progress: data.progress || {} } : { items: [], progress: {} } });
         } else if (page === 'notes') {
             const notes = await db.collection('notes').find().sort({ orderIndex: 1, createdAt: -1 }).toArray();
-            res.json({ notes: notes.map(n => ({ 
-                ...n, 
-                createdAtIST: formatLegacyIST(n.createdAt, 'date') + ' ' + formatLegacyIST(n.createdAt, 'time'), 
-                updatedAtIST: n.updatedAt ? formatLegacyIST(n.updatedAt, 'date') + ' ' + formatLegacyIST(n.updatedAt, 'time') : '' 
-            })) });
+            res.json({ notes: notes.map(n => ({ ...n, createdAtIST: formatLegacyIST(n.createdAt, 'date') + ' ' + formatLegacyIST(n.createdAt, 'time'), updatedAtIST: n.updatedAt ? formatLegacyIST(n.updatedAt, 'date') + ' ' + formatLegacyIST(n.updatedAt, 'time') : '' })) });
         } else if (page === 'history') {
             const history = await db.collection('history').find().sort({ completedAt: -1 }).limit(500).toArray();
             const groupedHistory = {};
             history.forEach(item => {
                 const dateKey = item.completedDateStr || formatLegacyIST(item.completedAt, 'date');
                 if (!groupedHistory[dateKey]) groupedHistory[dateKey] = [];
-                groupedHistory[dateKey].push({ 
-                    ...item, 
-                    completedTimeIST: item.completedTimeStr || formatLegacyIST(item.completedAt, 'time'), 
-                    startTimeIST: item.startTimeStr || formatLegacyIST(item.startDate, 'time'), 
-                    endTimeIST: item.endTimeStr || formatLegacyIST(item.endDate, 'time'), 
-                    durationFormatted: formatDuration(calculateDuration(item.startDate, item.endDate)) 
-                });
+                groupedHistory[dateKey].push({ ...item, completedTimeIST: item.completedTimeStr || formatLegacyIST(item.completedAt, 'time'), startTimeIST: item.startTimeStr || formatLegacyIST(item.startDate, 'time'), endTimeIST: item.endTimeStr || formatLegacyIST(item.endDate, 'time'), durationFormatted: formatDuration(calculateDuration(item.startDate, item.endDate)) });
             });
             res.json({ groupedHistory });
         } else { res.status(404).json({ error: 'Not found' }); }
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
+// ==========================================
+// 🚀 GROW BACKEND ROUTES
+// ==========================================
+app.post('/api/grow', async (req, res) => {
+    try {
+        const { title, description, startDate, endCount, color, hasData, type, question, start, end } = req.body;
+        const item = {
+            id: generateId('g'),
+            title: title, description: description || '', startDate: startDate, endCount: parseInt(endCount),
+            color: color, hasData: hasData === true, type: hasData ? type : 'boolean'
+        };
+        
+        if (item.hasData) {
+            item.question = question || '';
+            if (start !== undefined && start !== '') item.start = type === 'float' ? parseFloat(start) : parseInt(start);
+            if (end !== undefined && end !== '') item.end = type === 'float' ? parseFloat(end) : parseInt(end);
+        }
+        
+        await db.collection('grow').updateOne({ type: 'tracker' }, { $push: { items: item } }, { upsert: true });
+        try { await bot.telegram.sendMessage(CHAT_ID, `🌱 <b>Grow Tracker Added:</b> ${title}`, { parse_mode: 'HTML' }); } catch(e) {}
+        res.json({ success: true });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.post('/api/grow/:id/update', async (req, res) => {
+    try {
+        const { id, title, description, startDate, endCount, color, hasData, type, question, start, end } = req.body;
+        const tracker = await db.collection('grow').findOne({ type: 'tracker' });
+        if (!tracker) return res.status(404).json({ error: 'Tracker not found' });
+        
+        const currentItem = tracker.items.find(i => i.id === id);
+        if (currentItem && currentItem.color !== color) {
+            const conflictingItem = tracker.items.find(i => i.id !== id && i.color === color);
+            if (conflictingItem) await db.collection('grow').updateOne({ type: 'tracker', 'items.id': conflictingItem.id }, { $set: { 'items.$.color': currentItem.color } });
+        }
+        
+        const updatedItem = {
+            id: id, title: title, description: description || '', startDate: startDate,
+            endCount: parseInt(endCount), color: color, hasData: hasData === true, type: hasData ? type : 'boolean'
+        };
+        
+        if (updatedItem.hasData) {
+            updatedItem.question = question || '';
+            if (start !== undefined && start !== '') updatedItem.start = type === 'float' ? parseFloat(start) : parseInt(start);
+            if (end !== undefined && end !== '') updatedItem.end = type === 'float' ? parseFloat(end) : parseInt(end);
+        }
+        
+        await db.collection('grow').updateOne({ type: 'tracker', 'items.id': id }, { $set: { 'items.$': updatedItem } });
+        res.json({ success: true });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.post('/api/grow/:id/delete', async (req, res) => {
+    try {
+        const tracker = await db.collection('grow').findOne({ type: 'tracker' });
+        const item = tracker?.items.find(i => i.id === req.params.id);
+        await db.collection('grow').updateOne({ type: 'tracker' }, { $pull: { items: { id: req.params.id } } });
+        if (tracker?.progress) {
+            const prog = { ...tracker.progress };
+            Object.keys(prog).forEach(date => { if (prog[date] && prog[date][req.params.id] !== undefined) delete prog[date][req.params.id]; });
+            await db.collection('grow').updateOne({ type: 'tracker' }, { $set: { progress: prog } });
+        }
+        try { await bot.telegram.sendMessage(CHAT_ID, `🗑️ <b>Grow Tracker Deleted:</b> ${item?.title || 'Unknown'}`, { parse_mode: 'HTML' }); } catch(e) {}
+        res.json({ success: true });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.post('/api/grow/log', async (req, res) => {
+    try {
+        const { itemId, dateStr, value } = req.body;
+        const tracker = await db.collection('grow').findOne({ type: 'tracker' });
+        const item = tracker?.items.find(i => i.id === itemId);
+        
+        await db.collection('grow').updateOne({ type: 'tracker' }, { $set: { [`progress.${dateStr}.${itemId}`]: value } });
+        try { await bot.telegram.sendMessage(CHAT_ID, `✅ <b>Grow Logged:</b> ${item?.title || 'Unknown'}`, { parse_mode: 'HTML' }); } catch(e) {}
+        res.json({ success: true });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// ==========================================
+// 🚀 TASKS/NOTES API ROUTES
+// ==========================================
 app.get('/api/tasks/:taskId', async (req, res) => {
     try {
         const task = await db.collection('tasks').findOne({ taskId: req.params.taskId });
         if (!task) return res.status(404).json({ error: 'Not found' });
-        res.json({ 
-            ...task, 
-            startDateIST: task.startDateStr || formatLegacyIST(task.startDate, 'date'), 
-            startTimeIST: task.startTimeStr || formatLegacyIST(task.startDate, 'time'), 
-            endTimeIST: task.endTimeStr || formatLegacyIST(task.endDate, 'time') 
-        });
+        res.json({ ...task, startDateIST: task.startDateStr || formatLegacyIST(task.startDate, 'date'), startTimeIST: task.startTimeStr || formatLegacyIST(task.startDate, 'time'), endTimeIST: task.endTimeStr || formatLegacyIST(task.endDate, 'time') });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
@@ -1941,25 +1565,17 @@ app.post('/api/tasks', async (req, res) => {
         }
         
         const task = { 
-            taskId: generateTaskId(), 
+            taskId: generateId('task'), 
             title: title.trim(), 
             description: description ? description.trim() : '', 
-            startDate: startDateUTC, 
-            endDate: endDateUTC, 
-            nextOccurrence: startDateUTC, 
-            status: 'pending', 
-            repeat: repeat || 'none', 
-            repeatCount: repeat && repeat !== 'none' ? (parseInt(repeatCount) || 7) : 0, 
-            subtasks: [], 
-            createdAt: new Date(), 
-            orderIndex: (await db.collection('tasks').countDocuments()) || 0, 
-            startTimeStr: startTime, 
-            endTimeStr: endTime, 
-            startDateStr: startDate 
+            startDate: startDateUTC, endDate: endDateUTC, nextOccurrence: startDateUTC, 
+            status: 'pending', repeat: repeat || 'none', repeatCount: repeat && repeat !== 'none' ? (parseInt(repeatCount) || 7) : 0, 
+            subtasks: [], createdAt: new Date(), orderIndex: (await db.collection('tasks').countDocuments()) || 0, 
+            startTimeStr: startTime, endTimeStr: endTime, startDateStr: startDate 
         };
         await db.collection('tasks').insertOne(task);
         if (task.startDate > new Date()) scheduleTask(task);
-        try { await bot.telegram.sendMessage(CHAT_ID, `➕ <b>Added:</b> ${task.title}`, { parse_mode: 'HTML' }); } catch(e){}
+        try { await bot.telegram.sendMessage(CHAT_ID, `➕ <b>Added Task:</b> ${task.title}`, { parse_mode: 'HTML' }); } catch(e){}
         res.redirect('/tasks');
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -1975,19 +1591,7 @@ app.post('/api/tasks/:taskId/update', async (req, res) => {
         cancelTaskSchedule(req.params.taskId);
         await db.collection('tasks').updateOne(
             { taskId: req.params.taskId }, 
-            { $set: { 
-                title: title.trim(), 
-                description: description ? description.trim() : '', 
-                startDate: startDateUTC, 
-                endDate: endDateUTC, 
-                nextOccurrence: startDateUTC, 
-                repeat: repeat || 'none', 
-                repeatCount: repeat && repeat !== 'none' ? (parseInt(repeatCount) || 7) : 0, 
-                startTimeStr: startTime, 
-                endTimeStr: endTime, 
-                startDateStr: startDate, 
-                updatedAt: new Date() 
-            } }
+            { $set: { title: title.trim(), description: description ? description.trim() : '', startDate: startDateUTC, endDate: endDateUTC, nextOccurrence: startDateUTC, repeat: repeat || 'none', repeatCount: repeat && repeat !== 'none' ? (parseInt(repeatCount) || 7) : 0, startTimeStr: startTime, endTimeStr: endTime, startDateStr: startDate, updatedAt: new Date() } }
         );
         const t = await db.collection('tasks').findOne({ taskId: req.params.taskId });
         if (t && t.startDate > new Date()) scheduleTask(t);
@@ -2002,32 +1606,15 @@ app.post('/api/tasks/:taskId/complete', async (req, res) => {
         
         const istNow = getCurrentISTDisplay();
         await db.collection('history').insertOne({ 
-            ...task, 
-            _id: undefined, 
-            completedAt: new Date(), 
-            completedDateStr: istNow.displayDate, 
-            completedTimeStr: istNow.displayTime, 
-            originalTaskId: task.taskId, 
-            status: 'completed' 
+            ...task, _id: undefined, completedAt: new Date(), completedDateStr: istNow.displayDate, completedTimeStr: istNow.displayTime, originalTaskId: task.taskId, status: 'completed' 
         });
         cancelTaskSchedule(task.taskId);
         
         if (task.repeat !== 'none' && task.repeatCount > 0) {
-            const nextUTC = new Date(task.nextOccurrence); 
-            nextUTC.setUTCDate(nextUTC.getUTCDate() + (task.repeat === 'weekly' ? 7 : 1));
+            const nextUTC = new Date(task.nextOccurrence); nextUTC.setUTCDate(nextUTC.getUTCDate() + (task.repeat === 'weekly' ? 7 : 1));
             const nextISTDisplay = formatLegacyIST(nextUTC, 'date');
             
-            await db.collection('tasks').updateOne(
-                { taskId: task.taskId }, 
-                { $set: { 
-                    nextOccurrence: nextUTC, 
-                    repeatCount: task.repeatCount - 1, 
-                    startDate: nextUTC, 
-                    startDateStr: nextISTDisplay, 
-                    endDate: new Date(nextUTC.getTime() + (task.endDate.getTime() - task.startDate.getTime())), 
-                    subtasks: (task.subtasks || []).map(s => ({...s, completed: false})) 
-                } }
-            );
+            await db.collection('tasks').updateOne({ taskId: task.taskId }, { $set: { nextOccurrence: nextUTC, repeatCount: task.repeatCount - 1, startDate: nextUTC, startDateStr: nextISTDisplay, endDate: new Date(nextUTC.getTime() + (task.endDate.getTime() - task.startDate.getTime())), subtasks: (task.subtasks || []).map(s => ({...s, completed: false})) } });
             const t = await db.collection('tasks').findOne({ taskId: task.taskId });
             if (t && t.nextOccurrence > new Date()) scheduleTask(t);
             try { await bot.telegram.sendMessage(CHAT_ID, `✅ <b>Completed:</b> ${task.title}\n🔄 Next: ${nextISTDisplay}`, { parse_mode: 'HTML' }); } catch(e){}
@@ -2052,16 +1639,7 @@ app.post('/api/tasks/:taskId/delete', async (req, res) => {
 app.post('/api/tasks/:taskId/subtasks', async (req, res) => {
     try {
         if (!req.body.title) return res.status(400).send('Empty title');
-        await db.collection('tasks').updateOne(
-            { taskId: req.params.taskId }, 
-            { $push: { subtasks: { 
-                id: generateSubtaskId(), 
-                title: req.body.title.trim(), 
-                description: req.body.description || '', 
-                completed: false, 
-                createdAt: new Date() 
-            } } }
-        );
+        await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { $push: { subtasks: { id: generateSubtaskId(), title: req.body.title.trim(), description: req.body.description || '', completed: false, createdAt: new Date() } } });
         res.redirect('/tasks');
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -2069,13 +1647,7 @@ app.post('/api/tasks/:taskId/subtasks', async (req, res) => {
 app.post('/api/tasks/:taskId/subtasks/:subtaskId/update', async (req, res) => {
     try {
         if (!req.body.title) return res.status(400).send('Empty title');
-        await db.collection('tasks').updateOne(
-            { taskId: req.params.taskId, "subtasks.id": req.params.subtaskId }, 
-            { $set: { 
-                "subtasks.$.title": req.body.title.trim(), 
-                "subtasks.$.description": req.body.description || '' 
-            } }
-        );
+        await db.collection('tasks').updateOne({ taskId: req.params.taskId, "subtasks.id": req.params.subtaskId }, { $set: { "subtasks.$.title": req.body.title.trim(), "subtasks.$.description": req.body.description || '' } });
         res.redirect('/tasks');
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -2084,20 +1656,14 @@ app.post('/api/tasks/:taskId/subtasks/:subtaskId/toggle', async (req, res) => {
     try {
         const task = await db.collection('tasks').findOne({ taskId: req.params.taskId });
         const sub = (task.subtasks || []).find(s => s.id === req.params.subtaskId);
-        await db.collection('tasks').updateOne(
-            { taskId: req.params.taskId, "subtasks.id": req.params.subtaskId }, 
-            { $set: { "subtasks.$.completed": !sub.completed } }
-        );
+        await db.collection('tasks').updateOne({ taskId: req.params.taskId, "subtasks.id": req.params.subtaskId }, { $set: { "subtasks.$.completed": !sub.completed } });
         res.redirect('/tasks');
     } catch (error) { res.status(500).send(error.message); }
 });
 
 app.post('/api/tasks/:taskId/subtasks/:subtaskId/delete', async (req, res) => {
     try {
-        await db.collection('tasks').updateOne(
-            { taskId: req.params.taskId }, 
-            { $pull: { subtasks: { id: req.params.subtaskId } } }
-        );
+        await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { $pull: { subtasks: { id: req.params.subtaskId } } });
         res.redirect('/tasks');
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -2105,14 +1671,7 @@ app.post('/api/tasks/:taskId/subtasks/:subtaskId/delete', async (req, res) => {
 app.post('/api/notes', async (req, res) => {
     try {
         if (!req.body.title) return res.status(400).send('Empty title');
-        const note = { 
-            noteId: generateTaskId(), 
-            title: req.body.title.trim(), 
-            description: req.body.description || '', 
-            createdAt: new Date(), 
-            updatedAt: new Date(), 
-            orderIndex: await db.collection('notes').countDocuments() 
-        };
+        const note = { noteId: generateId('note'), title: req.body.title.trim(), description: req.body.description || '', createdAt: new Date(), updatedAt: new Date(), orderIndex: await db.collection('notes').countDocuments() };
         await db.collection('notes').insertOne(note);
         res.redirect('/notes');
     } catch (error) { res.status(500).send(error.message); }
@@ -2121,14 +1680,7 @@ app.post('/api/notes', async (req, res) => {
 app.post('/api/notes/:noteId/update', async (req, res) => {
     try {
         if (!req.body.title) return res.status(400).send('Empty title');
-        await db.collection('notes').updateOne(
-            { noteId: req.params.noteId }, 
-            { $set: { 
-                title: req.body.title.trim(), 
-                description: req.body.description || '', 
-                updatedAt: new Date() 
-            } }
-        );
+        await db.collection('notes').updateOne({ noteId: req.params.noteId }, { $set: { title: req.body.title.trim(), description: req.body.description || '', updatedAt: new Date() } });
         res.redirect('/notes');
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -2145,148 +1697,16 @@ app.post('/api/notes/:noteId/move', async (req, res) => {
         const notes = await db.collection('notes').find().sort({ orderIndex: 1 }).toArray();
         const idx = notes.findIndex(n => n.noteId === req.params.noteId);
         if (req.body.direction === 'up' && idx > 0) {
-            const t = notes[idx].orderIndex; 
-            notes[idx].orderIndex = notes[idx-1].orderIndex; 
-            notes[idx-1].orderIndex = t;
+            const t = notes[idx].orderIndex; notes[idx].orderIndex = notes[idx-1].orderIndex; notes[idx-1].orderIndex = t;
             await db.collection('notes').updateOne({ noteId: notes[idx].noteId }, { $set: { orderIndex: notes[idx].orderIndex } });
             await db.collection('notes').updateOne({ noteId: notes[idx-1].noteId }, { $set: { orderIndex: notes[idx-1].orderIndex } });
         } else if (req.body.direction === 'down' && idx < notes.length - 1) {
-            const t = notes[idx].orderIndex; 
-            notes[idx].orderIndex = notes[idx+1].orderIndex; 
-            notes[idx+1].orderIndex = t;
+            const t = notes[idx].orderIndex; notes[idx].orderIndex = notes[idx+1].orderIndex; notes[idx+1].orderIndex = t;
             await db.collection('notes').updateOne({ noteId: notes[idx].noteId }, { $set: { orderIndex: notes[idx].orderIndex } });
             await db.collection('notes').updateOne({ noteId: notes[idx+1].noteId }, { $set: { orderIndex: notes[idx+1].orderIndex } });
         }
         res.redirect('/notes');
     } catch (error) { res.status(500).send(error.message); }
-});
-
-// ==========================================
-// 🌱 GROW TRACKER API ROUTES
-// ==========================================
-app.get('/api/grow/data', async (req, res) => {
-    try {
-        const data = await db.collection('grow').findOne({ type: 'tracker' });
-        if (!data) {
-            const def = { items: [], progress: {} };
-            await db.collection('grow').insertOne({ type: 'tracker', ...def });
-            res.json(def);
-        } else {
-            const { type, _id, ...rest } = data;
-            res.json(rest);
-        }
-    } catch (error) { res.status(500).json({ error: error.message }); }
-});
-
-app.post('/api/grow', async (req, res) => {
-    try {
-        const { title, description, startDate, endCount, color, hasData, type, question, start, end } = req.body;
-        const item = {
-            id: generateId(),
-            title: title,
-            description: description || '',
-            startDate: startDate,
-            endCount: parseInt(endCount),
-            color: color,
-            hasData: hasData === true,
-            type: hasData ? type : 'boolean'
-        };
-        
-        if (item.hasData) {
-            item.question = question || '';
-            if (start !== undefined && start !== '') item.start = type === 'float' ? parseFloat(start) : parseInt(start);
-            if (end !== undefined && end !== '') item.end = type === 'float' ? parseFloat(end) : parseInt(end);
-        }
-        
-        await db.collection('grow').updateOne(
-            { type: 'tracker' },
-            { $push: { items: item } },
-            { upsert: true }
-        );
-        try { await bot.telegram.sendMessage(CHAT_ID, `🌱 Added: ${title}`, { parse_mode: 'HTML' }); } catch(e) {}
-        res.json({ success: true });
-    } catch (error) { res.status(500).json({ error: error.message }); }
-});
-
-app.post('/api/grow/:id/update', async (req, res) => {
-    try {
-        const { id, title, description, startDate, endCount, color, hasData, type, question, start, end } = req.body;
-        const tracker = await db.collection('grow').findOne({ type: 'tracker' });
-        if (!tracker) return res.status(404).json({ error: 'Tracker context not found' });
-        
-        const currentItem = tracker.items.find(i => i.id === id);
-        
-        if (currentItem && currentItem.color !== color) {
-            const conflictingItem = tracker.items.find(i => i.id !== id && i.color === color);
-            if (conflictingItem) {
-                await db.collection('grow').updateOne(
-                    { type: 'tracker', 'items.id': conflictingItem.id },
-                    { $set: { 'items.$.color': currentItem.color } }
-                );
-            }
-        }
-        
-        const updatedItem = {
-            id: id,
-            title: title,
-            description: description || '',
-            startDate: startDate,
-            endCount: parseInt(endCount),
-            color: color,
-            hasData: hasData === true,
-            type: hasData ? type : 'boolean'
-        };
-        
-        if (updatedItem.hasData) {
-            updatedItem.question = question || '';
-            if (start !== undefined && start !== '') updatedItem.start = type === 'float' ? parseFloat(start) : parseInt(start);
-            if (end !== undefined && end !== '') updatedItem.end = type === 'float' ? parseFloat(end) : parseInt(end);
-        }
-        
-        await db.collection('grow').updateOne(
-            { type: 'tracker', 'items.id': id },
-            { $set: { 'items.$': updatedItem } }
-        );
-        try { await bot.telegram.sendMessage(CHAT_ID, `✏️ Updated: ${title}`, { parse_mode: 'HTML' }); } catch(e) {}
-        res.json({ success: true });
-    } catch (error) { res.status(500).json({ error: error.message }); }
-});
-
-app.post('/api/grow/:id/delete', async (req, res) => {
-    try {
-        const tracker = await db.collection('grow').findOne({ type: 'tracker' });
-        const item = tracker?.items.find(i => i.id === req.params.id);
-        await db.collection('grow').updateOne(
-            { type: 'tracker' },
-            { $pull: { items: { id: req.params.id } } }
-        );
-        if (tracker?.progress) {
-            const prog = { ...tracker.progress };
-            Object.keys(prog).forEach(date => { if (prog[date] && prog[date][req.params.id] !== undefined) delete prog[date][req.params.id]; });
-            await db.collection('grow').updateOne(
-                { type: 'tracker' },
-                { $set: { progress: prog } }
-            );
-        }
-        try { await bot.telegram.sendMessage(CHAT_ID, `🗑️ Deleted: ${item?.title || 'Unknown'}`, { parse_mode: 'HTML' }); } catch(e) {}
-        res.json({ success: true });
-    } catch (error) { res.status(500).json({ error: error.message }); }
-});
-
-app.post('/api/grow/log', async (req, res) => {
-    try {
-        const { itemId, dateStr, value } = req.body;
-        const tracker = await db.collection('grow').findOne({ type: 'tracker' });
-        const item = tracker?.items.find(i => i.id === itemId);
-        
-        await db.collection('grow').updateOne(
-            { type: 'tracker' },
-            { $set: { [`progress.${dateStr}.${itemId}`]: value } }
-        );
-        
-        try { await bot.telegram.sendMessage(CHAT_ID, `✅ Completed: ${item?.title || 'Unknown'}`, { parse_mode: 'HTML' }); } catch(e) {}
-        res.json({ success: true });
-    } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 // ==========================================
