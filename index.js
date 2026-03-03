@@ -10,7 +10,7 @@ const fs = require('fs');
 const BOT_TOKEN = '8716545255:AAHNcyDFzOdVUQz38iutCVEN3DARA5YJLBM';
 const MONGODB_URI = 'mongodb+srv://sandip:9E9AISFqTfU3VI5i@cluster0.p8irtov.mongodb.net/tggrow';
 const PORT = process.env.PORT || 8080;
-const WEB_APP_URL = 'https://tasks-managing.up.railway.app';
+const WEB_APP_URL = 'https://task-managing.up.railway.app';
 const CHAT_ID = 8781152810;
 
 const app = express();
@@ -70,7 +70,7 @@ bot.command('start', async (ctx) => {
 });
 
 // ==========================================
-// 📱 EJS TEMPLATE
+// 📱 EJS TEMPLATE - ENHANCED & FIXED
 // ==========================================
 const growEJS = `<!DOCTYPE html>
 <html lang="en">
@@ -122,18 +122,7 @@ const growEJS = `<!DOCTYPE html>
         .bar { display: flex; flex-direction: column; align-items: center; width: 10%; max-width: 35px; height: 100%; }
         .bar-track { width: 100%; height: 90%; border-radius: 6px; position: relative; display: flex; align-items: flex-end; background: var(--hover); overflow: hidden; border: 1px solid var(--border); }
         .bar-fill { width: 100%; border-radius: 4px; transition: height 0.6s ease; }
-        
-        /* Bar Label Text - Auto Black/White based on theme */
-        .bar-label { 
-            position: absolute; top: 0; bottom: 0; left: 0; right: 0; 
-            writing-mode: vertical-rl; transform: rotate(180deg); 
-            display: flex; align-items: center; justify-content: flex-end; 
-            padding-top: 10px; 
-            color: var(--text); 
-            font-size: 0.8rem; font-weight: 700; pointer-events: none; 
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
-        }
-        
+        .bar-label { position: absolute; top: 0; bottom: 0; left: 0; right: 0; writing-mode: vertical-rl; transform: rotate(180deg); display: flex; align-items: center; justify-content: center; text-align: center; color: var(--text); font-size: 0.85rem; font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,0.8); pointer-events: none; }
         .bar-pct { font-size: 0.75rem; font-weight: 700; margin-bottom: 5px; color: var(--text); }
         
         /* Calendar */
@@ -141,13 +130,13 @@ const growEJS = `<!DOCTYPE html>
         .month-nav h2 { font-size: 1rem; font-weight: 700; background: var(--hover); padding: 5px 14px; border-radius: 30px; border: 1px solid var(--border); }
         .nav-btn { background: var(--bg); border: 1px solid var(--border); width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 0.8rem; color: var(--text2); display: flex; align-items: center; justify-content: center; transition: 0.2s;}
         .nav-btn:hover { background: var(--hover); color: var(--text); }
-        .calendar { width: 100%; display: flex; flex-direction: column; }
-        .grid { flex: 1; display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
-        .weekday { display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.7rem; color: var(--text2); text-transform: uppercase; padding-bottom: 4px;}
-        .day { display: flex; align-items: center; justify-content: center; border-radius: 10px; position: relative; aspect-ratio: 1;}
+        .calendar { width: 100%; aspect-ratio: 1; display: flex; flex-direction: column; }
+        .grid { flex: 1; display: grid; grid-template-columns: repeat(7, 1fr); grid-template-rows: auto repeat(6, 1fr); gap: 4px; }
+        .weekday { display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.7rem; color: var(--text2); text-transform: uppercase;}
+        .day { display: flex; align-items: center; justify-content: center; border-radius: 10px; position: relative; aspect-ratio: 1; }
         .day.empty { pointer-events: none; }
         .day:hover:not(.empty) { background: var(--hover); cursor: pointer; }
-        .circle { width: 100%; max-width: 36px; height: 100%; max-height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; transition: transform 0.2s; }
+        .circle { width: 100%; max-width: 38px; aspect-ratio: 1; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; transition: transform 0.2s; }
         .day:hover .circle { transform: scale(1.1); }
         .circle.has-data { color: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.2); text-shadow: 0 1px 2px rgba(0,0,0,0.6); }
         .circle.today { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); color: var(--accent); }
@@ -162,20 +151,17 @@ const growEJS = `<!DOCTYPE html>
         
         /* Growth List */
         .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 12px; margin-bottom: 10px; transition: 0.2s;}
-        
-        /* Fixed Button Alignment */
-        .card summary { display: flex; justify-content: space-between; align-items: flex-start; cursor: pointer; list-style: none; outline: none; padding: 4px 0;}
+        .card summary { display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none; outline: none; padding: 4px 0;}
         .card summary::-webkit-details-marker { display: none; }
-        .title-section { display: flex; align-items: flex-start; gap: 8px; flex: 1; padding-top: 4px;}
-        .title-section i { font-size: 0.8rem; color: var(--text2); transition: transform 0.2s; margin-top: 2px; }
+        .title-section { display: flex; align-items: center; gap: 8px; flex: 1;}
+        .title-section i { font-size: 0.8rem; color: var(--text2); transition: transform 0.2s; }
         details[open] .title-section i { transform: rotate(90deg); }
-        .title { font-weight: 700; font-size: 1rem; color: var(--text); line-height: 1.3; }
-        
-        .actions { display: flex; gap: 6px; margin-left: 10px; align-items: flex-start; flex-shrink: 0; }
-        .btn-icon { width: 32px; height: 32px; border-radius: 8px; border: none; background: var(--hover); color: var(--text2); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.85rem; transition: 0.2s; flex-shrink: 0; }
+        .title { font-weight: 700; font-size: 1rem; color: var(--text); }
+        .actions { display: flex; gap: 6px; margin-left: 10px; align-items: center; }
+        .btn-icon { width: 32px; height: 32px; border-radius: 8px; border: none; background: var(--hover); color: var(--text2); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.85rem; transition: 0.2s; padding: 0; margin: 0;}
+        .btn-icon i { display: flex; align-items: center; justify-content: center; }
         .btn-icon:hover { background: var(--accent); color: white; }
         .btn-icon.del:hover { background: var(--danger); }
-        
         .desc-container { width: 100%; margin-top: 10px; }
         .desc { font-size: 0.85rem; color: var(--text2); padding: 8px 12px; background: var(--hover); border-radius: 8px; border-left: 3px solid; word-break: break-word; line-height: 1.4;}
         .meta { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
@@ -190,7 +176,7 @@ const growEJS = `<!DOCTYPE html>
         .progress-stats strong { color: var(--text); font-size: 0.85rem;}
         
         /* Modern Toast & Glass Loader */
-        .toast { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); background: var(--surface); color: var(--text); padding: 12px 24px; border-radius: 30px; box-shadow: 0 10px 40px rgba(0,0,0,0.25); transition: top 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55); z-index: 10000; font-weight: 600; font-size: 0.9rem; border: 1px solid var(--border); display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+        .toast { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); background: var(--surface); color: var(--text); padding: 12px 24px; border-radius: 30px; box-shadow: 0 10px 40px rgba(0,0,0,0.25); transition: top 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55); z-index: 10000; font-weight: 600; font-size: 0.9rem; border: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
         .toast.show { top: 25px; }
         .toast.success { border-left: 4px solid var(--accent); }
         .toast.error { border-left: 4px solid var(--danger); }
@@ -236,6 +222,7 @@ const growEJS = `<!DOCTYPE html>
     
     <div id="globalLoader" class="global-loader">
         <div class="spinner"></div>
+        <div style="margin-top:12px; font-weight:600; color:var(--text); font-size:0.9rem;">Processing...</div>
     </div>
 
     <div class="header">
@@ -388,6 +375,7 @@ const growEJS = `<!DOCTYPE html>
                 }
             });
             
+            // Hide bubble if clicking elsewhere or scrolling
             document.addEventListener("click", function(e) {
                 if(!e.target.closest(".day") && !e.target.closest(".bubble")) {
                     hideBubble();
@@ -409,7 +397,7 @@ const growEJS = `<!DOCTYPE html>
                 if(!data.progress) data.progress = {};
                 renderAll();
             } catch(e) { 
-                showToast("Error!", "error"); 
+                showToast("Failed to fetch data", "error"); 
             }
         }
         
@@ -435,7 +423,7 @@ const growEJS = `<!DOCTYPE html>
                 const start = new Date(item.startDate + "T00:00:00");
                 
                 let passed = Math.floor((now - start) / 86400000);
-                if(passed < 0) passed = 0; 
+                if(passed < 0) passed = 0; // if start date is in the future
                 let left = item.endCount - passed;
                 if(left < 0) left = 0;
                 
@@ -444,8 +432,8 @@ const growEJS = `<!DOCTYPE html>
                         <summary>
                             <div class="title-section"><i class="fas fa-chevron-right"></i><span class="title">\${escape(item.title)}</span></div>
                             <div class="actions">
-                                <button class="btn-icon" onclick="event.preventDefault(); openEdit('\${item.id}')" title="Edit"><i class="fas fa-pencil-alt"></i></button>
-                                <button class="btn-icon del" onclick="event.preventDefault(); del('\${item.id}')" title="Delete"><i class="fas fa-trash"></i></button>
+                                <button class="btn-icon" style="transform: rotate(180deg);" onclick="event.preventDefault(); openEdit('\${item.id}')" title="Edit"><i class="fas fa-pencil-alt"></i></button>
+                                <button class="btn-icon del" style="transform: rotate(180deg);" onclick="event.preventDefault(); del('\${item.id}')" title="Delete"><i class="fas fa-trash-alt"></i></button>
                             </div>
                         </summary>\`;
                         
@@ -453,6 +441,7 @@ const growEJS = `<!DOCTYPE html>
                     html += \`<div class="desc-container"><div class="desc" style="border-left-color:\${item.color}">\${escape(item.description)}</div></div>\`;
                 }
                 
+                // --- PROGRESS BAR 1: Time Elapsed (For ALL items) ---
                 let timePct = item.endCount > 0 ? (passed / item.endCount) * 100 : 0;
                 timePct = Math.max(0, Math.min(100, timePct));
                 
@@ -462,6 +451,7 @@ const growEJS = `<!DOCTYPE html>
                     <div class="progress-stats"><span>Started: \${item.startDate}</span><span>\${Math.round(timePct)}% Complete</span></div>
                 </div>\`;
 
+                // --- PROGRESS BAR 2: Quantitative Data (If activated) ---
                 if(item.hasData && item.type !== "boolean") {
                     let latestValue = item.start !== undefined ? item.start : 0;
                     let sortedDates = Object.keys(data.progress).sort();
@@ -499,14 +489,14 @@ const growEJS = `<!DOCTYPE html>
         }
         
         async function del(id) { 
-            if(confirm("Delete tracker?")) { 
+            if(confirm("Delete this tracker and all its logs?")) { 
                 showLoader();
                 try {
                     await fetch(API+"grow/"+id+"/delete", {method:"POST"}); 
                     await fetchData(); 
-                    showToast("Grow deleted!", "success");
+                    showToast("Tracker deleted successfully!", "success");
                 } catch(e) {
-                    showToast("Error!", "error");
+                    showToast("Error deleting tracker", "error");
                 }
                 hideLoader();
             } 
@@ -560,9 +550,9 @@ const growEJS = `<!DOCTYPE html>
                 });
                 document.getElementById("editModal").classList.remove("show");
                 await fetchData();
-                showToast("Grow updated!", "success");
+                showToast("Tracker updated!", "success");
             } catch(e) {
-                showToast("Error!", "error");
+                showToast("Failed to update", "error");
             }
             hideLoader();
         });
@@ -615,7 +605,7 @@ const growEJS = `<!DOCTYPE html>
             const days = new Date(year, month+1, 0).getDate();
             let html = "";
             
-            ["Su","Mo","Tu","We","Th","Fr","Sa"].forEach(d => html += \`<div class="weekday">\${d}</div>\`);
+            ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].forEach(d => html += \`<div class="weekday">\${d}</div>\`);
             for(let i=0; i<first; i++) html += \`<div class="day empty"></div>\`;
             
             for(let i=1; i<=days; i++) {
@@ -654,6 +644,7 @@ const growEJS = `<!DOCTYPE html>
             setTimeout(() => bubble.style.display = "none", 200);
         }
 
+        // 360 Degree Bubble Logic System
         function showBubble(cell, date) {
             const bubble = document.getElementById("bubble");
             const content = document.getElementById("bubbleContent");
@@ -673,31 +664,38 @@ const growEJS = `<!DOCTYPE html>
             }
             content.innerHTML = html;
             
+            // Render invisibly to get precise pixel dimensions
             bubble.style.display = "block";
             bubble.style.opacity = "0";
             
             const bRect = bubble.getBoundingClientRect();
             const cRect = cell.getBoundingClientRect();
             
+            // Attempt to place above first
             let top = cRect.top - bRect.height - 12; 
             let left = cRect.left + (cRect.width / 2) - (bRect.width / 2);
             let placement = 'top';
             
+            // If it hits the top screen edge, flip to bottom
             if(top < 20) { 
                 top = cRect.bottom + 12;
                 placement = 'bottom';
             }
             
+            // Clamp horizontal borders so it doesn't leak off screen edges
             if(left < 10) left = 10;
             if(left + bRect.width > window.innerWidth - 10) left = window.innerWidth - bRect.width - 10;
             
             bubble.style.top = top + "px";
             bubble.style.left = left + "px";
             
+            // Point the tail directly at the middle of the calendar cell day circle
             let tailLeft = (cRect.left + cRect.width / 2) - left;
-            tailLeft = Math.max(12, Math.min(bRect.width - 24, tailLeft)); 
-            tail.style.left = (tailLeft - 6) + "px"; 
+            tailLeft = Math.max(12, Math.min(bRect.width - 24, tailLeft)); // Cap at bubble edges
             
+            tail.style.left = (tailLeft - 6) + "px"; // 6px represents half tail dimension
+            
+            // Adjust tail border directions based on orientation
             if(placement === 'top') {
                 tail.style.bottom = "-6px";
                 tail.style.top = "auto";
@@ -719,6 +717,7 @@ const growEJS = `<!DOCTYPE html>
                 bubble.classList.add("show");
             }, 10);
             
+            // Bind a one-time scroll listener to banish bubble on swipe
             window.addEventListener('scroll', hideBubble, { once: true });
         }
         
@@ -757,6 +756,7 @@ const growEJS = `<!DOCTYPE html>
             let html = "";
             for(let i=0; i<colors.length; i++) {
                 const c = colors[i];
+                // Display ALL 8 colors inside editing menu to allow replacements
                 html += \`<div class="swatch \${c===current?'selected':''}" style="background:\${c}" data-color="\${c}"></div>\`;
             }
             container.innerHTML = html;
@@ -812,9 +812,9 @@ const growEJS = `<!DOCTYPE html>
                 document.getElementById("addForm").reset();
                 document.getElementById("addDataFields").style.display = "none";
                 await fetchData();
-                showToast("Grow added!", "success");
+                showToast("New tracker created successfully!", "success");
             } catch(e) {
-                showToast("Error!", "error");
+                showToast("Failed to create tracker", "error");
             }
             hideLoader();
         });
@@ -879,7 +879,7 @@ const growEJS = `<!DOCTYPE html>
                     body: JSON.stringify(payload)
                 });
                 await fetchData();
-                showToast("Progress logged!", "success");
+                showToast("Growth progress logged successfully!", "success");
                 
                 const active = data.items.filter(g => isActive(g, date));
                 const dayData = data.progress[date] || {};
@@ -892,7 +892,7 @@ const growEJS = `<!DOCTYPE html>
                     openLogModal(date); 
                 }
             } catch (err) {
-                showToast("Error!", "error");
+                showToast("Failed to save progress.", "error");
             }
             hideLoader();
         }
@@ -900,7 +900,7 @@ const growEJS = `<!DOCTYPE html>
         document.getElementById("saveLogBtn").addEventListener("click", async function() {
             const input = document.getElementById("logValue");
             if(!input || !input.value) {
-                showToast("Please enter a valid value.", "error");
+                showToast("Please enter a valid numerical value.", "error");
                 return;
             }
             const {item, date} = logContext;
@@ -918,7 +918,7 @@ const growEJS = `<!DOCTYPE html>
 fs.writeFileSync(path.join(viewsDir, 'index.ejs'), growEJS);
 
 // ==========================================
-// 📱 API ROUTES
+// 📱 API ROUTES (Using strict JSON bodies)
 // ==========================================
 app.get('/', async (req, res) => {
     const ist = new Date(new Date().getTime() + 5.5*3600000);
@@ -981,6 +981,7 @@ app.post('/api/grow/:id/update', async (req, res) => {
         
         const currentItem = tracker.items.find(i => i.id === id);
         
+        // Logical swapping: Interchanges colors if the newly assigned color is already occupied.
         if (currentItem && currentItem.color !== color) {
             const conflictingItem = tracker.items.find(i => i.id !== id && i.color === color);
             if (conflictingItem) {
