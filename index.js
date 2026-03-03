@@ -160,6 +160,13 @@ const growEJS = `<!DOCTYPE html>
         .circle.has-data { color: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.2); text-shadow: 0 1px 2px rgba(0,0,0,0.6); }
         .circle.today { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); color: var(--accent); }
         .circle.today.has-data { color: #fff; }
+
+        /* Bubble */
+        .bubble { position: fixed; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px; z-index: 1000; min-width: 160px; max-width: 200px; pointer-events: none; box-shadow: 0 10px 25px rgba(0,0,0,0.25); display: none; opacity: 0; transition: opacity 0.2s; }
+        .bubble.show { opacity: 1; }
+        .tail { position: absolute; width: 12px; height: 12px; background: var(--surface); transform: rotate(45deg); z-index: -1; }
+        .bubble-date { font-size: 0.75rem; font-weight: 700; color: var(--text2); margin-bottom: 5px; border-bottom: 1px solid var(--border); padding-bottom: 5px; }
+        .bubble-item { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 0.8rem; font-weight: 600; }
         
         /* Growth List */
         .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 12px; margin-bottom: 10px; transition: 0.2s;}
@@ -262,6 +269,8 @@ const growEJS = `<!DOCTYPE html>
         <summary><span>Manage Growth</span><i class="fas fa-chevron-down"></i></summary>
         <div class="panel-body" id="list"></div>
     </details>
+    
+    <div class="bubble" id="bubble"><div id="bubbleContent"></div><div class="tail" id="tail"></div></div>
     
     <button class="fab" id="fabBtn" onclick="openAddModal()"><i class="fas fa-plus"></i></button>
     
@@ -380,11 +389,18 @@ const growEJS = `<!DOCTYPE html>
                     const dayData = data.progress[d] || {};
                     const allDone = active.length && active.every(g => dayData[g.id] !== undefined);
                     
-                    // Only open the modal if it's today and not everything is done.
-                    // No popup or bubble is shown for other days.
                     if(d === today && !allDone) {
                         openLogModal(d);
+                    } else {
+                        showBubble(cell, d);
                     }
+                }
+            });
+
+            // Hide bubble if clicking elsewhere or scrolling
+            document.addEventListener("click", function(e) {
+                if(!e.target.closest(".day") && !e.target.closest(".bubble")) {
+                    hideBubble();
                 }
             });
             
@@ -660,6 +676,86 @@ const growEJS = `<!DOCTYPE html>
             }
             grid.innerHTML = html;
         }
+
+        function hideBubble() {
+            const bubble = document.getElementById("bubble");
+            bubble.classList.remove("show");
+            setTimeout(() => bubble.style.display = "none", 200);
+        }
+
+        // 360 Degree Bubble Logic System
+        function showBubble(cell, date) {
+            const bubble = document.getElementById("bubble");
+            const content = document.getElementById("bubbleContent");
+            const tail = document.getElementById("tail");
+            const active = data.items.filter(g => isActive(g, date));
+            const dayData = data.progress[date] || {};
+            const d = new Date(date+"T00:00:00");
+            
+            let html = \`<div class="bubble-date">\${d.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>\`;
+            if(!active.length) html += "<div style='text-align:center;font-size:0.8rem;color:var(--text2);'>No tasks active.</div>";
+            else {
+                for(let i=0; i<active.length; i++) {
+                    const g = active[i];
+                    const isDone = dayData[g.id] !== undefined;
+                    html += \`<div class="bubble-item" style="color:\${g.color}"><span>\${escape(g.title)}</span><i class="fas \${isDone?'fa-check-circle':'fa-circle'}"></i></div>\`;
+                }
+            }
+            content.innerHTML = html;
+            
+            // Render invisibly to get precise pixel dimensions
+            bubble.style.display = "block";
+            bubble.style.opacity = "0";
+            
+            const bRect = bubble.getBoundingClientRect();
+            const cRect = cell.getBoundingClientRect();
+            
+            // Attempt to place above first
+            let top = cRect.top - bRect.height - 12; 
+            let left = cRect.left + (cRect.width / 2) - (bRect.width / 2);
+            let placement = 'top';
+            
+            // If it hits the top screen edge, flip to bottom
+            if(top < 20) { 
+                top = cRect.bottom + 12;
+                placement = 'bottom';
+            }
+            
+            // Clamp horizontal borders so it doesn't leak off screen edges
+            if(left < 10) left = 10;
+            if(left + bRect.width > window.innerWidth - 10) left = window.innerWidth - bRect.width - 10;
+            
+            bubble.style.top = top + "px";
+            bubble.style.left = left + "px";
+            
+            // Point the tail directly at the middle of the calendar cell day circle
+            let tailLeft = (cRect.left + cRect.width / 2) - left;
+            tailLeft = Math.max(12, Math.min(bRect.width - 24, tailLeft)); // Cap at bubble edges
+            
+            tail.style.left = (tailLeft - 6) + "px"; // 6px represents half tail dimension
+            
+            // Adjust tail border directions based on orientation
+            if(placement === 'top') {
+                tail.style.bottom = "-6px";
+                tail.style.top = "auto";
+                tail.style.borderTop = "none";
+                tail.style.borderLeft = "none";
+                tail.style.borderBottom = "1px solid var(--border)";
+                tail.style.borderRight = "1px solid var(--border)";
+            } else {
+                tail.style.top = "-6px";
+                tail.style.bottom = "auto";
+                tail.style.borderTop = "1px solid var(--border)";
+                tail.style.borderLeft = "1px solid var(--border)";
+                tail.style.borderBottom = "none";
+                tail.style.borderRight = "none";
+            }
+            
+            setTimeout(() => {
+                bubble.style.opacity = "1";
+                bubble.classList.add("show");
+            }, 10);
+        }
         
         function initAddPalette() {
             const container = document.getElementById("addPalette");
@@ -696,6 +792,7 @@ const growEJS = `<!DOCTYPE html>
             let html = "";
             for(let i=0; i<colors.length; i++) {
                 const c = colors[i];
+                // Display ALL 8 colors inside editing menu to allow replacements
                 html += \`<div class="swatch \${c===current?'selected':''}" style="background:\${c}" data-color="\${c}"></div>\`;
             }
             container.innerHTML = html;
@@ -830,6 +927,7 @@ const growEJS = `<!DOCTYPE html>
                 
                 if(allDone) {
                     document.getElementById("logModal").classList.remove("show");
+                    showBubble(document.querySelector(\`.day[data-date="\${date}"]\`), date);
                 } else {
                     openLogModal(date); 
                 }
