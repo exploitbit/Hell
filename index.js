@@ -39,10 +39,14 @@ if (!fs.existsSync(publicDir)) fs.mkdirSync(publicDir, { recursive: true });
 // ==========================================
 function istToUTC(istDate, istTime) {
     if (!istDate || !istTime) return null;
-    const [year, month, day] = istDate.split('-').map(Number);
-    const [hour, minute] = istTime.split(':').map(Number);
-    const istDateObj = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
-    return new Date(istDateObj.getTime() - IST_OFFSET_MS);
+    try {
+        const [year, month, day] = istDate.split('-').map(Number);
+        const [hour, minute] = istTime.split(':').map(Number);
+        const istDateObj = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
+        return new Date(istDateObj.getTime() - IST_OFFSET_MS);
+    } catch (e) {
+        return null;
+    }
 }
 
 function getCurrentISTDisplay() {
@@ -64,8 +68,8 @@ function getCurrentISTDisplay() {
 }
 
 function formatLegacyIST(utcDate, type) {
-    if (!utcDate) return '';
-    const istDate = new Date(utcDate.getTime() + IST_OFFSET_MS);
+    if (!utcDate || isNaN(new Date(utcDate).getTime())) return '';
+    const istDate = new Date(new Date(utcDate).getTime() + IST_OFFSET_MS);
     if (type === 'date') return `${String(istDate.getUTCDate()).padStart(2, '0')}-${String(istDate.getUTCMonth() + 1).padStart(2, '0')}-${istDate.getUTCFullYear()}`;
     if (type === 'time') return `${String(istDate.getUTCHours()).padStart(2, '0')}:${String(istDate.getUTCMinutes()).padStart(2, '0')}`;
     return '';
@@ -538,7 +542,7 @@ function writeMainEJS() {
             </div>
         </div>
     </div>
-    
+
     <div class="modal" id="addSubtaskModal"><div class="modal-content"><div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;"><h2 style="font-size: 1.2rem;">Add Subtask</h2><button class="action-btn" onclick="closeModal('addSubtaskModal')">&times;</button></div><form id="addSubtaskForm" onsubmit="submitSubtaskForm(event)"><input type="hidden" name="taskId" id="subtaskTaskId"><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.85rem; font-weight: 600;">Title *</label><input type="text" class="form-control" name="title" required maxlength="100"></div><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.85rem; font-weight: 600;">Description</label><textarea class="form-control" name="description" rows="3"></textarea></div><div style="display: flex; gap: 12px; margin-top: 16px;"><button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('addSubtaskModal')">Cancel</button><button type="submit" class="btn btn-primary" style="flex: 1;">Add</button></div></form></div></div>
     <div class="modal" id="editSubtaskModal"><div class="modal-content"><div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;"><h2 style="font-size: 1.2rem;">Edit Subtask</h2><button class="action-btn" onclick="closeModal('editSubtaskModal')">&times;</button></div><form id="editSubtaskForm" onsubmit="submitEditSubtaskForm(event)"><input type="hidden" name="taskId" id="editSubtaskTaskId"><input type="hidden" name="subtaskId" id="editSubtaskId"><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.85rem; font-weight: 600;">Title *</label><input type="text" class="form-control" name="title" id="editSubtaskTitle" required maxlength="100"></div><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.85rem; font-weight: 600;">Description</label><textarea class="form-control" name="description" id="editSubtaskDescription" rows="3"></textarea></div><div style="display: flex; gap: 12px; margin-top: 16px;"><button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('editSubtaskModal')">Cancel</button><button type="submit" class="btn btn-primary" style="flex: 1;">Update</button></div></form></div></div>
     <div class="modal" id="addNoteModal"><div class="modal-content"><div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;"><h2 style="font-size: 1.2rem;">Create Note</h2><button class="action-btn" onclick="closeModal('addNoteModal')">&times;</button></div><form id="addNoteForm" onsubmit="submitNoteForm(event)"><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.85rem; font-weight: 600;">Title *</label><input type="text" class="form-control" name="title" required maxlength="200"></div><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.85rem; font-weight: 600;">Content</label><textarea class="form-control" name="description" rows="4"></textarea></div><div style="display: flex; gap: 12px; margin-top: 16px;"><button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('addNoteModal')">Cancel</button><button type="submit" class="btn btn-primary" style="flex: 1;">Save</button></div></form></div></div>
@@ -605,17 +609,21 @@ function writeMainEJS() {
 
         function switchPage(page) {
             showLoader();
-            fetch('/api/page/' + page).then(res => res.json()).then(data => {
+            fetch('/api/page/' + page).then(async res => {
+                if (!res.ok) throw new Error(await res.text());
+                return res.json();
+            }).then(data => {
                 currentPage = page;
                 if(data.tasks) tasksData = data.tasks;
                 if(data.notes) notesData = data.notes;
                 if(data.groupedHistory) historyData = data.groupedHistory;
                 if(data.growData) growTrackerData = data.growData;
-                
-                renderPage(); 
-                updateActiveNav(); 
-                hideLoader();
-            }).catch(err => { showToast('Error loading page', 'error'); hideLoader(); });
+                renderPage(); updateActiveNav(); hideLoader();
+            }).catch(err => { 
+                console.error(err);
+                showToast('Error loading page data', 'error'); 
+                hideLoader(); 
+            });
         }
 
         function updateActiveNav() {
@@ -687,7 +695,6 @@ function writeMainEJS() {
                 fabBtn.style.opacity = "1";
             }
             
-            // Re-attach event listeners safely
             const cal = document.getElementById("growCalendar");
             if(cal) {
                 cal.onclick = function(e) {
@@ -865,7 +872,7 @@ function writeMainEJS() {
 
         function hideGrowBubble() {
             const bubble = document.getElementById("growBubble");
-            if(bubble) {
+            if(bubble && bubble.classList.contains("show")) {
                 bubble.classList.remove("show");
                 setTimeout(() => bubble.style.display = "none", 200);
             }
@@ -1113,7 +1120,6 @@ function writeMainEJS() {
                 const res = await fetch("/api/grow/log", { method:"POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload) });
                 if(res.ok) { 
                     showToast("Progress logged!");
-                    // Rapid reload page state to see changes
                     switchPage("grow"); 
                     closeModal("logGrowModal");
                 } else throw new Error("Failed");
@@ -1130,15 +1136,141 @@ function writeMainEJS() {
 
         window.showGrowLogList = function() { document.getElementById("logGrowListView").style.display = "block"; document.getElementById("logGrowQuestionView").style.display = "none"; };
 
-        // ==========================================
-        // OVERRIDE GLOBAL FUNCTIONS
-        // ==========================================
+        function renderTasksPage() {
+            let html = '<h1 class="page-title">Today\\'s Tasks</h1><div class="tasks-grid">';
+            if (!tasksData || tasksData.length === 0) {
+                html += '<div class="empty-state" style="grid-column: 1/-1;"><i class="fas fa-clipboard-list" style="font-size: 2rem;"></i><h3 style="margin-top: 12px;">No tasks</h3></div>';
+            } else {
+                tasksData.forEach((task) => {
+                    const hasDescription = hasContent(task.description);
+                    const progress = task.subtaskProgress || 0;
+                    const circleCircumference = 2 * Math.PI * 16;
+                    const circleOffset = circleCircumference - (progress / 100) * circleCircumference;
+                    const completedSubtasks = task.subtasks ? task.subtasks.filter(s => s.completed).length : 0;
+                    const totalSubtasks = task.subtasks ? task.subtasks.length : 0;
+                    const descriptionId = 'task_desc_' + task.taskId;
+                    const escapedTitle = escapeHtml(task.title);
+                    
+                    html += '<div class="task-card"><div class="task-header"><div class="task-title-section"><div class="task-title-container" onclick="toggleDescription(\\'' + descriptionId + '\\')"><i class="fas fa-chevron-right" id="' + descriptionId + '_icon"></i><span class="task-title">' + escapedTitle + '</span></div></div><div class="task-actions">';
+                    if (totalSubtasks < 10) html += '<button class="action-btn" onclick="openAddSubtaskModal(\\'' + task.taskId + '\\')"><i class="fas fa-plus"></i></button>';
+                    html += '<button class="action-btn" onclick="openEditTaskModal(\\'' + task.taskId + '\\')"><i class="fas fa-pencil-alt"></i></button><button class="action-btn" onclick="completeTask(\\'' + task.taskId + '\\')"><i class="fas fa-check"></i></button><button class="action-btn delete" onclick="deleteTask(\\'' + task.taskId + '\\')"><i class="fas fa-trash"></i></button></div></div>';
+                    if (hasDescription) html += '<div id="' + descriptionId + '" class="task-description-container hidden"><div class="task-description">' + preserveLineBreaks(task.description) + '</div></div>';
+                    
+                    let displayDate = task.dateIST || task.startDateStr;
+                    if (displayDate && displayDate.includes('-') && displayDate.split('-')[0].length === 4) {
+                        const parts = displayDate.split('-');
+                        displayDate = parts[2] + '-' + parts[1] + '-' + parts[0];
+                    }
+                    html += '<div class="task-time-row"><span class="date-chip"><i class="fas fa-calendar-alt"></i> ' + displayDate + '</span><span class="time-chip"><i class="fas fa-clock"></i> ' + (task.startTimeIST || task.startTimeStr) + '-' + (task.endTimeIST || task.endTimeStr) + '</span></div>';
+                    
+                    if (totalSubtasks > 0) {
+                        html += '<details class="task-subtasks"><summary class="flex-row" style="cursor: pointer;"><div class="progress-ring-small"><svg width="40" height="40"><circle class="progress-ring-circle-small" stroke="var(--progress-bg-light)" stroke-width="3" fill="transparent" r="16" cx="20" cy="20"/><circle class="progress-ring-circle-small" stroke="var(--accent-light)" stroke-width="3" fill="transparent" r="16" cx="20" cy="20" style="stroke-dasharray: ' + circleCircumference + '; stroke-dashoffset: ' + circleOffset + '; "/></svg><span class="progress-text-small">' + progress + '%</span></div><span style="font-size: 0.8rem; color: var(--text-secondary-light);">' + completedSubtasks + '/' + totalSubtasks + ' subtasks</span></summary><div class="subtasks-container w-100">';
+                        task.subtasks.sort((a, b) => { if (a.completed === b.completed) return 0; return a.completed ? 1 : -1; }).forEach((subtask) => {
+                            const subtaskHasDesc = hasContent(subtask.description);
+                            const subtaskDescId = 'subtask_desc_' + task.taskId + '_' + subtask.id;
+                            const escapedSubtaskTitle = escapeHtml(subtask.title);
+                            const escapedSubtaskDescription = escapeJsString(subtask.description || '');
+                            html += '<div class="subtask-item"><div class="subtask-main-row"><div class="subtask-checkbox ' + (subtask.completed ? 'completed' : '') + '" onclick="toggleSubtask(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\')">' + (subtask.completed ? '<i class="fas fa-check"></i>' : '') + '</div><div class="subtask-details"><div class="subtask-title-container" onclick="toggleDescription(\\'' + subtaskDescId + '\\')"><span class="subtask-title ' + (subtask.completed ? 'completed' : '') + '">' + escapedSubtaskTitle + '</span></div></div><div class="subtask-actions"><button class="subtask-btn" onclick="editSubtask(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\', \\'' + escapedSubtaskTitle.replace(/'/g, "\\\\'") + '\\', \\'' + escapedSubtaskDescription.replace(/'/g, "\\\\'") + '\\')"><i class="fas fa-pencil-alt"></i></button><button class="subtask-btn delete" onclick="deleteSubtask(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\')"><i class="fas fa-trash"></i></button></div></div>';
+                            if (subtaskHasDesc) html += '<div id="' + subtaskDescId + '" class="subtask-description-container hidden"><div class="subtask-description">' + preserveLineBreaks(subtask.description) + '</div></div>';
+                            html += '</div>';
+                        });
+                        html += '</div></details>';
+                    } else { html += '<div class="flex-row" style="margin-top: 8px;"><span style="font-size: 0.8rem; color: var(--text-secondary-light);"><i class="fas fa-tasks"></i> No subtasks</span></div>'; }
+                    html += '<div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;"><span class="badge"><i class="fas fa-repeat"></i> ' + (task.repeat && task.repeat !== 'none' ? (task.repeat === 'daily' ? 'Daily' : 'Weekly') : 'No Repeat') + '</span><span class="badge"><i class="fas fa-hourglass-half"></i> ' + task.durationFormatted + '</span>';
+                    if (task.repeatCount > 0) html += '<span class="badge"><i class="fas fa-hashtag"></i> ' + task.repeatCount + ' left</span>';
+                    html += '</div></div>';
+                });
+            }
+            html += '</div>';
+            return html;
+        }
+
+        function renderNotesPage() {
+            let html = '<h1 class="page-title">Notes</h1><div class="tasks-grid">';
+            if (!notesData || notesData.length === 0) { html += '<div class="empty-state" style="grid-column: 1/-1;"><i class="fas fa-note-sticky" style="font-size: 2rem;"></i><h3 style="margin-top: 12px;">No notes</h3></div>'; } 
+            else {
+                notesData.forEach(note => {
+                    const hasDescription = hasContent(note.description);
+                    const noteDescId = 'note_desc_' + note.noteId;
+                    const escapedNoteTitle = escapeHtml(note.title);
+                    const escapedNoteDescription = escapeJsString(note.description || '');
+                    html += '<div class="note-card"><div class="note-header"><div class="task-title-container" onclick="toggleDescription(\\'' + noteDescId + '\\')"><i class="fas fa-chevron-right" id="' + noteDescId + '_icon"></i><span class="note-title">' + escapedNoteTitle + '</span></div><div style="display: flex; gap: 4px;"><button class="action-btn" onclick="moveNote(\\'' + note.noteId + '\\', \\'up\\')"><i class="fas fa-arrow-up"></i></button><button class="action-btn" onclick="moveNote(\\'' + note.noteId + '\\', \\'down\\')"><i class="fas fa-arrow-down"></i></button><button class="action-btn" onclick="openEditNoteModal(\\'' + note.noteId + '\\', \\'' + escapedNoteTitle.replace(/'/g, "\\\\'") + '\\', \\'' + escapedNoteDescription.replace(/'/g, "\\\\'") + '\\')"><i class="fas fa-pencil-alt"></i></button><button class="action-btn delete" onclick="deleteNote(\\'' + note.noteId + '\\')"><i class="fas fa-trash"></i></button></div></div>';
+                    if (hasDescription) html += '<div id="' + noteDescId + '" class="note-content-container hidden"><div class="note-content">' + preserveLineBreaks(note.description) + '</div></div>';
+                    html += '<div class="note-meta"><span><i class="fas fa-clock"></i> ' + note.createdAtIST + '</span>' + (note.updatedAtIST !== note.createdAtIST ? '<span><i class="fas fa-pencil-alt"></i> ' + note.updatedAtIST + '</span>' : '') + '</div></div>';
+                });
+            }
+            html += '</div>'; return html;
+        }
+
+        function renderHistoryPage() {
+            let html = '<h1 class="page-title">History</h1>';
+            html += '<div class="history-header"><div class="month-selector"><button class="month-btn" onclick="changeMonth(-1)"><i class="fas fa-chevron-left"></i> Prev</button><span style="font-weight: 600;">' + new Date(currentYear, currentMonth).toLocaleString('default', { month: 'long' }) + ' ' + currentYear + '</span><button class="month-btn" onclick="changeMonth(1)">Next <i class="fas fa-chevron-right"></i></button></div></div>';
+            html += '<div class="history-grid">';
+            
+            const filteredHistory = filterHistoryByMonth(historyData, currentYear, currentMonth);
+            const dates = Object.keys(filteredHistory).sort().reverse();
+            
+            if (dates.length === 0) { html += '<div class="empty-state"><i class="fas fa-history" style="font-size: 2rem;"></i><h3 style="margin-top: 12px;">No history</h3></div>'; } 
+            else {
+                dates.forEach(date => {
+                    const tasks = filteredHistory[date];
+                    let displayDateHeader = date;
+                    if (date.includes('-') && date.split('-')[0].length === 4) {
+                        const parts = date.split('-'); displayDateHeader = parts[2] + '-' + parts[1] + '-' + parts[0];
+                    }
+                    html += '<div class="history-date-card"><details class="history-details">';
+                    html += '<summary><i class="fas fa-calendar-alt"></i><span style="font-weight: 600;">' + displayDateHeader + '</span><span class="badge" style="margin-left: auto;">' + tasks.length + ' task(s)</span></summary>';
+                    html += '<div class="history-tasks-grid">';
+                    
+                    tasks.forEach(task => {
+                        const hasDescription = hasContent(task.description);
+                        const historyDescId = 'history_desc_' + task._id;
+                        const escapedHistoryTitle = escapeHtml(task.title);
+                        html += '<div class="history-task-card"><div class="history-task-header"><div class="task-title-container" onclick="toggleDescription(\\'' + historyDescId + '\\')"><i class="fas fa-chevron-right"></i><span class="history-task-title">' + escapedHistoryTitle + '</span></div><span class="history-task-time"><i class="fas fa-check-circle" style="color: var(--success-light);"></i> ' + task.completedTimeIST + '</span></div>';
+                        if (hasDescription) html += '<div id="' + historyDescId + '" class="history-description-container hidden"><div class="history-description">' + preserveLineBreaks(task.description) + '</div></div>';
+                        html += '<div style="display: flex; gap: 6px; margin: 8px 0; flex-wrap: wrap;"><span class="badge"><i class="fas fa-clock"></i> ' + task.startTimeIST + '-' + task.endTimeIST + '</span><span class="badge"><i class="fas fa-hourglass-half"></i> ' + task.durationFormatted + '</span>' + (task.repeat && task.repeat !== 'none' ? '<span class="badge"><i class="fas fa-repeat"></i> ' + (task.repeat === 'daily' ? 'Daily' : 'Weekly') + '</span>' : '') + '</div>';
+                        if (task.subtasks && task.subtasks.length > 0) {
+                            html += '<details style="margin-top: 8px;"><summary style="cursor: pointer; color: var(--accent-light); font-weight: 600; font-size: 0.8rem;"><i class="fas fa-tasks"></i> Subtasks (' + task.subtasks.filter(s => s.completed).length + '/' + task.subtasks.length + ')</summary><div style="margin-top: 8px;">';
+                            task.subtasks.forEach(subtask => {
+                                const subtaskHasDesc = hasContent(subtask.description);
+                                const historySubtaskDescId = 'history_subtask_desc_' + task._id + '_' + subtask.id;
+                                html += '<div class="history-subtask"><div style="display: flex; align-items: flex-start; gap: 6px;"><span style="color: ' + (subtask.completed ? 'var(--success-light)' : 'var(--text-secondary-light)') + '"><i class="fas fa-' + (subtask.completed ? 'check-circle' : 'circle') + '"></i></span><div style="flex: 1;"><div class="task-title-container" onclick="toggleDescription(\\'' + historySubtaskDescId + '\\')"><span style="font-weight: 600; font-size: 0.8rem;">' + escapeHtml(subtask.title) + '</span></div>' + (subtaskHasDesc ? '<div id="' + historySubtaskDescId + '" class="history-description-container hidden"><div class="history-description" style="border-left-color: var(--accent-light);">' + preserveLineBreaks(subtask.description) + '</div></div>' : '') + '</div></div></div>';
+                            });
+                            html += '</div></details>';
+                        }
+                        html += '</div>';
+                    });
+                    html += '</div></details></div>';
+                });
+            }
+            html += '</div>'; return html;
+        }
+
+        function filterHistoryByMonth(history, year, month) {
+            const filtered = {};
+            Object.keys(history).forEach(dateStr => {
+                let parts;
+                if(dateStr.includes('-') && dateStr.split('-')[0].length === 4) parts = dateStr.split('-'); 
+                else parts = dateStr.split('-').reverse(); 
+                const yearNum = parseInt(parts[0]);
+                const monthNum = parseInt(parts[1]);
+                if (yearNum === year && monthNum - 1 === month) filtered[dateStr] = history[dateStr];
+            });
+            return filtered;
+        }
+
+        function changeMonth(delta) {
+            currentMonth += delta;
+            if (currentMonth < 0) { currentMonth = 11; currentYear--; } else if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+            renderPage();
+        }
+
         function openModal(modalId) { document.getElementById(modalId).style.display = 'flex'; document.body.style.overflow = 'hidden'; }
         function closeModal(modalId) { document.getElementById(modalId).style.display = 'none'; document.body.style.overflow = 'auto'; }
         function openAddModal() { 
             if (currentPage === 'tasks') openAddTaskModal(); 
             else if (currentPage === 'notes') openAddNoteModal(); 
-            else if (currentPage === 'grow') openAddGrowModal();
+            else if (currentPage === 'grow') openAddGrowModal(); 
         }
 
         function openAddTaskModal() {
@@ -1210,7 +1342,7 @@ function writeMainEJS() {
         function moveNote(noteId, direction) { showLoader(); const formData = new FormData(); formData.append('direction', direction); fetch('/api/notes/' + noteId + '/move', { method: 'POST', body: new URLSearchParams(formData) }).then(res => { if(res.ok){ showToast('Moved'); switchPage('notes'); } else throw new Error(''); }).catch(err => { showToast('Error moving', 'error'); hideLoader(); }); }
 
         document.addEventListener('DOMContentLoaded', function() {
-            // Initialize Grow Context Data
+            // Grow Time initial sync
             const gIst = getGrowIST();
             growToday = gIst.date; growMonth = gIst.month; growYear = gIst.year;
             
@@ -1222,13 +1354,19 @@ function writeMainEJS() {
                 document.getElementById('currentTimeDisplay').innerHTML = String(istNow.getUTCHours()).padStart(2, '0') + ':' + String(istNow.getUTCMinutes()).padStart(2, '0');
                 document.getElementById('currentDateDisplay').innerHTML = String(istNow.getUTCDate()).padStart(2, '0') + '-' + String(istNow.getUTCMonth() + 1).padStart(2, '0') + '-' + istNow.getUTCFullYear();
             }, 1000);
-            
             document.getElementById('repeatSelect').addEventListener('change', function() { document.getElementById('repeatCountGroup').style.display = this.value === 'none' ? 'none' : 'block'; });
             document.getElementById('editRepeatSelect').addEventListener('change', function() { document.getElementById('editRepeatCountGroup').style.display = this.value === 'none' ? 'none' : 'block'; });
             
+            // Comprehensive click listener
             window.addEventListener('click', function(event) { 
-                if (event.target.classList.contains('modal')) { event.target.style.display = 'none'; document.body.style.overflow = 'auto'; } 
-                if(!event.target.closest(".grow-day") && !event.target.closest(".grow-bubble")) hideGrowBubble();
+                if (event.target.classList.contains('modal')) { 
+                    event.target.style.display = 'none'; 
+                    document.body.style.overflow = 'auto'; 
+                } 
+                // Hide grow bubble if clicked outside it and outside a calendar day
+                if(!event.target.closest(".grow-day") && !event.target.closest(".grow-bubble")) {
+                    hideGrowBubble();
+                }
             });
         });
     </script>
@@ -1254,7 +1392,7 @@ async function connectDB() {
             db = client.db('telegram_bot');
             console.log('✅ Connected to MongoDB');
             
-            // Initialize Grow Collection if it doesn't exist
+            // Auto-initialize grow collection if missing
             const exists = await db.collection('grow').findOne({ type: 'tracker' });
             if (!exists) {
                 await db.collection('grow').insertOne({ type: 'tracker', items: [], progress: {} });
@@ -1275,9 +1413,12 @@ async function connectDB() {
 // ==========================================
 function generateId(type = 'task') { return type.charAt(0) + Math.random().toString(36).substring(2, 10); }
 function generateSubtaskId() { return 'sub_' + Date.now().toString(36); }
-function calculateDuration(startDate, endDate) { return Math.round((endDate - startDate) / 60000); }
+function calculateDuration(startDate, endDate) { 
+    if (!startDate || !endDate) return 0;
+    return Math.round((endDate - startDate) / 60000); 
+}
 function formatDuration(minutes) {
-    if (minutes < 0) return '0 mins';
+    if (isNaN(minutes) || minutes < 0) return '0 mins';
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     if (hours === 0) return mins + ' mins';
@@ -1298,20 +1439,22 @@ let isShuttingDown = false;
 
 bot.command('start', async (ctx) => {
     const keyboard = Markup.inlineKeyboard([[Markup.button.webApp('🌐 Open Web App', WEB_APP_URL)]]);
-    await ctx.reply('🌟 <b>Global Task Manager</b>\n\nManage your tasks & habits using the Web App below. I will send you notifications here.', { parse_mode: 'HTML', reply_markup: keyboard.reply_markup });
+    await ctx.reply('🌟 <b>Global Task Manager</b>\n\nManage your tasks using the Web App below. I will send you notifications here.', { parse_mode: 'HTML', reply_markup: keyboard.reply_markup });
 });
 
 function scheduleTask(task) {
-    if (!task || !task.taskId || !task.startDate) return;
+    if (!task || !task.taskId || !task.nextOccurrence) return;
     try {
         const taskId = task.taskId;
-        const startTimeUTC = new Date(task.startDate);
+        const targetTimeUTC = new Date(task.nextOccurrence);
         const nowUTC = new Date();
 
         cancelTaskSchedule(taskId);
-        if (startTimeUTC <= nowUTC) return;
+        if (targetTimeUTC <= nowUTC) return;
 
-        const notifyTimeUTC = new Date(startTimeUTC.getTime() - 10 * 60000);
+        console.log(`Scheduling task: ${task.title} for ${targetTimeUTC}`);
+
+        const notifyTimeUTC = new Date(targetTimeUTC.getTime() - 10 * 60000);
         const triggerDateUTC = notifyTimeUTC > nowUTC ? notifyTimeUTC : nowUTC;
 
         const startJob = schedule.scheduleJob(triggerDateUTC, async function() {
@@ -1322,25 +1465,27 @@ function scheduleTask(task) {
             const sendNotification = async () => {
                 if (isShuttingDown) return;
                 const currentTimeUTC = new Date();
-                if (currentTimeUTC >= startTimeUTC || count >= maxNotifications) {
+                if (currentTimeUTC >= targetTimeUTC || count >= maxNotifications) {
                     const activeSchedule = activeSchedules.get(taskId);
                     if (activeSchedule && activeSchedule.interval) {
                         clearInterval(activeSchedule.interval);
                         activeSchedule.interval = null;
                     }
-                    if (currentTimeUTC >= startTimeUTC) {
+                    if (currentTimeUTC >= targetTimeUTC) {
                         try { await bot.telegram.sendMessage(CHAT_ID, `🚀 <b>START NOW:</b> ${task.title}`, { parse_mode: 'HTML' }); } catch (e) {}
                     }
                     return;
                 }
-                const minutesLeft = Math.ceil((startTimeUTC - currentTimeUTC) / 60000);
+                const minutesLeft = Math.ceil((targetTimeUTC - currentTimeUTC) / 60000);
                 if (minutesLeft > 0) {
                     try { await bot.telegram.sendMessage(CHAT_ID, `🔔 <b>In ${minutesLeft}m:</b> ${task.title}`, { parse_mode: 'HTML' }); } catch (e) {}
                 }
                 count++;
             };
+            
             await sendNotification();
             const interval = setInterval(sendNotification, 60000);
+            
             if (activeSchedules.has(taskId)) {
                 if (activeSchedules.get(taskId).interval) clearInterval(activeSchedules.get(taskId).interval);
                 activeSchedules.get(taskId).interval = interval;
@@ -1351,7 +1496,9 @@ function scheduleTask(task) {
             if (activeSchedules.get(taskId).startJob) activeSchedules.get(taskId).startJob.cancel();
             activeSchedules.get(taskId).startJob = startJob;
         } else { activeSchedules.set(taskId, { startJob }); }
-    } catch (error) {}
+    } catch (error) {
+        console.error('Scheduling error:', error);
+    }
 }
 
 function cancelTaskSchedule(taskId) {
@@ -1365,7 +1512,7 @@ function cancelTaskSchedule(taskId) {
 
 async function rescheduleAllPending() {
     try {
-        const tasks = await db.collection('tasks').find({ status: 'pending', startDate: { $gt: new Date() } }).toArray();
+        const tasks = await db.collection('tasks').find({ status: 'pending', nextOccurrence: { $gt: new Date() } }).toArray();
         tasks.forEach(task => scheduleTask(task));
     } catch (error) {}
 }
@@ -1394,9 +1541,9 @@ app.get('/tasks', async (req, res) => {
                 subtaskProgress: calculateSubtaskProgress(task.subtasks), 
                 subtasks: task.subtasks || []
             })),
-            notes: [], groupedHistory: {}, growData: {items:[], progress:{}}, currentTime: istDateObj.displayTime, currentDate: istDateObj.displayDate
+            notes: [], groupedHistory: {}, growData: {items: [], progress: {}}, currentTime: istDateObj.displayTime, currentDate: istDateObj.displayDate
         });
-    } catch (error) { res.status(500).send(error.message); }
+    } catch (error) { res.status(500).send("Server Error"); }
 });
 
 app.get('/grow', async (req, res) => {
@@ -1405,15 +1552,15 @@ app.get('/grow', async (req, res) => {
         const data = await db.collection('grow').findOne({ type: 'tracker' });
         const cleanData = data ? { items: data.items || [], progress: data.progress || {} } : { items: [], progress: {} };
         res.render('index', { currentPage: 'grow', tasks: [], notes: [], groupedHistory: {}, growData: cleanData, currentTime: istDateObj.displayTime, currentDate: istDateObj.displayDate });
-    } catch (error) { res.status(500).send(error.message); }
+    } catch (error) { res.status(500).send("Server Error"); }
 });
 
 app.get('/notes', async (req, res) => {
     try {
         const notes = await db.collection('notes').find().sort({ orderIndex: 1, createdAt: -1 }).toArray();
         const istDateObj = getCurrentISTDisplay();
-        res.render('index', { currentPage: 'notes', tasks: [], notes: notes.map(n => ({ ...n, createdAtIST: formatLegacyIST(n.createdAt, 'date') + ' ' + formatLegacyIST(n.createdAt, 'time'), updatedAtIST: n.updatedAt ? formatLegacyIST(n.updatedAt, 'date') + ' ' + formatLegacyIST(n.updatedAt, 'time') : '' })), groupedHistory: {}, growData: {items:[], progress:{}}, currentTime: istDateObj.displayTime, currentDate: istDateObj.displayDate });
-    } catch (error) { res.status(500).send(error.message); }
+        res.render('index', { currentPage: 'notes', tasks: [], notes: notes.map(n => ({ ...n, createdAtIST: formatLegacyIST(n.createdAt, 'date') + ' ' + formatLegacyIST(n.createdAt, 'time'), updatedAtIST: n.updatedAt ? formatLegacyIST(n.updatedAt, 'date') + ' ' + formatLegacyIST(n.updatedAt, 'time') : '' })), groupedHistory: {}, growData: {items: [], progress: {}}, currentTime: istDateObj.displayTime, currentDate: istDateObj.displayDate });
+    } catch (error) { res.status(500).send("Server Error"); }
 });
 
 app.get('/history', async (req, res) => {
@@ -1432,10 +1579,11 @@ app.get('/history', async (req, res) => {
             });
         });
         const istDateObj = getCurrentISTDisplay();
-        res.render('index', { currentPage: 'history', tasks: [], notes: [], groupedHistory, growData: {items:[], progress:{}}, currentTime: istDateObj.displayTime, currentDate: istDateObj.displayDate });
-    } catch (error) { res.status(500).send(error.message); }
+        res.render('index', { currentPage: 'history', tasks: [], notes: [], groupedHistory, growData: {items: [], progress: {}}, currentTime: istDateObj.displayTime, currentDate: istDateObj.displayDate });
+    } catch (error) { res.status(500).send("Server Error"); }
 });
 
+// JSON API FOR SPA FETCH
 app.get('/api/page/:page', async (req, res) => {
     try {
         const page = req.params.page;
@@ -1444,7 +1592,7 @@ app.get('/api/page/:page', async (req, res) => {
             const startOfDayUTC = istToUTC(istDateObj.date, "00:00");
             const endOfDayUTC = istToUTC(istDateObj.date, "23:59");
             const tasks = await db.collection('tasks').find({ status: 'pending', nextOccurrence: { $gte: startOfDayUTC, $lt: endOfDayUTC } }).sort({ orderIndex: 1, nextOccurrence: 1 }).toArray();
-            res.json({ tasks: tasks.map(task => ({ ...task, startTimeIST: task.startTimeStr || formatLegacyIST(task.startDate, 'time'), endTimeIST: task.endTimeStr || formatLegacyIST(task.endDate, 'time'), dateIST: task.startDateStr || formatLegacyIST(task.startDate, 'date'), durationFormatted: formatDuration(calculateDuration(task.startDate, task.endDate)), subtaskProgress: calculateSubtaskProgress(task.subtasks) })) });
+            res.json({ tasks: tasks.map(t => ({ ...t, startTimeIST: t.startTimeStr || formatLegacyIST(t.startDate, 'time'), endTimeIST: t.endTimeStr || formatLegacyIST(t.endDate, 'time'), dateIST: t.startDateStr || formatLegacyIST(t.startDate, 'date'), durationFormatted: formatDuration(calculateDuration(t.startDate, t.endDate)), subtaskProgress: calculateSubtaskProgress(t.subtasks) })) });
         } else if (page === 'grow') {
             const data = await db.collection('grow').findOne({ type: 'tracker' });
             res.json({ growData: data ? { items: data.items || [], progress: data.progress || {} } : { items: [], progress: {} } });
@@ -1460,12 +1608,16 @@ app.get('/api/page/:page', async (req, res) => {
                 groupedHistory[dateKey].push({ ...item, completedTimeIST: item.completedTimeStr || formatLegacyIST(item.completedAt, 'time'), startTimeIST: item.startTimeStr || formatLegacyIST(item.startDate, 'time'), endTimeIST: item.endTimeStr || formatLegacyIST(item.endDate, 'time'), durationFormatted: formatDuration(calculateDuration(item.startDate, item.endDate)) });
             });
             res.json({ groupedHistory });
-        } else { res.status(404).json({ error: 'Not found' }); }
-    } catch (error) { res.status(500).json({ error: error.message }); }
+        } else { 
+            res.status(404).json({ error: 'Not found' }); 
+        }
+    } catch (error) { 
+        res.status(500).json({ error: error.message }); 
+    }
 });
 
 // ==========================================
-// 🚀 GROW BACKEND ROUTES
+// 🌱 GROW BACKEND ROUTES
 // ==========================================
 app.post('/api/grow', async (req, res) => {
     try {
@@ -1543,9 +1695,7 @@ app.post('/api/grow/log', async (req, res) => {
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// ==========================================
-// 🚀 TASKS/NOTES API ROUTES
-// ==========================================
+
 app.get('/api/tasks/:taskId', async (req, res) => {
     try {
         const task = await db.collection('tasks').findOne({ taskId: req.params.taskId });
@@ -1565,7 +1715,7 @@ app.post('/api/tasks', async (req, res) => {
         }
         
         const task = { 
-            taskId: generateId('task'), 
+            taskId: generateId('t'), 
             title: title.trim(), 
             description: description ? description.trim() : '', 
             startDate: startDateUTC, endDate: endDateUTC, nextOccurrence: startDateUTC, 
@@ -1594,7 +1744,7 @@ app.post('/api/tasks/:taskId/update', async (req, res) => {
             { $set: { title: title.trim(), description: description ? description.trim() : '', startDate: startDateUTC, endDate: endDateUTC, nextOccurrence: startDateUTC, repeat: repeat || 'none', repeatCount: repeat && repeat !== 'none' ? (parseInt(repeatCount) || 7) : 0, startTimeStr: startTime, endTimeStr: endTime, startDateStr: startDate, updatedAt: new Date() } }
         );
         const t = await db.collection('tasks').findOne({ taskId: req.params.taskId });
-        if (t && t.startDate > new Date()) scheduleTask(t);
+        if (t && t.nextOccurrence > new Date()) scheduleTask(t);
         res.redirect('/tasks');
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -1671,7 +1821,7 @@ app.post('/api/tasks/:taskId/subtasks/:subtaskId/delete', async (req, res) => {
 app.post('/api/notes', async (req, res) => {
     try {
         if (!req.body.title) return res.status(400).send('Empty title');
-        const note = { noteId: generateId('note'), title: req.body.title.trim(), description: req.body.description || '', createdAt: new Date(), updatedAt: new Date(), orderIndex: await db.collection('notes').countDocuments() };
+        const note = { noteId: generateId('n'), title: req.body.title.trim(), description: req.body.description || '', createdAt: new Date(), updatedAt: new Date(), orderIndex: await db.collection('notes').countDocuments() };
         await db.collection('notes').insertOne(note);
         res.redirect('/notes');
     } catch (error) { res.status(500).send(error.message); }
@@ -1729,6 +1879,7 @@ async function start() {
             setTimeout(start, 5000);
         }
     } catch (error) {
+        console.log("Error starting server:", error);
         setTimeout(start, 10000);
     }
 }
