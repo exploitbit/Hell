@@ -112,8 +112,8 @@ const growEJS = `<!DOCTYPE html>
         .panel { max-width: 600px; margin: 0 auto 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
         .panel summary { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; font-size: 1rem; font-weight: 700; cursor: pointer; background: var(--surface); list-style: none; }
         .panel summary::-webkit-details-marker { display: none; }
-        .panel summary i { transition: transform 0.3s; color: var(--text2); }
-        .panel[open] summary i { transform: rotate(180deg); }
+        .panel > summary > i { transition: transform 0.3s; color: var(--text2); }
+        .panel[open] > summary > i { transform: rotate(180deg); }
         .panel-body { padding: 16px; border-top: 1px solid var(--border); }
         
         /* Graphs */
@@ -171,7 +171,7 @@ const growEJS = `<!DOCTYPE html>
         .title { font-weight: 700; font-size: 1rem; color: var(--text); }
         .actions { display: flex; gap: 6px; margin-left: 10px; align-items: center; }
         .btn-icon { width: 32px; height: 32px; border-radius: 8px; border: none; background: var(--hover); color: var(--text2); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.85rem; transition: 0.2s; padding: 0; margin: 0;}
-        .btn-icon i { display: flex; align-items: center; justify-content: center; transform: rotate(180deg);}
+        .btn-icon i { display: flex; align-items: center; justify-content: center; }
         .btn-icon:hover { background: var(--accent); color: white; }
         .btn-icon.del:hover { background: var(--danger); }
         .desc-container { width: 100%; margin-top: 10px; }
