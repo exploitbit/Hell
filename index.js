@@ -452,8 +452,8 @@ const growEJS = `<!DOCTYPE html>
                         <summary>
                             <div class="title-section"><i class="fas fa-chevron-right"></i><span class="title">\${escape(item.title)}</span></div>
                             <div class="actions">
-                                <button class="btn-icon" onclick="event.preventDefault(); openEdit('\${item.id}')" title="Edit"><i class="fas fa-pencil-alt" style="transform: rotate(180deg);"></i></button>
-                                <button class="btn-icon del" onclick="event.preventDefault(); del('\${item.id}')" title="Delete"><i class="fas fa-trash-alt" style="transform: rotate(180deg);"></i></button>
+                                <button class="btn-icon" onclick="event.preventDefault(); openEdit('\${item.id}')" title="Edit"><i class="fas fa-pencil"></i></button>
+                                <button class="btn-icon del" onclick="event.preventDefault(); del('\${item.id}')" title="Delete"><i class="fas fa-trash"></i></button>
                             </div>
                         </summary>\`;
                         
