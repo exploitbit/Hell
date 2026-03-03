@@ -131,13 +131,17 @@ const growEJS = `<!DOCTYPE html>
         .nav-btn { background: var(--bg); border: 1px solid var(--border); width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 0.8rem; color: var(--text2); display: flex; align-items: center; justify-content: center; transition: 0.2s;}
         .nav-btn:hover { background: var(--hover); color: var(--text); }
         
-        .calendar { width: 100%; aspect-ratio: 1 / 1; display: flex; flex-direction: column; }
-        .grid { width: 100%; height: 100%; display: grid; grid-template-columns: repeat(7, 1fr); grid-template-rows: repeat(7, 1fr); gap: 4px; }
+        .calendar { width: 100%; display: flex; justify-content: center; align-items: center; }
+        .grid { width: 100%; max-width: 380px; aspect-ratio: 1 / 1; display: grid; grid-template-columns: repeat(7, 1fr); grid-template-rows: repeat(7, 1fr); gap: 4px; margin: 0 auto; }
         .weekday { display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.75rem; color: var(--text2); text-transform: uppercase; }
         .day { display: flex; align-items: center; justify-content: center; border-radius: 10px; position: relative; width: 100%; height: 100%; }
         .day.empty { pointer-events: none; background: transparent; }
         .day:hover:not(.empty) { background: var(--hover); cursor: pointer; }
-        .circle { width: 100%; height: 100%; max-width: 36px; max-height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; transition: transform 0.2s; }
+        
+        /* Fixed Circle size completely prevents any oval stretching */
+        .circle { width: 32px; height: 32px; flex-shrink: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; transition: transform 0.2s; }
+        @media (min-width: 360px) { .circle { width: 36px; height: 36px; font-size: 0.95rem; } }
+        
         .day:hover .circle { transform: scale(1.1); }
         .circle.has-data { color: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.2); text-shadow: 0 1px 2px rgba(0,0,0,0.6); }
         .circle.today { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); color: var(--accent); }
@@ -446,8 +450,8 @@ const growEJS = `<!DOCTYPE html>
                         <summary>
                             <div class="title-section"><i class="fas fa-chevron-right"></i><span class="title">\${escape(item.title)}</span></div>
                             <div class="actions">
-                                <button class="btn-icon" onclick="event.preventDefault(); openEdit('\${item.id}')" title="Edit"><i class="fas fa-pencil-alt"></i></button>
-                                <button class="btn-icon del" onclick="event.preventDefault(); del('\${item.id}')" title="Delete"><i class="fas fa-trash-alt"></i></button>
+                                <button class="btn-icon" onclick="event.preventDefault(); openEdit('\${item.id}')" title="Edit"><i class="fas fa-pencil-alt" style="transform: rotate(180deg);"></i></button>
+                                <button class="btn-icon del" onclick="event.preventDefault(); del('\${item.id}')" title="Delete"><i class="fas fa-trash-alt" style="transform: rotate(180deg);"></i></button>
                             </div>
                         </summary>\`;
                         
@@ -467,6 +471,9 @@ const growEJS = `<!DOCTYPE html>
 
                 // --- PROGRESS BAR 2: Quantitative Data (If activated) ---
                 if(item.hasData && item.type !== "boolean") {
+                    // Added a horizontal separator line right here
+                    html += \`<hr style="border: none; border-top: 1px solid var(--border); margin: 16px 0 8px 0;">\`;
+                    
                     let latestValue = item.start !== undefined ? item.start : 0;
                     let sortedDates = Object.keys(data.progress).sort();
                     for(let d of sortedDates) {
@@ -481,7 +488,7 @@ const growEJS = `<!DOCTYPE html>
                         let pct = range === 0 ? 0 : ((latestValue - min) / range) * 100;
                         pct = Math.max(0, Math.min(100, pct));
                         
-                        html += \`<div class="progress-bar-container" style="border-top: none; padding-top: 5px;">
+                        html += \`<div class="progress-bar-container" style="border-top: none; padding-top: 0; margin-top: 0;">
                             <div class="progress-stats"><span><strong>\${escape(item.question)}</strong></span><span>Current: \${latestValue}</span></div>
                             <div class="progress-bar"><div class="progress-fill" style="width:\${pct}%; background:\${item.color}"></div></div>
                             <div class="progress-stats"><span>Start: \${item.start}</span><span>Goal: \${item.end}</span></div>
