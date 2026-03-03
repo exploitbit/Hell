@@ -125,61 +125,33 @@ const growEJS = `<!DOCTYPE html>
         .bar-label { position: absolute; top: 0; bottom: 0; left: 0; right: 0; writing-mode: vertical-rl; transform: rotate(180deg); display: flex; align-items: center; justify-content: center; text-align: center; color: var(--text); font-size: 0.85rem; font-weight: 700; pointer-events: none; }
         .bar-pct { font-size: 0.75rem; font-weight: 700; margin-bottom: 5px; color: var(--text); }
         
-        /* Perfect 1:1 Calendar */
+        /* Calendar */
         .month-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
         .month-nav h2 { font-size: 1rem; font-weight: 700; background: var(--hover); padding: 5px 14px; border-radius: 30px; border: 1px solid var(--border); }
         .nav-btn { background: var(--bg); border: 1px solid var(--border); width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 0.8rem; color: var(--text2); display: flex; align-items: center; justify-content: center; transition: 0.2s;}
         .nav-btn:hover { background: var(--hover); color: var(--text); }
         
-        .calendar { width: 100%; padding: 0; display: block; }
-        
-        /* Strict Grid: minmax(0, 1fr) ensures columns can shrink on narrow phones and never overflow */
-        .grid { 
-            width: 100%; 
-            aspect-ratio: 1 / 1; 
-            display: grid; 
-            grid-template-columns: repeat(7, minmax(0, 1fr)); 
-            grid-template-rows: repeat(7, minmax(0, 1fr)); 
-            gap: 4px; 
-            margin: 0 auto; 
-        }
-        
-        .weekday { 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            font-weight: 700; 
-            font-size: clamp(0.55rem, 2.5vw, 0.75rem); /* Responsive font so it fits on small phones */
-            color: var(--text2); 
-            text-transform: uppercase; 
-            width: 100%; 
-            white-space: nowrap; 
-            overflow: hidden; 
-        }
-        
-        .day { 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            border-radius: 10px; 
-            position: relative; 
-            width: 100%; 
-            height: 100%; 
-        }
+        /* Newly Rewritten Perfect 1:1 Calendar CSS */
+        .calendar { width: 100%; display: flex; justify-content: center; align-items: center; }
+        .grid { width: 100%; max-width: 380px; aspect-ratio: 1 / 1; display: grid; grid-template-columns: repeat(7, 1fr); grid-template-rows: repeat(7, 1fr); gap: 4px; margin: 0 auto; }
+        .weekday { display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.75rem; color: var(--text2); text-transform: uppercase; }
+        .day { display: flex; align-items: center; justify-content: center; border-radius: 10px; position: relative; width: 100%; height: 100%; }
         .day.empty { pointer-events: none; background: transparent; }
         .day:hover:not(.empty) { background: var(--hover); cursor: pointer; }
         
-        /* 85% width combined with aspect-ratio creates a mathematically perfect circle that cannot turn into an oval */
+        /* Strictly enforces perfect circles and prevents oval stretching */
         .circle { 
-            width: 85%; 
-            height: auto; 
+            width: 100%; 
+            height: 100%; 
+            max-width: 36px; 
+            max-height: 36px; 
             aspect-ratio: 1 / 1; 
             border-radius: 50%; 
             display: flex; 
             align-items: center; 
             justify-content: center; 
             font-weight: 700; 
-            font-size: clamp(0.7rem, 3vw, 0.9rem); 
+            font-size: 0.9rem; 
             transition: transform 0.2s; 
             margin: auto; 
         }
@@ -199,7 +171,7 @@ const growEJS = `<!DOCTYPE html>
         .title { font-weight: 700; font-size: 1rem; color: var(--text); }
         .actions { display: flex; gap: 6px; margin-left: 10px; align-items: center; }
         .btn-icon { width: 32px; height: 32px; border-radius: 8px; border: none; background: var(--hover); color: var(--text2); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.85rem; transition: 0.2s; padding: 0; margin: 0;}
-        .btn-icon i { display: flex; align-items: center; justify-content: center; transform: rotate(180deg); }
+        .btn-icon i { display: flex; align-items: center; justify-content: center; }
         .btn-icon:hover { background: var(--accent); color: white; }
         .btn-icon.del:hover { background: var(--danger); }
         .desc-container { width: 100%; margin-top: 10px; }
@@ -480,8 +452,8 @@ const growEJS = `<!DOCTYPE html>
                         <summary>
                             <div class="title-section"><i class="fas fa-chevron-right"></i><span class="title">\${escape(item.title)}</span></div>
                             <div class="actions">
-                                <button class="btn-icon" onclick="event.preventDefault(); openEdit('${item.id}')" title="Edit"><i class="fas fa-pencil-alt"></i></button>
-                                <button class="btn-icon del" onclick="event.preventDefault(); del('${item.id}')" title="Delete"><i class="fas fa-trash-alt"></i></button>
+                                <button class="btn-icon" onclick="event.preventDefault(); openEdit('\${item.id}')" title="Edit"><i class="fas fa-pencil-alt" style="transform: rotate(180deg);"></i></button>
+                                <button class="btn-icon del" onclick="event.preventDefault(); del('\${item.id}')" title="Delete"><i class="fas fa-trash-alt" style="transform: rotate(180deg);"></i></button>
                             </div>
                         </summary>\`;
                         
@@ -501,7 +473,7 @@ const growEJS = `<!DOCTYPE html>
 
                 // --- PROGRESS BAR 2: Quantitative Data (If activated) ---
                 if(item.hasData && item.type !== "boolean") {
-                    // Horizontal separator line
+                    // Added a horizontal separator line right here
                     html += \`<hr style="border: none; border-top: 1px solid var(--border); margin: 16px 0 8px 0;">\`;
                     
                     let latestValue = item.start !== undefined ? item.start : 0;
@@ -651,8 +623,7 @@ const growEJS = `<!DOCTYPE html>
             
             let html = "";
             
-            // Hardcoded array. Wed is exactly at index 3, meaning it will perfectly center in a 7-col grid.
-            ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].forEach(d => html += \`<div class="weekday">\${d}</div>\`);
+            ["Su","Mo","Tu","We","Th","Fr","Sa"].forEach(d => html += \`<div class="weekday">\${d}</div>\`);
             
             // Generate exactly 42 grid items (6 weeks x 7 days) to ensure strict grid uniformity
             let currentDay = 1;
