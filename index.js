@@ -171,7 +171,7 @@ const growEJS = `<!DOCTYPE html>
         .title { font-weight: 700; font-size: 1rem; color: var(--text); }
         .actions { display: flex; gap: 6px; margin-left: 10px; align-items: center; }
         .btn-icon { width: 32px; height: 32px; border-radius: 8px; border: none; background: var(--hover); color: var(--text2); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.85rem; transition: 0.2s; padding: 0; margin: 0;}
-        .btn-icon i { display: flex; align-items: center; justify-content: center; }
+        .btn-icon i { display: flex; align-items: center; justify-content: center; transform: rotate(180deg);}
         .btn-icon:hover { background: var(--accent); color: white; }
         .btn-icon.del:hover { background: var(--danger); }
         .desc-container { width: 100%; margin-top: 10px; }
