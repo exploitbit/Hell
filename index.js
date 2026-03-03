@@ -103,7 +103,6 @@ const growEJS = `<!DOCTYPE html>
         }
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: system-ui, sans-serif; }
         
-        /* Increased global font size for better readability */
         body { background: var(--bg); color: var(--text); padding: 15px 12px 100px; min-height: 100vh; font-size: 13px; }
         
         .header { max-width: 600px; margin: 0 auto 15px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; }
@@ -123,7 +122,7 @@ const growEJS = `<!DOCTYPE html>
         .bar { display: flex; flex-direction: column; align-items: center; width: 10%; max-width: 35px; height: 100%; }
         .bar-track { width: 100%; height: 90%; border-radius: 6px; position: relative; display: flex; align-items: flex-end; background: var(--hover); overflow: hidden; border: 1px solid var(--border); }
         .bar-fill { width: 100%; border-radius: 4px; transition: height 0.6s ease; }
-        .bar-label { position: absolute; top: 0; bottom: 0; left: 0; right: 0; writing-mode: vertical-rl; transform: rotate(180deg); display: flex; align-items: center; justify-content: flex-end; padding-top: 6px; color: #fff; font-size: 0.75rem; font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,0.8); pointer-events: none; }
+        .bar-label { position: absolute; top: 0; bottom: 0; left: 0; right: 0; writing-mode: vertical-rl; transform: rotate(180deg); display: flex; align-items: center; justify-content: center; text-align: center; color: #fff; font-size: 0.85rem; font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,0.8); pointer-events: none; }
         .bar-pct { font-size: 0.75rem; font-weight: 700; margin-bottom: 5px; color: var(--text); }
         
         /* Calendar */
@@ -144,22 +143,22 @@ const growEJS = `<!DOCTYPE html>
         .circle.today.has-data { color: #fff; }
         
         /* Bubble */
-        .bubble { position: absolute; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px; z-index: 100; min-width: 160px; max-width: 200px; pointer-events: none; box-shadow: 0 10px 25px rgba(0,0,0,0.15); display: none; opacity: 0; transition: opacity 0.2s;}
+        .bubble { position: fixed; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px; z-index: 1000; min-width: 160px; max-width: 200px; pointer-events: none; box-shadow: 0 10px 25px rgba(0,0,0,0.25); display: none; opacity: 0; transition: opacity 0.2s; }
         .bubble.show { opacity: 1; }
-        .tail { position: absolute; width: 10px; height: 10px; background: var(--surface); border: 1px solid var(--border); transform: rotate(45deg); z-index: -1; }
+        .tail { position: absolute; width: 12px; height: 12px; background: var(--surface); transform: rotate(45deg); z-index: -1; }
         .bubble-date { font-size: 0.75rem; font-weight: 700; color: var(--text2); margin-bottom: 5px; border-bottom: 1px solid var(--border); padding-bottom: 5px; }
         .bubble-item { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 0.8rem; font-weight: 600; }
         
         /* Growth List */
         .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 12px; margin-bottom: 10px; transition: 0.2s;}
-        .card summary { display: flex; justify-content: space-between; align-items: flex-start; cursor: pointer; list-style: none; outline: none;}
+        .card summary { display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none; outline: none; padding: 4px 0;}
         .card summary::-webkit-details-marker { display: none; }
-        .title-section { display: flex; align-items: center; gap: 8px; flex: 1; padding-top: 4px;}
+        .title-section { display: flex; align-items: center; gap: 8px; flex: 1;}
         .title-section i { font-size: 0.8rem; color: var(--text2); transition: transform 0.2s; }
         details[open] .title-section i { transform: rotate(90deg); }
         .title { font-weight: 700; font-size: 1rem; color: var(--text); }
-        .actions { display: flex; gap: 4px; margin-left: 10px;}
-        .btn-icon { width: 30px; height: 30px; border-radius: 8px; border: none; background: var(--hover); color: var(--text2); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.8rem; transition: 0.2s;}
+        .actions { display: flex; gap: 6px; margin-left: 10px; align-items: center; }
+        .btn-icon { width: 32px; height: 32px; border-radius: 8px; border: none; background: var(--hover); color: var(--text2); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.85rem; transition: 0.2s;}
         .btn-icon:hover { background: var(--accent); color: white; }
         .btn-icon.del:hover { background: var(--danger); }
         .desc-container { width: 100%; margin-top: 10px; }
@@ -174,6 +173,12 @@ const growEJS = `<!DOCTYPE html>
         .progress-fill { height: 100%; background: var(--accent); border-radius: 10px; transition: width 0.5s ease-out; }
         .progress-stats { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text2); font-weight: 600; align-items: center;}
         .progress-stats strong { color: var(--text); font-size: 0.85rem;}
+        
+        /* Modern Toast */
+        .toast { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); background: var(--surface); color: var(--text); padding: 12px 24px; border-radius: 30px; box-shadow: 0 10px 40px rgba(0,0,0,0.25); transition: top 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55); z-index: 4000; font-weight: 600; font-size: 0.9rem; border: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+        .toast.show { top: 25px; }
+        .toast.success { border-left: 4px solid var(--accent); }
+        .toast.error { border-left: 4px solid var(--danger); }
         
         /* FAB & Modals */
         .fab { position: fixed; bottom: 20px; right: 20px; width: 56px; height: 56px; border-radius: 50%; background: var(--accent); color: white; border: none; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; cursor: pointer; box-shadow: 0 6px 16px rgba(5,150,105,0.4); z-index: 1000; transition: transform 0.2s;}
@@ -199,13 +204,15 @@ const growEJS = `<!DOCTYPE html>
         .checkbox { display: flex; align-items: center; gap: 8px; margin: 12px 0; font-size: 0.85rem; font-weight: 600; cursor: pointer; color: var(--text);}
         .checkbox input { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
         .hidden-fields { display: none; background: var(--hover); padding: 12px; border-radius: 10px; margin-bottom: 12px; }
-        .btn-submit { width: 100%; padding: 12px; background: var(--accent); color: white; border: none; border-radius: 10px; font-weight: 700; font-size: 0.9rem; cursor: pointer; margin-top: 10px; transition: 0.2s; }
+        .btn-submit { width: 100%; padding: 12px; background: var(--accent); color: white; border: none; border-radius: 10px; font-weight: 700; font-size: 0.9rem; cursor: pointer; margin-top: 10px; transition: 0.2s; display: flex; justify-content: center; align-items: center; gap: 8px;}
         .btn-submit:active { transform: scale(0.98); }
         .empty { text-align: center; color: var(--text2); padding: 30px; font-size: 0.9rem; background: var(--hover); border-radius: 12px; }
         #logQuestionView { display: none; }
     </style>
 </head>
 <body>
+    <div id="toast" class="toast"></div>
+
     <div class="header">
         <h1><i class="fas fa-seedling"></i> Grow</h1>
         <div class="time"><i class="fas fa-calendar-alt"></i> <span id="currentDate"><%= currentDate %></span> &nbsp;<i class="fas fa-clock"></i> <span id="currentTime"><%= currentTime %></span></div>
@@ -275,7 +282,7 @@ const growEJS = `<!DOCTYPE html>
                     <div class="form-group"><label>Start Date</label><input type="date" class="form-control" id="editStart" required></div>
                     <div class="form-group"><label>Duration (Days)</label><input type="number" class="form-control" id="editDays" required></div>
                 </div>
-                <div class="form-group"><label>Color Tag</label><div class="palette" id="editPalette"></div><input type="hidden" id="editColor" required></div>
+                <div class="form-group"><label>Color Tag (Auto-Swaps)</label><div class="palette" id="editPalette"></div><input type="hidden" id="editColor" required></div>
                 
                 <label class="checkbox"><input type="checkbox" id="editHasData" onchange="toggleDataFields('edit')"> Track Quantitative Data?</label>
                 
@@ -324,6 +331,13 @@ const growEJS = `<!DOCTYPE html>
             };
         }
         
+        function showToast(msg, type="success") {
+            const toast = document.getElementById("toast");
+            toast.innerHTML = \`<i class="fas \${type==='success'?'fa-check-circle':'fa-exclamation-circle'}" style="color:var(--\${type==='success'?'accent':'danger'})"></i> \${msg}\`;
+            toast.className = \`toast show \${type}\`;
+            setTimeout(() => toast.classList.remove("show"), 3000);
+        }
+        
         document.addEventListener("DOMContentLoaded", function() {
             const ist = getIST();
             today = ist.date;
@@ -343,9 +357,10 @@ const growEJS = `<!DOCTYPE html>
                 }
             });
             
+            // Hide bubble if clicking elsewhere or scrolling
             document.addEventListener("click", function(e) {
                 if(!e.target.closest(".day") && !e.target.closest(".bubble")) {
-                    document.getElementById("bubble").classList.remove("show");
+                    hideBubble();
                 }
             });
             
@@ -446,6 +461,7 @@ const growEJS = `<!DOCTYPE html>
             if(confirm("Delete this tracker and all its logs?")) { 
                 await fetch(API+"grow/"+id+"/delete", {method:"POST"}); 
                 await fetchData(); 
+                showToast("Tracker deleted successfully!", "success");
             } 
         }
         
@@ -494,6 +510,7 @@ const growEJS = `<!DOCTYPE html>
             });
             document.getElementById("editModal").classList.remove("show");
             await fetchData();
+            showToast("Tracker updated!", "success");
         });
         
         function renderGraphs() {
@@ -574,9 +591,16 @@ const growEJS = `<!DOCTYPE html>
                 html += \`<div class="day" data-date="\${date}"><div class="circle \${isToday?'today ':''}\${cls}" style="background:\${bg}">\${i}</div></div>\`;
             }
             grid.innerHTML = html;
-            document.getElementById("bubble").classList.remove("show");
+            hideBubble();
         }
         
+        function hideBubble() {
+            const bubble = document.getElementById("bubble");
+            bubble.classList.remove("show");
+            setTimeout(() => bubble.style.display = "none", 200);
+        }
+
+        // New 360 Bubble System
         function showBubble(cell, date) {
             const bubble = document.getElementById("bubble");
             const content = document.getElementById("bubbleContent");
@@ -585,7 +609,7 @@ const growEJS = `<!DOCTYPE html>
             const dayData = data.progress[date] || {};
             const d = new Date(date+"T00:00:00");
             
-            let html = \`<div class="bubble-date">\${d.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}\</div>\`;
+            let html = \`<div class="bubble-date">\${d.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>\`;
             if(!active.length) html += "<div style='text-align:center;font-size:0.8rem;color:var(--text2);'>No tasks active.</div>";
             else {
                 for(let i=0; i<active.length; i++) {
@@ -595,25 +619,60 @@ const growEJS = `<!DOCTYPE html>
                 }
             }
             content.innerHTML = html;
+            
+            // Render invisibly to get precise dimensions
             bubble.style.display = "block";
+            bubble.style.opacity = "0";
             
-            const b = bubble.getBoundingClientRect(), c = cell.getBoundingClientRect();
-            let x = (window.innerWidth/2) - b.width/2;
-            let y = c.top - b.height - 8;
-            let below = false;
+            const bRect = bubble.getBoundingClientRect();
+            const cRect = cell.getBoundingClientRect();
             
-            if(y < 10) { y = c.bottom + 8; below = true; }
-            bubble.style.left = x + "px";
-            bubble.style.top = y + "px";
+            // Calculate Top or Bottom placement
+            let top = cRect.top - bRect.height - 12; // place above cell
+            let left = cRect.left + (cRect.width / 2) - (bRect.width / 2); // center aligned
+            let placement = 'top';
             
-            let tailX = (c.left + c.width/2) - x;
-            tailX = Math.max(15, Math.min(b.width-15, tailX));
-            tail.style.left = tailX + "px";
+            if(top < 20) { // Off screen top, flip to bottom
+                top = cRect.bottom + 12;
+                placement = 'bottom';
+            }
             
-            if(below) { tail.style.top = "-5px"; tail.style.bottom = "auto"; tail.style.transform = "translateX(-50%) rotate(225deg)"; }
-            else { tail.style.bottom = "-5px"; tail.style.top = "auto"; tail.style.transform = "translateX(-50%) rotate(45deg)"; }
+            // Clamp horizontal boundaries
+            if(left < 10) left = 10;
+            if(left + bRect.width > window.innerWidth - 10) left = window.innerWidth - bRect.width - 10;
             
-            setTimeout(() => bubble.classList.add("show"), 10);
+            bubble.style.top = top + "px";
+            bubble.style.left = left + "px";
+            
+            // Dynamically place the tail pointing perfectly to cell center
+            let tailLeft = (cRect.left + cRect.width / 2) - left;
+            tailLeft = Math.max(12, Math.min(bRect.width - 24, tailLeft)); // Keep within bubble
+            
+            tail.style.left = (tailLeft - 6) + "px"; // 6 = half tail width
+            
+            if(placement === 'top') {
+                tail.style.bottom = "-6px";
+                tail.style.top = "auto";
+                tail.style.borderTop = "none";
+                tail.style.borderLeft = "none";
+                tail.style.borderBottom = "1px solid var(--border)";
+                tail.style.borderRight = "1px solid var(--border)";
+            } else {
+                tail.style.top = "-6px";
+                tail.style.bottom = "auto";
+                tail.style.borderTop = "1px solid var(--border)";
+                tail.style.borderLeft = "1px solid var(--border)";
+                tail.style.borderBottom = "none";
+                tail.style.borderRight = "none";
+            }
+            
+            setTimeout(() => {
+                bubble.style.opacity = "1";
+                bubble.classList.add("show");
+            }, 10);
+            
+            // Remove exactly on scroll to prevent dislodging
+            window.addEventListener('scroll', hideBubble, { once: true });
         }
         
         function initAddPalette() {
@@ -651,6 +710,7 @@ const growEJS = `<!DOCTYPE html>
             let html = "";
             for(let i=0; i<colors.length; i++) {
                 const c = colors[i];
+                // Display ALL colors when editing
                 html += \`<div class="swatch \${c===current?'selected':''}" style="background:\${c}" data-color="\${c}"></div>\`;
             }
             container.innerHTML = html;
@@ -703,6 +763,7 @@ const growEJS = `<!DOCTYPE html>
             document.getElementById("addForm").reset();
             document.getElementById("addDataFields").style.display = "none";
             await fetchData();
+            showToast("New tracker created successfully!", "success");
         });
         
         function openLogModal(date) {
@@ -721,7 +782,7 @@ const growEJS = `<!DOCTYPE html>
                         <summary style="outline:none; list-style:none;">
                             <div class="title-section"><i class="fas fa-chevron-right"></i><div class="dot" style="background:\${item.color}"></div><span class="title">\${escape(item.title)}</span></div>
                             <div class="actions">
-                                <button class="btn-icon" onclick="event.preventDefault(); handleLogClick('\${item.id}','\${date}')" style="background:\${done?'var(--hover)':item.color};color:\${done?'var(--text2)':'white'}; width:36px; height:36px;" \${done?'disabled':''}><i class="fas fa-check"></i></button>
+                                <button class="btn-icon log-action-btn" onclick="event.preventDefault(); handleLogClick(this, '\${item.id}','\${date}')" style="background:\${done?'var(--hover)':item.color};color:\${done?'var(--text2)':'white'}; width:36px; height:36px;" \${done?'disabled':''}><i class="fas fa-check"></i></button>
                             </div>
                         </summary>\`;
                 if(item.description) html += \`<div class="desc-container"><div class="desc" style="border-left-color:\${item.color}">\${escape(item.description)}</div></div>\`;
@@ -732,10 +793,23 @@ const growEJS = `<!DOCTYPE html>
             document.getElementById("logModal").classList.add("show");
         }
         
-        window.handleLogClick = function(id, date) {
+        window.handleLogClick = function(btn, id, date) {
+            if(btn.disabled) return;
+            const originalHTML = btn.innerHTML;
+            
+            // Put btn in loading state visually
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            btn.disabled = true;
+            
             const item = data.items.find(g => g.id === id);
-            if(item.hasData) openLogQuestion(item, date);
-            else saveLog(item, date, true);
+            if(item.hasData) {
+                // If opening a question view, reset the list view button in case they go back
+                btn.innerHTML = originalHTML;
+                btn.disabled = false;
+                openLogQuestion(item, date);
+            } else {
+                saveLog(item, date, true, btn, originalHTML);
+            }
         };
         
         function openLogQuestion(item, date) {
@@ -752,30 +826,50 @@ const growEJS = `<!DOCTYPE html>
             document.getElementById("logQuestionView").style.display = "block";
         }
         
-        async function saveLog(item, date, val) {
-            const payload = { itemId: item.id, dateStr: date, value: val };
-            await fetch(API + "grow/log", {
-                method:"POST", 
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify(payload)
-            });
-            await fetchData();
+        async function saveLog(item, date, val, btnRef = null, originalBtnHTML = '') {
+            if(!btnRef) {
+                btnRef = document.getElementById("saveLogBtn");
+                originalBtnHTML = btnRef.innerHTML;
+                btnRef.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+                btnRef.disabled = true;
+            }
             
-            const active = data.items.filter(g => isActive(g, date));
-            const dayData = data.progress[date] || {};
-            const allDone = active.length && active.every(g => dayData[g.id] !== undefined);
-            
-            if(allDone) {
-                document.getElementById("logModal").classList.remove("show");
-                showBubble(document.querySelector(\`.day[data-date="\${date}"]\`), date);
-            } else {
-                openLogModal(date);
+            try {
+                const payload = { itemId: item.id, dateStr: date, value: val };
+                await fetch(API + "grow/log", {
+                    method:"POST", 
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify(payload)
+                });
+                await fetchData();
+                showToast("Growth progress logged successfully!", "success");
+                
+                const active = data.items.filter(g => isActive(g, date));
+                const dayData = data.progress[date] || {};
+                const allDone = active.length && active.every(g => dayData[g.id] !== undefined);
+                
+                // Keep buttons disabled to avoid flashes while modal swaps
+                if(allDone) {
+                    document.getElementById("logModal").classList.remove("show");
+                    showBubble(document.querySelector(\`.day[data-date="\${date}"]\`), date);
+                } else {
+                    openLogModal(date); // Re-renders cleanly
+                }
+            } catch (err) {
+                showToast("Failed to save progress.", "error");
+                if(btnRef) {
+                    btnRef.innerHTML = originalBtnHTML;
+                    btnRef.disabled = false;
+                }
             }
         }
         
         document.getElementById("saveLogBtn").addEventListener("click", async function() {
             const input = document.getElementById("logValue");
-            if(!input || !input.value) return alert("Please enter a value.");
+            if(!input || !input.value) {
+                showToast("Please enter a valid numerical value.", "error");
+                return;
+            }
             const {item, date} = logContext;
             const val = item.type === "float" ? parseFloat(input.value) : parseInt(input.value);
             await saveLog(item, date, val);
@@ -849,7 +943,23 @@ app.post('/api/grow', async (req, res) => {
 app.post('/api/grow/:id/update', async (req, res) => {
     try {
         const { id, title, description, startDate, endCount, color, hasData, type, question, start, end } = req.body;
-        const item = {
+        const tracker = await db.collection('grow').findOne({ type: 'tracker' });
+        if (!tracker) return res.status(404).json({ error: 'Tracker context not found' });
+        
+        const currentItem = tracker.items.find(i => i.id === id);
+        
+        // Logical swapping: Interchanges colors if the newly assigned color is already occupied.
+        if (currentItem && currentItem.color !== color) {
+            const conflictingItem = tracker.items.find(i => i.id !== id && i.color === color);
+            if (conflictingItem) {
+                await db.collection('grow').updateOne(
+                    { type: 'tracker', 'items.id': conflictingItem.id },
+                    { $set: { 'items.$.color': currentItem.color } }
+                );
+            }
+        }
+        
+        const updatedItem = {
             id: id,
             title: title,
             description: description || '',
@@ -860,15 +970,15 @@ app.post('/api/grow/:id/update', async (req, res) => {
             type: hasData ? type : 'boolean'
         };
         
-        if (item.hasData) {
-            item.question = question || '';
-            if (start !== undefined && start !== '') item.start = type === 'float' ? parseFloat(start) : parseInt(start);
-            if (end !== undefined && end !== '') item.end = type === 'float' ? parseFloat(end) : parseInt(end);
+        if (updatedItem.hasData) {
+            updatedItem.question = question || '';
+            if (start !== undefined && start !== '') updatedItem.start = type === 'float' ? parseFloat(start) : parseInt(start);
+            if (end !== undefined && end !== '') updatedItem.end = type === 'float' ? parseFloat(end) : parseInt(end);
         }
         
         await db.collection('grow').updateOne(
             { type: 'tracker', 'items.id': id },
-            { $set: { 'items.$': item } }
+            { $set: { 'items.$': updatedItem } }
         );
         try { await bot.telegram.sendMessage(CHAT_ID, `✏️ Updated: ${title}`, { parse_mode: 'HTML' }); } catch(e) {}
         res.json({ success: true });
