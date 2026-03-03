@@ -310,7 +310,7 @@ function writeMainEJS() {
         .grow-title-section i { font-size: 0.7rem; color: var(--text-secondary-light); transition: transform 0.2s; }
         @media (prefers-color-scheme: dark) { .grow-title-section i { color: var(--text-secondary-dark); } }
         details[open] .grow-title-section i { transform: rotate(90deg); }
-        .grow-title { font-weight: 600; font-size: 1rem; color: var(--text-primary-light); }
+        .grow-title { font-weight: 550; font-size: 0.8rem; color: var(--text-primary-light); }
         @media (prefers-color-scheme: dark) { .grow-title { color: var(--text-primary-dark); } }
         
         .grow-progress-bar-container { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border-light); width: 100%; }
