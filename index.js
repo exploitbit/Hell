@@ -268,7 +268,7 @@ function writeMainEJS() {
         .grow-bar-track { width: 100%; height: 90%; border-radius: 6px; position: relative; display: flex; align-items: flex-end; background: var(--hover-light); overflow: hidden; border: 1px solid var(--border-light); }
         @media (prefers-color-scheme: dark) { .grow-bar-track { background: var(--hover-dark); border-color: var(--border-dark); } }
         .grow-bar-fill { width: 100%; border-radius: 4px; transition: height 0.6s ease; }
-        .grow-bar-label { position: absolute; top: 0; bottom: 0; left: 0; right: 0; writing-mode: vertical-rl; transform: rotate(180deg); display: flex; align-items: center; justify-content: center; text-align: center; color: var(--text-primary-light); font-size: 0.85rem; font-weight: 700; pointer-events: none; line-height: 1.5; }
+        .grow-bar-label { position: absolute; top: 0; bottom: 0; left: 0; right: 0; writing-mode: vertical-rl; transform: rotate(180deg); display: flex; align-items: center; justify-content: center; text-align: center; color: var(--text-primary-light); font-size: 0.85rem; font-weight: 700; pointer-events: none; line-height: 1.2; }
         @media (prefers-color-scheme: dark) { .grow-bar-label { color: var(--text-primary-dark); } }
         .grow-bar-pct { font-size: 0.75rem; font-weight: 700; margin-bottom: 5px; color: var(--text-primary-light); }
         @media (prefers-color-scheme: dark) { .grow-bar-pct { color: var(--text-primary-dark); } }
