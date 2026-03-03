@@ -816,7 +816,7 @@ function writeMainEJS() {
             const daysInMonth = new Date(growYear, growMonth+1, 0).getDate();
             
             let html = "";
-            ["Su","Mo","Tu","We","Th","Fr","Sa"].forEach(d => html += '<div class="grow-weekday">' + d + '</div>');
+            ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].forEach(d => html += '<div class="grow-weekday">' + d + '</div>');
             
             let currentDay = 1;
             const prog = growTrackerData.progress || {};
