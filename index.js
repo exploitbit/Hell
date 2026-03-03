@@ -131,12 +131,12 @@ const growEJS = `<!DOCTYPE html>
         .nav-btn { background: var(--bg); border: 1px solid var(--border); width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 0.8rem; color: var(--text2); display: flex; align-items: center; justify-content: center; transition: 0.2s;}
         .nav-btn:hover { background: var(--hover); color: var(--text); }
         .calendar { width: 100%; aspect-ratio: 1 / 1; display: flex; flex-direction: column; }
-        .grid { flex: 1; display: grid; grid-template-columns: repeat(7, 1fr); grid-template-rows: auto repeat(6, 1fr); gap: 4px; }
-        .weekday { display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.7rem; color: var(--text2); text-transform: uppercase;}
-        .day { display: flex; align-items: center; justify-content: center; border-radius: 10px; position: relative;}
+        .grid { flex: 1; display: grid; grid-template-columns: repeat(7, 1fr); grid-template-rows: 24px repeat(6, 1fr); gap: 4px; }
+        .weekday { display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.7rem; color: var(--text2); text-transform: uppercase; }
+        .day { display: flex; align-items: center; justify-content: center; border-radius: 10px; position: relative; min-height: 0; min-width: 0; }
         .day.empty { pointer-events: none; }
         .day:hover:not(.empty) { background: var(--hover); cursor: pointer; }
-        .circle { width: 100%; max-width: 38px; aspect-ratio: 1; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; transition: transform 0.2s; }
+        .circle { width: 100%; height: 100%; max-width: 38px; max-height: 38px; aspect-ratio: 1; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; transition: transform 0.2s; }
         .day:hover .circle { transform: scale(1.1); }
         .circle.has-data { color: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.2); text-shadow: 0 1px 2px rgba(0,0,0,0.6); }
         .circle.today { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); color: var(--accent); }
@@ -168,9 +168,11 @@ const growEJS = `<!DOCTYPE html>
         /* Progress Bars */
         .progress-bar-container { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border); width: 100%; }
         .progress-bar { width: 100%; height: 8px; background: var(--hover); border-radius: 10px; overflow: hidden; margin: 8px 0; border: 1px solid var(--border); }
-        .progress-fill { height: 100%; background: var(--accent); border-radius: 10px; transition: width 0.5s ease-out; }
-        .progress-stats { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text2); font-weight: 600; align-items: center;}
+        .progress-fill { height: 100%; border-radius: 10px; transition: width 0.5s ease-out; }
+        .progress-stats { display: flex; justify-content: space-between; gap: 8px; font-size: 0.75rem; color: var(--text2); font-weight: 600; align-items: center;}
         .progress-stats strong { color: var(--text); font-size: 0.85rem;}
+        .progress-stats span:last-child { white-space: nowrap; flex-shrink: 0; text-align: right; }
+        .progress-stats span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         
         /* Modern Toast & Glass Loader */
         .toast { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); background: var(--surface); color: var(--text); padding: 12px 24px; border-radius: 30px; box-shadow: 0 10px 40px rgba(0,0,0,0.25); transition: top 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55); z-index: 10000; font-weight: 600; font-size: 0.9rem; border: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
@@ -185,7 +187,7 @@ const growEJS = `<!DOCTYPE html>
         @media (prefers-color-scheme: dark) { .global-loader { background: rgba(15, 23, 42, 0.6); } }
         
         /* FAB & Modals */
-        .fab { position: fixed; bottom: 20px; right: 20px; width: 56px; height: 56px; border-radius: 50%; background: var(--accent); color: white; border: none; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; cursor: pointer; box-shadow: 0 6px 16px rgba(5,150,105,0.4); z-index: 1000; transition: transform 0.2s;}
+        .fab { position: fixed; bottom: 20px; right: 20px; width: 56px; height: 56px; border-radius: 50%; background: var(--accent); color: white; border: none; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; cursor: pointer; box-shadow: 0 6px 16px rgba(5,150,105,0.4); z-index: 1000; transition: transform 0.2s, opacity 0.2s;}
         .fab:active { transform: scale(0.9); }
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(3px); align-items: center; justify-content: center; z-index: 2000; padding: 15px; }
         .modal.show { display: flex; }
@@ -398,7 +400,21 @@ const growEJS = `<!DOCTYPE html>
             }
         }
         
-        function renderAll() { renderCalendar(); renderGraphs(); renderList(); }
+        function renderAll() { 
+            renderCalendar(); 
+            renderGraphs(); 
+            renderList(); 
+            
+            // Handle + button disabled state visually
+            const fabBtn = document.getElementById("fabBtn");
+            if(data.items.length >= 8) {
+                fabBtn.style.opacity = "0.5";
+                fabBtn.style.cursor = "not-allowed";
+            } else {
+                fabBtn.style.opacity = "1";
+                fabBtn.style.cursor = "pointer";
+            }
+        }
         
         function isActive(item, d) {
             const start = new Date(item.startDate + "T00:00:00");
@@ -429,8 +445,8 @@ const growEJS = `<!DOCTYPE html>
                         <summary>
                             <div class="title-section"><i class="fas fa-chevron-right"></i><span class="title">\${escape(item.title)}</span></div>
                             <div class="actions">
-                                <button class="btn-icon" onclick="event.preventDefault(); openEdit('\${item.id}')" title="Edit"><i class="fas fa-pencil-alt" style="transform: rotate(180deg);"></i></button>
-                                <button class="btn-icon del" onclick="event.preventDefault(); del('\${item.id}')" title="Delete"><i class="fas fa-trash-alt" style="transform: rotate(180deg);"></i></button>
+                                <button class="btn-icon" onclick="event.preventDefault(); openEdit('\${item.id}')" title="Edit"><i class="fas fa-pencil-alt"></i></button>
+                                <button class="btn-icon del" onclick="event.preventDefault(); del('\${item.id}')" title="Delete"><i class="fas fa-trash-alt"></i></button>
                             </div>
                         </summary>\`;
                         
@@ -443,9 +459,9 @@ const growEJS = `<!DOCTYPE html>
                 timePct = Math.max(0, Math.min(100, timePct));
                 
                 html += \`<div class="progress-bar-container">
-                    <div class="progress-stats"><span><strong>Time Elapsed</strong></span><span></span></div>
-                    <div class="progress-bar"><div class="progress-fill" style="width:\${timePct}%; background:var(--accent)"></div></div>
-                    <div class="progress-stats"><span></span><span>\${Math.round(timePct)}% Complete</span></div>
+                    <div class="progress-stats"><span><strong>Time Elapsed</strong></span><span>\${passed} / \${item.endCount} Days</span></div>
+                    <div class="progress-bar"><div class="progress-fill" style="width:\${timePct}%; background:\${item.color}cc"></div></div>
+                    <div class="progress-stats"><span>Started: \${item.startDate}</span><span>\${Math.round(timePct)}% Complete</span></div>
                 </div>\`;
 
                 // --- PROGRESS BAR 2: Quantitative Data (If activated) ---
@@ -466,8 +482,8 @@ const growEJS = `<!DOCTYPE html>
                         
                         html += \`<div class="progress-bar-container" style="border-top: none; padding-top: 5px;">
                             <div class="progress-stats"><span><strong>\${escape(item.question)}</strong></span><span>Current: \${latestValue}</span></div>
-                            <div class="progress-bar"><div class="progress-fill" style="width:\${pct}%; background:var(--accent)"></div></div>
-                            <div class="progress-stats"><span></span><span>Goal: \${item.end}</span></div>
+                            <div class="progress-bar"><div class="progress-fill" style="width:\${pct}%; background:\${item.color}"></div></div>
+                            <div class="progress-stats"><span>Start: \${item.start}</span><span>Goal: \${item.end}</span></div>
                         </div>\`;
                     }
                 }
@@ -762,6 +778,10 @@ const growEJS = `<!DOCTYPE html>
         }
         
         window.openAddModal = function() {
+            if (data.items.length >= 8) {
+                showToast("All colors occupied! Cannot add more.", "error");
+                return;
+            }
             document.getElementById("addStart").value = today;
             document.getElementById("addType").value = "integer";
             initAddPalette();
