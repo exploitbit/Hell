@@ -112,8 +112,8 @@ const growEJS = `<!DOCTYPE html>
         .panel { max-width: 600px; margin: 0 auto 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
         .panel summary { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; font-size: 1rem; font-weight: 700; cursor: pointer; background: var(--surface); list-style: none; }
         .panel summary::-webkit-details-marker { display: none; }
-        .panel > summary > i { transition: transform 0.3s; color: var(--text2); }
-        .panel[open] > summary > i { transform: rotate(180deg); }
+        .panel summary i { transition: transform 0.3s; color: var(--text2); }
+        .panel[open] summary i { transform: rotate(180deg); }
         .panel-body { padding: 16px; border-top: 1px solid var(--border); }
         
         /* Graphs */
@@ -125,48 +125,119 @@ const growEJS = `<!DOCTYPE html>
         .bar-label { position: absolute; top: 0; bottom: 0; left: 0; right: 0; writing-mode: vertical-rl; transform: rotate(180deg); display: flex; align-items: center; justify-content: center; text-align: center; color: var(--text); font-size: 0.85rem; font-weight: 700; pointer-events: none; }
         .bar-pct { font-size: 0.75rem; font-weight: 700; margin-bottom: 5px; color: var(--text); }
         
-        /* Calendar */
-        .month-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-        .month-nav h2 { font-size: 1rem; font-weight: 700; background: var(--hover); padding: 5px 14px; border-radius: 30px; border: 1px solid var(--border); }
-        .nav-btn { background: var(--bg); border: 1px solid var(--border); width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 0.8rem; color: var(--text2); display: flex; align-items: center; justify-content: center; transition: 0.2s;}
+        /* Calendar - FIXED for mobile devices */
+        .month-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; }
+        .month-nav h2 { 
+            font-size: 1rem; 
+            font-weight: 700; 
+            background: var(--hover); 
+            padding: 6px 16px; 
+            border-radius: 50px; 
+            border: 1px solid var(--border);
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .nav-btn { 
+            background: var(--bg); 
+            border: 1px solid var(--border); 
+            width: 34px; 
+            height: 34px; 
+            border-radius: 50%; 
+            cursor: pointer; 
+            font-size: 0.9rem; 
+            color: var(--text2); 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            transition: 0.2s;
+            flex-shrink: 0;
+        }
         .nav-btn:hover { background: var(--hover); color: var(--text); }
+        .nav-btn:active { transform: scale(0.95); }
         
-        /* Newly Rewritten Perfect 1:1 Calendar CSS */
-        .calendar { width: 100%; display: flex; justify-content: center; align-items: center; }
-        .grid { width: 100%; max-width: 380px; aspect-ratio: 1 / 1; display: grid; grid-template-columns: repeat(7, 1fr); grid-template-rows: repeat(7, 1fr); gap: 4px; margin: 0 auto; }
-        .weekday { display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.75rem; color: var(--text2); text-transform: uppercase; }
-        .day { display: flex; align-items: center; justify-content: center; border-radius: 10px; position: relative; width: 100%; height: 100%; }
-        .day.empty { pointer-events: none; background: transparent; }
-        .day:hover:not(.empty) { background: var(--hover); cursor: pointer; }
+        /* Mobile-optimized calendar grid */
+        .calendar-wrapper {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
         
-        /* Strictly enforces perfect circles and prevents oval stretching */
-        .circle { 
-            width: 100%; 
-            height: 100%; 
-            max-width: 36px; 
-            max-height: 36px; 
+        .calendar-grid { 
+            width: 100%;
+            max-width: 350px;
+            display: grid; 
+            grid-template-columns: repeat(7, 1fr); 
+            gap: 4px; 
+            margin: 0 auto;
+        }
+        
+        .weekday { 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-weight: 700; 
+            font-size: 0.7rem; 
+            color: var(--text2); 
+            text-transform: uppercase; 
+            padding: 8px 0 4px;
+        }
+        
+        .day-cell { 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            aspect-ratio: 1 / 1;
+            width: 100%;
+            cursor: pointer;
+        }
+        
+        .day-cell.empty { 
+            pointer-events: none; 
+            opacity: 0.3;
+        }
+        
+        .day-circle { 
+            width: 100%;
+            max-width: 38px;
             aspect-ratio: 1 / 1; 
             border-radius: 50%; 
             display: flex; 
             align-items: center; 
             justify-content: center; 
             font-weight: 700; 
-            font-size: 0.9rem; 
+            font-size: 0.85rem; 
             transition: transform 0.2s; 
-            margin: auto; 
+            margin: 0 auto;
+            color: var(--text);
+            background: transparent;
+            border: 1px solid transparent;
         }
         
-        .day:hover .circle { transform: scale(1.1); }
-        .circle.has-data { color: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.2); text-shadow: 0 1px 2px rgba(0,0,0,0.6); }
-        .circle.today { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); color: var(--accent); }
-        .circle.today.has-data { color: #fff; }
-
-        /* Bubble */
-        .bubble { position: fixed; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px; z-index: 1000; min-width: 160px; max-width: 200px; pointer-events: none; box-shadow: 0 10px 25px rgba(0,0,0,0.25); display: none; opacity: 0; transition: opacity 0.2s; }
-        .bubble.show { opacity: 1; }
-        .tail { position: absolute; width: 12px; height: 12px; background: var(--surface); transform: rotate(45deg); z-index: -1; }
-        .bubble-date { font-size: 0.75rem; font-weight: 700; color: var(--text2); margin-bottom: 5px; border-bottom: 1px solid var(--border); padding-bottom: 5px; }
-        .bubble-item { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 0.8rem; font-weight: 600; }
+        .day-cell:hover:not(.empty) .day-circle { 
+            transform: scale(1.1); 
+        }
+        
+        .day-circle.has-data { 
+            color: #fff; 
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2); 
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3); 
+            border: none;
+        }
+        
+        .day-circle.today { 
+            border: 2px solid var(--accent); 
+            background: var(--surface) !important;
+            color: var(--accent);
+            font-weight: 800;
+            box-shadow: 0 2px 8px rgba(5,150,105,0.3);
+        }
+        
+        .day-circle.today.has-data { 
+            color: #fff; 
+            border: 2px solid var(--accent);
+        }
         
         /* Growth List */
         .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 12px; margin-bottom: 10px; transition: 0.2s;}
@@ -177,8 +248,28 @@ const growEJS = `<!DOCTYPE html>
         details[open] .title-section i { transform: rotate(90deg); }
         .title { font-weight: 700; font-size: 1rem; color: var(--text); }
         .actions { display: flex; gap: 6px; margin-left: 10px; align-items: center; }
-        .btn-icon { width: 32px; height: 32px; border-radius: 8px; border: none; background: var(--hover); color: var(--text2); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.85rem; transition: 0.2s; padding: 0; margin: 0;}
-        .btn-icon i { display: flex; align-items: center; justify-content: center; }
+        .btn-icon { 
+            width: 32px; 
+            height: 32px; 
+            border-radius: 8px; 
+            border: none; 
+            background: var(--hover); 
+            color: var(--text2); 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            cursor: pointer; 
+            font-size: 0.85rem; 
+            transition: 0.2s; 
+            padding: 0; 
+            margin: 0;
+        }
+        .btn-icon i { 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            transform: rotate(0deg); /* FIXED: Removed rotation */
+        }
         .btn-icon:hover { background: var(--accent); color: white; }
         .btn-icon.del:hover { background: var(--danger); }
         .desc-container { width: 100%; margin-top: 10px; }
@@ -261,7 +352,9 @@ const growEJS = `<!DOCTYPE html>
                 <h2 id="monthYear"><%= currentMonth %></h2>
                 <button class="nav-btn" onclick="changeMonth(1)"><i class="fas fa-chevron-right"></i></button>
             </div>
-            <div class="calendar"><div class="grid" id="calendar"></div></div>
+            <div class="calendar-wrapper">
+                <div class="calendar-grid" id="calendar"></div>
+            </div>
         </div>
     </details>
     
@@ -269,8 +362,6 @@ const growEJS = `<!DOCTYPE html>
         <summary><span>Manage Growth</span><i class="fas fa-chevron-down"></i></summary>
         <div class="panel-body" id="list"></div>
     </details>
-    
-    <div class="bubble" id="bubble"><div id="bubbleContent"></div><div class="tail" id="tail"></div></div>
     
     <button class="fab" id="fabBtn" onclick="openAddModal()"><i class="fas fa-plus"></i></button>
     
@@ -381,29 +472,6 @@ const growEJS = `<!DOCTYPE html>
             await fetchData();
             hideLoader();
             
-            document.getElementById("calendar").addEventListener("click", function(e) {
-                const cell = e.target.closest(".day");
-                if(cell && !cell.classList.contains("empty")) {
-                    const d = cell.dataset.date;
-                    const active = data.items.filter(g => isActive(g, d));
-                    const dayData = data.progress[d] || {};
-                    const allDone = active.length && active.every(g => dayData[g.id] !== undefined);
-                    
-                    if(d === today && !allDone) {
-                        openLogModal(d);
-                    } else {
-                        showBubble(cell, d);
-                    }
-                }
-            });
-
-            // Hide bubble if clicking elsewhere or scrolling
-            document.addEventListener("click", function(e) {
-                if(!e.target.closest(".day") && !e.target.closest(".bubble")) {
-                    hideBubble();
-                }
-            });
-            
             setInterval(function() {
                 const istObj = getIST();
                 document.getElementById("currentTime").innerHTML = istObj.time;
@@ -459,7 +527,7 @@ const growEJS = `<!DOCTYPE html>
                 const start = new Date(item.startDate + "T00:00:00");
                 
                 let passed = Math.floor((now - start) / 86400000);
-                if(passed < 0) passed = 0; // if start date is in the future
+                if(passed < 0) passed = 0;
                 let left = item.endCount - passed;
                 if(left < 0) left = 0;
                 
@@ -468,8 +536,8 @@ const growEJS = `<!DOCTYPE html>
                         <summary>
                             <div class="title-section"><i class="fas fa-chevron-right"></i><span class="title">\${escape(item.title)}</span></div>
                             <div class="actions">
-                                <button class="btn-icon" onclick="event.preventDefault(); openEdit('\${item.id}')" title="Edit"><i class="fas fa-pencil"></i></button>
-                                <button class="btn-icon del" onclick="event.preventDefault(); del('\${item.id}')" title="Delete"><i class="fas fa-trash"></i></button>
+                                <button class="btn-icon" onclick="event.preventDefault(); openEdit('\${item.id}')" title="Edit"><i class="fas fa-pencil-alt"></i></button>
+                                <button class="btn-icon del" onclick="event.preventDefault(); del('\${item.id}')" title="Delete"><i class="fas fa-trash-alt"></i></button>
                             </div>
                         </summary>\`;
                         
@@ -489,7 +557,6 @@ const growEJS = `<!DOCTYPE html>
 
                 // --- PROGRESS BAR 2: Quantitative Data (If activated) ---
                 if(item.hasData && item.type !== "boolean") {
-                    // Added a horizontal separator line right here
                     html += \`<hr style="border: none; border-top: 1px solid var(--border); margin: 16px 0 8px 0;">\`;
                     
                     let latestValue = item.start !== undefined ? item.start : 0;
@@ -639,122 +706,49 @@ const growEJS = `<!DOCTYPE html>
             
             let html = "";
             
-            ["Su","Mo","Tu","We","Th","Fr","Sa"].forEach(d => html += \`<div class="weekday">\${d}</div>\`);
+            ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].forEach(d => html += \`<div class="weekday">\${d}</div>\`);
             
-            // Generate exactly 42 grid items (6 weeks x 7 days) to ensure strict grid uniformity
-            let currentDay = 1;
-            for(let i = 0; i < 42; i++) {
-                if(i < firstDay || currentDay > daysInMonth) {
-                    html += \`<div class="day empty"></div>\`;
-                } else {
-                    const date = year + "-" + String(month+1).padStart(2,"0") + "-" + String(currentDay).padStart(2,"0");
-                    const isToday = date === today;
-                    const dayData = data.progress[date] || {};
-                    const activeColors = [];
-                    
-                    for(let j=0; j<data.items.length; j++) {
-                        const g = data.items[j];
-                        if(isActive(g, date) && dayData[g.id] !== undefined) activeColors.push(g.color);
-                    }
-                    
-                    let bg = "transparent", cls = "";
-                    if(activeColors.length === 1) { 
-                        bg = activeColors[0]; cls = "has-data"; 
-                    } else if(activeColors.length > 1) {
-                        let stops = "";
-                        for(let j=0; j<activeColors.length; j++) {
-                            stops += activeColors[j] + " " + (j*100/activeColors.length) + "% " + ((j+1)*100/activeColors.length) + "%";
-                            if(j < activeColors.length-1) stops += ", ";
-                        }
-                        bg = "conic-gradient(" + stops + ")";
-                        cls = "has-data";
-                    }
-                    
-                    html += \`<div class="day" data-date="\${date}"><div class="circle \${isToday?'today ':''}\${cls}" style="background:\${bg}">\${currentDay}</div></div>\`;
-                    currentDay++;
-                }
+            for(let i = 0; i < firstDay; i++) {
+                html += \`<div class="day-cell empty"></div>\`;
             }
+            
+            for(let i = 1; i <= daysInMonth; i++) {
+                const date = year + "-" + String(month+1).padStart(2,"0") + "-" + String(i).padStart(2,"0");
+                const isToday = date === today;
+                const dayData = data.progress[date] || {};
+                const activeColors = [];
+                
+                for(let j=0; j<data.items.length; j++) {
+                    const g = data.items[j];
+                    if(isActive(g, date) && dayData[g.id] !== undefined) activeColors.push(g.color);
+                }
+                
+                let bg = "transparent", cls = "";
+                if(activeColors.length === 1) { 
+                    bg = activeColors[0]; 
+                    cls = "has-data"; 
+                } else if(activeColors.length > 1) {
+                    let gradientStr = "";
+                    for(let j=0; j<activeColors.length; j++) {
+                        gradientStr += activeColors[j];
+                        if(j < activeColors.length - 1) gradientStr += ",";
+                    }
+                    bg = "linear-gradient(45deg," + gradientStr + ")";
+                    cls = "has-data";
+                }
+                
+                html += \`<div class="day-cell" data-date="\${date}">
+                    <div class="day-circle \${isToday ? 'today' : ''} \${cls}" style="background:\${bg}">\${i}</div>
+                </div>\`;
+            }
+            
+            const totalCells = 42;
+            const currentCells = firstDay + daysInMonth;
+            for(let i = currentCells; i < totalCells; i++) {
+                html += \`<div class="day-cell empty"></div>\`;
+            }
+            
             grid.innerHTML = html;
-        }
-
-        function hideBubble() {
-            const bubble = document.getElementById("bubble");
-            bubble.classList.remove("show");
-            setTimeout(() => bubble.style.display = "none", 200);
-        }
-
-        // 360 Degree Bubble Logic System
-        function showBubble(cell, date) {
-            const bubble = document.getElementById("bubble");
-            const content = document.getElementById("bubbleContent");
-            const tail = document.getElementById("tail");
-            const active = data.items.filter(g => isActive(g, date));
-            const dayData = data.progress[date] || {};
-            const d = new Date(date+"T00:00:00");
-            
-            let html = \`<div class="bubble-date">\${d.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>\`;
-            if(!active.length) html += "<div style='text-align:center;font-size:0.8rem;color:var(--text2);'>No tasks active.</div>";
-            else {
-                for(let i=0; i<active.length; i++) {
-                    const g = active[i];
-                    const isDone = dayData[g.id] !== undefined;
-                    html += \`<div class="bubble-item" style="color:\${g.color}"><span>\${escape(g.title)}</span><i class="fas \${isDone?'fa-check-circle':'fa-circle'}"></i></div>\`;
-                }
-            }
-            content.innerHTML = html;
-            
-            // Render invisibly to get precise pixel dimensions
-            bubble.style.display = "block";
-            bubble.style.opacity = "0";
-            
-            const bRect = bubble.getBoundingClientRect();
-            const cRect = cell.getBoundingClientRect();
-            
-            // Attempt to place above first
-            let top = cRect.top - bRect.height - 12; 
-            let left = cRect.left + (cRect.width / 2) - (bRect.width / 2);
-            let placement = 'top';
-            
-            // If it hits the top screen edge, flip to bottom
-            if(top < 20) { 
-                top = cRect.bottom + 12;
-                placement = 'bottom';
-            }
-            
-            // Clamp horizontal borders so it doesn't leak off screen edges
-            if(left < 10) left = 10;
-            if(left + bRect.width > window.innerWidth - 10) left = window.innerWidth - bRect.width - 10;
-            
-            bubble.style.top = top + "px";
-            bubble.style.left = left + "px";
-            
-            // Point the tail directly at the middle of the calendar cell day circle
-            let tailLeft = (cRect.left + cRect.width / 2) - left;
-            tailLeft = Math.max(12, Math.min(bRect.width - 24, tailLeft)); // Cap at bubble edges
-            
-            tail.style.left = (tailLeft - 6) + "px"; // 6px represents half tail dimension
-            
-            // Adjust tail border directions based on orientation
-            if(placement === 'top') {
-                tail.style.bottom = "-6px";
-                tail.style.top = "auto";
-                tail.style.borderTop = "none";
-                tail.style.borderLeft = "none";
-                tail.style.borderBottom = "1px solid var(--border)";
-                tail.style.borderRight = "1px solid var(--border)";
-            } else {
-                tail.style.top = "-6px";
-                tail.style.bottom = "auto";
-                tail.style.borderTop = "1px solid var(--border)";
-                tail.style.borderLeft = "1px solid var(--border)";
-                tail.style.borderBottom = "none";
-                tail.style.borderRight = "none";
-            }
-            
-            setTimeout(() => {
-                bubble.style.opacity = "1";
-                bubble.classList.add("show");
-            }, 10);
         }
         
         function initAddPalette() {
@@ -767,7 +761,7 @@ const growEJS = `<!DOCTYPE html>
                 const c = colors[i];
                 const isUsed = used.includes(c);
                 if(!isUsed && !first) first = c;
-                html += \`<div class="swatch \${isUsed?'hidden':''}" style="background:\${c}" data-color="\${c}"></div>\`;
+                html += \`<div class="swatch \${isUsed?'hidden':''}' style="background:\${c}" data-color="\${c}"></div>\`;
             }
             container.innerHTML = html;
             
@@ -792,8 +786,7 @@ const growEJS = `<!DOCTYPE html>
             let html = "";
             for(let i=0; i<colors.length; i++) {
                 const c = colors[i];
-                // Display ALL 8 colors inside editing menu to allow replacements
-                html += \`<div class="swatch \${c===current?'selected':''}" style="background:\${c}" data-color="\${c}"></div>\`;
+                html += \`<div class="swatch \${c===current?'selected':''}' style="background:\${c}" data-color="\${c}"></div>\`;
             }
             container.innerHTML = html;
             input.value = current;
@@ -927,7 +920,6 @@ const growEJS = `<!DOCTYPE html>
                 
                 if(allDone) {
                     document.getElementById("logModal").classList.remove("show");
-                    showBubble(document.querySelector(\`.day[data-date="\${date}"]\`), date);
                 } else {
                     openLogModal(date); 
                 }
