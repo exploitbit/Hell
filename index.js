@@ -580,7 +580,7 @@ function writeMainEJS() {
 
         // Grow state variables
         let growToday = "", growMonth = 0, growYear = 2026, growLogContext = null;
-        const growColors = ["#ec4899","#a855f7","#38bdf8","#ef4444","#f97316","#16a34a","#84cc16","#3b82f6"];
+        const growColors = ["#ec4899","#a855f7","#38bdf8","#ef4444","#f97316","#16a34a","#84cc16","#3b82f6", "#eab308", "#14b8a6"];
 
         function getGrowIST() {
             const d = new Date();
@@ -674,7 +674,7 @@ function writeMainEJS() {
             renderGrowList();
             
             const fabBtn = document.getElementById("fabButton");
-            if(growTrackerData.items && growTrackerData.items.length >= 8) {
+            if(growTrackerData.items && growTrackerData.items.length >= 10) {
                 fabBtn.style.opacity = "0.5";
             } else {
                 fabBtn.style.opacity = "1";
@@ -976,7 +976,7 @@ function writeMainEJS() {
         };
 
         window.openAddGrowModal = function() {
-            if (growTrackerData.items && growTrackerData.items.length >= 8) {
+            if (growTrackerData.items && growTrackerData.items.length >= 10) {
                 showToast("All colors occupied! Cannot add more.", "error");
                 return;
             }
