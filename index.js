@@ -1680,10 +1680,10 @@ async function sendStartMenu(ctx) {
             progressBar = '█'.repeat(filledCount) + '░'.repeat(20 - filledCount);
         }
 
-        let msg = `<i>Welcome, <b>${ctx.from.first_name || 'Admin'}</b>!</i>\n`;
+        let msg = `<i>Welcome, <b><a href="tg://user?id=${ctx.from.id}">${(ctx.from.username || ctx.from.first_name || 'Admin').toUpperCase()}</a></b>!</i>\n`;
         msg += `${progressBar} ${percentage}%\n`;
-        msg += `👾 Day: <i>${istDateObj.dayName}, ${istDateObj.displayDate}\n</i>`;
-        msg += `<i>⚙️ Completed: <b>${completedTasks.length}/${total}</b> tasks.</i>\n`;
+        msg += `<b>👾 Day:</b> <i>${istDateObj.dayName}, ${istDateObj.displayDate}\n</i>`;
+        msg += `<i><u>⚙️ Completed:</u> <b>${completedTasks.length}/${total}</b> tasks.</i>\n`;
         msg += `<blockquote expandable>`;
         if (total === 0) {
             msg += `<i>No tasks scheduled for today.</i>\n`;
@@ -1695,8 +1695,8 @@ async function sendStartMenu(ctx) {
         msg += `</blockquote>`;
         
         msg += `Notifications:  ${globalSettings.notifications ? '🔔 ON' : '🔕 OFF'}\n`;
-        msg += `Alerts : ${globalSettings.alerts ? '             🔔 ON' : '             🔕 OFF'}\n`;
-        msg += `Reminders : ${globalSettings.reminders ? '    🔔 ON' : '    🔕 OFF'}`;
+        msg += `Alerts : ${globalSettings.alerts ? '🔔 ON' : '🔕 OFF'}\n`;
+        msg += `Reminders : ${globalSettings.reminders ? '🔔 ON' : '🔕 OFF'}`;
 
         const kb = Markup.inlineKeyboard([
             [ Markup.button.webApp('🌐 Task Manager', WEB_APP_URL) ],
