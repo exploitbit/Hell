@@ -77,8 +77,7 @@ function writeMainEJS() {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Share+Tech:wght@300;400;500;600;700&display=swap');
-        
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
         :root {
             --bg-light: #f5f7fa; --card-bg-light: #ffffff; --text-primary-light: #1e293b; --text-secondary-light: #475569;
             --border-light: #e2e8f0; --accent-light: #2563eb; --accent-soft-light: #dbeafe; --success-light: #059669;
@@ -88,7 +87,7 @@ function writeMainEJS() {
             --warning-dark: #fbbf24; --danger-dark: #f87171; --hover-dark: #2d3b4f; --progress-bg-dark: #334155;
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Share Tech', sans-serif; letter-spacing: 0.5px; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif; }
         body { background: var(--bg-light); color: var(--text-primary-light); transition: all 0.2s ease; min-height: 100vh; font-size: 16px; line-height: 1.4; }
         @media (prefers-color-scheme: dark) { body { background: var(--bg-dark); color: var(--text-primary-dark); } }
         
@@ -1474,13 +1473,26 @@ async function sendStartMenu(ctx) {
     }
 
     const total = pendingTasks.length + completedTasks.length;
-    let msg = `<b>Welcome, ${ctx.from.first_name || 'Admin'}!</b>\n`;
-    msg += `<b>completed <i>${completedTasks.length}/${total}</i> tasks yet.</b>\n`;
+    
+    // --- Progress Bar Calculation ---
+    let percentage = 0;
+    let progressBar = '▱▱▱▱▱▱▱▱▱▱'; // Default empty bar
+    
+    if (total > 0) {
+        percentage = Math.round((completedTasks.length / total) * 100);
+        const filledCount = Math.round(percentage / 10);
+        progressBar = '▰'.repeat(filledCount) + '▱'.repeat(10 - filledCount);
+    }
+
+    // --- Message Construction ---
+    let msg = `<b>Welcome, ${ctx.from.first_name || 'Admin'}!</b>\n\n`;
+    msg += `Progress: ${progressBar} ${percentage}%\n`;
+    msg += `<b>You have completed <i>${completedTasks.length}/${total}</i> tasks yet.</b>\n`;
     
     if (total > 0) {
         msg += `<blockquote expandable>\n`;
-        completedTasks.forEach(t => msg += `✅ ${t.title}\n`);
-        pendingTasks.forEach(t => msg += `❌ ${t.title}\n`);
+        completedTasks.forEach(t => msg += `✅ ${escapeHTML(t.title)}\n`); // Make sure you have the escapeHTML function added previously!
+        pendingTasks.forEach(t => msg += `❌ ${escapeHTML(t.title)}\n`);
         msg += `</blockquote>\n`;
     }
     
