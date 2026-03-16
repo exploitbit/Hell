@@ -78,6 +78,36 @@ function writeMainEJS() {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
+
+    /* ================= SETTINGS DROPDOWN OVERRIDE ================= */
+        #settingsAppModal {
+            align-items: flex-start !important;
+            justify-content: flex-end !important;
+            background: transparent !important; /* Removes the dark overlay */
+            backdrop-filter: none !important; /* Removes the blur */
+            padding-top: 55px; /* Pushes it exactly below the header */
+            padding-right: 12px; /* Aligns with the gear icon */
+        }
+        
+        #settingsAppModal .modal-content {
+            width: 240px;
+            max-width: 240px;
+            margin: 0;
+            border-radius: 16px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            transform-origin: top right;
+            animation: dropdownPop 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        body[data-theme="dark"] #settingsAppModal .modal-content {
+            box-shadow: 0 8px 25px rgba(0,0,0,0.5);
+        }
+
+        @keyframes dropdownPop {
+            from { opacity: 0; transform: scale(0.9) translateY(-10px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
         :root {
             --bg-light: #f5f7fa; --card-bg-light: #ffffff; --text-primary-light: #1e293b; --text-secondary-light: #475569;
