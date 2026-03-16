@@ -1670,16 +1670,16 @@ async function sendStartMenu(ctx) {
 
         const total = allTasks.length;
         let percentage = 0;
-        let progressBar = '▱▱▱▱▱▱▱▱▱▱'; 
+        let progressBar = '████████████████████'; 
         
         if (total > 0) {
             percentage = Math.round((completedTasks.length / total) * 100);
-            const filledCount = Math.floor(percentage / 10);
-            progressBar = '▰'.repeat(filledCount) + '▱'.repeat(10 - filledCount);
+            const filledCount = Math.floor(percentage / 20);
+            progressBar = '█'.repeat(filledCount) + '░'.repeat(20 - filledCount);
         }
 
         let msg = `<i>Welcome, <b>${ctx.from.first_name || 'Admin'}</b>!</i>\n`;
-        msg += `${progressBar} ${percentage}%\n\n`;
+        msg += `${progressBar} \n ${percentage}%\n\n`;
         msg += `<i>You have completed <b>${completedTasks.length}/${total}</b> tasks.</i>\n`;
         msg += `<blockquote expandable>`;
         if (total === 0) {
@@ -1939,10 +1939,10 @@ function setupHourlyNotifications() {
             let progressBar = '▰'.repeat(filledCount) + '▱'.repeat(10 - filledCount);
 
             let msg = `${istDateObj.dayName}\n`;
-            msg += `📊${progressBar} ${percentage}%\n`;
-            msg += `<i>completed <b>${completedTasks.length}/${total}</b> tasks yet</i>\n\n`;
+            msg += `${progressBar} ${percentage}%\n`;
+            msg += `<i>completed <b>${completedTasks.length}/${total}</b> tasks yet</i>\n`;
             
-            msg += `<blockquote expandable>\n`;
+            msg += `<blockquote expandable>`;
             allTasks.forEach(t => {
                 msg += `${t.isCompleted ? '✅' : '❌'} ${escapeHTML(t.title)} (${t.startTimeStr} - ${t.endTimeStr})\n`;
             });
