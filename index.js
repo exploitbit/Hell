@@ -1680,9 +1680,9 @@ async function sendStartMenu(ctx) {
             progressBar = '█'.repeat(filledCount) + '░'.repeat(20 - filledCount);
         }
 
-        let msg = `<i>Welcome, <b>${ctx.from.first_name || 'Admin'}</b>!</i>\n\n`;
+        let msg = `<i>Welcome, <b>${ctx.from.first_name || 'Admin'}</b>!</i>\n`;
         msg += `${progressBar} ${percentage}%\n`;
-        msg += `<i>${istDateObj.dayName}, ${istDateObj.displayDate}\n</i>`;
+        msg += `👾 Day: <i>${istDateObj.dayName}, ${istDateObj.displayDate}\n</i>`;
         msg += `<i>⚙️ Completed: <b>${completedTasks.length}/${total}</b> tasks.</i>\n`;
         msg += `<blockquote expandable>`;
         if (total === 0) {
@@ -1695,8 +1695,8 @@ async function sendStartMenu(ctx) {
         msg += `</blockquote>`;
         
         msg += `Notifications:  ${globalSettings.notifications ? '🔔 ON' : '🔕 OFF'}\n`;
-        msg += `Alerts : ${globalSettings.alerts ? '🔔 ON' : '🔕 OFF'}\n`;
-        msg += `Reminders : ${globalSettings.reminders ? '🔔 ON' : '🔕 OFF'}`;
+        msg += `Alerts : ${globalSettings.alerts ? '             🔔 ON' : '             🔕 OFF'}\n`;
+        msg += `Reminders : ${globalSettings.reminders ? '    🔔 ON' : '    🔕 OFF'}`;
 
         const kb = Markup.inlineKeyboard([
             [ Markup.button.webApp('🌐 Task Manager', WEB_APP_URL) ],
@@ -1941,7 +1941,7 @@ function setupHourlyNotifications() {
             const filledCount = Math.floor(percentage / 5); // Divide by 5 for 20 blocks
             let progressBar = '█'.repeat(filledCount) + '░'.repeat(20 - filledCount);
             
-            let msg = `${istDateObj.dayName}, ${istDateObj.displayDate}\n`;
+            let msg = `👾 Day: ${istDateObj.dayName}, ${istDateObj.displayDate}\n`;
             msg += `${progressBar} ${percentage}%\n`;
             msg += `<i>⚙️ Completed: <b>${completedTasks.length}/${total}</b> tasks.</i>\n`;
             
