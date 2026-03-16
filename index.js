@@ -1670,16 +1670,19 @@ async function sendStartMenu(ctx) {
 
         const total = allTasks.length;
         let percentage = 0;
-        let progressBar = '████████████████████'; 
+        let progressBar = '░░░░░░░░░░░░░░░░░░░░'; // Default to 20 empty blocks
         
         if (total > 0) {
             percentage = Math.round((completedTasks.length / total) * 100);
-            const filledCount = Math.floor(percentage / 20);
+            
+            // Divide by 5 because each of the 20 blocks represents 5%
+            const filledCount = Math.floor(percentage / 5); 
+            
             progressBar = '█'.repeat(filledCount) + '░'.repeat(20 - filledCount);
         }
 
         let msg = `<i>Welcome, <b>${ctx.from.first_name || 'Admin'}</b>!</i>\n`;
-        msg += `${progressBar} \n ${percentage}%\n\n`;
+        msg += `${progressBar} ${percentage}%\n\n`;
         msg += `<i>You have completed <b>${completedTasks.length}/${total}</b> tasks.</i>\n`;
         msg += `<blockquote expandable>`;
         if (total === 0) {
@@ -1935,9 +1938,9 @@ function setupHourlyNotifications() {
             if (total === 0) return;
 
             let percentage = Math.round((completedTasks.length / total) * 100);
-            const filledCount = Math.floor(percentage / 10);
-            let progressBar = '▰'.repeat(filledCount) + '▱'.repeat(10 - filledCount);
-
+            const filledCount = Math.floor(percentage / 5); // Divide by 5 for 20 blocks
+            let progressBar = '█'.repeat(filledCount) + '░'.repeat(20 - filledCount);
+            
             let msg = `${istDateObj.dayName}\n`;
             msg += `${progressBar} ${percentage}%\n`;
             msg += `<i>completed <b>${completedTasks.length}/${total}</b> tasks yet</i>\n`;
