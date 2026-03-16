@@ -64,6 +64,10 @@ function formatLegacyIST(utcDate, type) {
     return '';
 }
 
+function escapeHTML(str) {
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 // ==========================================
 // 🎨 EJS TEMPLATE GENERATOR
 // ==========================================
@@ -77,7 +81,8 @@ function writeMainEJS() {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+        
         :root {
             --bg-light: #f5f7fa; --card-bg-light: #ffffff; --text-primary-light: #1e293b; --text-secondary-light: #475569;
             --border-light: #e2e8f0; --accent-light: #2563eb; --accent-soft-light: #dbeafe; --success-light: #059669;
@@ -87,8 +92,8 @@ function writeMainEJS() {
             --warning-dark: #fbbf24; --danger-dark: #f87171; --hover-dark: #2d3b4f; --progress-bg-dark: #334155;
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif; }
-        body { background: var(--bg-light); color: var(--text-primary-light); transition: all 0.2s ease; min-height: 100vh; font-size: 16px; line-height: 1.4; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Space Grotesk', sans-serif; letter-spacing: 0.2px; }
+        body { background: var(--bg-light); color: var(--text-primary-light); transition: all 0.2s ease; min-height: 100vh; font-size: 14px; line-height: 1.4; }
         @media (prefers-color-scheme: dark) { body { background: var(--bg-dark); color: var(--text-primary-dark); } }
         
         .app-header { background: var(--card-bg-light); border-bottom: 1px solid var(--border-light); padding: 10px 12px; position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
@@ -98,12 +103,12 @@ function writeMainEJS() {
         .nav-links { display: flex; gap: 2px; background: var(--hover-light); padding: 3px; border-radius: 100px; }
         @media (prefers-color-scheme: dark) { .nav-links { background: var(--hover-dark); } }
         
-        .nav-btn { display: flex; align-items: center; gap: 4px; padding: 6px 12px; border-radius: 100px; border: none; background: transparent; color: var(--text-secondary-light); font-size: 1.1rem; cursor: pointer; transition: all 0.2s ease; }
+        .nav-btn { display: flex; align-items: center; gap: 4px; padding: 6px 12px; border-radius: 100px; border: none; background: transparent; color: var(--text-secondary-light); font-size: 0.85rem; font-weight: 500; cursor: pointer; transition: all 0.2s ease; }
         @media (prefers-color-scheme: dark) { .nav-btn { color: var(--text-secondary-dark); } }
-        .nav-btn.active { background: var(--card-bg-light); color: var(--accent-light); box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
+        .nav-btn.active { background: var(--card-bg-light); color: var(--accent-light); box-shadow: 0 2px 6px rgba(0,0,0,0.05); font-weight: 600; }
         @media (prefers-color-scheme: dark) { .nav-btn.active { background: var(--card-bg-dark); color: var(--accent-dark); box-shadow: 0 2px 6px rgba(0,0,0,0.2); } }
         
-        .time-badge { display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: var(--accent-soft-light); border-radius: 100px; font-size: 1.1rem; color: var(--accent-light); }
+        .time-badge { display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: var(--accent-soft-light); border-radius: 100px; font-size: 0.8rem; font-weight: 600; color: var(--accent-light); }
         @media (prefers-color-scheme: dark) { .time-badge { background: var(--accent-soft-dark); color: var(--accent-dark); } }
         
         .main-content { max-width: 1400px; margin: 16px auto; padding: 0 16px; padding-bottom: 80px; }
@@ -115,15 +120,15 @@ function writeMainEJS() {
         .note-card { margin-bottom: 12px; }
         .task-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; width: 100%; }
         .task-title-section { flex: 1; min-width: 0; }
-        .task-title { font-size: 1.4rem; color: var(--text-primary-light); margin-bottom: 4px; line-height: 1.3; word-break: break-word; cursor: pointer; display: inline-block; user-select: none; }
+        .task-title { font-size: 1.1rem; font-weight: 600; color: var(--text-primary-light); margin-bottom: 4px; line-height: 1.3; word-break: break-word; cursor: pointer; display: inline-block; user-select: none; }
         @media (prefers-color-scheme: dark) { .task-title { color: var(--text-primary-dark); } }
         
         .task-description-container { margin: 8px 0 4px 0; width: 100%; }
-        .task-description { font-size: 1.1rem; color: var(--text-secondary-light); padding: 6px 8px; background: var(--hover-light); border-radius: 10px; border-left: 3px solid var(--accent-light); word-break: break-word; white-space: pre-wrap; width: 100%; box-sizing: border-box; line-height: 1.4; }
+        .task-description { font-size: 0.9rem; color: var(--text-secondary-light); padding: 6px 8px; background: var(--hover-light); border-radius: 10px; border-left: 3px solid var(--accent-light); word-break: break-word; white-space: pre-wrap; width: 100%; box-sizing: border-box; line-height: 1.4; }
         @media (prefers-color-scheme: dark) { .task-description { color: var(--text-secondary-dark); background: var(--hover-dark); } }
         
         .task-time-row { display: flex; justify-content: space-between; align-items: center; width: 100%; margin: 8px 0 4px 0; }
-        .date-chip, .time-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; background: var(--hover-light); border-radius: 100px; font-size: 1.1rem; color: var(--text-secondary-light); width: fit-content; }
+        .date-chip, .time-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; background: var(--hover-light); border-radius: 100px; font-size: 0.8rem; font-weight: 500; color: var(--text-secondary-light); width: fit-content; }
         @media (prefers-color-scheme: dark) { .date-chip, .time-chip { background: var(--hover-dark); color: var(--text-secondary-dark); } }
         
         /* Action buttons with priority toggle support */
@@ -133,7 +138,7 @@ function writeMainEJS() {
         .priority-mode .normal-btns { display: none; }
         .priority-mode .priority-btns { display: flex; }
 
-        .action-btn { width: 32px; height: 32px; border-radius: 8px; border: none; background: var(--hover-light); color: var(--text-secondary-light); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; font-size: 1.1rem; }
+        .action-btn { width: 30px; height: 30px; border-radius: 8px; border: none; background: var(--hover-light); color: var(--text-secondary-light); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; font-size: 0.85rem; }
         @media (prefers-color-scheme: dark) { .action-btn { background: var(--hover-dark); color: var(--text-secondary-dark); } }
         .action-btn:hover { background: var(--accent-light); color: white; }
         .action-btn.delete:hover { background: var(--danger-light); }
@@ -141,7 +146,7 @@ function writeMainEJS() {
         .progress-section { display: flex; align-items: center; gap: 12px; margin: 12px 0; cursor: pointer; }
         .progress-ring-small { position: relative; width: 40px; height: 40px; }
         .progress-ring-circle-small { transition: stroke-dashoffset 0.5s; transform: rotate(-90deg); transform-origin: 50% 50%; }
-        .progress-text-small { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 0.9rem; color: var(--accent-light); }
+        .progress-text-small { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 0.75rem; font-weight: 600; color: var(--accent-light); }
         @media (prefers-color-scheme: dark) { .progress-text-small { color: var(--accent-dark); } }
         
         .subtasks-container { margin-top: 12px; border-top: 1px solid var(--border-light); padding-top: 12px; width: 100%; }
@@ -150,42 +155,42 @@ function writeMainEJS() {
         @media (prefers-color-scheme: dark) { .subtask-item { background: var(--hover-dark); } }
         
         .subtask-main-row { display: flex; align-items: flex-start; gap: 8px; width: 100%; }
-        .subtask-checkbox { width: 22px; height: 22px; border-radius: 6px; border: 2px solid var(--accent-light); background: transparent; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; color: white; font-size: 0.9rem; flex-shrink: 0; margin-top: 1px; }
+        .subtask-checkbox { width: 20px; height: 20px; border-radius: 6px; border: 2px solid var(--accent-light); background: transparent; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; color: white; font-size: 0.75rem; flex-shrink: 0; margin-top: 1px; }
         .subtask-checkbox.completed { background: var(--success-light); border-color: var(--success-light); }
         .subtask-details { flex: 1; min-width: 0; }
-        .subtask-title { color: var(--text-primary-light); margin-bottom: 2px; font-size: 1.2rem; word-break: break-word; cursor: pointer; user-select: none; }
+        .subtask-title { font-weight: 500; color: var(--text-primary-light); margin-bottom: 2px; font-size: 0.95rem; word-break: break-word; cursor: pointer; user-select: none; }
         .subtask-title.completed { text-decoration: line-through; color: var(--text-secondary-light); }
         
-        .subtask-btn { width: 28px; height: 28px; border-radius: 6px; border: none; background: var(--card-bg-light); color: var(--text-secondary-light); cursor: pointer; transition: all 0.2s ease; font-size: 1rem; display: flex; align-items: center; justify-content: center; }
+        .subtask-btn { width: 26px; height: 26px; border-radius: 6px; border: none; background: var(--card-bg-light); color: var(--text-secondary-light); cursor: pointer; transition: all 0.2s ease; font-size: 0.8rem; display: flex; align-items: center; justify-content: center; }
         @media (prefers-color-scheme: dark) { .subtask-btn { background: var(--card-bg-dark); color: var(--text-secondary-dark); } }
         .subtask-btn:hover { background: var(--accent-light); color: white; }
         .subtask-btn.delete:hover { background: var(--danger-light); }
         
-        .subtask-description-container { margin-top: 6px; margin-left: 30px; width: calc(100% - 30px); }
-        .subtask-description { font-size: 1rem; color: var(--text-secondary-light); padding: 4px 6px; background: var(--card-bg-light); border-radius: 8px; border-left: 2px solid var(--accent-light); word-break: break-word; white-space: pre-wrap; width: 100%; box-sizing: border-box; line-height: 1.4; }
+        .subtask-description-container { margin-top: 6px; margin-left: 28px; width: calc(100% - 28px); }
+        .subtask-description { font-size: 0.85rem; color: var(--text-secondary-light); padding: 4px 6px; background: var(--card-bg-light); border-radius: 8px; border-left: 2px solid var(--accent-light); word-break: break-word; white-space: pre-wrap; width: 100%; box-sizing: border-box; line-height: 1.4; }
         @media (prefers-color-scheme: dark) { .subtask-description { background: var(--card-bg-dark); color: var(--text-secondary-dark); } }
         
-        .badge { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 100px; font-size: 1rem; gap: 4px; background: var(--hover-light); color: var(--text-secondary-light); width: fit-content; }
+        .badge { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 100px; font-size: 0.75rem; font-weight: 500; gap: 4px; background: var(--hover-light); color: var(--text-secondary-light); width: fit-content; }
         @media (prefers-color-scheme: dark) { .badge { background: var(--hover-dark); color: var(--text-secondary-dark); } }
         
         .note-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; width: 100%; }
-        .note-title { font-size: 1.4rem; color: var(--text-primary-light); word-break: break-word; flex: 1; cursor: pointer; }
+        .note-title { font-size: 1.1rem; font-weight: 600; color: var(--text-primary-light); word-break: break-word; flex: 1; cursor: pointer; }
         @media (prefers-color-scheme: dark) { .note-title { color: var(--text-primary-dark); } }
         
         .note-content-container { margin: 4px 0 8px 0; width: 100%; }
-        .note-content { font-size: 1.1rem; color: var(--text-secondary-light); padding: 6px 8px; background: var(--hover-light); border-radius: 10px; border-left: 3px solid var(--accent-light); word-break: break-word; white-space: pre-wrap; width: 100%; box-sizing: border-box; line-height: 1.4; }
+        .note-content { font-size: 0.9rem; color: var(--text-secondary-light); padding: 4px 6px; background: var(--hover-light); border-radius: 10px; border-left: 3px solid var(--accent-light); word-break: break-word; white-space: pre-wrap; width: 100%; box-sizing: border-box; line-height: 1.4; }
         @media (prefers-color-scheme: dark) { .note-content { color: var(--text-secondary-dark); background: var(--hover-dark); } }
         
-        .note-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-light); font-size: 0.9rem; color: var(--text-secondary-light); }
+        .note-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-light); font-size: 0.75rem; color: var(--text-secondary-light); }
         @media (prefers-color-scheme: dark) { .note-meta { border-top-color: var(--border-dark); color: var(--text-secondary-dark); } }
         
         .history-header { display: flex; justify-content: center; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; width: 100%; }
         .month-selector { display: flex; align-items: center; gap: 12px; }
-        .month-btn { padding: 6px 12px; border-radius: 100px; border: 1px solid var(--border-light); background: var(--card-bg-light); color: var(--text-primary-light); font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; gap: 4px; }
+        .month-btn { padding: 6px 12px; border-radius: 100px; border: 1px solid var(--border-light); background: var(--card-bg-light); color: var(--text-primary-light); font-size: 0.85rem; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 4px; }
         @media (prefers-color-scheme: dark) { .month-btn { background: var(--card-bg-dark); border-color: var(--border-dark); color: var(--text-primary-dark); } }
         
         .history-date-card { margin-bottom: 16px; }
-        .history-details summary { display: flex; align-items: center; width: 100%; cursor: pointer; list-style: none; font-size: 1.2rem; }
+        .history-details summary { display: flex; align-items: center; width: 100%; cursor: pointer; list-style: none; font-weight: 600; font-size: 1rem; }
         .history-details summary::-webkit-details-marker { display: none; }
         .history-details summary i.fa-calendar-alt { margin-right: 8px; color: var(--accent-light); }
         @media (prefers-color-scheme: dark) { .history-details summary i.fa-calendar-alt { color: var(--accent-dark); } }
@@ -195,18 +200,18 @@ function writeMainEJS() {
         @media (prefers-color-scheme: dark) { .history-task-card { background: var(--hover-dark); } }
         
         .history-task-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
-        .history-task-title { font-size: 1.2rem; color: var(--text-primary-light); cursor: pointer; word-break: break-word; flex: 1; }
+        .history-task-title { font-size: 1rem; font-weight: 600; color: var(--text-primary-light); cursor: pointer; word-break: break-word; flex: 1; }
         @media (prefers-color-scheme: dark) { .history-task-title { color: var(--text-primary-dark); } }
         
-        .history-task-time { font-size: 1rem; color: var(--text-secondary-light); flex-shrink: 0; margin-left: auto; padding-left: 8px; }
+        .history-task-time { font-size: 0.8rem; color: var(--text-secondary-light); flex-shrink: 0; margin-left: auto; padding-left: 8px; }
         .history-description-container { margin: 6px 0 8px 0; width: 100%; }
-        .history-description { font-size: 1.1rem; color: var(--text-secondary-light); padding: 4px 6px; background: var(--card-bg-light); border-radius: 8px; border-left: 2px solid var(--success-light); word-break: break-word; white-space: pre-wrap; line-height: 1.4; }
+        .history-description { font-size: 0.85rem; color: var(--text-secondary-light); padding: 4px 6px; background: var(--card-bg-light); border-radius: 8px; border-left: 2px solid var(--success-light); word-break: break-word; white-space: pre-wrap; line-height: 1.4; }
         @media (prefers-color-scheme: dark) { .history-description { background: var(--card-bg-dark); color: var(--text-secondary-dark); } }
         
         .history-subtask { padding: 6px 6px 6px 20px; border-left: 2px solid var(--border-light); margin: 6px 0; width: 100%; }
         @media (prefers-color-scheme: dark) { .history-subtask { border-left-color: var(--border-dark); } }
         
-        .fab { position: fixed; bottom: 24px; right: 24px; width: 56px; height: 56px; border-radius: 28px; background: var(--accent-light); color: white; border: none; font-size: 1.6rem; cursor: pointer; box-shadow: 0 4px 12px rgba(37,99,235,0.3); transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; z-index: 99; }
+        .fab { position: fixed; bottom: 24px; right: 24px; width: 56px; height: 56px; border-radius: 28px; background: var(--accent-light); color: white; border: none; font-size: 1.4rem; cursor: pointer; box-shadow: 0 4px 12px rgba(37,99,235,0.3); transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; z-index: 99; }
         @media (prefers-color-scheme: dark) { .fab { background: var(--accent-dark); box-shadow: 0 4px 12px rgba(96,165,250,0.3); } }
         .fab:hover { transform: scale(1.05); }
         
@@ -214,25 +219,25 @@ function writeMainEJS() {
         .modal-content { background: var(--card-bg-light); border: 1px solid var(--border-light); border-radius: 24px; padding: 24px; width: 90%; max-width: 500px; max-height: 85vh; overflow-y: auto; }
         @media (prefers-color-scheme: dark) { .modal-content { background: var(--card-bg-dark); border: 1px solid var(--border-dark); } }
         
-        .form-control { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--border-light); background: var(--bg-light); color: var(--text-primary-light); font-size: 1.1rem; font-family: 'Pathway Gothic One', sans-serif; resize: vertical; }
+        .form-control { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--border-light); background: var(--bg-light); color: var(--text-primary-light); font-size: 0.95rem; font-family: 'Space Grotesk', sans-serif; resize: vertical; }
         textarea.form-control { min-height: 80px; }
         @media (prefers-color-scheme: dark) { .form-control { background: var(--bg-dark); border: 1px solid var(--border-dark); color: var(--text-primary-dark); } }
         
-        .btn { padding: 12px 20px; border-radius: 100px; border: none; font-size: 1.1rem; cursor: pointer; transition: all 0.2s ease; font-family: 'Pathway Gothic One', sans-serif;}
+        .btn { padding: 12px 20px; border-radius: 100px; border: none; font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: all 0.2s ease; font-family: 'Space Grotesk', sans-serif;}
         .btn-primary { background: var(--accent-light); color: white; }
         @media (prefers-color-scheme: dark) { .btn-primary { background: var(--accent-dark); } }
         .btn-secondary { background: var(--hover-light); color: var(--text-secondary-light); }
         @media (prefers-color-scheme: dark) { .btn-secondary { background: var(--hover-dark); color: var(--text-secondary-dark); } }
         
         .toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; }
-        .toast { background: #1e293b; color: white; padding: 12px 24px; border-radius: 100px; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-size: 1.2rem; }
+        .toast { background: #1e293b; color: white; padding: 12px 24px; border-radius: 100px; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-size: 0.95rem; font-weight: 500; }
         @media (prefers-color-scheme: dark) { .toast { background: #0f172a; } }
         
         .empty-state { text-align: center; padding: 40px 20px; color: var(--text-secondary-light); background: var(--hover-light); border-radius: 24px; }
         @media (prefers-color-scheme: dark) { .empty-state { background: var(--hover-dark); color: var(--text-secondary-dark); } }
         
         .task-title-container { display: flex; align-items: center; gap: 8px; cursor: pointer; }
-        .task-title-container i { font-size: 1rem; color: var(--accent-light); }
+        .task-title-container i { font-size: 0.85rem; color: var(--accent-light); }
         .hidden { display: none; }
         .fit-content { width: fit-content; }
         .word-break { word-break: break-word; overflow-wrap: break-word; }
@@ -242,7 +247,7 @@ function writeMainEJS() {
         /* ================= GROW CSS ================= */
         .grow-panel { max-width: 600px; margin: 0 auto 12px; background: var(--card-bg-light); border: 1px solid var(--border-light); border-radius: 16px; overflow: hidden; }
         @media (prefers-color-scheme: dark) { .grow-panel { background: var(--card-bg-dark); border-color: var(--border-dark); } }
-        .grow-panel summary { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; font-size: 1.2rem; cursor: pointer; background: transparent; list-style: none; }
+        .grow-panel summary { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; font-size: 1rem; font-weight: 600; cursor: pointer; background: transparent; list-style: none; }
         .grow-panel summary::-webkit-details-marker { display: none; }
         .grow-panel > summary > i { transition: transform 0.3s; color: var(--text-secondary-light); }
         @media (prefers-color-scheme: dark) { .grow-panel > summary > i { color: var(--text-secondary-dark); } }
@@ -256,25 +261,25 @@ function writeMainEJS() {
         .grow-bar-track { width: 100%; height: 90%; border-radius: 6px; position: relative; display: flex; align-items: flex-end; background: var(--hover-light); overflow: hidden; border: 1px solid var(--border-light); }
         @media (prefers-color-scheme: dark) { .grow-bar-track { background: var(--hover-dark); border-color: var(--border-dark); } }
         .grow-bar-fill { width: 100%; border-radius: 4px; transition: height 0.6s ease; }
-        .grow-bar-label { position: absolute; top: 0; bottom: 0; left: 0; right: 0; writing-mode: vertical-rl; transform: rotate(180deg); display: flex; align-items: center; justify-content: center; text-align: center; color: var(--text-primary-light); font-size: 1rem; pointer-events: none; line-height: 1.5; }
+        .grow-bar-label { position: absolute; top: 0; bottom: 0; left: 0; right: 0; writing-mode: vertical-rl; transform: rotate(180deg); display: flex; align-items: center; justify-content: center; text-align: center; color: var(--text-primary-light); font-size: 0.8rem; font-weight: 600; pointer-events: none; line-height: 1.5; }
         @media (prefers-color-scheme: dark) { .grow-bar-label { color: var(--text-primary-dark); } }
-        .grow-bar-pct { font-size: 0.9rem; margin-bottom: 5px; color: var(--text-primary-light); }
+        .grow-bar-pct { font-size: 0.75rem; font-weight: 600; margin-bottom: 5px; color: var(--text-primary-light); }
         @media (prefers-color-scheme: dark) { .grow-bar-pct { color: var(--text-primary-dark); } }
         
         .grow-month-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-        .grow-month-nav h2 { font-size: 1.2rem; background: var(--hover-light); padding: 5px 14px; border-radius: 30px; border: 1px solid var(--border-light); }
+        .grow-month-nav h2 { font-size: 1rem; font-weight: 600; background: var(--hover-light); padding: 5px 14px; border-radius: 30px; border: 1px solid var(--border-light); }
         @media (prefers-color-scheme: dark) { .grow-month-nav h2 { background: var(--hover-dark); border-color: var(--border-dark); } }
         
         .grow-calendar { width: 100%; aspect-ratio: 1 / 1; display: flex; flex-direction: column; }
         .grow-grid { flex: 1; width: 100%; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-template-rows: auto repeat(6, minmax(0, 1fr)); gap: 4px; }
-        .grow-weekday { display: flex; align-items: center; justify-content: center; font-size: 1rem; color: var(--text-secondary-light); text-transform: uppercase; }
+        .grow-weekday { display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.75rem; color: var(--text-secondary-light); text-transform: uppercase; }
         @media (prefers-color-scheme: dark) { .grow-weekday { color: var(--text-secondary-dark); } }
         .grow-day { display: flex; align-items: center; justify-content: center; border-radius: 10px; position: relative; width: 100%; height: 100%; }
         .grow-day.empty { pointer-events: none; background: transparent; }
         .grow-day:hover:not(.empty) { background: var(--hover-light); cursor: pointer; }
         @media (prefers-color-scheme: dark) { .grow-day:hover:not(.empty) { background: var(--hover-dark); } }
         
-        .grow-circle { width: 100%; max-width: 36px; aspect-ratio: 1 / 1; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; transition: transform 0.2s; margin: auto; }
+        .grow-circle { width: 100%; max-width: 36px; aspect-ratio: 1 / 1; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.9rem; transition: transform 0.2s; margin: auto; }
         .grow-day:hover .grow-circle { transform: scale(1.1); }
         .grow-circle.has-data { color: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.2); text-shadow: 0 1px 2px rgba(0,0,0,0.6); }
         .grow-circle.today { box-shadow: 0 0 0 2px var(--card-bg-light), 0 0 0 4px var(--success-light); color: var(--success-light); }
@@ -291,19 +296,19 @@ function writeMainEJS() {
         .grow-tail.placement-top { border-top: none; border-left: none; bottom: -6px; top: auto; }
         .grow-tail.placement-bottom { border-bottom: none; border-right: none; top: -6px; bottom: auto; }
 
-        .grow-bubble-date { font-size: 1rem; color: var(--text-secondary-light); margin-bottom: 5px; border-bottom: 1px solid var(--border-light); padding-bottom: 5px; }
+        .grow-bubble-date { font-size: 0.8rem; font-weight: 600; color: var(--text-secondary-light); margin-bottom: 5px; border-bottom: 1px solid var(--border-light); padding-bottom: 5px; }
         @media (prefers-color-scheme: dark) { .grow-bubble-date { color: var(--text-secondary-dark); border-color: var(--border-dark); } }
-        .grow-bubble-item { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 1.1rem; }
+        .grow-bubble-item { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 0.85rem; font-weight: 500; }
         
         .grow-card { background: var(--card-bg-light); border: 1px solid var(--border-light); border-radius: 14px; padding: 12px; margin-bottom: 10px; transition: 0.2s;}
         @media (prefers-color-scheme: dark) { .grow-card { background: var(--card-bg-dark); border-color: var(--border-dark); } }
         .grow-card summary { display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none; outline: none; padding: 4px 0;}
         .grow-card summary::-webkit-details-marker { display: none; }
         .grow-title-section { display: flex; align-items: center; gap: 8px; flex: 1;}
-        .grow-title-section i { font-size: 1rem; color: var(--text-secondary-light); transition: transform 0.2s; }
+        .grow-title-section i { font-size: 0.85rem; color: var(--text-secondary-light); transition: transform 0.2s; }
         @media (prefers-color-scheme: dark) { .grow-title-section i { color: var(--text-secondary-dark); } }
         details[open] .grow-title-section i { transform: rotate(90deg); }
-        .grow-title { font-size: 1.2rem; color: var(--text-primary-light); }
+        .grow-title { font-size: 1rem; font-weight: 600; color: var(--text-primary-light); }
         @media (prefers-color-scheme: dark) { .grow-title { color: var(--text-primary-dark); } }
         
         .grow-progress-bar-container { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border-light); width: 100%; }
@@ -311,9 +316,9 @@ function writeMainEJS() {
         .grow-progress-bar { width: 100%; height: 8px; background: var(--hover-light); border-radius: 10px; overflow: hidden; margin: 8px 0; border: 1px solid var(--border-light); }
         @media (prefers-color-scheme: dark) { .grow-progress-bar { background: var(--hover-dark); border-color: var(--border-dark); } }
         .grow-progress-fill { height: 100%; border-radius: 10px; transition: width 0.5s ease-out; }
-        .grow-progress-stats { display: flex; justify-content: space-between; gap: 8px; font-size: 1rem; color: var(--text-secondary-light); align-items: center;}
+        .grow-progress-stats { display: flex; justify-content: space-between; gap: 8px; font-size: 0.75rem; color: var(--text-secondary-light); align-items: center;}
         @media (prefers-color-scheme: dark) { .grow-progress-stats { color: var(--text-secondary-dark); } }
-        .grow-progress-stats strong { color: var(--text-primary-light); font-size: 1.1rem; }
+        .grow-progress-stats strong { color: var(--text-primary-light); font-size: 0.85rem; font-weight: 600;}
         @media (prefers-color-scheme: dark) { .grow-progress-stats strong { color: var(--text-primary-dark); } }
         .grow-progress-stats span:last-child { white-space: nowrap; flex-shrink: 0; text-align: right; }
         .grow-progress-stats span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -324,7 +329,7 @@ function writeMainEJS() {
         @media (prefers-color-scheme: dark) { .grow-swatch.selected { box-shadow: 0 0 0 2px var(--card-bg-dark), 0 0 0 4px var(--text-primary-dark); } }
         .grow-swatch.hidden { display: none; }
         
-        .grow-checkbox { display: flex; align-items: center; gap: 8px; margin: 12px 0; font-size: 1.1rem; cursor: pointer; color: var(--text-primary-light);}
+        .grow-checkbox { display: flex; align-items: center; gap: 8px; margin: 12px 0; font-size: 0.9rem; font-weight: 500; cursor: pointer; color: var(--text-primary-light);}
         @media (prefers-color-scheme: dark) { .grow-checkbox { color: var(--text-primary-dark); } }
         .grow-hidden-fields { display: none; background: var(--hover-light); padding: 12px; border-radius: 10px; margin-bottom: 12px; }
         @media (prefers-color-scheme: dark) { .grow-hidden-fields { background: var(--hover-dark); } }
@@ -332,7 +337,7 @@ function writeMainEJS() {
         @media (max-width: 768px) { 
             .nav-container { flex-direction: column; align-items: stretch; gap: 8px; } 
             .nav-links { width: 100%; justify-content: stretch; gap: 2px; } 
-            .nav-btn { flex: 1; justify-content: center; padding: 8px 6px; font-size: 1.1rem; } 
+            .nav-btn { flex: 1; justify-content: center; padding: 8px 6px; font-size: 0.9rem; } 
             .time-badge { justify-content: center; } 
             .tasks-grid, .history-tasks-grid { grid-template-columns: 1fr; } 
         }
@@ -344,11 +349,11 @@ function writeMainEJS() {
     <div class="app-header">
         <div class="nav-container">
             <div class="nav-links">
-                <button class="nav-btn <%= currentPage === 'grow' ? 'active' : '' %>" onclick="switchPage('grow')">
-                    <i class="fas fa-seedling"></i> <span>Grow</span>
-                </button>
                 <button class="nav-btn <%= currentPage === 'tasks' ? 'active' : '' %>" onclick="switchPage('tasks')">
                     <i class="fas fa-tasks"></i> <span>Tasks</span>
+                </button>
+                <button class="nav-btn <%= currentPage === 'grow' ? 'active' : '' %>" onclick="switchPage('grow')">
+                    <i class="fas fa-seedling"></i> <span>Grow</span>
                 </button>
                 <button class="nav-btn <%= currentPage === 'notes' ? 'active' : '' %>" onclick="switchPage('notes')">
                     <i class="fas fa-note-sticky"></i> <span>Notes</span>
@@ -372,34 +377,34 @@ function writeMainEJS() {
     <div class="modal" id="addTaskModal">
         <div class="modal-content">
             <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                <h2 style="font-size: 1.4rem;">Create New Task</h2>
+                <h2 style="font-size: 1.2rem;">Create New Task</h2>
                 <button class="action-btn" onclick="closeModal('addTaskModal')">&times;</button>
             </div>
             <form id="addTaskForm" onsubmit="submitTaskForm(event)">
                 <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 1.1rem;">Title *</label>
+                    <label style="font-size: 0.9rem; font-weight: 600;">Title *</label>
                     <input type="text" class="form-control" name="title" required maxlength="100">
                 </div>
                 <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 1.1rem;">Description</label>
+                    <label style="font-size: 0.9rem; font-weight: 600;">Description</label>
                     <textarea class="form-control" name="description" rows="3" placeholder="Enter description"></textarea>
                 </div>
                 <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 1.1rem;">Start Date</label>
+                    <label style="font-size: 0.9rem; font-weight: 600;">Start Date</label>
                     <input type="date" class="form-control" name="startDate" id="startDate" required>
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
-                    <div><label style="font-size: 1.1rem;">Start Time</label><input type="time" class="form-control" name="startTime" id="startTime" required></div>
-                    <div><label style="font-size: 1.1rem;">End Time</label><input type="time" class="form-control" name="endTime" id="endTime" required></div>
+                    <div><label style="font-size: 0.9rem; font-weight: 600;">Start Time</label><input type="time" class="form-control" name="startTime" id="startTime" required></div>
+                    <div><label style="font-size: 0.9rem; font-weight: 600;">End Time</label><input type="time" class="form-control" name="endTime" id="endTime" required></div>
                 </div>
                 <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 1.1rem;">Repeat</label>
+                    <label style="font-size: 0.9rem; font-weight: 600;">Repeat</label>
                     <select class="form-control" name="repeat" id="repeatSelect">
                         <option value="none">No Repeat</option><option value="daily">Daily</option><option value="weekly">Weekly</option>
                     </select>
                 </div>
                 <div class="form-group" id="repeatCountGroup" style="margin-bottom: 12px; display: none;">
-                    <label style="font-size: 1.1rem;">Repeat Count (1-365)</label>
+                    <label style="font-size: 0.9rem; font-weight: 600;">Repeat Count (1-365)</label>
                     <input type="number" class="form-control" name="repeatCount" value="7" min="1" max="365">
                 </div>
                 <div style="display: flex; gap: 12px; margin-top: 16px;">
@@ -413,35 +418,35 @@ function writeMainEJS() {
     <div class="modal" id="editTaskModal">
         <div class="modal-content">
             <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                <h2 style="font-size: 1.4rem;">Edit Task</h2>
+                <h2 style="font-size: 1.2rem;">Edit Task</h2>
                 <button class="action-btn" onclick="closeModal('editTaskModal')">&times;</button>
             </div>
             <form id="editTaskForm" onsubmit="submitEditTaskForm(event)">
                 <input type="hidden" name="taskId" id="editTaskId">
                 <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 1.1rem;">Title *</label>
+                    <label style="font-size: 0.9rem; font-weight: 600;">Title *</label>
                     <input type="text" class="form-control" name="title" id="editTitle" required maxlength="100">
                 </div>
                 <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 1.1rem;">Description</label>
+                    <label style="font-size: 0.9rem; font-weight: 600;">Description</label>
                     <textarea class="form-control" name="description" id="editDescription" rows="3"></textarea>
                 </div>
                 <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 1.1rem;">Start Date</label>
+                    <label style="font-size: 0.9rem; font-weight: 600;">Start Date</label>
                     <input type="date" class="form-control" name="startDate" id="editStartDate" required>
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
-                    <div><label style="font-size: 1.1rem;">Start Time</label><input type="time" class="form-control" name="startTime" id="editStartTime" required></div>
-                    <div><label style="font-size: 1.1rem;">End Time</label><input type="time" class="form-control" name="endTime" id="editEndTime" required></div>
+                    <div><label style="font-size: 0.9rem; font-weight: 600;">Start Time</label><input type="time" class="form-control" name="startTime" id="editStartTime" required></div>
+                    <div><label style="font-size: 0.9rem; font-weight: 600;">End Time</label><input type="time" class="form-control" name="endTime" id="editEndTime" required></div>
                 </div>
                 <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 1.1rem;">Repeat</label>
+                    <label style="font-size: 0.9rem; font-weight: 600;">Repeat</label>
                     <select class="form-control" name="repeat" id="editRepeatSelect">
                         <option value="none">No Repeat</option><option value="daily">Daily</option><option value="weekly">Weekly</option>
                     </select>
                 </div>
                 <div class="form-group" id="editRepeatCountGroup" style="margin-bottom: 12px; display: none;">
-                    <label style="font-size: 1.1rem;">Repeat Count</label>
+                    <label style="font-size: 0.9rem; font-weight: 600;">Repeat Count</label>
                     <input type="number" class="form-control" name="repeatCount" id="editRepeatCount" min="1" max="365">
                 </div>
                 <div style="display: flex; gap: 12px; margin-top: 16px;">
@@ -455,7 +460,7 @@ function writeMainEJS() {
     <div class="modal" id="addGrowModal">
         <div class="modal-content">
             <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                <h2 style="font-size: 1.4rem;">Add New Growth</h2>
+                <h2 style="font-size: 1.2rem;">Add New Growth</h2>
                 <button class="action-btn" onclick="closeModal('addGrowModal')">&times;</button>
             </div>
             <form id="addGrowForm">
@@ -485,7 +490,7 @@ function writeMainEJS() {
     <div class="modal" id="editGrowModal">
         <div class="modal-content">
             <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                <h2 style="font-size: 1.4rem;">Edit Growth</h2>
+                <h2 style="font-size: 1.2rem;">Edit Growth</h2>
                 <button class="action-btn" onclick="closeModal('editGrowModal')">&times;</button>
             </div>
             <form id="editGrowForm">
@@ -517,27 +522,27 @@ function writeMainEJS() {
         <div class="modal-content">
             <div id="logGrowListView">
                 <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                    <h2 id="logGrowTitle" style="font-size: 1.4rem;">Log Progress</h2>
+                    <h2 id="logGrowTitle" style="font-size: 1.2rem;">Log Progress</h2>
                     <button class="action-btn" onclick="closeModal('logGrowModal')">&times;</button>
                 </div>
                 <div id="dailyGrowList"></div>
             </div>
             <div id="logGrowQuestionView" style="display: none;">
                 <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                    <h2 id="qGrowTitle" style="font-size: 1.4rem;"></h2>
+                    <h2 id="qGrowTitle" style="font-size: 1.2rem;"></h2>
                     <button class="action-btn" onclick="showGrowLogList()"><i class="fas fa-arrow-left"></i></button>
                 </div>
                 <div id="qGrowDesc"></div>
-                <div class="form-group" style="margin-bottom: 12px;"><label id="qGrowLabel" style="font-size:1.1rem; color:var(--text-primary-light);"></label><div id="qGrowInput"></div></div>
+                <div class="form-group" style="margin-bottom: 12px;"><label id="qGrowLabel" style="font-size:1rem; color:var(--text-primary-light);"></label><div id="qGrowInput"></div></div>
                 <button class="btn btn-primary" id="saveGrowLogBtn" style="width: 100%;">Save Value</button>
             </div>
         </div>
     </div>
 
-    <div class="modal" id="addSubtaskModal"><div class="modal-content"><div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;"><h2 style="font-size: 1.4rem;">Add Subtask</h2><button class="action-btn" onclick="closeModal('addSubtaskModal')">&times;</button></div><form id="addSubtaskForm" onsubmit="submitSubtaskForm(event)"><input type="hidden" name="taskId" id="subtaskTaskId"><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 1.1rem;">Title *</label><input type="text" class="form-control" name="title" required maxlength="100"></div><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 1.1rem;">Description</label><textarea class="form-control" name="description" rows="3"></textarea></div><div style="display: flex; gap: 12px; margin-top: 16px;"><button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('addSubtaskModal')">Cancel</button><button type="submit" class="btn btn-primary" style="flex: 1;">Add</button></div></form></div></div>
-    <div class="modal" id="editSubtaskModal"><div class="modal-content"><div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;"><h2 style="font-size: 1.4rem;">Edit Subtask</h2><button class="action-btn" onclick="closeModal('editSubtaskModal')">&times;</button></div><form id="editSubtaskForm" onsubmit="submitEditSubtaskForm(event)"><input type="hidden" name="taskId" id="editSubtaskTaskId"><input type="hidden" name="subtaskId" id="editSubtaskId"><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 1.1rem;">Title *</label><input type="text" class="form-control" name="title" id="editSubtaskTitle" required maxlength="100"></div><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 1.1rem;">Description</label><textarea class="form-control" name="description" id="editSubtaskDescription" rows="3"></textarea></div><div style="display: flex; gap: 12px; margin-top: 16px;"><button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('editSubtaskModal')">Cancel</button><button type="submit" class="btn btn-primary" style="flex: 1;">Update</button></div></form></div></div>
-    <div class="modal" id="addNoteModal"><div class="modal-content"><div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;"><h2 style="font-size: 1.4rem;">Create Note</h2><button class="action-btn" onclick="closeModal('addNoteModal')">&times;</button></div><form id="addNoteForm" onsubmit="submitNoteForm(event)"><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 1.1rem;">Title *</label><input type="text" class="form-control" name="title" required maxlength="200"></div><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 1.1rem;">Content</label><textarea class="form-control" name="description" rows="4"></textarea></div><div style="display: flex; gap: 12px; margin-top: 16px;"><button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('addNoteModal')">Cancel</button><button type="submit" class="btn btn-primary" style="flex: 1;">Save</button></div></form></div></div>
-    <div class="modal" id="editNoteModal"><div class="modal-content"><div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;"><h2 style="font-size: 1.4rem;">Edit Note</h2><button class="action-btn" onclick="closeModal('editNoteModal')">&times;</button></div><form id="editNoteForm" onsubmit="submitEditNoteForm(event)"><input type="hidden" name="noteId" id="editNoteId"><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 1.1rem;">Title *</label><input type="text" class="form-control" name="title" id="editNoteTitle" required maxlength="200"></div><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 1.1rem;">Content</label><textarea class="form-control" name="description" id="editNoteDescription" rows="4"></textarea></div><div style="display: flex; gap: 12px; margin-top: 16px;"><button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('editNoteModal')">Cancel</button><button type="submit" class="btn btn-primary" style="flex: 1;">Update</button></div></form></div></div>
+    <div class="modal" id="addSubtaskModal"><div class="modal-content"><div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;"><h2 style="font-size: 1.2rem;">Add Subtask</h2><button class="action-btn" onclick="closeModal('addSubtaskModal')">&times;</button></div><form id="addSubtaskForm" onsubmit="submitSubtaskForm(event)"><input type="hidden" name="taskId" id="subtaskTaskId"><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.9rem; font-weight: 600;">Title *</label><input type="text" class="form-control" name="title" required maxlength="100"></div><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.9rem; font-weight: 600;">Description</label><textarea class="form-control" name="description" rows="3"></textarea></div><div style="display: flex; gap: 12px; margin-top: 16px;"><button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('addSubtaskModal')">Cancel</button><button type="submit" class="btn btn-primary" style="flex: 1;">Add</button></div></form></div></div>
+    <div class="modal" id="editSubtaskModal"><div class="modal-content"><div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;"><h2 style="font-size: 1.2rem;">Edit Subtask</h2><button class="action-btn" onclick="closeModal('editSubtaskModal')">&times;</button></div><form id="editSubtaskForm" onsubmit="submitEditSubtaskForm(event)"><input type="hidden" name="taskId" id="editSubtaskTaskId"><input type="hidden" name="subtaskId" id="editSubtaskId"><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.9rem; font-weight: 600;">Title *</label><input type="text" class="form-control" name="title" id="editSubtaskTitle" required maxlength="100"></div><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.9rem; font-weight: 600;">Description</label><textarea class="form-control" name="description" id="editSubtaskDescription" rows="3"></textarea></div><div style="display: flex; gap: 12px; margin-top: 16px;"><button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('editSubtaskModal')">Cancel</button><button type="submit" class="btn btn-primary" style="flex: 1;">Update</button></div></form></div></div>
+    <div class="modal" id="addNoteModal"><div class="modal-content"><div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;"><h2 style="font-size: 1.2rem;">Create Note</h2><button class="action-btn" onclick="closeModal('addNoteModal')">&times;</button></div><form id="addNoteForm" onsubmit="submitNoteForm(event)"><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.9rem; font-weight: 600;">Title *</label><input type="text" class="form-control" name="title" required maxlength="200"></div><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.9rem; font-weight: 600;">Content</label><textarea class="form-control" name="description" rows="4"></textarea></div><div style="display: flex; gap: 12px; margin-top: 16px;"><button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('addNoteModal')">Cancel</button><button type="submit" class="btn btn-primary" style="flex: 1;">Save</button></div></form></div></div>
+    <div class="modal" id="editNoteModal"><div class="modal-content"><div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;"><h2 style="font-size: 1.2rem;">Edit Note</h2><button class="action-btn" onclick="closeModal('editNoteModal')">&times;</button></div><form id="editNoteForm" onsubmit="submitEditNoteForm(event)"><input type="hidden" name="noteId" id="editNoteId"><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.9rem; font-weight: 600;">Title *</label><input type="text" class="form-control" name="title" id="editNoteTitle" required maxlength="200"></div><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.9rem; font-weight: 600;">Content</label><textarea class="form-control" name="description" id="editNoteDescription" rows="4"></textarea></div><div style="display: flex; gap: 12px; margin-top: 16px;"><button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('editNoteModal')">Cancel</button><button type="submit" class="btn btn-primary" style="flex: 1;">Update</button></div></form></div></div>
 
     <script>
         const tg = window.Telegram.WebApp;
@@ -558,7 +563,7 @@ function writeMainEJS() {
             }, 3000);
         }
 
-        let currentPage = '<%= currentPage === "tasks" ? "grow" : currentPage %>';
+        let currentPage = '<%= currentPage %>';
         let tasksData = <%- JSON.stringify(tasks || []) %>;
         let notesData = <%- JSON.stringify(notes || []) %>;
         let historyData = <%- JSON.stringify(groupedHistory || {}) %>;
@@ -696,7 +701,7 @@ function writeMainEJS() {
         function renderGrowList() {
             const container = document.getElementById("growList");
             if(!growTrackerData.items || !growTrackerData.items.length) { 
-                container.innerHTML = '<div class="empty-state"><i class="fas fa-seedling" style="font-size:3rem;margin-bottom:10px;"></i><br>No items tracked. Click + to add.</div>'; 
+                container.innerHTML = '<div class="empty-state"><i class="fas fa-seedling" style="font-size:2rem;margin-bottom:10px;"></i><br>No items tracked. Click + to add.</div>'; 
                 return; 
             }
             let html = "";
@@ -858,7 +863,7 @@ function writeMainEJS() {
             const d = new Date(date+"T00:00:00");
             
             let html = '<div class="grow-bubble-date">' + d.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}) + '</div>';
-            if(!active.length) html += "<div style='text-align:center;font-size:1rem;color:var(--text-secondary-light);'>No tasks active.</div>";
+            if(!active.length) html += "<div style='text-align:center;font-size:0.85rem;color:var(--text-secondary-light);'>No tasks active.</div>";
             else {
                 for(let i=0; i<active.length; i++) {
                     const g = active[i];
@@ -1076,8 +1081,8 @@ function writeMainEJS() {
         }
 
         function saveGrowLog(item, date, val) {
-            const payload = { dateStr: date, value: val };
-            fetch("/api/grow/" + item.id + "/log", { method:"POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload) })
+            const payload = { itemId: item.id, dateStr: date, value: val };
+            fetch("/api/grow/log", { method:"POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload) })
             .then(res => {
                 if(res.ok) { 
                     showToast("Progress logged!");
@@ -1126,7 +1131,7 @@ function writeMainEJS() {
         function renderTasksPage() {
             let html = '<div class="tasks-grid">';
             if (!tasksData || tasksData.length === 0) {
-                html += '<div class="empty-state" style="grid-column: 1/-1;"><i class="fas fa-clipboard-list" style="font-size: 3rem;"></i><h3 style="margin-top: 12px; font-size:1.4rem;">No tasks</h3></div>';
+                html += '<div class="empty-state" style="grid-column: 1/-1;"><i class="fas fa-clipboard-list" style="font-size: 3rem;"></i><h3 style="margin-top: 12px; font-size:1.2rem;">No tasks</h3></div>';
             } else {
                 tasksData.forEach((task) => {
                     const hasDescription = hasContent(task.description);
@@ -1158,13 +1163,13 @@ function writeMainEJS() {
                     html += '<div class="task-time-row"><span class="date-chip"><i class="fas fa-calendar-alt"></i> ' + displayDate + '</span><span class="time-chip"><i class="fas fa-clock"></i> ' + (task.startTimeIST || task.startTimeStr) + '-' + (task.endTimeIST || task.endTimeStr) + '</span></div>';
                     
                     if (totalSubtasks > 0) {
-                        html += '<details class="task-subtasks"><summary class="flex-row" style="cursor: pointer;"><div class="progress-ring-small"><svg width="40" height="40"><circle class="progress-ring-circle-small" stroke="var(--progress-bg-light)" stroke-width="3" fill="transparent" r="16" cx="20" cy="20"/><circle class="progress-ring-circle-small" stroke="var(--accent-light)" stroke-width="3" fill="transparent" r="16" cx="20" cy="20" style="stroke-dasharray: ' + circleCircumference + '; stroke-dashoffset: ' + circleOffset + '; "/></svg><span class="progress-text-small">' + progress + '%</span></div><span style="font-size: 1.1rem; color: var(--text-secondary-light);">' + completedSubtasks + '/' + totalSubtasks + ' subtasks</span></summary><div class="subtasks-container w-100">';
+                        html += '<details class="task-subtasks"><summary class="flex-row" style="cursor: pointer;"><div class="progress-ring-small"><svg width="40" height="40"><circle class="progress-ring-circle-small" stroke="var(--progress-bg-light)" stroke-width="3" fill="transparent" r="16" cx="20" cy="20"/><circle class="progress-ring-circle-small" stroke="var(--accent-light)" stroke-width="3" fill="transparent" r="16" cx="20" cy="20" style="stroke-dasharray: ' + circleCircumference + '; stroke-dashoffset: ' + circleOffset + '; "/></svg><span class="progress-text-small">' + progress + '%</span></div><span style="font-size: 0.85rem; color: var(--text-secondary-light); font-weight:500;">' + completedSubtasks + '/' + totalSubtasks + ' subtasks</span></summary><div class="subtasks-container w-100">';
                         task.subtasks.forEach((subtask) => {
                             const subtaskHasDesc = hasContent(subtask.description);
                             const subtaskDescId = 'subtask_desc_' + task.taskId + '_' + subtask.id;
                             const escapedSubtaskTitle = escapeHtml(subtask.title);
                             const escapedSubtaskDescription = escapeJsString(subtask.description || '');
-                            html += '<div class="subtask-item"><div class="subtask-main-row"><div class="subtask-checkbox ' + (subtask.completed ? 'completed' : '') + '" onclick="toggleSubtask(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\')">' + (subtask.completed ? '<i class="fas fa-check"></i>' : '') + '</div><div class="subtask-details"><div class="subtask-title-container" onclick="toggleDescription(\\'' + subtaskDescId + '\\')" oncontextmenu="event.preventDefault(); toggleSubtaskPriorityMode(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\')"><span class="subtask-title ' + (subtask.completed ? 'completed' : '') + '">' + escapedSubtaskTitle + '</span></div></div><div class="task-actions-wrapper" id="subtask_actions_' + task.taskId + '_' + subtask.id + '">';
+                            html += '<div class="subtask-item"><div class="subtask-main-row"><div class="subtask-checkbox ' + (subtask.completed ? 'completed' : '') + '" onclick="toggleSubtask(event, \\'' + task.taskId + '\\', \\'' + subtask.id + '\\')">' + (subtask.completed ? '<i class="fas fa-check"></i>' : '') + '</div><div class="subtask-details"><div class="subtask-title-container" onclick="toggleDescription(\\'' + subtaskDescId + '\\')" oncontextmenu="event.preventDefault(); toggleSubtaskPriorityMode(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\')"><span class="subtask-title ' + (subtask.completed ? 'completed' : '') + '">' + escapedSubtaskTitle + '</span></div></div><div class="task-actions-wrapper" id="subtask_actions_' + task.taskId + '_' + subtask.id + '">';
                             
                             html += '<div class="normal-btns"><button class="subtask-btn" onclick="editSubtask(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\', \\'' + escapedSubtaskTitle.replace(/'/g, "\\\\'") + '\\', \\'' + escapedSubtaskDescription.replace(/'/g, "\\\\'") + '\\')"><i class="fas fa-pencil-alt"></i></button><button class="subtask-btn delete" onclick="deleteSubtask(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\')"><i class="fas fa-trash"></i></button></div>';
                             
@@ -1174,7 +1179,7 @@ function writeMainEJS() {
                             html += '</div>';
                         });
                         html += '</div></details>';
-                    } else { html += '<div class="flex-row" style="margin-top: 8px;"><span style="font-size: 1.1rem; color: var(--text-secondary-light);"><i class="fas fa-tasks"></i> No subtasks</span></div>'; }
+                    } else { html += '<div class="flex-row" style="margin-top: 8px;"><span style="font-size: 0.85rem; font-weight:500; color: var(--text-secondary-light);"><i class="fas fa-tasks"></i> No subtasks</span></div>'; }
                     html += '<div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;"><span class="badge"><i class="fas fa-repeat"></i> ' + (task.repeat && task.repeat !== 'none' ? (task.repeat === 'daily' ? 'Daily' : 'Weekly') : 'No Repeat') + '</span><span class="badge"><i class="fas fa-hourglass-half"></i> ' + task.durationFormatted + '</span>';
                     if (task.repeatCount > 0) html += '<span class="badge"><i class="fas fa-hashtag"></i> ' + task.repeatCount + ' left</span>';
                     html += '</div></div>';
@@ -1186,7 +1191,7 @@ function writeMainEJS() {
 
         function renderNotesPage() {
             let html = '<div class="tasks-grid">';
-            if (!notesData || notesData.length === 0) { html += '<div class="empty-state" style="grid-column: 1/-1;"><i class="fas fa-note-sticky" style="font-size: 3rem;"></i><h3 style="margin-top: 12px; font-size:1.4rem;">No notes</h3></div>'; } 
+            if (!notesData || notesData.length === 0) { html += '<div class="empty-state" style="grid-column: 1/-1;"><i class="fas fa-note-sticky" style="font-size: 3rem;"></i><h3 style="margin-top: 12px; font-size:1.2rem;">No notes</h3></div>'; } 
             else {
                 notesData.forEach(note => {
                     const hasDescription = hasContent(note.description);
@@ -1202,13 +1207,13 @@ function writeMainEJS() {
         }
 
         function renderHistoryPage() {
-            let html = '<div class="history-header"><div class="month-selector"><button class="month-btn" onclick="changeMonth(-1)"><i class="fas fa-chevron-left"></i> Prev</button><span style="font-weight: 600; font-size:1.2rem;">' + new Date(currentYear, currentMonth).toLocaleString('default', { month: 'long' }) + ' ' + currentYear + '</span><button class="month-btn" onclick="changeMonth(1)">Next <i class="fas fa-chevron-right"></i></button></div></div>';
+            let html = '<div class="history-header"><div class="month-selector"><button class="month-btn" onclick="changeMonth(-1)"><i class="fas fa-chevron-left"></i> Prev</button><span style="font-weight: 600; font-size:1rem;">' + new Date(currentYear, currentMonth).toLocaleString('default', { month: 'long' }) + ' ' + currentYear + '</span><button class="month-btn" onclick="changeMonth(1)">Next <i class="fas fa-chevron-right"></i></button></div></div>';
             html += '<div class="history-grid">';
             
             const filteredHistory = filterHistoryByMonth(historyData, currentYear, currentMonth);
             const dates = Object.keys(filteredHistory).sort().reverse();
             
-            if (dates.length === 0) { html += '<div class="empty-state"><i class="fas fa-history" style="font-size: 3rem;"></i><h3 style="margin-top: 12px; font-size:1.4rem;">No history</h3></div>'; } 
+            if (dates.length === 0) { html += '<div class="empty-state"><i class="fas fa-history" style="font-size: 3rem;"></i><h3 style="margin-top: 12px; font-size:1.2rem;">No history</h3></div>'; } 
             else {
                 dates.forEach(date => {
                     const tasks = filteredHistory[date];
@@ -1228,16 +1233,15 @@ function writeMainEJS() {
                         if (hasDescription) html += '<div id="' + historyDescId + '" class="history-description-container hidden"><div class="history-description">' + preserveLineBreaks(task.description) + '</div></div>';
                         html += '<div style="display: flex; gap: 6px; margin: 8px 0; flex-wrap: wrap;"><span class="badge"><i class="fas fa-clock"></i> ' + task.startTimeIST + '-' + task.endTimeIST + '</span><span class="badge"><i class="fas fa-hourglass-half"></i> ' + task.durationFormatted + '</span>' + (task.repeat && task.repeat !== 'none' ? '<span class="badge"><i class="fas fa-repeat"></i> ' + (task.repeat === 'daily' ? 'Daily' : 'Weekly') + '</span>' : '') + '</div>';
                         if (task.subtasks && task.subtasks.length > 0) {
-                            html += '<details style="margin-top: 8px;"><summary style="cursor: pointer; color: var(--accent-light); font-weight: 600; font-size: 1.1rem;"><i class="fas fa-tasks"></i> Subtasks (' + task.subtasks.filter(s => s.completed).length + '/' + task.subtasks.length + ')</summary><div style="margin-top: 8px;">';
+                            html += '<details style="margin-top: 8px;"><summary style="cursor: pointer; color: var(--accent-light); font-weight: 600; font-size: 0.85rem;"><i class="fas fa-tasks"></i> Subtasks (' + task.subtasks.filter(s => s.completed).length + '/' + task.subtasks.length + ')</summary><div style="margin-top: 8px;">';
                             task.subtasks.forEach(subtask => {
                                 const subtaskHasDesc = hasContent(subtask.description);
                                 const historySubtaskDescId = 'history_subtask_desc_' + task.taskId + '_' + task.completedAt + '_' + subtask.id;
-                                // Add strikethrough for incomplete subtasks in history
                                 const textStyle = subtask.completed ? '' : 'text-decoration: line-through; opacity: 0.7;';
                                 const iconClass = subtask.completed ? 'fa-check-circle' : 'fa-times-circle';
                                 const iconColor = subtask.completed ? 'var(--success-light)' : 'var(--danger-light)';
                                 
-                                html += '<div class="history-subtask"><div style="display: flex; align-items: flex-start; gap: 6px;"><span style="color: ' + iconColor + '"><i class="fas ' + iconClass + '"></i></span><div style="flex: 1;"><div class="task-title-container" onclick="toggleDescription(\\'' + historySubtaskDescId + '\\')"><span style="font-weight: 500; font-size: 1rem; ' + textStyle + '">' + escapeHtml(subtask.title) + '</span></div>' + (subtaskHasDesc ? '<div id="' + historySubtaskDescId + '" class="history-description-container hidden"><div class="history-description" style="border-left-color: var(--accent-light);">' + preserveLineBreaks(subtask.description) + '</div></div>' : '') + '</div></div></div>';
+                                html += '<div class="history-subtask"><div style="display: flex; align-items: flex-start; gap: 6px;"><span style="color: ' + iconColor + '"><i class="fas ' + iconClass + '"></i></span><div style="flex: 1;"><div class="task-title-container" onclick="toggleDescription(\\'' + historySubtaskDescId + '\\')"><span style="font-weight: 500; font-size: 0.85rem; ' + textStyle + '">' + escapeHtml(subtask.title) + '</span></div>' + (subtaskHasDesc ? '<div id="' + historySubtaskDescId + '" class="history-description-container hidden"><div class="history-description" style="border-left-color: var(--accent-light);">' + preserveLineBreaks(subtask.description) + '</div></div>' : '') + '</div></div></div>';
                             });
                             html += '</div></details>';
                         }
@@ -1329,13 +1333,45 @@ function writeMainEJS() {
         function submitEditSubtaskForm(event) { event.preventDefault(); const formData = new FormData(event.target); fetch('/api/tasks/' + formData.get('taskId') + '/subtasks/' + formData.get('subtaskId') + '/update', { method: 'POST', body: new URLSearchParams(formData) }).then(res => { if(res.ok){ closeModal('editSubtaskModal'); showToast('Subtask updated!'); switchPage('tasks'); } else throw new Error(''); }).catch(err => { showToast('Error updating subtask', 'error'); }); }
         function submitNoteForm(event) { event.preventDefault(); fetch('/api/notes', { method: 'POST', body: new URLSearchParams(new FormData(event.target)) }).then(res => { if(res.ok){ closeModal('addNoteModal'); showToast('Note created!'); switchPage('notes'); } else throw new Error(''); }).catch(err => { showToast('Error creating note', 'error'); }); }
         function submitEditNoteForm(event) { event.preventDefault(); const formData = new FormData(event.target); fetch('/api/notes/' + formData.get('noteId') + '/update', { method: 'POST', body: new URLSearchParams(formData) }).then(res => { if(res.ok){ closeModal('editNoteModal'); showToast('Note updated!'); switchPage('notes'); } else throw new Error(''); }).catch(err => { showToast('Error updating note', 'error'); }); }
-        function toggleSubtask(taskId, subtaskId) { fetch('/api/tasks/' + taskId + '/subtasks/' + subtaskId + '/toggle', { method: 'POST' }).then(res => { if(res.ok){ showToast('Subtask toggled'); switchPage('tasks'); } else throw new Error(''); }).catch(err => { showToast('Error toggling', 'error'); }); }
+        
+        function toggleSubtask(event, taskId, subtaskId) { 
+            if (event) event.stopPropagation();
+            
+            // Optimistic UI Update
+            const task = tasksData.find(t => t.taskId === taskId);
+            if (task) {
+                const sub = (task.subtasks || []).find(s => s.id === subtaskId);
+                if (sub) sub.completed = !sub.completed;
+                const completedCount = task.subtasks.filter(s => s.completed).length;
+                task.subtaskProgress = task.subtasks.length > 0 ? Math.round((completedCount / task.subtasks.length) * 100) : 0;
+                renderPage();
+            }
+
+            fetch('/api/tasks/' + taskId + '/subtasks/' + subtaskId + '/toggle', { method: 'POST' })
+            .then(res => { 
+                if(res.ok){ 
+                    fetch('/api/page/tasks').then(r=>r.json()).then(d => { if(d.tasks) tasksData = d.tasks; renderPage(); });
+                } else throw new Error(''); 
+            })
+            .catch(err => { showToast('Error toggling', 'error'); }); 
+        }
+        
         function deleteSubtask(taskId, subtaskId) { if (!confirm('Delete this subtask?')) return; fetch('/api/tasks/' + taskId + '/subtasks/' + subtaskId + '/delete', { method: 'POST' }).then(res => { if(res.ok){ showToast('Subtask deleted'); switchPage('tasks'); } else throw new Error(''); }).catch(err => { showToast('Error deleting', 'error'); }); }
         
         function completeTask(taskId) {
             if (!confirm('Complete this task?')) return;
+            
+            // Optimistic UI Update
+            tasksData = tasksData.filter(t => t.taskId !== taskId);
+            renderPage();
+
             fetch('/api/tasks/' + taskId + '/complete', { method: 'POST' })
-            .then(res => { if(res.ok){ showToast('Task completed!'); switchPage('tasks'); } else { return res.text().then(t => {throw new Error(t);}); } })
+            .then(res => { 
+                if(res.ok){ 
+                    showToast('Task completed!'); 
+                    fetch('/api/page/tasks').then(r=>r.json()).then(d => { if(d.tasks) tasksData = d.tasks; renderPage(); });
+                } else { return res.text().then(t => {throw new Error(t);}); } 
+            })
             .catch(err => { showToast(err.message || 'Error completing task', 'error'); });
         }
         
@@ -1444,25 +1480,22 @@ let currentReminderTaskId = null;
 
 // Only Admin Check Middleware
 bot.use(async (ctx, next) => {
-    if (ctx.from && ctx.from.id !== CHAT_ID) {
+    if (ctx.from && String(ctx.from.id) !== String(CHAT_ID)) {
         return ctx.reply('🚫 Admin has restricted new users to use the task manager bot.');
     }
     return next();
 });
 
-// Start Command & Menu Generation
 async function sendStartMenu(ctx) {
     try {
         const istDateObj = getCurrentISTDisplay();
         const startOfDayUTC = istToUTC(istDateObj.date, "00:00");
         const endOfDayUTC = istToUTC(istDateObj.date, "23:59");
 
-        // Fetch Pending Tasks (Sorted by PRIORITY / orderIndex)
         const pendingTasks = await db.collection('tasks').find({
             status: 'pending', nextOccurrence: { $gte: startOfDayUTC, $lt: endOfDayUTC }
         }).sort({ orderIndex: 1 }).toArray();
 
-        // Fetch Completed Tasks
         const todayHistory = await db.collection('history').find({ completedDateStr: istDateObj.displayDate }).toArray();
         const completedTaskIds = [...new Set(todayHistory.map(h => h.taskId))];
         
@@ -1473,14 +1506,11 @@ async function sendStartMenu(ctx) {
             const combined = {};
             activeC.forEach(t => combined[t.taskId] = t);
             deletedC.forEach(t => { if (!combined[t.taskId]) combined[t.taskId] = t; });
-            
-            // Sort Completed Tasks by PRIORITY / orderIndex
             completedTasks = Object.values(combined).sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
         }
 
         const total = pendingTasks.length + completedTasks.length;
         
-        // --- Progress Bar Calculation ---
         let percentage = 0;
         let progressBar = '▱▱▱▱▱▱▱▱▱▱'; 
         
@@ -1490,10 +1520,9 @@ async function sendStartMenu(ctx) {
             progressBar = '▰'.repeat(filledCount) + '▱'.repeat(10 - filledCount);
         }
 
-        // --- Message Construction ---
         let msg = `🌟 <b>Welcome, ${ctx.from.first_name || 'Admin'}!</b>\n\n`;
         msg += `📊 <b>Progress:</b> ${progressBar} ${percentage}%\n`;
-        msg += `🎯 <b>Completed:</b> <i>${completedTasks.length}/${total}</i> tasks today.\n`;
+        msg += `🎯 <b>You have completed <i>${completedTasks.length}/${total}</i> tasks yet.</b>\n`;
         
         if (total > 0) {
             msg += `<blockquote expandable>\n`;
@@ -1567,7 +1596,6 @@ function scheduleTask(task) {
                 if (isShuttingDown || !globalSettings.reminders) return;
                 const currentTimeUTC = new Date();
                 
-                // Clear old task reminders if a new task starts warning
                 if (currentReminderTaskId !== taskId) {
                     for (const msgId of activeReminderMessageIds) {
                         try { await bot.telegram.deleteMessage(CHAT_ID, msgId); } catch(e){}
@@ -1632,10 +1660,7 @@ async function rescheduleAllPending() {
         tasks.forEach(task => scheduleTask(task));
     } catch (error) {}
 }
-         
-// ==========================================
-// 🌙 AUTO-COMPLETE TASKS AT 23:57 IST
-// ==========================================
+
 function setupAutoCompletion() {
     const rule = new schedule.RecurrenceRule();
     rule.hour = 23;
@@ -1688,17 +1713,14 @@ function setupAutoCompletion() {
                     await db.collection('tasks').deleteOne({ taskId: task.taskId });
                 }
             }
-        } catch (error) {}
+        } catch (error) { console.error('❌ Auto-completion Error:', error); }
     });
 }
 
-// ==========================================
-// 🕒 HOURLY NOTIFICATIONS (8 AM - 11 PM)
-// ==========================================
 function setupHourlyNotifications() {
     const rule = new schedule.RecurrenceRule();
     rule.minute = 0;
-    rule.hour = new schedule.Range(8, 23); // 8 AM to 11 PM
+    rule.hour = new schedule.Range(8, 23); 
     rule.tz = 'Asia/Kolkata';
 
     schedule.scheduleJob(rule, async function() {
@@ -1708,9 +1730,13 @@ function setupHourlyNotifications() {
             const startOfDayUTC = istToUTC(istDateObj.date, "00:00");
             const endOfDayUTC = istToUTC(istDateObj.date, "23:59");
 
+            const istDate = new Date(Date.now() + IST_OFFSET_MS);
+            const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            const dayOfWeek = daysOfWeek[istDate.getUTCDay()];
+
             const pendingTasks = await db.collection('tasks').find({
                 status: 'pending', nextOccurrence: { $gte: startOfDayUTC, $lt: endOfDayUTC }
-            }).sort({ startTimeStr: 1 }).toArray();
+            }).sort({ orderIndex: 1 }).toArray();
 
             const todayHistory = await db.collection('history').find({
                 completedDateStr: istDateObj.displayDate
@@ -1726,31 +1752,29 @@ function setupHourlyNotifications() {
                 const combined = {};
                 activeC.forEach(t => combined[t.taskId] = t);
                 deletedC.forEach(t => { if (!combined[t.taskId]) combined[t.taskId] = t; });
-                completedTasks = Object.values(combined).sort((a, b) => (a.startTimeStr || "").localeCompare(b.startTimeStr || ""));
+                completedTasks = Object.values(combined).sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
             }
 
-            if (pendingTasks.length === 0 && completedTasks.length === 0) return;
+            const totalTasks = pendingTasks.length + completedTasks.length;
+            if (totalTasks === 0) return;
 
-            let msg = `🕒 <b>Hourly Status Update</b>\n📅 ${istDateObj.displayDate} - ${istDateObj.time}\n\n`;
-            
-            if (completedTasks.length > 0) {
-                msg += `<b>✅ Completed Today:</b>\n`;
-                completedTasks.forEach(t => msg += `✅ ${t.title} (${t.startTimeStr} - ${t.endTimeStr})\n`);
-                msg += `\n`;
-            }
-            if (pendingTasks.length > 0) {
-                msg += `<b>❌ Pending Today:</b>\n`;
-                pendingTasks.forEach(t => msg += `❌ ${t.title} (${t.startTimeStr} - ${t.endTimeStr})\n`);
-            }
+            let msg = `🕒 <b>Hourly Status Update</b>\n📅 ${istDateObj.displayDate} - ${dayOfWeek}\n`;
+            msg += `🎯 You have completed <i>${completedTasks.length}/${totalTasks}</i> tasks today.\n\n`;
+
+            msg += `<blockquote expandable>\n`;
+            completedTasks.forEach(t => {
+                msg += `✅ ${escapeHTML(t.title)} (${t.startTimeStr} - ${t.endTimeStr})\n`;
+            });
+            pendingTasks.forEach(t => {
+                msg += `❌ ${escapeHTML(t.title)} (${t.startTimeStr} - ${t.endTimeStr})\n`;
+            });
+            msg += `</blockquote>`;
 
             await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' });
         } catch (e) {}
     });
 }
 
-// ==========================================
-// 🛠️ SHARED HISTORY HYDRATION TOOL
-// ==========================================
 async function getHydratedHistory() {
     const historyList = await db.collection('history').find().sort({ completedAt: -1 }).limit(500).toArray();
     if (historyList.length === 0) return {};
@@ -1784,6 +1808,9 @@ async function getHydratedHistory() {
 // ==========================================
 // 📱 WEB INTERFACE ROUTES
 // ==========================================
+// ==========================================
+// 📱 WEB INTERFACE ROUTES
+// ==========================================
 app.get('/', (req, res) => res.redirect('/tasks'));
 
 app.get('/tasks', async (req, res) => {
@@ -1813,7 +1840,10 @@ app.get('/tasks', async (req, res) => {
 app.get('/grow', async (req, res) => {
     try {
         const istDateObj = getCurrentISTDisplay();
+        // Fetch all individual grow documents
         const items = await db.collection('grow').find().toArray();
+        
+        // Transform the decentralized progress into the global mapped object the UI expects
         const progress = {};
         items.forEach(i => {
             if(i.progress) {
@@ -1823,6 +1853,7 @@ app.get('/grow', async (req, res) => {
                 }
             }
         });
+
         res.render('index', { currentPage: 'grow', tasks: [], notes: [], groupedHistory: {}, growData: {items, progress}, currentTime: istDateObj.displayTime, currentDate: istDateObj.displayDate });
     } catch (error) { res.status(500).send("Server Error"); }
 });
@@ -1843,6 +1874,7 @@ app.get('/history', async (req, res) => {
     } catch (error) { res.status(500).send("Server Error"); }
 });
 
+// JSON API FOR SPA FETCH
 app.get('/api/page/:page', async (req, res) => {
     try {
         const page = req.params.page;
@@ -1870,8 +1902,12 @@ app.get('/api/page/:page', async (req, res) => {
         } else if (page === 'history') {
             const groupedHistory = await getHydratedHistory();
             res.json({ groupedHistory });
-        } else { res.status(404).json({ error: 'Not found' }); }
-    } catch (error) { res.status(500).json({ error: error.message }); }
+        } else { 
+            res.status(404).json({ error: 'Not found' }); 
+        }
+    } catch (error) { 
+        res.status(500).json({ error: error.message }); 
+    }
 });
 
 // ==========================================
@@ -1893,6 +1929,7 @@ app.post('/api/grow', async (req, res) => {
         }
         
         await db.collection('grow').insertOne(item);
+        try { await bot.telegram.sendMessage(CHAT_ID, `🌱 <b>Grow Tracker Added:</b> ${escapeHTML(title)}`, { parse_mode: 'HTML' }); } catch(e) {}
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
@@ -1918,22 +1955,25 @@ app.post('/api/grow/:id/update', async (req, res) => {
             if (end !== undefined && end !== '') updatedFields.end = type === 'float' ? parseFloat(end) : parseInt(end);
         }
         
-        await db.collection('grow').updateOne({ id }, { $set: updatedFields });
+        await db.collection('grow').updateOne({ id: req.params.id }, { $set: updatedFields });
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 app.post('/api/grow/:id/delete', async (req, res) => {
     try {
+        const item = await db.collection('grow').findOne({ id: req.params.id });
         await db.collection('grow').deleteOne({ id: req.params.id });
+        try { await bot.telegram.sendMessage(CHAT_ID, `🗑️ <b>Grow Tracker Deleted:</b> ${item ? escapeHTML(item.title) : 'Unknown'}`, { parse_mode: 'HTML' }); } catch(e) {}
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-app.post('/api/grow/:id/log', async (req, res) => {
+app.post('/api/grow/log', async (req, res) => {
     try {
-        const { dateStr, value } = req.body;
-        await db.collection('grow').updateOne({ id: req.params.id }, { $set: { [`progress.${dateStr}`]: value } });
+        const { itemId, dateStr, value } = req.body;
+        // Save dynamically into the specific grow tracker's embedded progress object
+        await db.collection('grow').updateOne({ id: itemId }, { $set: { [`progress.${dateStr}`]: value } });
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
@@ -1993,8 +2033,15 @@ app.post('/api/tasks/:taskId/complete', async (req, res) => {
         if (!task) return res.status(400).send('Task not found');
         
         const istNow = getCurrentISTDisplay();
+        
+        // Save the history object, ensuring all subtasks are transferred over
         await db.collection('history').insertOne({ 
-            taskId: task.taskId, completedAt: new Date(), completedDateStr: istNow.displayDate, completedTimeStr: istNow.displayTime, status: 'completed' 
+            taskId: task.taskId, 
+            completedAt: new Date(), 
+            completedDateStr: istNow.displayDate, 
+            completedTimeStr: istNow.displayTime, 
+            status: 'completed',
+            subtasks: task.subtasks || []
         });
         cancelTaskSchedule(task.taskId);
         
@@ -2135,11 +2182,14 @@ async function start() {
     try {
         if (await connectDB()) {
             await rescheduleAllPending();
+            
+            // Initialize scheduled jobs
             setupHourlyNotifications();
             setupAutoCompletion();
             
             app.listen(PORT, '0.0.0.0', () => {
                 console.log('🌐 Web interface running on port ' + PORT);
+                console.log('🌍 Public Web URL: ' + WEB_APP_URL);
                 console.log('🕐 IST Time: ' + getCurrentISTDisplay().dateTime);
             });
             
