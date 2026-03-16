@@ -78,7 +78,6 @@ function writeMainEJS() {
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech:wght@300;400;500;600;700&display=swap');
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Share Tech', -apple-system, BlinkMacSystemFont, sans-serif; }
         
         :root {
             --bg-light: #f5f7fa; --card-bg-light: #ffffff; --text-primary-light: #1e293b; --text-secondary-light: #475569;
@@ -89,7 +88,7 @@ function writeMainEJS() {
             --warning-dark: #fbbf24; --danger-dark: #f87171; --hover-dark: #2d3b4f; --progress-bg-dark: #334155;
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Pathway Gothic One', sans-serif; letter-spacing: 0.5px; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Share Tech', sans-serif; letter-spacing: 0.5px; }
         body { background: var(--bg-light); color: var(--text-primary-light); transition: all 0.2s ease; min-height: 100vh; font-size: 16px; line-height: 1.4; }
         @media (prefers-color-scheme: dark) { body { background: var(--bg-dark); color: var(--text-primary-dark); } }
         
@@ -1447,7 +1446,7 @@ let currentReminderTaskId = null;
 // Only Admin Check Middleware
 bot.use(async (ctx, next) => {
     if (ctx.from && ctx.from.id !== CHAT_ID) {
-        return ctx.reply('Admin has restricted new users to use the task manager bot.');
+        return ctx.reply('❌Admin has restricted new users to use the task manager bot.');
     }
     return next();
 });
@@ -1475,8 +1474,8 @@ async function sendStartMenu(ctx) {
     }
 
     const total = pendingTasks.length + completedTasks.length;
-    let msg = `Welcome, ${ctx.from.first_name || 'Admin'}!\n`;
-    msg += `You have completed ${completedTasks.length}/${total} tasks yet.\n`;
+    let msg = `<b>Welcome, ${ctx.from.first_name || 'Admin'}!</b>\n`;
+    msg += `<b>completed <i>${completedTasks.length}/${total}<i> tasks yet.</b>\n`;
     
     if (total > 0) {
         msg += `<blockquote expandable>\n`;
@@ -1485,8 +1484,8 @@ async function sendStartMenu(ctx) {
         msg += `</blockquote>\n`;
     }
     
-    msg += `Notifications: ${globalSettings.hourly ? 'enabled' : 'disabled'}\n`;
-    msg += `Reminders: ${globalSettings.reminders ? 'enabled' : 'disabled'}`;
+    msg += `Notifications: ${globalSettings.hourly ? '✅' : '❌'}\n`;
+    msg += `Reminders: ${globalSettings.reminders ? '✅' : '❌'}`;
 
     const kb = Markup.inlineKeyboard([
         [ Markup.button.webApp('🌐 Open Mini App', WEB_APP_URL) ],
@@ -1505,7 +1504,7 @@ bot.command('start', sendStartMenu);
 bot.action('open_settings', async (ctx) => {
     const kb = Markup.inlineKeyboard([
         [ { text: globalSettings.reminders ? '🟢 Reminders: ON' : '🔴 Reminders: OFF', callback_data: 'toggle_reminders', style: globalSettings.reminders ? 'success' : 'danger' } ],
-        [ { text: globalSettings.hourly ? '🟢 Hourly Notifications: ON' : '🔴 Hourly Notifications: OFF', callback_data: 'toggle_hourly', style: globalSettings.hourly ? 'success' : 'danger' } ],
+        [ { text: globalSettings.hourly ? '🟢 Notifications: ON' : '🔴 Notifications: OFF', callback_data: 'toggle_hourly', style: globalSettings.hourly ? 'success' : 'danger' } ],
         [ Markup.button.callback('⬅️ Back', 'back_start') ]
     ]);
     await ctx.editMessageText('⚙️ <b>Bot Settings</b>\nConfigure your automated notifications:', { parse_mode: 'HTML', reply_markup: kb.reply_markup });
@@ -1675,6 +1674,9 @@ function setupAutoCompletion() {
 // ==========================================
 // 🕒 HOURLY NOTIFICATIONS (8 AM - 11 PM)
 // ==========================================
+// ==========================================
+// 🕒 HOURLY NOTIFICATIONS (8 AM - 11 PM)
+// ==========================================
 function setupHourlyNotifications() {
     const rule = new schedule.RecurrenceRule();
     rule.minute = 0;
@@ -1688,10 +1690,17 @@ function setupHourlyNotifications() {
             const startOfDayUTC = istToUTC(istDateObj.date, "00:00");
             const endOfDayUTC = istToUTC(istDateObj.date, "23:59");
 
+            // Calculate the Day of the Week (e.g., "Monday")
+            const istDate = new Date(Date.now() + IST_OFFSET_MS);
+            const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            const dayOfWeek = daysOfWeek[istDate.getUTCDay()];
+
+            // 1. Get pending tasks sorted by PRIORITY (orderIndex)
             const pendingTasks = await db.collection('tasks').find({
                 status: 'pending', nextOccurrence: { $gte: startOfDayUTC, $lt: endOfDayUTC }
-            }).sort({ startTimeStr: 1 }).toArray();
+            }).sort({ orderIndex: 1 }).toArray();
 
+            // 2. Get today's completed tasks from history
             const todayHistory = await db.collection('history').find({
                 completedDateStr: istDateObj.displayDate
             }).toArray();
@@ -1706,25 +1715,34 @@ function setupHourlyNotifications() {
                 const combined = {};
                 activeC.forEach(t => combined[t.taskId] = t);
                 deletedC.forEach(t => { if (!combined[t.taskId]) combined[t.taskId] = t; });
-                completedTasks = Object.values(combined).sort((a, b) => (a.startTimeStr || "").localeCompare(b.startTimeStr || ""));
+                
+                // Sort completed tasks by PRIORITY (orderIndex)
+                completedTasks = Object.values(combined).sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
             }
 
-            if (pendingTasks.length === 0 && completedTasks.length === 0) return;
+            const totalTasks = pendingTasks.length + completedTasks.length;
+            if (totalTasks === 0) return;
 
-            let msg = `🕒 <b>Hourly Status Update</b>\n📅 ${istDateObj.displayDate} - ${istDateObj.time}\n\n`;
+            // 3. Construct the message exactly as requested
+            let msg = `🕒 <b>Hourly Status Update</b>\n📅 ${istDateObj.displayDate} - ${dayOfWeek}\n`;
+            msg += `You have completed ${completedTasks.length}/${totalTasks} tasks yet.\n\n`;
+
+            msg += `<blockquote expandable>\n`;
             
-            if (completedTasks.length > 0) {
-                msg += `<b>✅ Completed Today:</b>\n`;
-                completedTasks.forEach(t => msg += `✅ ${t.title} (${t.startTimeStr} - ${t.endTimeStr})\n`);
-                msg += `\n`;
-            }
-            if (pendingTasks.length > 0) {
-                msg += `<b>❌ Pending Today:</b>\n`;
-                pendingTasks.forEach(t => msg += `❌ ${t.title} (${t.startTimeStr} - ${t.endTimeStr})\n`);
-            }
+            completedTasks.forEach(t => {
+                msg += `✅ ${escapeHTML(t.title)} (${t.startTimeStr} - ${t.endTimeStr})\n`;
+            });
+            
+            pendingTasks.forEach(t => {
+                msg += `❌ ${escapeHTML(t.title)} (${t.startTimeStr} - ${t.endTimeStr})\n`;
+            });
+
+            msg += `</blockquote>`;
 
             await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' });
-        } catch (e) {}
+        } catch (e) {
+            console.error("Hourly Notif Error:", e);
+        }
     });
 }
 
