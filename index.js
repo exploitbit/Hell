@@ -103,42 +103,45 @@ function writeMainEJS() {
         body.theme-light { background: var(--bg-light); color: var(--text-primary-light); }
         body.theme-dark { background: var(--bg-dark); color: var(--text-primary-dark); }
         
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Pathway Gothic One', sans-serif; letter-spacing: 0.3px; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Pathway Gothic One', sans-serif; letter-spacing: 0.5px; }
         body { transition: background 0.3s ease, color 0.3s ease; min-height: 100vh; font-size: 15px; line-height: 1.4; }
         
         .app-header { background: var(--card-bg-light); border-bottom: 1px solid var(--border-light); padding: 12px 16px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
         body.theme-dark .app-header { background: var(--card-bg-dark); border-bottom: 1px solid var(--border-dark); box-shadow: 0 2px 10px rgba(0,0,0,0.3); }
         
         .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-        .logo-section { display: flex; align-items: center; gap: 10px; color: var(--accent-light); font-size: 1.3rem; font-weight: 700; text-transform: uppercase; }
+        .logo-section { display: flex; align-items: center; gap: 8px; color: var(--accent-light); font-size: 1.3rem; font-weight: 700; text-transform: uppercase; }
         body.theme-dark .logo-section { color: var(--accent-dark); }
-        .settings-btn { background: transparent; border: none; color: var(--text-secondary-light); font-size: 1.2rem; cursor: pointer; }
+        #pageTitleDisplay { font-weight: 700; font-size: 1.3rem; color: var(--text-primary-light); text-transform: uppercase; letter-spacing: 1px; flex: 1; text-align: center; }
+        body.theme-dark #pageTitleDisplay { color: var(--text-primary-dark); }
+        .settings-btn { background: transparent; border: none; color: var(--text-secondary-light); font-size: 1.3rem; cursor: pointer; transition: 0.2s; position: relative;}
         body.theme-dark .settings-btn { color: var(--text-secondary-dark); }
+        .settings-btn:hover { color: var(--accent-light); }
         
         .nav-container { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
         .nav-links { display: flex; gap: 4px; background: var(--hover-light); padding: 4px; border-radius: 100px; flex: 1; }
         body.theme-dark .nav-links { background: var(--hover-dark); }
         
-        .nav-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 10px; border-radius: 100px; border: none; background: transparent; color: var(--text-secondary-light); font-size: 1rem; cursor: pointer; transition: all 0.2s ease; }
+        .nav-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 10px; border-radius: 100px; border: none; background: transparent; color: var(--text-secondary-light); font-size: 1.05rem; cursor: pointer; transition: all 0.2s ease; }
         body.theme-dark .nav-btn { color: var(--text-secondary-dark); }
-        .nav-btn.active { background: var(--card-bg-light); color: var(--accent-light); box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+        .nav-btn.active { background: var(--card-bg-light); color: var(--accent-light); box-shadow: 0 2px 6px rgba(0,0,0,0.1); font-weight: 600; }
         body.theme-dark .nav-btn.active { background: var(--card-bg-dark); color: var(--accent-dark); box-shadow: 0 2px 6px rgba(0,0,0,0.4); }
         
         .main-content { max-width: 1400px; margin: 16px auto; padding: 0 16px; padding-bottom: 80px; }
         
-        .tasks-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
-        .task-card, .note-card, .history-date-card { background: var(--card-bg-light); border: 1px solid var(--border-light); border-radius: 16px; padding: 14px; transition: all 0.2s ease; word-wrap: break-word; }
+        .tasks-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+        .task-card, .note-card, .history-date-card { background: var(--card-bg-light); border: 1px solid var(--border-light); border-radius: 16px; padding: 14px; transition: all 0.2s ease; word-wrap: break-word; overflow-wrap: break-word;}
         body.theme-dark .task-card, body.theme-dark .note-card, body.theme-dark .history-date-card { background: var(--card-bg-dark); border: 1px solid var(--border-dark); }
         
         .task-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; width: 100%; }
         .task-title { font-size: 1.25rem; color: var(--text-primary-light); margin-bottom: 2px; line-height: 1.2; word-break: break-word; cursor: pointer; user-select: none; font-weight: 600; }
         body.theme-dark .task-title { color: var(--text-primary-dark); }
         
-        .task-description { font-size: 0.95rem; color: var(--text-secondary-light); padding: 6px 10px; background: var(--hover-light); border-radius: 8px; border-left: 3px solid var(--accent-light); margin: 6px 0; line-height: 1.3; }
+        .task-description { font-size: 1.05rem; color: var(--text-secondary-light); padding: 6px 10px; background: var(--hover-light); border-radius: 8px; border-left: 3px solid var(--accent-light); margin: 6px 0; line-height: 1.3; }
         body.theme-dark .task-description { color: var(--text-secondary-dark); background: var(--hover-dark); }
         
         .task-time-row { display: flex; justify-content: space-between; align-items: center; width: 100%; margin: 6px 0; }
-        .date-chip, .time-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; background: var(--hover-light); border-radius: 100px; font-size: 0.9rem; color: var(--text-secondary-light); }
+        .date-chip, .time-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; background: var(--hover-light); border-radius: 100px; font-size: 0.95rem; color: var(--text-secondary-light); font-weight: 500;}
         body.theme-dark .date-chip, body.theme-dark .time-chip { background: var(--hover-dark); color: var(--text-secondary-dark); }
         
         .task-actions-wrapper { display: flex; gap: 4px; }
@@ -147,40 +150,44 @@ function writeMainEJS() {
         .priority-mode .normal-btns { display: none; }
         .priority-mode .priority-btns { display: flex; }
 
-        .action-btn { width: 30px; height: 30px; border-radius: 8px; border: none; background: var(--hover-light); color: var(--text-secondary-light); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.9rem; }
+        .action-btn { width: 30px; height: 30px; border-radius: 8px; border: none; background: var(--hover-light); color: var(--text-secondary-light); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.95rem; transition: 0.2s;}
         body.theme-dark .action-btn { background: var(--hover-dark); color: var(--text-secondary-dark); }
+        .action-btn:hover { background: var(--accent-light); color: white; }
+        .action-btn.delete:hover { background: var(--danger-light); }
         
         .progress-ring-small { position: relative; width: 36px; height: 36px; }
         .progress-ring-circle-small { transition: stroke-dashoffset 0.5s; transform: rotate(-90deg); transform-origin: 50% 50%; }
-        .progress-text-small { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 0.8rem; color: var(--accent-light); font-weight: 600; }
+        .progress-text-small { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 0.85rem; color: var(--accent-light); font-weight: 600; }
         body.theme-dark .progress-text-small { color: var(--accent-dark); }
         
-        .subtasks-container { margin-top: 10px; border-top: 1px solid var(--border-light); padding-top: 10px; }
+        .subtasks-container { margin-top: 10px; border-top: 1px dashed var(--border-light); padding-top: 10px; }
         body.theme-dark .subtasks-container { border-top-color: var(--border-dark); }
         .subtask-item { display: flex; flex-direction: column; background: var(--hover-light); border-radius: 8px; margin-bottom: 6px; padding: 8px; }
         body.theme-dark .subtask-item { background: var(--hover-dark); }
         
-        .subtask-checkbox { width: 20px; height: 20px; border-radius: 6px; border: 2px solid var(--accent-light); display: flex; align-items: center; justify-content: center; cursor: pointer; color: white; font-size: 0.8rem; flex-shrink: 0; }
+        .subtask-checkbox { width: 20px; height: 20px; border-radius: 5px; border: 2px solid var(--accent-light); display: flex; align-items: center; justify-content: center; cursor: pointer; color: white; font-size: 0.85rem; flex-shrink: 0; transition: 0.2s;}
         .subtask-checkbox.completed { background: var(--success-light); border-color: var(--success-light); }
         body.theme-dark .subtask-checkbox.completed { background: var(--success-dark); border-color: var(--success-dark); }
         
-        .subtask-title { color: var(--text-primary-light); font-size: 1.05rem; word-break: break-word; cursor: pointer; user-select: none; }
+        .subtask-title { color: var(--text-primary-light); font-size: 1.15rem; word-break: break-word; cursor: pointer; user-select: none; }
         body.theme-dark .subtask-title { color: var(--text-primary-dark); }
         .subtask-title.completed { text-decoration: line-through; color: var(--text-secondary-light); }
         body.theme-dark .subtask-title.completed { color: var(--text-secondary-dark); }
         
-        .subtask-btn { width: 26px; height: 26px; border-radius: 6px; border: none; background: var(--card-bg-light); color: var(--text-secondary-light); cursor: pointer; font-size: 0.85rem; display: flex; align-items: center; justify-content: center; }
+        .subtask-btn { width: 26px; height: 26px; border-radius: 6px; border: none; background: var(--card-bg-light); color: var(--text-secondary-light); cursor: pointer; font-size: 0.9rem; display: flex; align-items: center; justify-content: center; transition: 0.2s;}
         body.theme-dark .subtask-btn { background: var(--card-bg-dark); color: var(--text-secondary-dark); }
+        .subtask-btn:hover { background: var(--accent-light); color: white; }
+        .subtask-btn.delete:hover { background: var(--danger-light); }
         
-        .subtask-description { font-size: 0.9rem; color: var(--text-secondary-light); padding: 4px 8px; background: var(--card-bg-light); border-radius: 8px; border-left: 2px solid var(--accent-light); margin-top: 4px; margin-left: 28px; line-height: 1.3; }
+        .subtask-description { font-size: 0.95rem; color: var(--text-secondary-light); padding: 4px 8px; background: var(--card-bg-light); border-radius: 8px; border-left: 2px solid var(--accent-light); margin-top: 4px; margin-left: 28px; line-height: 1.3; }
         body.theme-dark .subtask-description { background: var(--card-bg-dark); color: var(--text-secondary-dark); }
         
-        .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 100px; font-size: 0.85rem; gap: 4px; background: var(--hover-light); color: var(--text-secondary-light); }
+        .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 100px; font-size: 0.9rem; gap: 4px; background: var(--hover-light); color: var(--text-secondary-light); }
         body.theme-dark .badge { background: var(--hover-dark); color: var(--text-secondary-dark); }
         
         /* DYNAMIC ISLAND TOAST */
         .toast-container { position: fixed; top: 15px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
-        .toast { background: #000000; color: #ffffff; padding: 10px 20px; border-radius: 100px; display: flex; align-items: center; gap: 10px; font-size: 1rem; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,0.3); animation: dropIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        .toast { background: #000000; color: #ffffff; padding: 10px 20px; border-radius: 100px; display: flex; align-items: center; gap: 10px; font-size: 1.05rem; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,0.3); animation: dropIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
         body.theme-dark .toast { background: #ffffff; color: #000000; }
         @keyframes dropIn { 0% { transform: translateY(-30px) scale(0.8); opacity: 0; } 100% { transform: translateY(0) scale(1); opacity: 1; } }
 
@@ -189,20 +196,27 @@ function writeMainEJS() {
         .modal-content { background: var(--card-bg-light); border-radius: 20px; padding: 20px; width: 90%; max-width: 400px; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 40px rgba(0,0,0,0.2); }
         body.theme-dark .modal-content { background: var(--card-bg-dark); border: 1px solid var(--border-dark); }
         
-        .form-control { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border-light); background: var(--bg-light); color: var(--text-primary-light); font-size: 1rem; }
+        .form-control { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border-light); background: var(--bg-light); color: var(--text-primary-light); font-size: 1.1rem; outline:none;}
+        .form-control:focus { border-color: var(--accent-light); }
         body.theme-dark .form-control { background: var(--bg-dark); border-color: var(--border-dark); color: var(--text-primary-dark); }
         
-        .btn { padding: 10px 20px; border-radius: 100px; border: none; font-size: 1.05rem; cursor: pointer; text-transform: uppercase; font-weight: 600; }
+        .btn { padding: 10px 20px; border-radius: 100px; border: none; font-size: 1.1rem; cursor: pointer; text-transform: uppercase; font-weight: 600; transition: 0.2s;}
         .btn-primary { background: var(--accent-light); color: white; }
         body.theme-dark .btn-primary { background: var(--accent-dark); }
         .btn-secondary { background: var(--hover-light); color: var(--text-secondary-light); }
         body.theme-dark .btn-secondary { background: var(--hover-dark); color: var(--text-secondary-dark); }
         
-        /* SETTINGS TOGGLES */
-        .setting-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border-light); }
+        /* SETTINGS BUBBLE */
+        .settings-bubble { position: absolute; right: 16px; top: 60px; background: var(--card-bg-light); border: 1px solid var(--border-light); border-radius: 16px; padding: 16px; width: 240px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); display: none; z-index: 1001; transform-origin: top right; animation: scaleIn 0.2s ease forwards; }
+        body.theme-dark .settings-bubble { background: var(--card-bg-dark); border-color: var(--border-dark); box-shadow: 0 10px 30px rgba(0,0,0,0.4); }
+        @keyframes scaleIn { 0% { transform: scale(0.9); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        
+        .setting-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px dashed var(--border-light); }
+        .setting-row:last-child { border-bottom: none; padding-bottom: 0; }
         body.theme-dark .setting-row { border-bottom-color: var(--border-dark); }
-        .setting-label { font-size: 1.1rem; color: var(--text-primary-light); font-weight: 600; }
+        .setting-label { font-size: 1.05rem; color: var(--text-primary-light); font-weight: 600; display:flex; align-items:center; gap:8px;}
         body.theme-dark .setting-label { color: var(--text-primary-dark); }
+        
         .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--border-light); transition: .4s; border-radius: 34px; }
@@ -215,27 +229,30 @@ function writeMainEJS() {
         /* GROW CSS */
         .grow-panel { margin-bottom: 12px; background: var(--card-bg-light); border-radius: 16px; overflow: hidden; border: 1px solid var(--border-light); }
         body.theme-dark .grow-panel { background: var(--card-bg-dark); border-color: var(--border-dark); }
-        .grow-panel summary { padding: 12px; font-size: 1.1rem; font-weight: 600; cursor: pointer; display: flex; justify-content: space-between; align-items: center; list-style: none; }
+        .grow-panel summary { padding: 12px; font-size: 1.2rem; font-weight: 600; cursor: pointer; display: flex; justify-content: space-between; align-items: center; list-style: none; outline: none; }
         .grow-calendar { width: 100%; aspect-ratio: 1/1; display: flex; flex-direction: column; padding: 0 10px 10px; }
         .grow-grid { flex: 1; display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
-        .grow-weekday { display: flex; justify-content: center; align-items: center; font-size: 0.85rem; color: var(--text-secondary-light); }
+        .grow-weekday { display: flex; justify-content: center; align-items: center; font-size: 0.95rem; color: var(--text-secondary-light); text-transform: uppercase;}
         body.theme-dark .grow-weekday { color: var(--text-secondary-dark); }
         .grow-day { border-radius: 8px; display: flex; justify-content: center; align-items: center; position: relative; }
         .grow-day:not(.empty):hover { background: var(--hover-light); cursor: pointer; }
         body.theme-dark .grow-day:not(.empty):hover { background: var(--hover-dark); }
         
-        .grow-circle { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.95rem; font-weight: 600; }
+        .grow-circle { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1rem; font-weight: 600; transition: 0.2s;}
         .grow-circle.has-data { color: white; }
         .grow-circle.today { box-shadow: 0 0 0 3px var(--card-bg-light), 0 0 0 6px var(--success-light); color: var(--success-light); }
         body.theme-dark .grow-circle.today { box-shadow: 0 0 0 3px var(--card-bg-dark), 0 0 0 6px var(--success-dark); color: var(--success-dark); }
         .grow-circle.today.has-data { color: white; }
 
-        .grow-bubble { position: absolute; background: var(--card-bg-light); border: 1px solid var(--border-light); border-radius: 12px; padding: 10px; z-index: 1000; min-width: 150px; display: none; box-shadow: 0 10px 25px rgba(0,0,0,0.15); }
+        .grow-bubble { position: absolute; background: var(--card-bg-light); border: 1px solid var(--border-light); border-radius: 12px; padding: 10px; z-index: 1000; min-width: 150px; display: none; box-shadow: 0 10px 25px rgba(0,0,0,0.15); transition: opacity 0.2s;}
         body.theme-dark .grow-bubble { background: var(--card-bg-dark); border-color: var(--border-dark); }
         
-        .fab { position: fixed; bottom: 20px; right: 20px; width: 56px; height: 56px; border-radius: 28px; background: var(--accent-light); color: white; border: none; font-size: 1.5rem; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(0,0,0,0.3); z-index: 99; cursor: pointer; }
+        .fab { position: fixed; bottom: 20px; right: 20px; width: 56px; height: 56px; border-radius: 28px; background: var(--accent-light); color: white; border: none; font-size: 1.5rem; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(0,0,0,0.3); z-index: 99; cursor: pointer; transition: 0.2s; }
         body.theme-dark .fab { background: var(--accent-dark); }
+        .fab:hover { transform: scale(1.05); }
         
+        .empty-state { text-align: center; padding: 40px 20px; color: var(--text-secondary-light); background: var(--hover-light); border-radius: 20px; }
+        body.theme-dark .empty-state { background: var(--hover-dark); color: var(--text-secondary-dark); }
         .hidden { display: none; }
     </style>
 </head>
@@ -245,13 +262,34 @@ function writeMainEJS() {
     <div class="app-header">
         <div class="header-top">
             <div class="logo-section">
-                <i class="fas fa-check-double"></i> <span>Tasks</span>
+                <i class="fas fa-check-double"></i>
             </div>
-            <button class="settings-btn" onclick="openModal('settingsModal')"><i class="fas fa-cog"></i></button>
+            <div id="pageTitleDisplay">TASKS</div>
+            <button class="settings-btn" id="gearBtn" onclick="toggleSettingsBubble(event)"><i class="fas fa-cog"></i></button>
         </div>
+        
+        <div class="settings-bubble" id="settingsBubble">
+            <div class="setting-row">
+                <span class="setting-label"><i class="fas fa-moon"></i> Dark Theme</span>
+                <label class="switch"><input type="checkbox" id="toggleTheme" onchange="updateSetting('theme', this.checked ? 'dark' : 'light')" <%= settings.theme !== 'light' ? 'checked' : '' %>><span class="slider"></span></label>
+            </div>
+            <div class="setting-row">
+                <span class="setting-label"><i class="fas fa-bell"></i> Live Alerts</span>
+                <label class="switch"><input type="checkbox" id="toggleAlerts" onchange="updateSetting('alerts', this.checked)" <%= settings.alerts ? 'checked' : '' %>><span class="slider"></span></label>
+            </div>
+            <div class="setting-row">
+                <span class="setting-label"><i class="fas fa-clock"></i> Hourly Notif</span>
+                <label class="switch"><input type="checkbox" id="toggleHourly" onchange="updateSetting('hourly', this.checked)" <%= settings.hourly ? 'checked' : '' %>><span class="slider"></span></label>
+            </div>
+            <div class="setting-row">
+                <span class="setting-label"><i class="fas fa-stopwatch"></i> Reminders</span>
+                <label class="switch"><input type="checkbox" id="toggleReminders" onchange="updateSetting('reminders', this.checked)" <%= settings.reminders ? 'checked' : '' %>><span class="slider"></span></label>
+            </div>
+        </div>
+
         <div class="nav-container">
             <div class="nav-links">
-                <button class="nav-btn" id="nav_tasks" onclick="switchPage('tasks')"><i class="fas fa-list"></i> Tasks</button>
+                <button class="nav-btn active" id="nav_tasks" onclick="switchPage('tasks')"><i class="fas fa-list"></i> Tasks</button>
                 <button class="nav-btn" id="nav_grow" onclick="switchPage('grow')"><i class="fas fa-seedling"></i> Grow</button>
                 <button class="nav-btn" id="nav_notes" onclick="switchPage('notes')"><i class="fas fa-sticky-note"></i> Notes</button>
                 <button class="nav-btn" id="nav_history" onclick="switchPage('history')"><i class="fas fa-history"></i> History</button>
@@ -264,32 +302,6 @@ function writeMainEJS() {
     
     <div class="grow-bubble" id="growBubble"><div id="growBubbleContent"></div></div>
 
-    <div class="modal" id="settingsModal">
-        <div class="modal-content">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2 style="font-size: 1.4rem;">Settings</h2>
-                <button class="action-btn" onclick="closeModal('settingsModal')">&times;</button>
-            </div>
-            
-            <div class="setting-row">
-                <span class="setting-label"><i class="fas fa-moon"></i> Dark Theme</span>
-                <label class="switch"><input type="checkbox" id="toggleTheme" onchange="updateSetting('theme', this.checked ? 'dark' : 'light')" <%= settings.theme !== 'light' ? 'checked' : '' %>><span class="slider"></span></label>
-            </div>
-            <div class="setting-row">
-                <span class="setting-label"><i class="fas fa-bell"></i> Live Alerts</span>
-                <label class="switch"><input type="checkbox" id="toggleAlerts" onchange="updateSetting('alerts', this.checked)" <%= settings.alerts ? 'checked' : '' %>><span class="slider"></span></label>
-            </div>
-            <div class="setting-row">
-                <span class="setting-label"><i class="fas fa-clock"></i> Hourly Notification</span>
-                <label class="switch"><input type="checkbox" id="toggleHourly" onchange="updateSetting('hourly', this.checked)" <%= settings.hourly ? 'checked' : '' %>><span class="slider"></span></label>
-            </div>
-            <div class="setting-row" style="border-bottom: none;">
-                <span class="setting-label"><i class="fas fa-stopwatch"></i> Reminders</span>
-                <label class="switch"><input type="checkbox" id="toggleReminders" onchange="updateSetting('reminders', this.checked)" <%= settings.reminders ? 'checked' : '' %>><span class="slider"></span></label>
-            </div>
-        </div>
-    </div>
-
     <div class="modal" id="addTaskModal">
         <div class="modal-content">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
@@ -301,8 +313,8 @@ function writeMainEJS() {
                 <div style="margin-bottom: 12px;"><textarea class="form-control" name="description" rows="2" placeholder="Description (optional)"></textarea></div>
                 <div style="margin-bottom: 12px;"><input type="date" class="form-control" name="startDate" id="startDate" required></div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
-                    <div><label style="font-size:0.85rem;">Start Time</label><input type="time" class="form-control" name="startTime" id="startTime" required></div>
-                    <div><label style="font-size:0.85rem;">End Time</label><input type="time" class="form-control" name="endTime" id="endTime" required></div>
+                    <div><label style="font-size:0.95rem;">Start Time</label><input type="time" class="form-control" name="startTime" id="startTime" required></div>
+                    <div><label style="font-size:0.95rem;">End Time</label><input type="time" class="form-control" name="endTime" id="endTime" required></div>
                 </div>
                 <div style="margin-bottom: 12px;">
                     <select class="form-control" name="repeat" id="repeatSelect" onchange="document.getElementById('repeatCountGroup').style.display = this.value === 'none' ? 'none' : 'block'">
@@ -329,8 +341,16 @@ function writeMainEJS() {
                 <div style="margin-bottom: 12px;"><textarea class="form-control" name="description" id="editDescription" rows="2"></textarea></div>
                 <div style="margin-bottom: 12px;"><input type="date" class="form-control" name="startDate" id="editStartDate" required></div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
-                    <div><label style="font-size:0.85rem;">Start Time</label><input type="time" class="form-control" name="startTime" id="editStartTime" required></div>
-                    <div><label style="font-size:0.85rem;">End Time</label><input type="time" class="form-control" name="endTime" id="editEndTime" required></div>
+                    <div><label style="font-size:0.95rem;">Start Time</label><input type="time" class="form-control" name="startTime" id="editStartTime" required></div>
+                    <div><label style="font-size:0.95rem;">End Time</label><input type="time" class="form-control" name="endTime" id="editEndTime" required></div>
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <select class="form-control" name="repeat" id="editRepeatSelect" onchange="document.getElementById('editRepeatCountGroup').style.display = this.value === 'none' ? 'none' : 'block'">
+                        <option value="none">No Repeat</option><option value="daily">Daily</option><option value="weekly">Weekly</option>
+                    </select>
+                </div>
+                <div id="editRepeatCountGroup" style="margin-bottom: 12px; display: none;">
+                    <input type="number" class="form-control" name="repeatCount" id="editRepeatCount" min="1" max="365" placeholder="Repeat Count">
                 </div>
                 <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">Update Task</button>
             </form>
@@ -347,17 +367,21 @@ function writeMainEJS() {
                 <div style="margin-bottom: 12px;"><input type="text" class="form-control" id="addGrowTitle" required placeholder="Habit Title"></div>
                 <div style="margin-bottom: 12px;"><textarea class="form-control" id="addGrowDesc" rows="2" placeholder="Description (Optional)"></textarea></div>
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom: 12px;">
-                    <div><label style="font-size:0.85rem;">Start Date</label><input type="date" class="form-control" id="addGrowStart" required></div>
-                    <div><label style="font-size:0.85rem;">Days Target</label><input type="number" class="form-control" id="addGrowDays" value="365" required></div>
+                    <div><label style="font-size:0.95rem;">Start Date</label><input type="date" class="form-control" id="addGrowStart" required></div>
+                    <div><label style="font-size:0.95rem;">Days Target</label><input type="number" class="form-control" id="addGrowDays" value="365" required></div>
                 </div>
-                <input type="hidden" id="addGrowColor" value="#3b82f6">
+                <div style="margin-bottom:12px;">
+                    <label style="font-size:0.95rem;">Color Tag</label>
+                    <div style="display:flex; justify-content:space-between; margin-top:6px;" id="addGrowPalette"></div>
+                    <input type="hidden" id="addGrowColor" required>
+                </div>
                 
-                <label style="display:flex; align-items:center; gap:8px; font-size:1rem; margin:15px 0;">
-                    <input type="checkbox" id="addGrowHasData" onchange="document.getElementById('addGrowDataFields').style.display = this.checked ? 'block' : 'none'"> Track Data?
+                <label style="display:flex; align-items:center; gap:8px; font-size:1.05rem; margin:15px 0;">
+                    <input type="checkbox" id="addGrowHasData" onchange="document.getElementById('addGrowDataFields').style.display = this.checked ? 'block' : 'none'" style="width:18px; height:18px;"> Track Quantitative Data?
                 </label>
                 
-                <div id="addGrowDataFields" style="display:none; background:var(--hover-light); padding:10px; border-radius:10px; margin-bottom:12px;">
-                    <input type="text" class="form-control" id="addGrowQuestion" placeholder="Question? (e.g. Weight?)"><br>
+                <div id="addGrowDataFields" style="display:none; background:var(--hover-light); padding:12px; border-radius:10px; margin-bottom:12px;">
+                    <input type="text" class="form-control" id="addGrowQuestion" placeholder="Question Prompt? (e.g. Weight?)"><br>
                     <select class="form-control" id="addGrowType" style="margin-top:8px;"><option value="integer">Whole Number</option><option value="float">Decimal</option></select>
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:8px;">
                         <input type="number" class="form-control" id="addGrowMin" placeholder="Start Val" value="0">
@@ -383,16 +407,16 @@ function writeMainEJS() {
                     <h2 id="qGrowTitle" style="font-size: 1.3rem;"></h2>
                     <button class="action-btn" onclick="document.getElementById('logGrowListView').classList.remove('hidden'); document.getElementById('logGrowQuestionView').classList.add('hidden');"><i class="fas fa-arrow-left"></i></button>
                 </div>
-                <p id="qGrowLabel" style="font-size:1.1rem; margin-bottom:10px;"></p>
+                <p id="qGrowLabel" style="font-size:1.1rem; margin-bottom:10px; font-weight:600;"></p>
                 <div id="qGrowInput" style="margin-bottom:15px;"></div>
                 <button class="btn btn-primary" id="saveGrowLogBtn" style="width:100%;">Save Log</button>
             </div>
         </div>
     </div>
 
-    <div class="modal" id="addSubtaskModal"><div class="modal-content"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;"><h2 style="font-size:1.3rem;">Add Subtask</h2><button class="action-btn" onclick="closeModal('addSubtaskModal')">&times;</button></div><form onsubmit="submitSubtaskForm(event)"><input type="hidden" name="taskId" id="subtaskTaskId"><div style="margin-bottom:12px;"><input type="text" class="form-control" name="title" required placeholder="Subtask Title"></div><div style="margin-bottom:12px;"><textarea class="form-control" name="description" rows="2" placeholder="Description"></textarea></div><button type="submit" class="btn btn-primary" style="width:100%;">Add Subtask</button></form></div></div>
+    <div class="modal" id="addSubtaskModal"><div class="modal-content"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;"><h2 style="font-size:1.3rem;">Add Subtask</h2><button class="action-btn" onclick="closeModal('addSubtaskModal')">&times;</button></div><form onsubmit="submitSubtaskForm(event)"><input type="hidden" name="taskId" id="subtaskTaskId"><div style="margin-bottom:12px;"><input type="text" class="form-control" name="title" required placeholder="Subtask Title" maxlength="100"></div><div style="margin-bottom:12px;"><textarea class="form-control" name="description" rows="2" placeholder="Description (Optional)"></textarea></div><button type="submit" class="btn btn-primary" style="width:100%;">Add Subtask</button></form></div></div>
     
-    <div class="modal" id="addNoteModal"><div class="modal-content"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;"><h2 style="font-size:1.3rem;">Create Note</h2><button class="action-btn" onclick="closeModal('addNoteModal')">&times;</button></div><form onsubmit="submitNoteForm(event)"><div style="margin-bottom:12px;"><input type="text" class="form-control" name="title" required placeholder="Note Title"></div><div style="margin-bottom:12px;"><textarea class="form-control" name="description" rows="4" placeholder="Content..."></textarea></div><button type="submit" class="btn btn-primary" style="width:100%;">Save Note</button></form></div></div>
+    <div class="modal" id="addNoteModal"><div class="modal-content"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;"><h2 style="font-size:1.3rem;">Create Note</h2><button class="action-btn" onclick="closeModal('addNoteModal')">&times;</button></div><form onsubmit="submitNoteForm(event)"><div style="margin-bottom:12px;"><input type="text" class="form-control" name="title" required placeholder="Note Title" maxlength="200"></div><div style="margin-bottom:12px;"><textarea class="form-control" name="description" rows="4" placeholder="Content..."></textarea></div><button type="submit" class="btn btn-primary" style="width:100%;">Save Note</button></form></div></div>
 
     <script>
         const tg = window.Telegram.WebApp;
@@ -407,6 +431,7 @@ function writeMainEJS() {
             setTimeout(() => { toast.style.opacity='0'; toast.style.transform='translateY(-30px) scale(0.8)'; setTimeout(()=>toast.remove(), 300); }, 2500);
         }
 
+        // AM/PM Formatter for Display
         function formatAMPM(timeStr) {
             if(!timeStr) return "";
             let [h, m] = timeStr.split(':');
@@ -419,6 +444,7 @@ function writeMainEJS() {
         function escapeHtml(text) { return text ? String(text).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m])) : ''; }
         function preserveLineBreaks(text) { return escapeHtml(text).replace(/\\n/g, '<br>'); }
         function toggleDesc(id) { const el = document.getElementById(id); if(el) el.classList.toggle('hidden'); }
+        function toggleSettingsBubble(e) { e.stopPropagation(); const b = document.getElementById('settingsBubble'); b.style.display = b.style.display === 'block' ? 'none' : 'block'; }
 
         let currentPage = 'tasks'; 
         let tasksData = <%- JSON.stringify(tasks || []) %>;
@@ -426,10 +452,9 @@ function writeMainEJS() {
         let historyData = <%- JSON.stringify(groupedHistory || {}) %>;
         let growData = <%- JSON.stringify(growData || {items:[], progress:{}}) %>;
         
-        let currentMonth = new Date().getMonth();
-        let currentYear = new Date().getFullYear();
+        const growColors = ["#ec4899","#a855f7","#38bdf8","#ef4444","#f97316","#16a34a","#84cc16","#3b82f6", "#eab308", "#14b8a6"];
 
-        // Grow System Fix
+        // Grow Calendar Date Initialization directly from IST Backend
         const todayISTObj = <%- JSON.stringify(currentDateObj || {}) %> || { date: new Date().toISOString().split('T')[0], monthIndex: new Date().getMonth(), yearNum: new Date().getFullYear() };
         let growToday = todayISTObj.date;
         let growMonth = todayISTObj.monthIndex;
@@ -437,14 +462,13 @@ function writeMainEJS() {
         let growLogContext = null;
 
         function updateSetting(key, val) {
-            if(key === 'theme') {
-                document.body.className = 'theme-' + val;
-            }
+            if(key === 'theme') document.body.className = 'theme-' + val;
             fetch('/api/settings', { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({[key]: val})});
         }
 
         function switchPage(page) {
             currentPage = page;
+            document.getElementById('pageTitleDisplay').innerText = page.toUpperCase();
             document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
             document.getElementById('nav_' + page).classList.add('active');
             
@@ -470,7 +494,7 @@ function writeMainEJS() {
 
         // ================= TASKS ================= //
         function renderTasks() {
-            if (!tasksData.length) return '<div style="text-align:center; padding:40px; color:var(--text-secondary-light);"><i class="fas fa-clipboard-list" style="font-size:3rem; margin-bottom:10px;"></i><h3>No tasks</h3></div>';
+            if (!tasksData.length) return '<div class="empty-state"><i class="fas fa-clipboard-list" style="font-size:3rem; margin-bottom:10px;"></i><h3 style="font-size:1.3rem;">No tasks</h3></div>';
             let html = '<div class="tasks-grid">';
             tasksData.forEach(task => {
                 const st = formatAMPM(task.startTimeStr);
@@ -478,7 +502,7 @@ function writeMainEJS() {
                 const totalSub = task.subtasks ? task.subtasks.length : 0;
                 const compSub = task.subtasks ? task.subtasks.filter(s=>s.completed).length : 0;
                 
-                html += '<div class="task-card"><div class="task-header"><div style="flex:1;" onclick="toggleDesc(\\'desc_'+task.taskId+'\\')" oncontextmenu="event.preventDefault(); toggleTaskPrio(\\''+task.taskId+'\\')"><div class="task-title"><i class="fas fa-chevron-right" style="font-size:0.8rem; color:var(--accent-light);"></i> '+escapeHtml(task.title)+'</div></div>';
+                html += '<div class="task-card"><div class="task-header"><div style="flex:1;" onclick="toggleDesc(\\'desc_'+task.taskId+'\\')" oncontextmenu="event.preventDefault(); toggleTaskPrio(\\''+task.taskId+'\\')"><div class="task-title"><i class="fas fa-chevron-right" style="font-size:0.85rem; color:var(--accent-light);"></i> '+escapeHtml(task.title)+'</div></div>';
                 
                 html += '<div class="task-actions-wrapper" id="task_actions_'+task.taskId+'"><div class="normal-btns">';
                 if(totalSub < 10) html += '<button class="action-btn" onclick="document.getElementById(\\'subtaskTaskId\\').value=\\''+task.taskId+'\\'; openModal(\\'addSubtaskModal\\')"><i class="fas fa-plus"></i></button>';
@@ -490,7 +514,7 @@ function writeMainEJS() {
                 html += '<div class="task-time-row"><span class="date-chip"><i class="fas fa-calendar-alt"></i> '+task.dateIST+'</span><span class="time-chip"><i class="fas fa-clock"></i> '+st+' - '+et+'</span></div>';
                 
                 if(totalSub > 0) {
-                    html += '<details style="margin-top:8px;"><summary style="font-weight:600; font-size:0.95rem; cursor:pointer; color:var(--accent-light);"><i class="fas fa-tasks"></i> Subtasks ('+compSub+'/'+totalSub+')</summary><div class="subtasks-container">';
+                    html += '<details style="margin-top:8px;"><summary style="font-weight:600; font-size:1.05rem; cursor:pointer; color:var(--accent-light);"><i class="fas fa-tasks"></i> Subtasks ('+compSub+'/'+totalSub+')</summary><div class="subtasks-container">';
                     task.subtasks.forEach(sub => {
                         html += '<div class="subtask-item"><div class="subtask-main-row"><div class="subtask-checkbox '+(sub.completed?'completed':'')+'" onclick="toggleSubtask(event, \\''+task.taskId+'\\', \\''+sub.id+'\\')">'+(sub.completed?'<i class="fas fa-check"></i>':'')+'</div>';
                         html += '<div class="subtask-details" oncontextmenu="event.preventDefault(); toggleSubPrio(\\''+task.taskId+'\\',\\''+sub.id+'\\')"><div class="subtask-title '+(sub.completed?'completed':'')+'">'+escapeHtml(sub.title)+'</div></div>';
@@ -511,15 +535,19 @@ function writeMainEJS() {
             if(document.getElementById('endTime').value <= document.getElementById('startTime').value) { showToast('End time must be after start time!', 'error'); return; }
             fetch('/api/tasks', {method:'POST', body: new URLSearchParams(new FormData(e.target))}).then(r=>{if(r.ok){closeModal('addTaskModal'); showToast('Task created'); switchPage('tasks'); e.target.reset();}});
         }
+        function submitEditTaskForm(e) {
+            e.preventDefault(); 
+            if(document.getElementById('editEndTime').value <= document.getElementById('editStartTime').value) { showToast('End time must be after start time!', 'error'); return; }
+            fetch('/api/tasks/'+document.getElementById('editTaskId').value+'/update', {method:'POST', body: new URLSearchParams(new FormData(e.target))}).then(r=>{if(r.ok){closeModal('editTaskModal'); showToast('Task updated'); switchPage('tasks');}});
+        }
         
         function completeTask(taskId) {
             tasksData = tasksData.filter(t => t.taskId !== taskId); renderPage();
             fetch('/api/tasks/'+taskId+'/complete', {method:'POST'}).then(()=>{showToast('Task Complete!'); fetch('/api/page/tasks').then(r=>r.json()).then(d=>{tasksData=d.tasks;});});
         }
-        
         function deleteTask(taskId) { if(confirm('Delete?')){ fetch('/api/tasks/'+taskId+'/delete', {method:'POST'}).then(()=>{showToast('Deleted'); switchPage('tasks');}); } }
         
-        function submitSubtaskForm(e) { e.preventDefault(); fetch('/api/tasks/'+document.getElementById('subtaskTaskId').value+'/subtasks', {method:'POST', body:new URLSearchParams(new FormData(e.target))}).then(()=>{closeModal('addSubtaskModal'); switchPage('tasks'); e.target.reset();}); }
+        function submitSubtaskForm(e) { e.preventDefault(); fetch('/api/tasks/'+document.getElementById('subtaskTaskId').value+'/subtasks', {method:'POST', body:new URLSearchParams(new FormData(e.target))}).then(()=>{closeModal('addSubtaskModal'); showToast('Added!'); switchPage('tasks'); e.target.reset();}); }
         function deleteSubtask(tid, sid) { if(confirm('Delete?')){ fetch('/api/tasks/'+tid+'/subtasks/'+sid+'/delete', {method:'POST'}).then(()=>{switchPage('tasks');}); } }
         
         function toggleSubtask(e, tid, sid) {
@@ -577,24 +605,28 @@ function writeMainEJS() {
             }
             document.getElementById("growCalendar").innerHTML = grid;
 
-            // List
+            // Grow List
             const listContainer = document.getElementById("growList");
-            if(!growData.items.length) { listContainer.innerHTML = '<div style="text-align:center; color:var(--text-secondary-light);"><i class="fas fa-seedling" style="font-size:2rem;"></i><br>No trackers active.</div>'; return; }
+            if(!growData.items.length) { listContainer.innerHTML = '<div class="empty-state"><i class="fas fa-seedling" style="font-size:2.5rem;margin-bottom:10px;"></i><h3 style="font-size:1.2rem;">No trackers active.</h3></div>'; return; }
             
             let lHtml = "";
             const now = new Date(growToday+"T00:00:00");
+            
             growData.items.forEach(item => {
-                let passed = Math.floor((now - new Date(item.startDate+"T00:00:00"))/86400000);
+                const startObj = item.startDate ? new Date(item.startDate+"T00:00:00") : now;
+                let passed = Math.floor((now - startObj)/86400000);
                 if(passed<0) passed=0; if(passed>item.endCount) passed=item.endCount;
-                let pct = item.endCount ? Math.round((passed/item.endCount)*100) : 0;
+                let pct = item.endCount > 0 ? Math.round((passed/item.endCount)*100) : 0;
                 
-                lHtml += '<div style="background:var(--hover-light); padding:12px; border-radius:12px; margin-bottom:10px; border-left:4px solid '+item.color+';"><div style="display:flex; justify-content:space-between; font-weight:600; font-size:1.1rem; color:var(--text-primary-light);"><span>'+escapeHtml(item.title)+'</span><button class="action-btn delete" onclick="deleteGrow(\\''+item.id+'\\')" style="width:24px; height:24px; background:transparent;"><i class="fas fa-trash"></i></button></div>';
-                lHtml += '<div style="font-size:0.85rem; color:var(--text-secondary-light); margin-top:5px; display:flex; justify-content:space-between;"><span>'+passed+' / '+item.endCount+' Days</span><span>'+pct+'%</span></div></div>';
+                lHtml += '<div style="background:var(--hover-light); padding:14px; border-radius:12px; margin-bottom:12px; border-left:4px solid '+item.color+';"><div style="display:flex; justify-content:space-between; font-weight:700; font-size:1.15rem; color:var(--text-primary-light);"><span>'+escapeHtml(item.title)+'</span><button class="action-btn delete" onclick="deleteGrow(\\''+item.id+'\\')" style="width:26px; height:26px; background:transparent;"><i class="fas fa-trash"></i></button></div>';
+                if(item.description) lHtml += '<div style="font-size:0.95rem; color:var(--text-secondary-light); margin-top:4px;">'+escapeHtml(item.description)+'</div>';
+                lHtml += '<div style="font-size:0.95rem; font-weight:600; color:var(--text-secondary-light); margin-top:8px; display:flex; justify-content:space-between;"><span>'+passed+' / '+item.endCount+' Days</span><span>'+pct+'% Completed</span></div></div>';
             });
             listContainer.innerHTML = lHtml;
         }
 
         function isGrowActive(g, d) {
+            if(!g.startDate) return true;
             const days = Math.floor((new Date(d+"T00:00:00") - new Date(g.startDate+"T00:00:00"))/86400000);
             return days>=0 && days<g.endCount;
         }
@@ -606,13 +638,13 @@ function writeMainEJS() {
             const dayData = growData.progress[date] || {};
             const allDone = active.length && active.every(g=>dayData[g.id]!==undefined);
             
-            if(date === growToday && !allDone) {
-                // Open Logger for Today
+            if(date === growToday && active.length > 0 && !allDone) {
+                // Open Logger for Today if items are pending
                 document.getElementById('logGrowTitle').innerText = "Log Today's Growth";
                 let html = "";
                 active.forEach(g => {
                     const done = dayData[g.id]!==undefined;
-                    html += '<div style="background:var(--hover-light); padding:12px; border-radius:12px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;"><span style="font-weight:600; font-size:1.1rem; color:var(--text-primary-light);">'+escapeHtml(g.title)+'</span><button class="action-btn" onclick="openQ(\\''+g.id+'\\',\\''+date+'\\')" style="background:'+(done?'var(--success-light)':'var(--accent-light)')+'; color:white;" '+(done?'disabled':'')+'><i class="fas fa-check"></i></button></div>';
+                    html += '<div style="background:var(--hover-light); padding:12px; border-radius:12px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;"><span style="font-weight:600; font-size:1.15rem; color:var(--text-primary-light);">'+escapeHtml(g.title)+'</span><button class="action-btn" onclick="openQ(\\''+g.id+'\\',\\''+date+'\\')" style="background:'+(done?'var(--success-light)':'var(--accent-light)')+'; color:white; width:34px; height:34px;" '+(done?'disabled':'')+'><i class="fas fa-check"></i></button></div>';
                 });
                 document.getElementById('dailyGrowList').innerHTML = html;
                 document.getElementById('logGrowListView').classList.remove('hidden');
@@ -621,16 +653,19 @@ function writeMainEJS() {
             } else {
                 // Show floating bubble stats
                 const bubble = document.getElementById("growBubble");
-                let bHtml = '<div style="font-size:0.9rem; font-weight:600; border-bottom:1px solid var(--border-light); padding-bottom:5px; margin-bottom:5px; color:var(--text-primary-light);">'+date+'</div>';
-                if(!active.length) bHtml += '<span style="color:var(--text-secondary-light); font-size:0.85rem;">No tasks</span>';
-                else active.forEach(g => bHtml += '<div style="display:flex; justify-content:space-between; font-size:0.95rem; color:'+g.color+';"><span>'+escapeHtml(g.title)+'</span><i class="fas '+(dayData[g.id]!==undefined?'fa-check-circle':'fa-circle')+'"></i></div>');
+                let bHtml = '<div style="font-size:0.95rem; font-weight:700; border-bottom:1px solid var(--border-light); padding-bottom:5px; margin-bottom:6px; color:var(--text-primary-light); text-align:center;">'+date+'</div>';
+                if(!active.length) bHtml += '<div style="color:var(--text-secondary-light); font-size:0.9rem; text-align:center;">No active trackers</div>';
+                else active.forEach(g => bHtml += '<div style="display:flex; justify-content:space-between; align-items:center; font-size:1.05rem; font-weight:600; color:'+g.color+'; padding:2px 0;"><span>'+escapeHtml(g.title)+'</span><i class="fas '+(dayData[g.id]!==undefined?'fa-check-circle':'fa-circle')+'"></i></div>');
                 
                 document.getElementById("growBubbleContent").innerHTML = bHtml;
                 bubble.style.display = "block";
                 
                 const rect = cell.getBoundingClientRect();
-                bubble.style.top = (rect.top + window.scrollY - bubble.offsetHeight - 10) + "px";
+                bubble.style.top = (rect.top + window.scrollY - bubble.offsetHeight - 12) + "px";
                 bubble.style.left = (rect.left + window.scrollX + (rect.width/2) - (bubble.offsetWidth/2)) + "px";
+                
+                // Adjust if out of bounds top
+                if(rect.top - bubble.offsetHeight < 20) { bubble.style.top = (rect.bottom + window.scrollY + 12) + "px"; }
                 setTimeout(()=>bubble.style.opacity="1", 10);
             }
         }
@@ -660,6 +695,20 @@ function writeMainEJS() {
             .then(()=>{ showToast('Logged!'); closeModal('logGrowModal'); switchPage('grow'); });
         }
 
+        function initAddGrowPalette() {
+            const container = document.getElementById("addGrowPalette");
+            const input = document.getElementById("addGrowColor");
+            const used = (growData.items || []).map(g => g.color);
+            let html = "", first = null;
+            growColors.forEach(c => {
+                const isUsed = used.includes(c);
+                if(!isUsed && !first) first = c;
+                html += '<div class="grow-swatch '+(isUsed?'hidden':'')+'" style="background:'+c+'" data-color="'+c+'" onclick="Array.from(this.parentNode.children).forEach(el=>el.classList.remove(\\'selected\\')); this.classList.add(\\'selected\\'); document.getElementById(\\'addGrowColor\\').value=\\''+c+'\\';"></div>';
+            });
+            container.innerHTML = html;
+            if(first) { input.value = first; setTimeout(()=>container.querySelector('[data-color="'+first+'"]').classList.add("selected"), 50); }
+        }
+
         function submitAddGrowForm(e) {
             e.preventDefault();
             const payload = {
@@ -674,25 +723,57 @@ function writeMainEJS() {
                 start: document.getElementById("addGrowMin").value,
                 end: document.getElementById("addGrowMax").value
             };
-            fetch('/api/grow', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)}).then(()=>{closeModal('addGrowModal'); switchPage('grow');});
+            fetch('/api/grow', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)}).then(()=>{closeModal('addGrowModal'); showToast('Added!'); switchPage('grow');});
         }
 
         function deleteGrow(id) { if(confirm('Delete tracker?')) fetch('/api/grow/'+id+'/delete', {method:'POST'}).then(()=>switchPage('grow')); }
 
         // ================= NOTES & HISTORY ================= //
-        function renderNotes() { return "<div>(Notes feature simplified for space)</div>"; }
-        function renderHistory() { return "<div>(History feature simplified for space)</div>"; }
+        function renderNotes() { 
+            if(!notesData.length) return '<div class="empty-state"><i class="fas fa-sticky-note" style="font-size:3rem; margin-bottom:10px;"></i><h3 style="font-size:1.3rem;">No Notes</h3></div>';
+            let html = '<div class="tasks-grid">';
+            notesData.forEach(note => {
+                html += '<div class="note-card"><div class="note-header"><div class="task-title-container" onclick="toggleDesc(\\'ndesc_'+note.noteId+'\\')"><div class="note-title"><i class="fas fa-chevron-right" style="font-size:0.85rem; color:var(--accent-light);"></i> '+escapeHtml(note.title)+'</div></div><div class="task-actions-wrapper"><button class="action-btn delete" onclick="deleteNote(\\''+note.noteId+'\\')"><i class="fas fa-trash"></i></button></div></div>';
+                if(note.description) html += '<div id="ndesc_'+note.noteId+'" class="hidden"><div class="note-content">'+preserveLineBreaks(note.description)+'</div></div>';
+                html += '<div class="note-meta"><span><i class="fas fa-clock"></i> '+note.createdAtIST+'</span></div></div>';
+            });
+            return html + '</div>';
+        }
+        function submitNoteForm(e) { e.preventDefault(); fetch('/api/notes', {method:'POST', body:new URLSearchParams(new FormData(e.target))}).then(()=>{closeModal('addNoteModal'); switchPage('notes'); e.target.reset();}); }
+        function deleteNote(id) { if(confirm('Delete note?')) fetch('/api/notes/'+id+'/delete', {method:'POST'}).then(()=>switchPage('notes')); }
+
+        function renderHistory() { 
+            const dates = Object.keys(historyData).sort().reverse();
+            if(!dates.length) return '<div class="empty-state"><i class="fas fa-history" style="font-size:3rem; margin-bottom:10px;"></i><h3 style="font-size:1.3rem;">No History</h3></div>';
+            let html = '<div class="history-grid">';
+            dates.forEach(date => {
+                html += '<div class="history-date-card"><details class="history-details"><summary><i class="fas fa-calendar-alt"></i> '+date+' <span class="badge" style="margin-left:auto;">'+historyData[date].length+'</span></summary><div class="history-tasks-grid">';
+                historyData[date].forEach(t => {
+                    html += '<div class="history-task-card"><div class="history-task-header"><div class="history-task-title">'+escapeHtml(t.title)+'</div><span class="history-task-time"><i class="fas fa-check-circle" style="color:var(--success-light);"></i> '+t.completedTimeIST+'</span></div>';
+                    if(t.subtasks && t.subtasks.length) {
+                        html += '<div style="margin-top:6px;">';
+                        t.subtasks.forEach(s => html += '<div style="font-size:0.9rem; margin:2px 0;"><i class="fas '+(s.completed?'fa-check-circle':'fa-times-circle')+'" style="color:'+(s.completed?'var(--success-light)':'var(--danger-light)')+';"></i> <span style="'+(s.completed?'':'text-decoration:line-through; opacity:0.7;')+'">'+escapeHtml(s.title)+'</span></div>');
+                        html += '</div>';
+                    }
+                    html += '</div>';
+                });
+                html += '</div></details></div>';
+            });
+            return html + '</div>';
+        }
 
         function openModal(id) { document.getElementById(id).style.display='flex'; }
         function closeModal(id) { document.getElementById(id).style.display='none'; }
-        function openAddModal() { if(currentPage==='tasks') openModal('addTaskModal'); else if(currentPage==='grow') { document.getElementById('addGrowStart').value=growToday; openModal('addGrowModal'); } }
+        function openAddModal() { if(currentPage==='tasks') openModal('addTaskModal'); else if(currentPage==='grow') { initAddGrowPalette(); document.getElementById('addGrowStart').value=growToday; openModal('addGrowModal'); } else if(currentPage==='notes') openModal('addNoteModal'); }
 
         document.addEventListener('DOMContentLoaded', () => {
             renderPage();
+            document.getElementById('pageTitleDisplay').innerText = currentPage.toUpperCase();
             window.addEventListener('click', e => {
                 if(e.target.classList.contains('modal')) closeModal(e.target.id);
-                if(!e.target.closest('.grow-day') && !e.target.closest('.grow-bubble')) document.getElementById('growBubble').style.opacity="0";
+                if(!e.target.closest('.grow-day') && !e.target.closest('.grow-bubble')) document.getElementById('growBubble').style.display="none";
                 if(!e.target.closest('.priority-btns') && !e.target.closest('.task-title')) document.querySelectorAll('.priority-mode').forEach(el=>el.classList.remove('priority-mode'));
+                if(!e.target.closest('.settings-bubble') && !e.target.closest('.settings-btn')) document.getElementById('settingsBubble').style.display="none";
             });
         });
     </script>
@@ -736,18 +817,28 @@ async function connectDB() {
 }
 
 // ==========================================
+// 🛠️ UTILITY FUNCTIONS
+// ==========================================
+function generateId(type = 'task') { return type.charAt(0) + Math.random().toString(36).substring(2, 10); }
+function generateSubtaskId() { return 'sub_' + Date.now().toString(36); }
+function calculateDuration(startDate, endDate) { return (!startDate || !endDate) ? 0 : Math.round((endDate - startDate) / 60000); }
+function formatDuration(minutes) {
+    if (isNaN(minutes) || minutes < 0) return '0 mins';
+    const hours = Math.floor(minutes / 60); const mins = minutes % 60;
+    if (hours === 0) return mins + ' mins'; if (mins === 0) return hours + ' hours';
+    return hours + 'h ' + mins + 'm';
+}
+function calculateSubtaskProgress(subtasks) { return (!subtasks || subtasks.length === 0) ? 0 : Math.round((subtasks.filter(s => s.completed).length / subtasks.length) * 100); }
+
+// ==========================================
 // 🤖 BOT SETUP & SCHEDULERS
 // ==========================================
 const bot = new Telegraf(BOT_TOKEN);
 const activeSchedules = new Map();
 let isShuttingDown = false;
-let activeReminderMessageIds = [];
-let currentReminderTaskId = null;
 
 bot.use(async (ctx, next) => {
-    if (ctx.from && String(ctx.from.id) !== String(CHAT_ID)) {
-        return ctx.reply('🚫 Admin has restricted new users to use the task manager bot.');
-    }
+    if (ctx.from && String(ctx.from.id) !== String(CHAT_ID)) return ctx.reply('🚫 Admin has restricted new users to use the task manager bot.');
     return next();
 });
 
@@ -757,10 +848,7 @@ async function sendStartMenu(ctx) {
         const startOfDayUTC = istToUTC(istDateObj.date, "00:00");
         const endOfDayUTC = istToUTC(istDateObj.date, "23:59");
 
-        const pendingTasks = await db.collection('tasks').find({
-            status: 'pending', nextOccurrence: { $gte: startOfDayUTC, $lt: endOfDayUTC }
-        }).sort({ orderIndex: 1 }).toArray();
-
+        const pendingTasks = await db.collection('tasks').find({ status: 'pending', nextOccurrence: { $gte: startOfDayUTC, $lt: endOfDayUTC } }).sort({ orderIndex: 1 }).toArray();
         const todayHistory = await db.collection('history').find({ completedDateStr: istDateObj.displayDate }).toArray();
         const completedTaskIds = [...new Set(todayHistory.map(h => h.taskId))];
         
@@ -769,15 +857,12 @@ async function sendStartMenu(ctx) {
             const activeC = await db.collection('tasks').find({ taskId: { $in: completedTaskIds } }).toArray();
             const deletedC = await db.collection('deleted_tasks').find({ taskId: { $in: completedTaskIds } }).toArray();
             const combined = {};
-            activeC.forEach(t => combined[t.taskId] = t);
-            deletedC.forEach(t => { if (!combined[t.taskId]) combined[t.taskId] = t; });
+            activeC.forEach(t => combined[t.taskId] = t); deletedC.forEach(t => { if (!combined[t.taskId]) combined[t.taskId] = t; });
             completedTasks = Object.values(combined).sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
         }
 
         const total = pendingTasks.length + completedTasks.length;
-        
-        let percentage = 0;
-        let progressBar = '▱▱▱▱▱▱▱▱▱▱'; 
+        let percentage = 0; let progressBar = '▱▱▱▱▱▱▱▱▱▱'; 
         
         if (total > 0) {
             percentage = Math.round((completedTasks.length / total) * 100);
@@ -785,10 +870,7 @@ async function sendStartMenu(ctx) {
             progressBar = '▰'.repeat(filledCount) + '▱'.repeat(10 - filledCount);
         }
 
-        let msg = `🌟 <b>Welcome, ${ctx.from.first_name || 'Admin'}!</b>\n\n`;
-        msg += `📊 <b>Progress:</b> ${progressBar} ${percentage}%\n`;
-        msg += `🎯 <b>You have completed <i>${completedTasks.length}/${total}</i> tasks yet.</b>\n`;
-        
+        let msg = `🌟 <b>Welcome, ${ctx.from.first_name || 'Admin'}!</b>\n\n📊 <b>Progress:</b> ${progressBar} ${percentage}%\n🎯 <b>You have completed <i>${completedTasks.length}/${total}</i> tasks yet.</b>\n`;
         if (total > 0) {
             msg += `<blockquote expandable>\n`;
             completedTasks.forEach(t => msg += `✅ ${escapeHTML(t.title)} (${t.startTimeStr} - ${t.endTimeStr})\n`);
@@ -796,25 +878,15 @@ async function sendStartMenu(ctx) {
             msg += `</blockquote>\n`;
         }
         
-        msg += `🔔 Alerts: ${globalSettings.alerts ? '🟢 ON' : '🔴 OFF'}\n`;
-        msg += `📣 Hourly Notif: ${globalSettings.hourly ? '🟢 ON' : '🔴 OFF'}\n`;
-        msg += `⏰ Reminders: ${globalSettings.reminders ? '🟢 ON' : '🔴 OFF'}`;
+        msg += `🔔 Alerts: ${globalSettings.alerts ? '🟢 ON' : '🔴 OFF'}\n📣 Hourly Notif: ${globalSettings.hourly ? '🟢 ON' : '🔴 OFF'}\n⏰ Reminders: ${globalSettings.reminders ? '🟢 ON' : '🔴 OFF'}`;
 
-        const kb = Markup.inlineKeyboard([
-            [ Markup.button.webApp('🌐 Open Mini App', WEB_APP_URL) ],
-            [ Markup.button.callback('⚙️ Bot Settings', 'open_settings') ]
-        ]);
-
-        if (ctx.callbackQuery) {
-            await ctx.editMessageText(msg, { parse_mode: 'HTML', reply_markup: kb.reply_markup });
-        } else {
-            await ctx.reply(msg, { parse_mode: 'HTML', reply_markup: kb.reply_markup });
-        }
+        const kb = Markup.inlineKeyboard([[Markup.button.webApp('🌐 Open Mini App', WEB_APP_URL)], [Markup.button.callback('⚙️ Bot Settings', 'open_settings')]]);
+        if (ctx.callbackQuery) await ctx.editMessageText(msg, { parse_mode: 'HTML', reply_markup: kb.reply_markup });
+        else await ctx.reply(msg, { parse_mode: 'HTML', reply_markup: kb.reply_markup });
     } catch (err) {}
 }
 
 bot.command('start', sendStartMenu);
-
 bot.action('open_settings', async (ctx) => {
     const kb = Markup.inlineKeyboard([
         [ Markup.button.callback(globalSettings.alerts ? '🟢 Alerts: ON' : '🔴 Alerts: OFF', 'toggle_alerts') ],
@@ -826,10 +898,8 @@ bot.action('open_settings', async (ctx) => {
 });
 
 bot.action('back_start', sendStartMenu);
-
 bot.action(['toggle_reminders', 'toggle_hourly', 'toggle_alerts'], async (ctx) => {
-    const key = ctx.match[0].replace('toggle_', '');
-    globalSettings[key] = !globalSettings[key];
+    const key = ctx.match[0].replace('toggle_', ''); globalSettings[key] = !globalSettings[key];
     await db.collection('settings').updateOne({ _id: 'bot_config' }, { $set: { [key]: globalSettings[key] } }, { upsert: true });
     await bot.handleUpdate({ ...ctx.update, callback_query: { ...ctx.callbackQuery, data: 'open_settings' }});
 });
@@ -837,71 +907,33 @@ bot.action(['toggle_reminders', 'toggle_hourly', 'toggle_alerts'], async (ctx) =
 function scheduleTask(task) {
     if (!task || !task.taskId || !task.nextOccurrence) return;
     try {
-        const taskId = task.taskId;
-        const targetTimeUTC = new Date(task.nextOccurrence);
-        const nowUTC = new Date();
-
-        cancelTaskSchedule(taskId);
-        if (targetTimeUTC <= nowUTC) return;
+        const taskId = task.taskId; const targetTimeUTC = new Date(task.nextOccurrence); const nowUTC = new Date();
+        cancelTaskSchedule(taskId); if (targetTimeUTC <= nowUTC) return;
 
         const notifyTimeUTC = new Date(targetTimeUTC.getTime() - 10 * 60000);
         const triggerDateUTC = notifyTimeUTC > nowUTC ? notifyTimeUTC : nowUTC;
 
         const startJob = schedule.scheduleJob(triggerDateUTC, async function() {
-            if (isShuttingDown || !globalSettings.reminders) return;
-            let count = 0;
-            const maxNotifications = 10;
-            
+            if (isShuttingDown) return;
+            let count = 0; const maxNotifications = 10;
             const sendNotification = async () => {
                 if (isShuttingDown || !globalSettings.reminders) return;
                 const currentTimeUTC = new Date();
-                
-                if (currentReminderTaskId !== taskId) {
-                    for (const msgId of activeReminderMessageIds) {
-                        try { await bot.telegram.deleteMessage(CHAT_ID, msgId); } catch(e){}
-                    }
-                    activeReminderMessageIds = [];
-                    currentReminderTaskId = taskId;
-                }
-
                 if (currentTimeUTC >= targetTimeUTC || count >= maxNotifications) {
                     const activeSchedule = activeSchedules.get(taskId);
-                    if (activeSchedule && activeSchedule.interval) {
-                        clearInterval(activeSchedule.interval);
-                        activeSchedule.interval = null;
-                    }
-                    if (currentTimeUTC >= targetTimeUTC) {
-                        try { 
-                            const sent = await bot.telegram.sendMessage(CHAT_ID, `🚀 <b>START NOW:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${task.startTimeStr} to ${task.endTimeStr}`, { parse_mode: 'HTML' }); 
-                            activeReminderMessageIds.push(sent.message_id);
-                        } catch (e) {}
-                    }
+                    if (activeSchedule && activeSchedule.interval) { clearInterval(activeSchedule.interval); activeSchedule.interval = null; }
+                    if (currentTimeUTC >= targetTimeUTC) try { await bot.telegram.sendMessage(CHAT_ID, `🚀 <b>START NOW:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${task.startTimeStr} to ${task.endTimeStr}`, { parse_mode: 'HTML' }); } catch (e) {}
                     return;
                 }
                 const minutesLeft = Math.ceil((targetTimeUTC - currentTimeUTC) / 60000);
-                if (minutesLeft > 0) {
-                    try { 
-                        const sent = await bot.telegram.sendMessage(CHAT_ID, `🔔 <b>In ${minutesLeft}m:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${task.startTimeStr} to ${task.endTimeStr}`, { parse_mode: 'HTML' }); 
-                        activeReminderMessageIds.push(sent.message_id);
-                    } catch (e) {}
-                }
+                if (minutesLeft > 0) try { await bot.telegram.sendMessage(CHAT_ID, `🔔 <b>In ${minutesLeft}m:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${task.startTimeStr} to ${task.endTimeStr}`, { parse_mode: 'HTML' }); } catch (e) {}
                 count++;
             };
-            
             await sendNotification();
-            if(globalSettings.reminders) {
-                const interval = setInterval(sendNotification, 60000);
-                if (activeSchedules.has(taskId)) {
-                    if (activeSchedules.get(taskId).interval) clearInterval(activeSchedules.get(taskId).interval);
-                    activeSchedules.get(taskId).interval = interval;
-                } else { activeSchedules.set(taskId, { startJob, interval }); }
-            }
+            const interval = setInterval(sendNotification, 60000);
+            if (activeSchedules.has(taskId)) { if (activeSchedules.get(taskId).interval) clearInterval(activeSchedules.get(taskId).interval); activeSchedules.get(taskId).interval = interval; } else { activeSchedules.set(taskId, { startJob, interval }); }
         });
-        
-        if (activeSchedules.has(taskId)) {
-            if (activeSchedules.get(taskId).startJob) activeSchedules.get(taskId).startJob.cancel();
-            activeSchedules.get(taskId).startJob = startJob;
-        } else { activeSchedules.set(taskId, { startJob }); }
+        if (activeSchedules.has(taskId)) { if (activeSchedules.get(taskId).startJob) activeSchedules.get(taskId).startJob.cancel(); activeSchedules.get(taskId).startJob = startJob; } else { activeSchedules.set(taskId, { startJob }); }
     } catch (error) {}
 }
 
@@ -915,35 +947,24 @@ function cancelTaskSchedule(taskId) {
 }
 
 async function rescheduleAllPending() {
-    try {
-        const tasks = await db.collection('tasks').find({ status: 'pending', nextOccurrence: { $gt: new Date() } }).toArray();
-        tasks.forEach(task => scheduleTask(task));
-    } catch (error) {}
+    try { const tasks = await db.collection('tasks').find({ status: 'pending', nextOccurrence: { $gt: new Date() } }).toArray(); tasks.forEach(task => scheduleTask(task)); } catch (error) {}
 }
 
 function setupAutoCompletion() {
-    const rule = new schedule.RecurrenceRule();
-    rule.hour = 23; rule.minute = 57; rule.tz = 'Asia/Kolkata';
-
+    const rule = new schedule.RecurrenceRule(); rule.hour = 23; rule.minute = 57; rule.tz = 'Asia/Kolkata';
     schedule.scheduleJob(rule, async function() {
         if (isShuttingDown) return;
         try {
-            const istDateObj = getCurrentISTDisplay();
-            const startOfDayUTC = istToUTC(istDateObj.date, "00:00");
-            const endOfDayUTC = istToUTC(istDateObj.date, "23:59");
-
+            const istDateObj = getCurrentISTDisplay(); const startOfDayUTC = istToUTC(istDateObj.date, "00:00"); const endOfDayUTC = istToUTC(istDateObj.date, "23:59");
             const pendingTasks = await db.collection('tasks').find({ status: 'pending', nextOccurrence: { $gte: startOfDayUTC, $lt: endOfDayUTC } }).toArray();
 
             for (const task of pendingTasks) {
                 await db.collection('history').insertOne({ taskId: task.taskId, completedAt: new Date(), completedDateStr: istDateObj.displayDate, completedTimeStr: istDateObj.displayTime, status: 'completed', subtasks: task.subtasks || [] });
                 cancelTaskSchedule(task.taskId);
-
                 if (task.repeat !== 'none' && task.repeatCount > 0) {
-                    const nextUTC = new Date(task.nextOccurrence);
-                    nextUTC.setUTCDate(nextUTC.getUTCDate() + (task.repeat === 'weekly' ? 7 : 1));
+                    const nextUTC = new Date(task.nextOccurrence); nextUTC.setUTCDate(nextUTC.getUTCDate() + (task.repeat === 'weekly' ? 7 : 1));
                     await db.collection('tasks').updateOne({ taskId: task.taskId }, { $set: { nextOccurrence: nextUTC, repeatCount: task.repeatCount - 1, startDate: nextUTC, startDateStr: formatLegacyIST(nextUTC, 'date'), endDate: new Date(nextUTC.getTime() + (task.endDate.getTime() - task.startDate.getTime())), subtasks: (task.subtasks || []).map(s => ({...s, completed: false})) }});
-                    const t = await db.collection('tasks').findOne({ taskId: task.taskId });
-                    if (t && t.nextOccurrence > new Date()) scheduleTask(t);
+                    const t = await db.collection('tasks').findOne({ taskId: task.taskId }); if (t && t.nextOccurrence > new Date()) scheduleTask(t);
                 } else {
                     await db.collection('deleted_tasks').insertOne({ ...task, deletedAt: new Date(), deleteReason: 'auto_completed' });
                     await db.collection('tasks').deleteOne({ taskId: task.taskId });
@@ -954,49 +975,50 @@ function setupAutoCompletion() {
 }
 
 function setupHourlyNotifications() {
-    const rule = new schedule.RecurrenceRule();
-    rule.minute = 0; rule.hour = new schedule.Range(8, 23); rule.tz = 'Asia/Kolkata';
-
+    const rule = new schedule.RecurrenceRule(); rule.minute = 0; rule.hour = new schedule.Range(8, 23); rule.tz = 'Asia/Kolkata';
     schedule.scheduleJob(rule, async function() {
         if (isShuttingDown || !globalSettings.hourly) return;
         try {
-            const istDateObj = getCurrentISTDisplay();
-            const startOfDayUTC = istToUTC(istDateObj.date, "00:00");
-            const endOfDayUTC = istToUTC(istDateObj.date, "23:59");
-
-            const istDate = new Date(Date.now() + IST_OFFSET_MS);
-            const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-
+            const istDateObj = getCurrentISTDisplay(); const startOfDayUTC = istToUTC(istDateObj.date, "00:00"); const endOfDayUTC = istToUTC(istDateObj.date, "23:59");
+            const istDate = new Date(Date.now() + IST_OFFSET_MS); const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
             const pendingTasks = await db.collection('tasks').find({ status: 'pending', nextOccurrence: { $gte: startOfDayUTC, $lt: endOfDayUTC } }).sort({ orderIndex: 1 }).toArray();
             const todayHistory = await db.collection('history').find({ completedDateStr: istDateObj.displayDate }).toArray();
-
             const completedTaskIds = [...new Set(todayHistory.map(h => h.taskId))];
             
             let completedTasks = [];
             if (completedTaskIds.length > 0) {
                 const activeC = await db.collection('tasks').find({ taskId: { $in: completedTaskIds } }).toArray();
                 const deletedC = await db.collection('deleted_tasks').find({ taskId: { $in: completedTaskIds } }).toArray();
-                
-                const combined = {};
-                activeC.forEach(t => combined[t.taskId] = t);
-                deletedC.forEach(t => { if (!combined[t.taskId]) combined[t.taskId] = t; });
+                const combined = {}; activeC.forEach(t => combined[t.taskId] = t); deletedC.forEach(t => { if (!combined[t.taskId]) combined[t.taskId] = t; });
                 completedTasks = Object.values(combined).sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
             }
 
-            const totalTasks = pendingTasks.length + completedTasks.length;
-            if (totalTasks === 0) return;
-
-            let msg = `🕒 <b>Hourly Status Update</b>\n📅 ${istDateObj.displayDate} - ${daysOfWeek[istDate.getUTCDay()]}\n`;
-            msg += `🎯 You have completed <i>${completedTasks.length}/${totalTasks}</i> tasks today.\n\n`;
-
-            msg += `<blockquote expandable>\n`;
+            const totalTasks = pendingTasks.length + completedTasks.length; if (totalTasks === 0) return;
+            let msg = `🕒 <b>Hourly Status Update</b>\n📅 ${istDateObj.displayDate} - ${daysOfWeek[istDate.getUTCDay()]}\n🎯 You have completed <i>${completedTasks.length}/${totalTasks}</i> tasks today.\n\n<blockquote expandable>\n`;
             completedTasks.forEach(t => msg += `✅ ${escapeHTML(t.title)} (${t.startTimeStr} - ${t.endTimeStr})\n`);
             pendingTasks.forEach(t => msg += `❌ ${escapeHTML(t.title)} (${t.startTimeStr} - ${t.endTimeStr})\n`);
             msg += `</blockquote>`;
-
             await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' });
         } catch (e) {}
     });
+}
+
+async function getHydratedHistory() {
+    const historyList = await db.collection('history').find().sort({ completedAt: -1 }).limit(500).toArray();
+    if (historyList.length === 0) return {};
+    const taskIds = [...new Set(historyList.map(h => h.taskId))];
+    const activeTasks = await db.collection('tasks').find({ taskId: { $in: taskIds } }).toArray();
+    const deletedTasks = await db.collection('deleted_tasks').find({ taskId: { $in: taskIds } }).toArray();
+    const taskDict = {}; activeTasks.forEach(t => taskDict[t.taskId] = t); deletedTasks.forEach(t => { if (!taskDict[t.taskId]) taskDict[t.taskId] = t; });
+    const groupedHistory = {};
+    historyList.forEach(item => {
+        const baseTask = taskDict[item.taskId] || { title: 'Deleted Task', description: '', startTimeStr: '??:??', endTimeStr: '??:??' };
+        const combined = { ...baseTask, ...item }; 
+        const dateKey = combined.completedDateStr || formatLegacyIST(combined.completedAt, 'date');
+        if (!groupedHistory[dateKey]) groupedHistory[dateKey] = [];
+        groupedHistory[dateKey].push({ ...combined, completedTimeIST: combined.completedTimeStr || formatLegacyIST(combined.completedAt, 'time'), startTimeIST: combined.startTimeStr || formatLegacyIST(combined.startDate, 'time'), endTimeIST: combined.endTimeStr || formatLegacyIST(combined.endDate, 'time'), durationFormatted: formatDuration(calculateDuration(combined.startDate, combined.endDate)) });
+    });
+    return groupedHistory;
 }
 
 // ==========================================
@@ -1024,33 +1046,30 @@ app.get('/api/page/:page', async (req, res) => {
     try {
         const page = req.params.page;
         if (page === 'tasks') {
-            const istDateObj = getCurrentISTDisplay();
-            const startOfDayUTC = istToUTC(istDateObj.date, "00:00");
-            const endOfDayUTC = istToUTC(istDateObj.date, "23:59");
+            const istDateObj = getCurrentISTDisplay(); const startOfDayUTC = istToUTC(istDateObj.date, "00:00"); const endOfDayUTC = istToUTC(istDateObj.date, "23:59");
             const tasks = await db.collection('tasks').find({ status: 'pending', nextOccurrence: { $gte: startOfDayUTC, $lt: endOfDayUTC } }).sort({ orderIndex: 1, nextOccurrence: 1 }).toArray();
             res.json({ tasks: tasks.map(t => ({ ...t, startTimeIST: t.startTimeStr || formatLegacyIST(t.startDate, 'time'), endTimeIST: t.endTimeStr || formatLegacyIST(t.endDate, 'time'), dateIST: t.startDateStr || formatLegacyIST(t.startDate, 'date') })) });
         } else if (page === 'grow') {
             const items = await db.collection('grow').find().toArray();
-            const progress = {};
-            items.forEach(i => { if(i.progress) { for(const [d, v] of Object.entries(i.progress)) { if(!progress[d]) progress[d] = {}; progress[d][i.id] = v; } } });
+            const progress = {}; items.forEach(i => { if(i.progress) { for(const [d, v] of Object.entries(i.progress)) { if(!progress[d]) progress[d] = {}; progress[d][i.id] = v; } } });
             res.json({ growData: { items, progress } });
-        } else { res.json({}); }
+        } else if (page === 'notes') {
+            const notes = await db.collection('notes').find().sort({ orderIndex: 1, createdAt: -1 }).toArray();
+            res.json({ notes: notes.map(n => ({ ...n, createdAtIST: formatLegacyIST(n.createdAt, 'date') + ' ' + formatLegacyIST(n.createdAt, 'time'), updatedAtIST: n.updatedAt ? formatLegacyIST(n.updatedAt, 'date') + ' ' + formatLegacyIST(n.updatedAt, 'time') : '' })) });
+        } else if (page === 'history') {
+            const groupedHistory = await getHydratedHistory(); res.json({ groupedHistory });
+        } else { res.status(404).json({ error: 'Not found' }); }
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 app.post('/api/tasks', async (req, res) => {
     try {
         const { title, description, startDate, startTime, endTime, repeat, repeatCount } = req.body;
-        const startDateUTC = istToUTC(startDate, startTime); 
-        const endDateUTC = istToUTC(startDate, endTime);
-        const task = { 
-            taskId: "t"+Math.random().toString(36).substring(2, 10), title: title.trim(), description: description ? description.trim() : '', 
-            startDate: startDateUTC, endDate: endDateUTC, nextOccurrence: startDateUTC, status: 'pending', repeat: repeat || 'none', repeatCount: repeat && repeat !== 'none' ? (parseInt(repeatCount) || 7) : 0, 
-            subtasks: [], createdAt: new Date(), orderIndex: await db.collection('tasks').countDocuments(), startTimeStr: startTime, endTimeStr: endTime, startDateStr: startDate 
-        };
+        const startDateUTC = istToUTC(startDate, startTime); const endDateUTC = istToUTC(startDate, endTime);
+        const task = { taskId: "t"+Math.random().toString(36).substring(2, 10), title: title.trim(), description: description ? description.trim() : '', startDate: startDateUTC, endDate: endDateUTC, nextOccurrence: startDateUTC, status: 'pending', repeat: repeat || 'none', repeatCount: repeat && repeat !== 'none' ? (parseInt(repeatCount) || 7) : 0, subtasks: [], createdAt: new Date(), orderIndex: await db.collection('tasks').countDocuments(), startTimeStr: startTime, endTimeStr: endTime, startDateStr: startDate };
         await db.collection('tasks').insertOne(task);
         if (task.startDate > new Date()) scheduleTask(task);
-        sendAlert(`📝 <b>Task Created:</b> ${escapeHTML(title)}`);
+        sendAlert(`➕ <b>Added Task:</b> ${escapeHTML(title)}\n🕒 <b>Time:</b> ${startTime} to ${endTime}`);
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -1061,8 +1080,8 @@ app.post('/api/tasks/:taskId/update', async (req, res) => {
         const startDateUTC = istToUTC(startDate, startTime); const endDateUTC = istToUTC(startDate, endTime);
         cancelTaskSchedule(req.params.taskId);
         await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { $set: { title: title.trim(), description: description ? description.trim() : '', startDate: startDateUTC, endDate: endDateUTC, nextOccurrence: startDateUTC, repeat: repeat || 'none', repeatCount: repeat && repeat !== 'none' ? (parseInt(repeatCount) || 7) : 0, startTimeStr: startTime, endTimeStr: endTime, startDateStr: startDate, updatedAt: new Date() } });
-        const t = await db.collection('tasks').findOne({ taskId: req.params.taskId });
-        if (t && t.nextOccurrence > new Date()) scheduleTask(t);
+        const t = await db.collection('tasks').findOne({ taskId: req.params.taskId }); if (t && t.nextOccurrence > new Date()) scheduleTask(t);
+        sendAlert(`✏️ <b>Updated Task:</b> ${escapeHTML(title)}\n🕒 <b>Time:</b> ${startTime} to ${endTime}`);
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -1073,17 +1092,15 @@ app.post('/api/tasks/:taskId/complete', async (req, res) => {
         const istNow = getCurrentISTDisplay();
         await db.collection('history').insertOne({ taskId: task.taskId, completedAt: new Date(), completedDateStr: istNow.displayDate, completedTimeStr: istNow.displayTime, status: 'completed', subtasks: task.subtasks || [] });
         cancelTaskSchedule(task.taskId);
-        
         if (task.repeat !== 'none' && task.repeatCount > 0) {
             const nextUTC = new Date(task.nextOccurrence); nextUTC.setUTCDate(nextUTC.getUTCDate() + (task.repeat === 'weekly' ? 7 : 1));
             await db.collection('tasks').updateOne({ taskId: task.taskId }, { $set: { nextOccurrence: nextUTC, repeatCount: task.repeatCount - 1, startDate: nextUTC, startDateStr: formatLegacyIST(nextUTC, 'date'), endDate: new Date(nextUTC.getTime() + (task.endDate.getTime() - task.startDate.getTime())), subtasks: (task.subtasks || []).map(s => ({...s, completed: false})) } });
-            const t = await db.collection('tasks').findOne({ taskId: task.taskId });
-            if (t && t.nextOccurrence > new Date()) scheduleTask(t);
+            const t = await db.collection('tasks').findOne({ taskId: task.taskId }); if (t && t.nextOccurrence > new Date()) scheduleTask(t);
         } else {
             await db.collection('deleted_tasks').insertOne({ ...task, deletedAt: new Date(), deleteReason: 'completed' });
             await db.collection('tasks').deleteOne({ taskId: task.taskId });
         }
-        sendAlert(`✅ <b>Task Completed:</b> ${escapeHTML(task.title)}`);
+        sendAlert(`✅ <b>Completed Task:</b> ${escapeHTML(task.title)}`);
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -1093,42 +1110,35 @@ app.post('/api/tasks/:taskId/move', async (req, res) => {
         const { direction } = req.body;
         const tasks = await db.collection('tasks').find({ status: 'pending' }).sort({ orderIndex: 1 }).toArray();
         const idx = tasks.findIndex(t => t.taskId === req.params.taskId);
-        if (direction === 'up' && idx > 0) {
-            await db.collection('tasks').updateOne({ taskId: tasks[idx].taskId }, { $set: { orderIndex: tasks[idx-1].orderIndex } });
-            await db.collection('tasks').updateOne({ taskId: tasks[idx-1].taskId }, { $set: { orderIndex: tasks[idx].orderIndex } });
-        } else if (direction === 'down' && idx < tasks.length - 1) {
-            await db.collection('tasks').updateOne({ taskId: tasks[idx].taskId }, { $set: { orderIndex: tasks[idx+1].orderIndex } });
-            await db.collection('tasks').updateOne({ taskId: tasks[idx+1].taskId }, { $set: { orderIndex: tasks[idx].orderIndex } });
-        }
+        if (direction === 'up' && idx > 0) { await db.collection('tasks').updateOne({ taskId: tasks[idx].taskId }, { $set: { orderIndex: tasks[idx-1].orderIndex } }); await db.collection('tasks').updateOne({ taskId: tasks[idx-1].taskId }, { $set: { orderIndex: tasks[idx].orderIndex } }); } 
+        else if (direction === 'down' && idx < tasks.length - 1) { await db.collection('tasks').updateOne({ taskId: tasks[idx].taskId }, { $set: { orderIndex: tasks[idx+1].orderIndex } }); await db.collection('tasks').updateOne({ taskId: tasks[idx+1].taskId }, { $set: { orderIndex: tasks[idx].orderIndex } }); }
         res.json({success:true});
     } catch (error) { res.status(500).send(error.message); }
 });
 
 app.post('/api/tasks/:taskId/delete', async (req, res) => {
     try {
-        const t = await db.collection('tasks').findOne({taskId: req.params.taskId});
-        cancelTaskSchedule(req.params.taskId);
-        if(t) {
-            await db.collection('deleted_tasks').insertOne({ ...t, deletedAt: new Date(), deleteReason: 'manual' });
-            await db.collection('tasks').deleteOne({ taskId: req.params.taskId });
-        }
+        const t = await db.collection('tasks').findOne({taskId: req.params.taskId}); cancelTaskSchedule(req.params.taskId);
+        if(t) { await db.collection('deleted_tasks').insertOne({ ...t, deletedAt: new Date(), deleteReason: 'manual' }); await db.collection('tasks').deleteOne({ taskId: req.params.taskId }); }
+        sendAlert(`🗑️ <b>Deleted Task:</b> ${escapeHTML(t.title)}`);
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
 
 app.post('/api/tasks/:taskId/subtasks', async (req, res) => {
-    try {
-        await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { $push: { subtasks: { id: "s"+Date.now(), title: req.body.title.trim(), description: req.body.description || '', completed: false } } });
-        res.json({success: true});
+    try { await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { $push: { subtasks: { id: "s"+Date.now(), title: req.body.title.trim(), description: req.body.description || '', completed: false } } }); res.json({success: true});
+    } catch (error) { res.status(500).send(error.message); }
+});
+
+app.post('/api/tasks/:taskId/subtasks/:subtaskId/update', async (req, res) => {
+    try { await db.collection('tasks').updateOne({ taskId: req.params.taskId, "subtasks.id": req.params.subtaskId }, { $set: { "subtasks.$.title": req.body.title.trim(), "subtasks.$.description": req.body.description || '' } }); res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
 
 app.post('/api/tasks/:taskId/subtasks/:subtaskId/toggle', async (req, res) => {
     try {
-        const task = await db.collection('tasks').findOne({ taskId: req.params.taskId });
-        const sub = (task.subtasks || []).find(s => s.id === req.params.subtaskId);
-        await db.collection('tasks').updateOne({ taskId: req.params.taskId, "subtasks.id": req.params.subtaskId }, { $set: { "subtasks.$.completed": !sub.completed } });
-        res.json({success: true});
+        const task = await db.collection('tasks').findOne({ taskId: req.params.taskId }); const sub = (task.subtasks || []).find(s => s.id === req.params.subtaskId);
+        await db.collection('tasks').updateOne({ taskId: req.params.taskId, "subtasks.id": req.params.subtaskId }, { $set: { "subtasks.$.completed": !sub.completed } }); res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
 
@@ -1139,13 +1149,9 @@ app.post('/api/tasks/:taskId/subtasks/:subtaskId/delete', async (req, res) => {
 
 app.post('/api/tasks/:taskId/subtasks/:subtaskId/move', async (req, res) => {
     try {
-        const task = await db.collection('tasks').findOne({ taskId: req.params.taskId });
-        const subs = task.subtasks || [];
-        const idx = subs.findIndex(s => s.id === req.params.subtaskId);
-        if (req.body.direction === 'up' && idx > 0) [subs[idx], subs[idx-1]] = [subs[idx-1], subs[idx]];
-        else if (req.body.direction === 'down' && idx < subs.length - 1) [subs[idx], subs[idx+1]] = [subs[idx+1], subs[idx]];
-        await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { $set: { subtasks: subs } });
-        res.json({success: true});
+        const task = await db.collection('tasks').findOne({ taskId: req.params.taskId }); const subs = task.subtasks || []; const idx = subs.findIndex(s => s.id === req.params.subtaskId);
+        if (req.body.direction === 'up' && idx > 0) [subs[idx], subs[idx-1]] = [subs[idx-1], subs[idx]]; else if (req.body.direction === 'down' && idx < subs.length - 1) [subs[idx], subs[idx+1]] = [subs[idx+1], subs[idx]];
+        await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { $set: { subtasks: subs } }); res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
 
@@ -1155,19 +1161,59 @@ app.post('/api/grow', async (req, res) => {
         const item = { id: "g"+Date.now(), title, description: description || '', startDate, endCount: parseInt(endCount), color, hasData: hasData === true, type: hasData ? type : 'boolean', progress: {} };
         if (item.hasData) { item.question = question || ''; if (start) item.start = type === 'float' ? parseFloat(start) : parseInt(start); if (end) item.end = type === 'float' ? parseFloat(end) : parseInt(end); }
         await db.collection('grow').insertOne(item);
-        sendAlert(`🌱 <b>Grow Tracker Added:</b> ${escapeHTML(title)}`);
-        res.json({ success: true });
+        sendAlert(`🌱 <b>Grow Tracker Added:</b> ${escapeHTML(title)}`); res.json({ success: true });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.post('/api/grow/:id/update', async (req, res) => {
+    try {
+        const { title, description, startDate, endCount, color, hasData, type, question, start, end } = req.body;
+        const updatedItem = { title, description: description || '', startDate, endCount: parseInt(endCount), color, hasData: hasData === true, type: hasData ? type : 'boolean' };
+        if (updatedItem.hasData) { updatedItem.question = question || ''; if (start) updatedItem.start = type === 'float' ? parseFloat(start) : parseInt(start); if (end) updatedItem.end = type === 'float' ? parseFloat(end) : parseInt(end); }
+        await db.collection('grow').updateOne({ id: req.params.id }, { $set: updatedItem }); res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 app.post('/api/grow/:id/delete', async (req, res) => {
-    try { await db.collection('grow').deleteOne({ id: req.params.id }); res.json({ success: true });
+    try { 
+        const item = await db.collection('grow').findOne({ id: req.params.id }); await db.collection('grow').deleteOne({ id: req.params.id }); 
+        sendAlert(`🗑️ <b>Grow Tracker Deleted:</b> ${item ? escapeHTML(item.title) : 'Unknown'}`); res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 app.post('/api/grow/log', async (req, res) => {
-    try { await db.collection('grow').updateOne({ id: req.body.itemId }, { $set: { [`progress.${req.body.dateStr}`]: req.body.value } }); res.json({ success: true });
+    try { 
+        await db.collection('grow').updateOne({ id: req.body.itemId }, { $set: { [`progress.${req.body.dateStr}`]: req.body.value } });
+        const item = await db.collection('grow').findOne({ id: req.body.itemId });
+        sendAlert(`✅ <b>Grow Logged:</b> ${item ? escapeHTML(item.title) : 'Unknown'}`); res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.post('/api/notes', async (req, res) => {
+    try {
+        const note = { noteId: generateId('n'), title: req.body.title.trim(), description: req.body.description || '', createdAt: new Date(), updatedAt: new Date(), orderIndex: await db.collection('notes').countDocuments() };
+        await db.collection('notes').insertOne(note);
+        sendAlert(`📝 <b>Note Created:</b> ${escapeHTML(req.body.title)}`); res.json({success: true});
+    } catch (error) { res.status(500).send(error.message); }
+});
+
+app.post('/api/notes/:noteId/update', async (req, res) => {
+    try { await db.collection('notes').updateOne({ noteId: req.params.noteId }, { $set: { title: req.body.title.trim(), description: req.body.description || '', updatedAt: new Date() } }); res.json({success: true});
+    } catch (error) { res.status(500).send(error.message); }
+});
+
+app.post('/api/notes/:noteId/delete', async (req, res) => {
+    try { await db.collection('notes').deleteOne({ noteId: req.params.noteId }); res.json({success: true});
+    } catch (error) { res.status(500).send(error.message); }
+});
+
+app.post('/api/notes/:noteId/move', async (req, res) => {
+    try {
+        const notes = await db.collection('notes').find().sort({ orderIndex: 1 }).toArray(); const idx = notes.findIndex(n => n.noteId === req.params.noteId);
+        if (req.body.direction === 'up' && idx > 0) { await db.collection('notes').updateOne({ noteId: notes[idx].noteId }, { $set: { orderIndex: notes[idx-1].orderIndex } }); await db.collection('notes').updateOne({ noteId: notes[idx-1].noteId }, { $set: { orderIndex: notes[idx].orderIndex } }); } 
+        else if (req.body.direction === 'down' && idx < notes.length - 1) { await db.collection('notes').updateOne({ noteId: notes[idx].noteId }, { $set: { orderIndex: notes[idx+1].orderIndex } }); await db.collection('notes').updateOne({ noteId: notes[idx+1].noteId }, { $set: { orderIndex: notes[idx].orderIndex } }); }
+        res.json({success: true});
+    } catch (error) { res.status(500).send(error.message); }
 });
 
 // ==========================================
