@@ -1679,17 +1679,17 @@ async function sendStartMenu(ctx) {
         }
 
         let msg = `<i>Welcome, <b>${ctx.from.first_name || 'Admin'}</b>!</i>\n`;
-        msg += `${progressBar} ${percentage}%\n`;
-        msg += `<i>You have completed <b>${completedTasks.length}/${total}</b> tasks yet.</i>\n`;
-        msg += `<blockquote expandable>\n`;
+        msg += `${progressBar} ${percentage}%\n\n`;
+        msg += `<i>You have completed <b>${completedTasks.length}/${total}</b> tasks.</i>\n`;
+        msg += `<blockquote expandable>`;
         if (total === 0) {
             msg += `<i>No tasks scheduled for today.</i>\n`;
         } else {
             allTasks.forEach(t => {
-                msg += `${t.isCompleted ? '✅' : '❌'} ${escapeHTML(t.title)} (${t.startTimeStr} - ${t.endTimeStr})\n`;
+                msg += `${t.isCompleted ? '✅' : '❌'} ${escapeHTML(t.title)} (${t.startTimeStr}-${t.endTimeStr})\n`;
             });
         }
-        msg += `</blockquote>\n\n`;
+        msg += `</blockquote>`;
         
         msg += `Notifications:  ${globalSettings.notifications ? '🔔 ON' : '🔕 OFF'}\n`;
         msg += `Alerts : ${globalSettings.alerts ? '🔔 ON' : '🔕 OFF'}\n`;
@@ -1711,10 +1711,11 @@ async function sendStartMenu(ctx) {
 bot.command('start', sendStartMenu);
 
 bot.action('open_settings', async (ctx) => {
+    const gs = globalSettings;
     const kb = Markup.inlineKeyboard([
-        [ Markup.button.callback(globalSettings.notifications ? '🔔 Notifications: ON' : '🔕 Notifications: OFF', 'tgl_notif') ],
-        [ Markup.button.callback(globalSettings.alerts ? '🔔 Alerts: ON' : '🔕 Alerts: OFF', 'tgl_alerts') ],
-        [ Markup.button.callback(globalSettings.reminders ? '🔔 Reminders: ON' : '🔕 Reminders: OFF', 'tgl_reminders') ],
+        [ { text: gs.notifications ? '🔔 Notifications: ON' : '🔕 Notifications: OFF', callback_data: 'tgl_notif', style: gs.notifications ? 'success' : 'danger' } ],
+        [ { text: gs.alerts ? '🔔 Alerts: ON' : '🔕 Alerts: OFF', callback_data: 'tgl_alerts', style: gs.alerts ? 'success' : 'danger' } ],
+        [ { text: gs.reminders ? '🔔 Reminders: ON' : '🔕 Reminders: OFF', callback_data: 'tgl_reminders', style: gs.reminders ? 'success' : 'danger' } ],
         [ Markup.button.callback('⬅️ Back', 'back_start'), Markup.button.webApp('🌐 Tasks', WEB_APP_URL) ]
     ]);
     await ctx.editMessageText('⚙️ <b>Bot Settings:</b>\n<i>Toggle your preferences below:</i>', { parse_mode: 'HTML', reply_markup: kb.reply_markup });
