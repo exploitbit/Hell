@@ -1170,12 +1170,16 @@ function writeMainEJS() {
         function openLogGrowQuestion(item, date) {
             growLogContext = {item, date};
             document.getElementById("qGrowTitle").innerText = item.title;
+            
+            // Optional: You can completely remove this next line if you NEVER want the description to show here
             document.getElementById("qGrowDesc").innerHTML = item.description ? '<div class="task-description" style="border-left-color:var(--accent-light);margin-bottom:12px;">' + escapeHtml(item.description) + '</div>' : "";
-            document.getElementById("qGrowLabel").innerText = item.question;
+            
+            // FORCE the question to show, with a fallback just in case the database entry is missing it
+            document.getElementById("qGrowLabel").innerText = item.question && item.question.trim() !== "" ? item.question : "Log your data for today:";
             
             const wrapper = document.getElementById("qGrowInput");
             const step = item.type === "float" ? "0.01" : "1";
-            wrapper.innerHTML = '<input type="number" step="' + step + '" class="form-control" id="logGrowValue" placeholder="Enter numerical value">';
+            wrapper.innerHTML = '<input type="number" step="' + step + '" class="form-control" id="logGrowValue" placeholder="Enter numerical value here" autofocus>';
             
             document.getElementById("logGrowListView").style.display = "none";
             document.getElementById("logGrowQuestionView").style.display = "block";
