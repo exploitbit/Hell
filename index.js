@@ -1475,7 +1475,7 @@ async function sendStartMenu(ctx) {
 
     const total = pendingTasks.length + completedTasks.length;
     let msg = `<b>Welcome, ${ctx.from.first_name || 'Admin'}!</b>\n`;
-    msg += `<b>completed <i>${completedTasks.length}/${total}<i> tasks yet.</b>\n`;
+    msg += `<b>completed <i>${completedTasks.length}/${total}</i> tasks yet.</b>\n`;
     
     if (total > 0) {
         msg += `<blockquote expandable>\n`;
