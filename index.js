@@ -89,21 +89,34 @@ function writeMainEJS() {
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif; }
-        body { background: var(--bg-light); color: var(--text-primary-light); transition: all 0.2s ease; min-height: 100vh; font-size: 13px; line-height: 1.4; }
         
+        body { 
+            background: var(--bg-light); color: var(--text-primary-light); transition: background-color 0.2s ease, color 0.2s ease; 
+            min-height: 100vh; font-size: 13px; line-height: 1.4; 
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+        
+        input, textarea, [contenteditable] {
+            -webkit-user-select: auto;
+            user-select: auto;
+        }
+
         @media (prefers-color-scheme: dark) { 
             body:not([data-theme="light"]) { background: var(--bg-dark); color: var(--text-primary-dark); } 
         }
         body[data-theme="dark"] { background: var(--bg-dark); color: var(--text-primary-dark); }
         
-        /* Dark Theme Variables override when class is applied */
         body[data-theme="dark"] .app-header, body[data-theme="dark"] .task-card, body[data-theme="dark"] .note-card, body[data-theme="dark"] .history-date-card, body[data-theme="dark"] .modal-content, body[data-theme="dark"] .grow-panel, body[data-theme="dark"] .grow-bubble, body[data-theme="dark"] .grow-card, body[data-theme="dark"] .subtask-btn, body[data-theme="dark"] .form-control { background: var(--card-bg-dark); border-color: var(--border-dark); color: var(--text-primary-dark); }
         body[data-theme="dark"] .nav-links, body[data-theme="dark"] .task-description, body[data-theme="dark"] .date-chip, body[data-theme="dark"] .time-chip, body[data-theme="dark"] .action-btn, body[data-theme="dark"] .subtask-item, body[data-theme="dark"] .badge, body[data-theme="dark"] .history-task-card, body[data-theme="dark"] .btn-secondary, body[data-theme="dark"] .grow-day:hover:not(.empty), body[data-theme="dark"] .grow-bar-track { background: var(--hover-dark); color: var(--text-secondary-dark); }
         body[data-theme="dark"] .nav-btn.active { background: var(--card-bg-dark); color: var(--accent-dark); box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
         body[data-theme="dark"] .task-title, body[data-theme="dark"] .subtask-title, body[data-theme="dark"] .note-title, body[data-theme="dark"] .history-task-title { color: var(--text-primary-dark); }
         body[data-theme="dark"] .text-secondary { color: var(--text-secondary-dark); }
         
-        /* Light Theme variables override */
         body[data-theme="light"] .app-header, body[data-theme="light"] .task-card, body[data-theme="light"] .note-card, body[data-theme="light"] .history-date-card, body[data-theme="light"] .modal-content, body[data-theme="light"] .grow-panel, body[data-theme="light"] .grow-bubble, body[data-theme="light"] .grow-card, body[data-theme="light"] .subtask-btn, body[data-theme="light"] .form-control { background: var(--card-bg-light); border-color: var(--border-light); color: var(--text-primary-light); }
         body[data-theme="light"] .nav-links, body[data-theme="light"] .task-description, body[data-theme="light"] .date-chip, body[data-theme="light"] .time-chip, body[data-theme="light"] .action-btn, body[data-theme="light"] .subtask-item, body[data-theme="light"] .badge, body[data-theme="light"] .history-task-card, body[data-theme="light"] .btn-secondary, body[data-theme="light"] .grow-day:hover:not(.empty), body[data-theme="light"] .grow-bar-track { background: var(--hover-light); color: var(--text-secondary-light); }
         body[data-theme="light"] .nav-btn.active { background: var(--card-bg-light); color: var(--accent-light); box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
@@ -114,7 +127,7 @@ function writeMainEJS() {
         
         .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
         .header-title { font-weight: 600; font-size: 1.1rem; text-transform: capitalize; }
-        .header-icon { font-size: 1.2rem; cursor: pointer; color: var(--accent-light); }
+        .header-icon { font-size: 1.2rem; cursor: pointer; color: var(--accent-light); padding: 4px; }
         
         .nav-container { max-width: 1400px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px; }
         .nav-links { display: flex; gap: 2px; background: var(--hover-light); padding: 3px; border-radius: 100px; width: 100%; justify-content: space-between;}
@@ -145,7 +158,6 @@ function writeMainEJS() {
         .date-chip, .time-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; background: var(--hover-light); border-radius: 100px; font-size: 0.8rem; color: var(--text-secondary-light); width: fit-content; }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .date-chip, body:not([data-theme="light"]) .time-chip { background: var(--hover-dark); color: var(--text-secondary-dark); } }
         
-        /* Action buttons with priority toggle support */
         .task-actions-wrapper { display: flex; gap: 4px; flex-shrink: 0; }
         .normal-btns, .priority-btns { display: flex; gap: 4px; }
         .priority-btns { display: none; }
@@ -187,7 +199,7 @@ function writeMainEJS() {
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .badge { background: var(--hover-dark); color: var(--text-secondary-dark); } }
         
         .note-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; width: 100%; }
-        .note-title { font-size: 1.1rem; font-weight: 600; color: var(--text-primary-light); word-break: break-word; flex: 1; cursor: pointer; }
+        .note-title { font-size: 1.1rem; font-weight: 600; color: var(--text-primary-light); word-break: break-word; flex: 1; cursor: pointer; user-select: none; }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .note-title { color: var(--text-primary-dark); } }
         
         .note-content-container { margin: 4px 0 8px 0; width: 100%; }
@@ -242,9 +254,11 @@ function writeMainEJS() {
         .btn-secondary { background: var(--hover-light); color: var(--text-secondary-light); }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .btn-secondary { background: var(--hover-dark); color: var(--text-secondary-dark); } }
         
-        .toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; }
-        .toast { background: #1e293b; color: white; padding: 10px 20px; border-radius: 100px; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-size: 0.9rem; }
-        @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .toast { background: #0f172a; } }
+        /* Dynamic Island Toast */
+        .toast-container { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; align-items: center; pointer-events: none; }
+        .toast { background: #000; color: #fff; padding: 10px 20px; border-radius: 30px; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); font-size: 0.95rem; font-weight: 500; transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55); opacity: 0; transform: translateY(-20px) scale(0.9); }
+        .toast.show { opacity: 1; transform: translateY(0) scale(1); }
+        @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .toast { background: #222; } }
         
         .empty-state { text-align: center; padding: 40px 20px; color: var(--text-secondary-light); background: var(--hover-light); border-radius: 20px; }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .empty-state { background: var(--hover-dark); color: var(--text-secondary-dark); } }
@@ -375,11 +389,11 @@ function writeMainEJS() {
             <div class="header-icon" onclick="openSettingsModal()"><i class="fas fa-cog"></i></div>
         </div>
         <div class="nav-links">
-            <button class="nav-btn <%= currentPage === 'grow' ? 'active' : '' %>" onclick="switchPage('grow')">
-                <i class="fas fa-seedling"></i> <span>Grow</span>
-            </button>
             <button class="nav-btn <%= currentPage === 'tasks' ? 'active' : '' %>" onclick="switchPage('tasks')">
                 <i class="fas fa-list-check"></i> <span>Tasks</span>
+            </button>
+            <button class="nav-btn <%= currentPage === 'grow' ? 'active' : '' %>" onclick="switchPage('grow')">
+                <i class="fas fa-seedling"></i> <span>Grow</span>
             </button>
             <button class="nav-btn <%= currentPage === 'notes' ? 'active' : '' %>" onclick="switchPage('notes')">
                 <i class="fas fa-note-sticky"></i> <span>Notes</span>
@@ -610,13 +624,17 @@ function writeMainEJS() {
             let icon = type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle';
             toast.innerHTML = '<i class="fas ' + icon + '"></i><span>' + message + '</span>';
             container.appendChild(toast);
+            
+            void toast.offsetWidth; 
+            toast.classList.add('show');
+            
             setTimeout(() => {
-                toast.style.opacity = '0'; toast.style.transform = 'translateX(100%)'; toast.style.transition = 'all 0.3s ease';
-                setTimeout(() => toast.remove(), 300);
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 400);
             }, 3000);
         }
 
-        let currentPage = '<%= currentPage === "tasks" ? "tasks" : currentPage %>';
+        let currentPage = '<%= currentPage || "tasks" %>';
         let tasksData = <%- JSON.stringify(tasks || []) %>;
         let notesData = <%- JSON.stringify(notes || []) %>;
         let historyData = <%- JSON.stringify(groupedHistory || {}) %>;
@@ -698,7 +716,7 @@ function writeMainEJS() {
         }
 
         // ==========================================
-        // 🌱 GROW FRONTEND LOGIC
+        // 🌱 GROW FRONTEND LOGIC (Ported from old.js)
         // ==========================================
         function renderGrowPageStaticShell() {
             const istObj = getGrowIST();
@@ -733,7 +751,7 @@ function writeMainEJS() {
                         const d = cell.dataset.date;
                         const active = (growTrackerData.items || []).filter(g => isGrowActive(g, d));
                         const dayData = (growTrackerData.progress || {})[d] || {};
-                        const allDone = active.length && active.every(g => dayData[g._id] !== undefined);
+                        const allDone = active.length && active.every(g => dayData[g.id] !== undefined);
                         
                         if(d === growToday && !allDone) {
                             openLogGrowModal(d);
@@ -771,8 +789,8 @@ function writeMainEJS() {
                 if(left < 0) left = 0;
                 
                 html += '<div class="grow-card"><details><summary><div class="grow-title-section"><i class="fas fa-chevron-right"></i><span class="grow-title">' + escapeHtml(item.title) + '</span></div>' +
-                        '<div class="task-actions-wrapper"><button class="action-btn" onclick="event.preventDefault(); openEditGrowModal(\\'' + item._id + '\\')" title="Edit"><i class="fas fa-pencil"></i></button>' +
-                        '<button class="action-btn delete" onclick="event.preventDefault(); deleteGrowTracker(\\'' + item._id + '\\')" title="Delete"><i class="fas fa-trash"></i></button></div></summary>';
+                        '<div class="task-actions-wrapper"><button class="action-btn" onclick="event.preventDefault(); openEditGrowModal(\\'' + item.id + '\\')" title="Edit"><i class="fas fa-pencil"></i></button>' +
+                        '<button class="action-btn delete" onclick="event.preventDefault(); deleteGrowTracker(\\'' + item.id + '\\')" title="Delete"><i class="fas fa-trash"></i></button></div></summary>';
                         
                 if(item.description) {
                     html += '<div class="task-description-container"><div class="task-description" style="border-left-color:var(--accent-light)">' + escapeHtml(item.description) + '</div></div>';
@@ -791,8 +809,8 @@ function writeMainEJS() {
                     let latestValue = item.start !== undefined ? item.start : 0;
                     let sortedDates = Object.keys(growTrackerData.progress || {}).sort();
                     for(let d of sortedDates) {
-                        if(growTrackerData.progress[d][item._id] !== undefined && typeof growTrackerData.progress[d][item._id] === 'number') {
-                            latestValue = growTrackerData.progress[d][item._id];
+                        if(growTrackerData.progress[d][item.id] !== undefined && typeof growTrackerData.progress[d][item.id] === 'number') {
+                            latestValue = growTrackerData.progress[d][item.id];
                         }
                     }
                     if(item.start !== undefined && item.end !== undefined) {
@@ -830,7 +848,7 @@ function writeMainEJS() {
                 const prog = growTrackerData.progress || {};
                 for(let d in prog) {
                     const dObj = new Date(d + "T00:00:00");
-                    if(dObj >= start && dObj <= now && prog[d] && prog[d][item._id] !== undefined) completed++;
+                    if(dObj >= start && dObj <= now && prog[d] && prog[d][item.id] !== undefined) completed++;
                 }
                 
                 let pct = totalDaysSoFar ? Math.min(100, completed/totalDaysSoFar*100) : 0;
@@ -877,7 +895,7 @@ function writeMainEJS() {
                     
                     for(let j=0; j<(growTrackerData.items||[]).length; j++) {
                         const g = growTrackerData.items[j];
-                        if(isGrowActive(g, date) && dayData[g._id] !== undefined) activeColors.push(g.color);
+                        if(isGrowActive(g, date) && dayData[g.id] !== undefined) activeColors.push(g.color);
                     }
                     
                     let bg = "transparent", cls = "";
@@ -921,7 +939,7 @@ function writeMainEJS() {
             else {
                 for(let i=0; i<active.length; i++) {
                     const g = active[i];
-                    const isDone = dayData[g._id] !== undefined;
+                    const isDone = dayData[g.id] !== undefined;
                     html += '<div class="grow-bubble-item" style="color:' + g.color + '"><span>' + escapeHtml(g.title) + '</span><i class="fas ' + (isDone?'fa-check-circle':'fa-circle') + '"></i></div>';
                 }
             }
@@ -1024,9 +1042,9 @@ function writeMainEJS() {
         };
 
         window.openEditGrowModal = function(id) {
-            const item = growTrackerData.items.find(g => g._id === id);
+            const item = growTrackerData.items.find(g => g.id === id);
             if(!item) return;
-            document.getElementById("editGrowId").value = item._id;
+            document.getElementById("editGrowId").value = item.id;
             document.getElementById("editGrowTitle").value = item.title;
             document.getElementById("editGrowDesc").value = item.description || "";
             document.getElementById("editGrowStart").value = item.startDate;
@@ -1069,7 +1087,7 @@ function writeMainEJS() {
             e.preventDefault();
             const id = document.getElementById("editGrowId").value;
             const payload = {
-                title: document.getElementById("editGrowTitle").value.trim(), description: document.getElementById("editGrowDesc").value.trim(),
+                id: id, title: document.getElementById("editGrowTitle").value.trim(), description: document.getElementById("editGrowDesc").value.trim(),
                 startDate: document.getElementById("editGrowStart").value, endCount: parseInt(document.getElementById("editGrowDays").value),
                 color: document.getElementById("editGrowColor").value, hasData: document.getElementById("editGrowHasData").checked,
                 type: document.getElementById("editGrowType").value, question: document.getElementById("editGrowQuestion").value.trim(),
@@ -1101,11 +1119,11 @@ function writeMainEJS() {
             
             for(let i=0; i<active.length; i++) {
                 const item = active[i];
-                const done = dayData[item._id] !== undefined;
+                const done = dayData[item.id] !== undefined;
                 
                 html += '<div class="grow-card"><details style="display:contents;"><summary style="outline:none; list-style:none;">' +
                         '<div class="grow-title-section"><i class="fas fa-chevron-right"></i><span class="grow-title">' + escapeHtml(item.title) + '</span></div>' +
-                        '<div class="task-actions-wrapper"><button class="action-btn" onclick="event.preventDefault(); handleGrowLogClick(\\'' + item._id + '\\',\\'' + date + '\\')" style="background:' + (done?'var(--hover-light)':'var(--accent-light)') + ';color:' + (done?'var(--text-secondary-light)':'white') + '; width:32px; height:32px;" ' + (done?'disabled':'') + '><i class="fas fa-check"></i></button></div></summary>';
+                        '<div class="task-actions-wrapper"><button class="action-btn" onclick="event.preventDefault(); handleGrowLogClick(\\'' + item.id + '\\',\\'' + date + '\\')" style="background:' + (done?'var(--hover-light)':'var(--accent-light)') + ';color:' + (done?'var(--text-secondary-light)':'white') + '; width:32px; height:32px;" ' + (done?'disabled':'') + '><i class="fas fa-check"></i></button></div></summary>';
                 if(item.description) html += '<div class="task-description-container"><div class="task-description" style="border-left-color:var(--accent-light)">' + escapeHtml(item.description) + '</div></div>';
                 html += '</details></div>';
             }
@@ -1115,7 +1133,7 @@ function writeMainEJS() {
         };
 
         window.handleGrowLogClick = function(id, date) {
-            const item = growTrackerData.items.find(g => g._id === id);
+            const item = growTrackerData.items.find(g => g.id === id);
             if(item.hasData) { openLogGrowQuestion(item, date); } 
             else { saveGrowLog(item, date, true); }
         };
@@ -1135,8 +1153,8 @@ function writeMainEJS() {
         }
 
         function saveGrowLog(item, date, val) {
-            const payload = { dateStr: date, value: val };
-            fetch("/api/grow/" + item._id + "/log", { method:"POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload) })
+            const payload = { itemId: item.id, dateStr: date, value: val };
+            fetch("/api/grow/log", { method:"POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload) })
             .then(res => {
                 if(res.ok) { 
                     showToast("Progress logged!");
@@ -1156,6 +1174,7 @@ function writeMainEJS() {
 
         window.showGrowLogList = function() { document.getElementById("logGrowListView").style.display = "block"; document.getElementById("logGrowQuestionView").style.display = "none"; };
 
+        // Priority Mode Toggles
         window.toggleTaskPriorityMode = function(taskId) {
             document.querySelectorAll('.priority-mode').forEach(el => {
                 if(el.id !== 'task_actions_' + taskId) el.classList.remove('priority-mode');
@@ -1168,6 +1187,13 @@ function writeMainEJS() {
                 if(el.id !== 'subtask_actions_' + taskId + '_' + subtaskId) el.classList.remove('priority-mode');
             });
             document.getElementById('subtask_actions_' + taskId + '_' + subtaskId).classList.add('priority-mode');
+        };
+        
+        window.toggleNotePriorityMode = function(noteId) {
+            document.querySelectorAll('.priority-mode').forEach(el => {
+                if(el.id !== 'note_actions_' + noteId) el.classList.remove('priority-mode');
+            });
+            document.getElementById('note_actions_' + noteId).classList.add('priority-mode');
         };
 
         window.moveTask = function(taskId, direction) {
@@ -1252,7 +1278,14 @@ function writeMainEJS() {
                     const noteDescId = 'note_desc_' + note.noteId;
                     const escapedNoteTitle = escapeHtml(note.title);
                     const escapedNoteDescription = escapeJsString(note.description || '');
-                    html += '<div class="note-card"><div class="note-header"><div class="task-title-container" onclick="toggleDescription(\\'' + noteDescId + '\\')"><i class="fas fa-chevron-right" id="' + noteDescId + '_icon"></i><span class="note-title">' + escapedNoteTitle + '</span></div><div style="display: flex; gap: 4px;"><button class="action-btn" onclick="moveNote(\\'' + note.noteId + '\\', \\'up\\')"><i class="fas fa-arrow-up"></i></button><button class="action-btn" onclick="moveNote(\\'' + note.noteId + '\\', \\'down\\')"><i class="fas fa-arrow-down"></i></button><button class="action-btn" onclick="openEditNoteModal(\\'' + note.noteId + '\\', \\'' + escapedNoteTitle.replace(/'/g, "\\\\'") + '\\', \\'' + escapedNoteDescription.replace(/'/g, "\\\\'") + '\\')"><i class="fas fa-pencil-alt"></i></button><button class="action-btn delete" onclick="deleteNote(\\'' + note.noteId + '\\')"><i class="fas fa-trash"></i></button></div></div>';
+                    
+                    html += '<div class="note-card"><div class="note-header"><div class="task-title-container" onclick="toggleDescription(\\'' + noteDescId + '\\')" oncontextmenu="event.preventDefault(); toggleNotePriorityMode(\\'' + note.noteId + '\\')"><i class="fas fa-chevron-right" id="' + noteDescId + '_icon"></i><span class="note-title">' + escapedNoteTitle + '</span></div>';
+                    
+                    html += '<div class="task-actions-wrapper" id="note_actions_' + note.noteId + '">';
+                    html += '<div class="normal-btns"><button class="action-btn" onclick="openEditNoteModal(\\'' + note.noteId + '\\', \\'' + escapedNoteTitle.replace(/'/g, "\\\\'") + '\\', \\'' + escapedNoteDescription.replace(/'/g, "\\\\'") + '\\')"><i class="fas fa-pencil-alt"></i></button><button class="action-btn delete" onclick="deleteNote(\\'' + note.noteId + '\\')"><i class="fas fa-trash"></i></button></div>';
+                    
+                    html += '<div class="priority-btns"><button class="action-btn" onclick="moveNote(\\'' + note.noteId + '\\', \\'up\\')"><i class="fas fa-arrow-up"></i></button><button class="action-btn" onclick="moveNote(\\'' + note.noteId + '\\', \\'down\\')"><i class="fas fa-arrow-down"></i></button></div></div></div>';
+                    
                     if (hasDescription) html += '<div id="' + noteDescId + '" class="note-content-container hidden"><div class="note-content">' + preserveLineBreaks(note.description) + '</div></div>';
                     html += '<div class="note-meta"><span><i class="fas fa-clock"></i> ' + note.createdAtIST + '</span>' + (note.updatedAtIST !== note.createdAtIST ? '<span><i class="fas fa-pencil-alt"></i> ' + note.updatedAtIST + '</span>' : '') + '</div></div>';
                 });
@@ -1427,6 +1460,27 @@ function writeMainEJS() {
         function moveNote(noteId, direction) { const formData = new FormData(); formData.append('direction', direction); fetch('/api/notes/' + noteId + '/move', { method: 'POST', body: new URLSearchParams(formData) }).then(res => { if(res.ok){ switchPage('notes'); } else throw new Error(''); }).catch(err => { showToast('Error moving', 'error'); }); }
 
         document.addEventListener('DOMContentLoaded', function() {
+            // Apply System Theme Auto-Sync
+            const themeToggle = document.getElementById('themeToggle');
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                if (themeToggle) themeToggle.checked = true;
+                document.body.setAttribute('data-theme', 'dark');
+            } else {
+                if (themeToggle) themeToggle.checked = false;
+                document.body.setAttribute('data-theme', 'light');
+            }
+
+            // Sync System preference changes in real-time
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+                const newColorScheme = event.matches ? "dark" : "light";
+                if (themeToggle) themeToggle.checked = event.matches;
+                document.body.setAttribute('data-theme', newColorScheme);
+            });
+            
+            // Set initial Grow Time Context
+            const gIst = getGrowIST();
+            growToday = gIst.date; growMonth = gIst.month; growYear = gIst.year;
+
             document.getElementById('pageTitleDisplay').innerText = currentPage;
             renderPage(); updateActiveNav();
             
@@ -1439,7 +1493,7 @@ function writeMainEJS() {
             document.getElementById('repeatSelect').addEventListener('change', function() { document.getElementById('repeatCountGroup').style.display = this.value === 'none' ? 'none' : 'block'; });
             document.getElementById('editRepeatSelect').addEventListener('change', function() { document.getElementById('editRepeatCountGroup').style.display = this.value === 'none' ? 'none' : 'block'; });
             
-            // Priority Unselect logic
+            // Priority Unselect & Popup dismiss logic
             window.addEventListener('click', function(event) { 
                 if (event.target.classList.contains('modal')) { 
                     event.target.style.display = 'none'; 
@@ -1452,6 +1506,12 @@ function writeMainEJS() {
                     document.querySelectorAll('.priority-mode').forEach(el => el.classList.remove('priority-mode'));
                 }
             });
+            
+            // Prevent Browser Context Menu
+            window.oncontextmenu = function(event) {
+                // Allow our custom priority menus to trigger without bringing up browser menu
+                event.preventDefault(); 
+            };
         });
     </script>
 </body>
@@ -1485,6 +1545,12 @@ async function connectDB() {
                 globalSettings = { notifications: s.notifications !== false, alerts: s.alerts !== false, reminders: s.reminders !== false };
             }
             
+            // Initialize collections if missing (Old.js logic requirement)
+            const exists = await db.collection('grow').findOne({ type: 'tracker' });
+            if (!exists) {
+                await db.collection('grow').insertOne({ type: 'tracker', items: [], progress: {} });
+            }
+
             return true;
         } catch (error) {
             retries--;
@@ -1551,7 +1617,7 @@ async function sendStartMenu(ctx) {
 
         const pendingTasks = await db.collection('tasks').find({
             status: 'pending', nextOccurrence: { $gte: startOfDayUTC, $lt: endOfDayUTC }
-        }).sort({ orderIndex: 1 }).toArray();
+        }).toArray();
 
         const todayHistory = await db.collection('history').find({ completedDateStr: istDateObj.displayDate }).toArray();
         const completedTaskIds = [...new Set(todayHistory.map(h => h.taskId))];
@@ -1563,10 +1629,16 @@ async function sendStartMenu(ctx) {
             const combined = {};
             activeC.forEach(t => combined[t.taskId] = t);
             deletedC.forEach(t => { if (!combined[t.taskId]) combined[t.taskId] = t; });
-            completedTasks = Object.values(combined).sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
+            completedTasks = Object.values(combined);
         }
 
-        const total = pendingTasks.length + completedTasks.length;
+        // Merge and sort combined list purely by Priority (orderIndex)
+        let allTasks = [];
+        completedTasks.forEach(t => allTasks.push({ ...t, isCompleted: true }));
+        pendingTasks.forEach(t => allTasks.push({ ...t, isCompleted: false }));
+        allTasks.sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
+
+        const total = allTasks.length;
         let percentage = 0;
         let progressBar = '▱▱▱▱▱▱▱▱▱▱'; 
         
@@ -1581,9 +1653,13 @@ async function sendStartMenu(ctx) {
         msg += `Progress: ${progressBar} ${percentage}%\n`;
         
         msg += `<blockquote expandable>\n`;
-        if (total === 0) msg += `No tasks scheduled for today.\n`;
-        completedTasks.forEach(t => msg += `✅ ${escapeHTML(t.title)} (${t.startTimeStr} - ${t.endTimeStr})\n`);
-        pendingTasks.forEach(t => msg += `❌ ${escapeHTML(t.title)} (${t.startTimeStr} - ${t.endTimeStr})\n`);
+        if (total === 0) {
+            msg += `No tasks scheduled for today.\n`;
+        } else {
+            allTasks.forEach(t => {
+                msg += `${t.isCompleted ? '✅' : '❌'} ${escapeHTML(t.title)} (${t.startTimeStr} - ${t.endTimeStr})\n`;
+            });
+        }
         msg += `</blockquote>\n\n`;
         
         msg += `Notifications:  ${globalSettings.notifications ? '🟢' : '🔴'}\n`;
@@ -1643,7 +1719,6 @@ function scheduleTask(task) {
         const startJob = schedule.scheduleJob(triggerDateUTC, async function() {
             if (isShuttingDown || !globalSettings.reminders) return;
             
-            // Re-assign array and clear old ones if this is a NEW task starting its notification loop
             if (currentReminderTaskId !== taskId) {
                 for (const msgId of activeReminderMessageIds) {
                     try { await bot.telegram.deleteMessage(CHAT_ID, msgId); } catch(e){}
@@ -1798,7 +1873,7 @@ function setupHourlyNotifications() {
 
             const pendingTasks = await db.collection('tasks').find({
                 status: 'pending', nextOccurrence: { $gte: startOfDayUTC, $lt: endOfDayUTC }
-            }).sort({ orderIndex: 1 }).toArray();
+            }).toArray();
 
             const todayHistory = await db.collection('history').find({
                 completedDateStr: istDateObj.displayDate
@@ -1814,10 +1889,16 @@ function setupHourlyNotifications() {
                 const combined = {};
                 activeC.forEach(t => combined[t.taskId] = t);
                 deletedC.forEach(t => { if (!combined[t.taskId]) combined[t.taskId] = t; });
-                completedTasks = Object.values(combined).sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
+                completedTasks = Object.values(combined);
             }
 
-            const total = pendingTasks.length + completedTasks.length;
+            // Merge and sort combined list purely by Priority (orderIndex)
+            let allTasks = [];
+            completedTasks.forEach(t => allTasks.push({ ...t, isCompleted: true }));
+            pendingTasks.forEach(t => allTasks.push({ ...t, isCompleted: false }));
+            allTasks.sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
+
+            const total = allTasks.length;
             if (total === 0) return;
 
             let percentage = Math.round((completedTasks.length / total) * 100);
@@ -1829,8 +1910,9 @@ function setupHourlyNotifications() {
             msg += `You have completed ${completedTasks.length}/${total} tasks yet\n\n`;
             
             msg += `<blockquote expandable>\n`;
-            completedTasks.forEach(t => msg += `✅ ${escapeHTML(t.title)} (${t.startTimeStr} - ${t.endTimeStr})\n`);
-            pendingTasks.forEach(t => msg += `❌ ${escapeHTML(t.title)} (${t.startTimeStr} - ${t.endTimeStr})\n`);
+            allTasks.forEach(t => {
+                msg += `${t.isCompleted ? '✅' : '❌'} ${escapeHTML(t.title)} (${t.startTimeStr} - ${t.endTimeStr})\n`;
+            });
             msg += `</blockquote>`;
 
             const sentMsg = await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' });
@@ -1858,7 +1940,6 @@ async function getHydratedHistory() {
     historyList.forEach(item => {
         const baseTask = taskDict[item.taskId] || { title: 'Deleted Task', description: '', startTimeStr: '??:??', endTimeStr: '??:??', subtasks: [] };
         
-        // Merge history payload OVER base defaults. Strikethrough on incomplete subtasks applies from history record
         const combined = { ...baseTask, ...item }; 
 
         const dateKey = combined.completedDateStr || formatLegacyIST(combined.completedAt, 'date');
@@ -1878,7 +1959,6 @@ async function getHydratedHistory() {
 // 📱 WEB INTERFACE ROUTES
 // ==========================================
 
-// Application Settings Route
 app.post('/api/settings/update', async (req, res) => {
     try {
         globalSettings = { ...globalSettings, ...req.body };
@@ -1917,17 +1997,9 @@ app.get('/tasks', async (req, res) => {
 app.get('/grow', async (req, res) => {
     try {
         const istDateObj = getCurrentISTDisplay();
-        const items = await db.collection('grow').find().toArray();
-        const progress = {};
-        items.forEach(i => {
-            if(i.progress) {
-                for(const [d, v] of Object.entries(i.progress)) {
-                    if(!progress[d]) progress[d] = {};
-                    progress[d][i._id] = v;
-                }
-            }
-        });
-        res.render('index', { currentPage: 'grow', globalSettings, tasks: [], notes: [], groupedHistory: {}, growData: {items, progress}, currentTime: istDateObj.displayTime, currentDate: istDateObj.displayDate });
+        const data = await db.collection('grow').findOne({ type: 'tracker' });
+        const cleanData = data ? { items: data.items || [], progress: data.progress || {} } : { items: [], progress: {} };
+        res.render('index', { currentPage: 'grow', globalSettings, tasks: [], notes: [], groupedHistory: {}, growData: cleanData, currentTime: istDateObj.displayTime, currentDate: istDateObj.displayDate });
     } catch (error) { res.status(500).send("Server Error"); }
 });
 
@@ -1957,17 +2029,8 @@ app.get('/api/page/:page', async (req, res) => {
             const tasks = await db.collection('tasks').find({ status: 'pending', nextOccurrence: { $gte: startOfDayUTC, $lt: endOfDayUTC } }).sort({ orderIndex: 1, nextOccurrence: 1 }).toArray();
             res.json({ tasks: tasks.map(t => ({ ...t, startTimeIST: t.startTimeStr || formatLegacyIST(t.startDate, 'time'), endTimeIST: t.endTimeStr || formatLegacyIST(t.endDate, 'time'), dateIST: t.startDateStr || formatLegacyIST(t.startDate, 'date'), durationFormatted: formatDuration(calculateDuration(t.startDate, t.endDate)), subtaskProgress: calculateSubtaskProgress(t.subtasks) })) });
         } else if (page === 'grow') {
-            const items = await db.collection('grow').find().toArray();
-            const progress = {};
-            items.forEach(i => {
-                if(i.progress) {
-                    for(const [d, v] of Object.entries(i.progress)) {
-                        if(!progress[d]) progress[d] = {};
-                        progress[d][i._id] = v;
-                    }
-                }
-            });
-            res.json({ growData: { items, progress } });
+            const data = await db.collection('grow').findOne({ type: 'tracker' });
+            res.json({ growData: data ? { items: data.items || [], progress: data.progress || {} } : { items: [], progress: {} } });
         } else if (page === 'notes') {
             const notes = await db.collection('notes').find().sort({ orderIndex: 1, createdAt: -1 }).toArray();
             res.json({ notes: notes.map(n => ({ ...n, createdAtIST: formatLegacyIST(n.createdAt, 'date') + ' ' + formatLegacyIST(n.createdAt, 'time'), updatedAtIST: n.updatedAt ? formatLegacyIST(n.updatedAt, 'date') + ' ' + formatLegacyIST(n.updatedAt, 'time') : '' })) });
@@ -1979,15 +2042,15 @@ app.get('/api/page/:page', async (req, res) => {
 });
 
 // ==========================================
-// 🌱 GROW BACKEND ROUTES
+// 🌱 GROW BACKEND ROUTES (Reverted to old.js logic)
 // ==========================================
 app.post('/api/grow', async (req, res) => {
     try {
         const { title, description, startDate, endCount, color, hasData, type, question, start, end } = req.body;
-        const _id = generateId('g');
         const item = {
-            _id: _id, title: title, description: description || '', startDate: startDate, endCount: parseInt(endCount),
-            color: color, hasData: hasData === true, type: hasData ? type : 'boolean', progress: {}
+            id: generateId('g'),
+            title: title, description: description || '', startDate: startDate, endCount: parseInt(endCount),
+            color: color, hasData: hasData === true, type: hasData ? type : 'boolean'
         };
         
         if (item.hasData) {
@@ -1996,52 +2059,57 @@ app.post('/api/grow', async (req, res) => {
             if (end !== undefined && end !== '') item.end = type === 'float' ? parseFloat(end) : parseInt(end);
         }
         
-        await db.collection('grow').insertOne(item);
-        if(globalSettings.alerts) { try{ await bot.telegram.sendMessage(CHAT_ID, `🌱 <b>Growth Added:</b> ${item.title}`, { parse_mode: 'HTML' }); }catch(e){} }
+        await db.collection('grow').updateOne({ type: 'tracker' }, { $push: { items: item } }, { upsert: true });
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 app.post('/api/grow/:id/update', async (req, res) => {
     try {
-        const { title, description, startDate, endCount, color, hasData, type, question, start, end } = req.body;
-        const id = req.params.id;
+        const { id, title, description, startDate, endCount, color, hasData, type, question, start, end } = req.body;
+        const tracker = await db.collection('grow').findOne({ type: 'tracker' });
+        if (!tracker) return res.status(404).json({ error: 'Tracker not found' });
         
-        const currentItem = await db.collection('grow').findOne({ _id: id });
+        const currentItem = tracker.items.find(i => i.id === id);
         if (currentItem && currentItem.color !== color) {
-            const conflictingItem = await db.collection('grow').findOne({ _id: { $ne: id }, color });
-            if (conflictingItem) {
-                await db.collection('grow').updateOne({ _id: conflictingItem._id }, { $set: { color: currentItem.color } });
-            }
+            const conflictingItem = tracker.items.find(i => i.id !== id && i.color === color);
+            if (conflictingItem) await db.collection('grow').updateOne({ type: 'tracker', 'items.id': conflictingItem.id }, { $set: { 'items.$.color': currentItem.color } });
         }
         
-        const updatedFields = {
-            title, description: description || '', startDate, endCount: parseInt(endCount), color, hasData: hasData === true, type: hasData ? type : 'boolean'
+        const updatedItem = {
+            id: id, title: title, description: description || '', startDate: startDate,
+            endCount: parseInt(endCount), color: color, hasData: hasData === true, type: hasData ? type : 'boolean'
         };
-        if (updatedFields.hasData) {
-            updatedFields.question = question || '';
-            if (start !== undefined && start !== '') updatedFields.start = type === 'float' ? parseFloat(start) : parseInt(start);
-            if (end !== undefined && end !== '') updatedFields.end = type === 'float' ? parseFloat(end) : parseInt(end);
+        
+        if (updatedItem.hasData) {
+            updatedItem.question = question || '';
+            if (start !== undefined && start !== '') updatedItem.start = type === 'float' ? parseFloat(start) : parseInt(start);
+            if (end !== undefined && end !== '') updatedItem.end = type === 'float' ? parseFloat(end) : parseInt(end);
         }
         
-        await db.collection('grow').updateOne({ _id: id }, { $set: updatedFields });
+        await db.collection('grow').updateOne({ type: 'tracker', 'items.id': id }, { $set: { 'items.$': updatedItem } });
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 app.post('/api/grow/:id/delete', async (req, res) => {
     try {
-        const doc = await db.collection('grow').findOne({_id: req.params.id});
-        await db.collection('grow').deleteOne({ _id: req.params.id });
-        if(globalSettings.alerts && doc) { try{ await bot.telegram.sendMessage(CHAT_ID, `🗑️ <b>Growth Deleted:</b> ${doc.title}`, { parse_mode: 'HTML' }); }catch(e){} }
+        const tracker = await db.collection('grow').findOne({ type: 'tracker' });
+        const item = tracker?.items.find(i => i.id === req.params.id);
+        await db.collection('grow').updateOne({ type: 'tracker' }, { $pull: { items: { id: req.params.id } } });
+        if (tracker?.progress) {
+            const prog = { ...tracker.progress };
+            Object.keys(prog).forEach(date => { if (prog[date] && prog[date][req.params.id] !== undefined) delete prog[date][req.params.id]; });
+            await db.collection('grow').updateOne({ type: 'tracker' }, { $set: { progress: prog } });
+        }
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-app.post('/api/grow/:id/log', async (req, res) => {
+app.post('/api/grow/log', async (req, res) => {
     try {
-        const { dateStr, value } = req.body;
-        await db.collection('grow').updateOne({ _id: req.params.id }, { $set: { [`progress.${dateStr}`]: value } });
+        const { itemId, dateStr, value } = req.body;
+        await db.collection('grow').updateOne({ type: 'tracker' }, { $set: { [`progress.${dateStr}.${itemId}`]: value } });
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
@@ -2073,7 +2141,6 @@ app.post('/api/tasks', async (req, res) => {
         };
         await db.collection('tasks').insertOne(task);
         if (task.startDate > new Date()) scheduleTask(task);
-        if(globalSettings.alerts) { try{ await bot.telegram.sendMessage(CHAT_ID, `➕ <b>Task Added:</b> ${task.title}`, { parse_mode: 'HTML' }); }catch(e){} }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -2092,7 +2159,6 @@ app.post('/api/tasks/:taskId/update', async (req, res) => {
         );
         const t = await db.collection('tasks').findOne({ taskId: req.params.taskId });
         if (t && t.nextOccurrence > new Date()) scheduleTask(t);
-        if(globalSettings.alerts) { try{ await bot.telegram.sendMessage(CHAT_ID, `✏️ <b>Task Edited:</b> ${t.title}`, { parse_mode: 'HTML' }); }catch(e){} }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -2104,10 +2170,9 @@ app.post('/api/tasks/:taskId/complete', async (req, res) => {
         
         const istNow = getCurrentISTDisplay();
         
-        // Push full state to history including imperfect subtasks to trigger strikethrough in UI later
         await db.collection('history').insertOne({ 
             ...task,
-            _id: new ObjectId(), // Ensure fresh doc id
+            _id: new ObjectId(),
             taskId: task.taskId, completedAt: new Date(), completedDateStr: istNow.displayDate, completedTimeStr: istNow.displayTime, status: 'completed' 
         });
         cancelTaskSchedule(task.taskId);
@@ -2123,7 +2188,6 @@ app.post('/api/tasks/:taskId/complete', async (req, res) => {
             await db.collection('tasks').deleteOne({ taskId: task.taskId });
         }
 
-        if(globalSettings.alerts) { try{ await bot.telegram.sendMessage(CHAT_ID, `✅ <b>Task Completed:</b> ${task.title}`, { parse_mode: 'HTML' }); }catch(e){} }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -2151,7 +2215,6 @@ app.post('/api/tasks/:taskId/delete', async (req, res) => {
         if(t) {
             await db.collection('deleted_tasks').insertOne({ ...t, deletedAt: new Date(), deleteReason: 'manual' });
             await db.collection('tasks').deleteOne({ taskId: req.params.taskId });
-            if(globalSettings.alerts) { try{ await bot.telegram.sendMessage(CHAT_ID, `🗑️ <b>Task Deleted:</b> ${t.title}`, { parse_mode: 'HTML' }); }catch(e){} }
         }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
@@ -2211,7 +2274,6 @@ app.post('/api/notes', async (req, res) => {
         if (!req.body.title) return res.status(400).send('Empty title');
         const note = { noteId: generateId('n'), title: req.body.title.trim(), description: req.body.description || '', createdAt: new Date(), updatedAt: new Date(), orderIndex: await db.collection('notes').countDocuments() };
         await db.collection('notes').insertOne(note);
-        if(globalSettings.alerts) { try{ await bot.telegram.sendMessage(CHAT_ID, `📝 <b>Note Added:</b> ${note.title}`, { parse_mode: 'HTML' }); }catch(e){} }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -2226,9 +2288,7 @@ app.post('/api/notes/:noteId/update', async (req, res) => {
 
 app.post('/api/notes/:noteId/delete', async (req, res) => {
     try {
-        const doc = await db.collection('notes').findOne({noteId: req.params.noteId});
         await db.collection('notes').deleteOne({ noteId: req.params.noteId });
-        if(globalSettings.alerts && doc) { try{ await bot.telegram.sendMessage(CHAT_ID, `🗑️ <b>Note Deleted:</b> ${doc.title}`, { parse_mode: 'HTML' }); }catch(e){} }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
