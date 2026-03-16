@@ -1680,9 +1680,10 @@ async function sendStartMenu(ctx) {
             progressBar = '█'.repeat(filledCount) + '░'.repeat(20 - filledCount);
         }
 
-        let msg = `<i>Welcome, <b>${ctx.from.first_name || 'Admin'}</b>!</i>\n`;
-        msg += `${progressBar} ${percentage}%\n\n`;
-        msg += `<i>You have completed <b>${completedTasks.length}/${total}</b> tasks.</i>\n`;
+        let msg = `<i>Welcome, <b>${ctx.from.first_name || 'Admin'}</b>!</i>\n\n`;
+        msg += `${progressBar} ${percentage}%\n`;
+        msg += `<i>${istDateObj.dayName}, ${istDateObj.displayDate}\n</i>`;
+        msg += `<i>⚙️ Completed: <b>${completedTasks.length}/${total}</b> tasks.</i>\n`;
         msg += `<blockquote expandable>`;
         if (total === 0) {
             msg += `<i>No tasks scheduled for today.</i>\n`;
@@ -1720,7 +1721,7 @@ bot.action('open_settings', async (ctx) => {
         [ { text: gs.reminders ? '🔔 Reminders: ON' : '🔕 Reminders: OFF', callback_data: 'tgl_reminders', style: gs.reminders ? 'success' : 'danger' } ],
         [ Markup.button.callback('⬅️ Back', 'back_start'), Markup.button.webApp('🌐 Tasks', WEB_APP_URL) ]
     ]);
-    await ctx.editMessageText('⚙️ <b>Bot Settings:</b>\n<i>Toggle your preferences below:</i>', { parse_mode: 'HTML', reply_markup: kb.reply_markup });
+    await ctx.editMessageText('⚙️ <b>Bot Settings:</b>\n\n<i>Toggle your preferences below:</i>', { parse_mode: 'HTML', reply_markup: kb.reply_markup });
 });
 
 bot.action('back_start', sendStartMenu);
@@ -1940,9 +1941,9 @@ function setupHourlyNotifications() {
             const filledCount = Math.floor(percentage / 5); // Divide by 5 for 20 blocks
             let progressBar = '█'.repeat(filledCount) + '░'.repeat(20 - filledCount);
             
-            let msg = `${istDateObj.dayName}\n`;
+            let msg = `${istDateObj.dayName}, ${istDateObj.displayDate}\n`;
             msg += `${progressBar} ${percentage}%\n`;
-            msg += `<i>completed <b>${completedTasks.length}/${total}</b> tasks yet</i>\n`;
+            msg += `<i>⚙️ Completed: <b>${completedTasks.length}/${total}</b> tasks.</i>\n`;
             
             msg += `<blockquote expandable>`;
             allTasks.forEach(t => {
