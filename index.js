@@ -1632,7 +1632,7 @@ async function rescheduleAllPending() {
         tasks.forEach(task => scheduleTask(task));
     } catch (error) {}
 }
-
+         
 // ==========================================
 // 🌙 AUTO-COMPLETE TASKS AT 23:57 IST
 // ==========================================
@@ -1645,7 +1645,6 @@ function setupAutoCompletion() {
     schedule.scheduleJob(rule, async function() {
         if (isShuttingDown) return;
         try {
-            console.log('🌙 Running auto-completion for all pending tasks at 23:57 IST...');
             const istDateObj = getCurrentISTDisplay();
             const startOfDayUTC = istToUTC(istDateObj.date, "00:00");
             const endOfDayUTC = istToUTC(istDateObj.date, "23:59");
@@ -1689,10 +1688,7 @@ function setupAutoCompletion() {
                     await db.collection('tasks').deleteOne({ taskId: task.taskId });
                 }
             }
-            if (pendingTasks.length > 0) {
-                try { await bot.telegram.sendMessage(CHAT_ID, `🌙 <b>System Update:</b> Auto-completed ${pendingTasks.length} tasks for today.`, { parse_mode: 'HTML' }); } catch(e){}
-            }
-        } catch (error) { console.error('❌ Auto-completion Error:', error); }
+        } catch (error) {}
     });
 }
 
@@ -1712,16 +1708,10 @@ function setupHourlyNotifications() {
             const startOfDayUTC = istToUTC(istDateObj.date, "00:00");
             const endOfDayUTC = istToUTC(istDateObj.date, "23:59");
 
-            const istDate = new Date(Date.now() + IST_OFFSET_MS);
-            const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-            const dayOfWeek = daysOfWeek[istDate.getUTCDay()];
-
-            // Pending Tasks (Sorted by Priority)
             const pendingTasks = await db.collection('tasks').find({
                 status: 'pending', nextOccurrence: { $gte: startOfDayUTC, $lt: endOfDayUTC }
-            }).sort({ orderIndex: 1 }).toArray();
+            }).sort({ startTimeStr: 1 }).toArray();
 
-            // Completed Tasks (Sorted by Priority)
             const todayHistory = await db.collection('history').find({
                 completedDateStr: istDateObj.displayDate
             }).toArray();
@@ -1736,28 +1726,25 @@ function setupHourlyNotifications() {
                 const combined = {};
                 activeC.forEach(t => combined[t.taskId] = t);
                 deletedC.forEach(t => { if (!combined[t.taskId]) combined[t.taskId] = t; });
-                completedTasks = Object.values(combined).sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
+                completedTasks = Object.values(combined).sort((a, b) => (a.startTimeStr || "").localeCompare(b.startTimeStr || ""));
             }
 
-            const totalTasks = pendingTasks.length + completedTasks.length;
-            if (totalTasks === 0) return;
+            if (pendingTasks.length === 0 && completedTasks.length === 0) return;
 
-            let msg = `🕒 <b>Hourly Status Update</b>\n📅 ${istDateObj.displayDate} - ${dayOfWeek}\n`;
-            msg += `🎯 You have completed <i>${completedTasks.length}/${totalTasks}</i> tasks today.\n\n`;
-
-            msg += `<blockquote expandable>\n`;
-            completedTasks.forEach(t => {
-                msg += `✅ ${escapeHTML(t.title)} (${t.startTimeStr} - ${t.endTimeStr})\n`;
-            });
-            pendingTasks.forEach(t => {
-                msg += `❌ ${escapeHTML(t.title)} (${t.startTimeStr} - ${t.endTimeStr})\n`;
-            });
-            msg += `</blockquote>`;
+            let msg = `🕒 <b>Hourly Status Update</b>\n📅 ${istDateObj.displayDate} - ${istDateObj.time}\n\n`;
+            
+            if (completedTasks.length > 0) {
+                msg += `<b>✅ Completed Today:</b>\n`;
+                completedTasks.forEach(t => msg += `✅ ${t.title} (${t.startTimeStr} - ${t.endTimeStr})\n`);
+                msg += `\n`;
+            }
+            if (pendingTasks.length > 0) {
+                msg += `<b>❌ Pending Today:</b>\n`;
+                pendingTasks.forEach(t => msg += `❌ ${t.title} (${t.startTimeStr} - ${t.endTimeStr})\n`);
+            }
 
             await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' });
-        } catch (e) {
-            console.error("Hourly Notif Error:", e);
-        }
+        } catch (e) {}
     });
 }
 
@@ -1795,20 +1782,364 @@ async function getHydratedHistory() {
 }
 
 // ==========================================
+// 📱 WEB INTERFACE ROUTES
+// ==========================================
+app.get('/', (req, res) => res.redirect('/tasks'));
+
+app.get('/tasks', async (req, res) => {
+    try {
+        const istDateObj = getCurrentISTDisplay();
+        const startOfDayUTC = istToUTC(istDateObj.date, "00:00");
+        const endOfDayUTC = istToUTC(istDateObj.date, "23:59");
+        
+        const tasks = await db.collection('tasks').find({ status: 'pending', nextOccurrence: { $gte: startOfDayUTC, $lt: endOfDayUTC } }).sort({ orderIndex: 1, nextOccurrence: 1 }).toArray();
+        res.render('index', {
+            currentPage: 'tasks',
+            tasks: tasks.map(task => ({
+                ...task, 
+                taskId: task.taskId, 
+                startTimeIST: task.startTimeStr || formatLegacyIST(task.startDate, 'time'), 
+                endTimeIST: task.endTimeStr || formatLegacyIST(task.endDate, 'time'), 
+                dateIST: task.startDateStr || formatLegacyIST(task.startDate, 'date'), 
+                durationFormatted: formatDuration(calculateDuration(task.startDate, task.endDate)), 
+                subtaskProgress: calculateSubtaskProgress(task.subtasks), 
+                subtasks: task.subtasks || []
+            })),
+            notes: [], groupedHistory: {}, growData: {items: [], progress: {}}, currentTime: istDateObj.displayTime, currentDate: istDateObj.displayDate
+        });
+    } catch (error) { res.status(500).send("Server Error"); }
+});
+
+app.get('/grow', async (req, res) => {
+    try {
+        const istDateObj = getCurrentISTDisplay();
+        const items = await db.collection('grow').find().toArray();
+        const progress = {};
+        items.forEach(i => {
+            if(i.progress) {
+                for(const [d, v] of Object.entries(i.progress)) {
+                    if(!progress[d]) progress[d] = {};
+                    progress[d][i.id] = v;
+                }
+            }
+        });
+        res.render('index', { currentPage: 'grow', tasks: [], notes: [], groupedHistory: {}, growData: {items, progress}, currentTime: istDateObj.displayTime, currentDate: istDateObj.displayDate });
+    } catch (error) { res.status(500).send("Server Error"); }
+});
+
+app.get('/notes', async (req, res) => {
+    try {
+        const notes = await db.collection('notes').find().sort({ orderIndex: 1, createdAt: -1 }).toArray();
+        const istDateObj = getCurrentISTDisplay();
+        res.render('index', { currentPage: 'notes', tasks: [], notes: notes.map(n => ({ ...n, createdAtIST: formatLegacyIST(n.createdAt, 'date') + ' ' + formatLegacyIST(n.createdAt, 'time'), updatedAtIST: n.updatedAt ? formatLegacyIST(n.updatedAt, 'date') + ' ' + formatLegacyIST(n.updatedAt, 'time') : '' })), groupedHistory: {}, growData: {items: [], progress: {}}, currentTime: istDateObj.displayTime, currentDate: istDateObj.displayDate });
+    } catch (error) { res.status(500).send("Server Error"); }
+});
+
+app.get('/history', async (req, res) => {
+    try {
+        const groupedHistory = await getHydratedHistory();
+        const istDateObj = getCurrentISTDisplay();
+        res.render('index', { currentPage: 'history', tasks: [], notes: [], groupedHistory, growData: {items: [], progress: {}}, currentTime: istDateObj.displayTime, currentDate: istDateObj.displayDate });
+    } catch (error) { res.status(500).send("Server Error"); }
+});
+
+app.get('/api/page/:page', async (req, res) => {
+    try {
+        const page = req.params.page;
+        if (page === 'tasks') {
+            const istDateObj = getCurrentISTDisplay();
+            const startOfDayUTC = istToUTC(istDateObj.date, "00:00");
+            const endOfDayUTC = istToUTC(istDateObj.date, "23:59");
+            const tasks = await db.collection('tasks').find({ status: 'pending', nextOccurrence: { $gte: startOfDayUTC, $lt: endOfDayUTC } }).sort({ orderIndex: 1, nextOccurrence: 1 }).toArray();
+            res.json({ tasks: tasks.map(t => ({ ...t, startTimeIST: t.startTimeStr || formatLegacyIST(t.startDate, 'time'), endTimeIST: t.endTimeStr || formatLegacyIST(t.endDate, 'time'), dateIST: t.startDateStr || formatLegacyIST(t.startDate, 'date'), durationFormatted: formatDuration(calculateDuration(t.startDate, t.endDate)), subtaskProgress: calculateSubtaskProgress(t.subtasks) })) });
+        } else if (page === 'grow') {
+            const items = await db.collection('grow').find().toArray();
+            const progress = {};
+            items.forEach(i => {
+                if(i.progress) {
+                    for(const [d, v] of Object.entries(i.progress)) {
+                        if(!progress[d]) progress[d] = {};
+                        progress[d][i.id] = v;
+                    }
+                }
+            });
+            res.json({ growData: { items, progress } });
+        } else if (page === 'notes') {
+            const notes = await db.collection('notes').find().sort({ orderIndex: 1, createdAt: -1 }).toArray();
+            res.json({ notes: notes.map(n => ({ ...n, createdAtIST: formatLegacyIST(n.createdAt, 'date') + ' ' + formatLegacyIST(n.createdAt, 'time'), updatedAtIST: n.updatedAt ? formatLegacyIST(n.updatedAt, 'date') + ' ' + formatLegacyIST(n.updatedAt, 'time') : '' })) });
+        } else if (page === 'history') {
+            const groupedHistory = await getHydratedHistory();
+            res.json({ groupedHistory });
+        } else { res.status(404).json({ error: 'Not found' }); }
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// ==========================================
+// 🌱 GROW BACKEND ROUTES
+// ==========================================
+app.post('/api/grow', async (req, res) => {
+    try {
+        const { title, description, startDate, endCount, color, hasData, type, question, start, end } = req.body;
+        const item = {
+            id: generateId('g'),
+            title: title, description: description || '', startDate: startDate, endCount: parseInt(endCount),
+            color: color, hasData: hasData === true, type: hasData ? type : 'boolean', progress: {}
+        };
+        
+        if (item.hasData) {
+            item.question = question || '';
+            if (start !== undefined && start !== '') item.start = type === 'float' ? parseFloat(start) : parseInt(start);
+            if (end !== undefined && end !== '') item.end = type === 'float' ? parseFloat(end) : parseInt(end);
+        }
+        
+        await db.collection('grow').insertOne(item);
+        res.json({ success: true });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.post('/api/grow/:id/update', async (req, res) => {
+    try {
+        const { id, title, description, startDate, endCount, color, hasData, type, question, start, end } = req.body;
+        
+        const currentItem = await db.collection('grow').findOne({ id });
+        if (currentItem && currentItem.color !== color) {
+            const conflictingItem = await db.collection('grow').findOne({ id: { $ne: id }, color });
+            if (conflictingItem) {
+                await db.collection('grow').updateOne({ id: conflictingItem.id }, { $set: { color: currentItem.color } });
+            }
+        }
+        
+        const updatedFields = {
+            title, description: description || '', startDate, endCount: parseInt(endCount), color, hasData: hasData === true, type: hasData ? type : 'boolean'
+        };
+        if (updatedFields.hasData) {
+            updatedFields.question = question || '';
+            if (start !== undefined && start !== '') updatedFields.start = type === 'float' ? parseFloat(start) : parseInt(start);
+            if (end !== undefined && end !== '') updatedFields.end = type === 'float' ? parseFloat(end) : parseInt(end);
+        }
+        
+        await db.collection('grow').updateOne({ id }, { $set: updatedFields });
+        res.json({ success: true });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.post('/api/grow/:id/delete', async (req, res) => {
+    try {
+        await db.collection('grow').deleteOne({ id: req.params.id });
+        res.json({ success: true });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.post('/api/grow/:id/log', async (req, res) => {
+    try {
+        const { dateStr, value } = req.body;
+        await db.collection('grow').updateOne({ id: req.params.id }, { $set: { [`progress.${dateStr}`]: value } });
+        res.json({ success: true });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// ==========================================
+// 🚀 TASKS / NOTES BACKEND ROUTES
+// ==========================================
+app.get('/api/tasks/:taskId', async (req, res) => {
+    try {
+        const task = await db.collection('tasks').findOne({ taskId: req.params.taskId });
+        if (!task) return res.status(404).json({ error: 'Not found' });
+        res.json({ ...task, startDateIST: task.startDateStr || formatLegacyIST(task.startDate, 'date'), startTimeIST: task.startTimeStr || formatLegacyIST(task.startDate, 'time'), endTimeIST: task.endTimeStr || formatLegacyIST(task.endDate, 'time') });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.post('/api/tasks', async (req, res) => {
+    try {
+        const { title, description, startDate, startTime, endTime, repeat, repeatCount } = req.body;
+        const startDateUTC = istToUTC(startDate, startTime); 
+        const endDateUTC = istToUTC(startDate, endTime);
+        if (!startDateUTC || !endDateUTC || endDateUTC <= startDateUTC) return res.status(400).send('End time must be after start time.');
+        
+        const task = { 
+            taskId: generateId('t'), title: title.trim(), description: description ? description.trim() : '', 
+            startDate: startDateUTC, endDate: endDateUTC, nextOccurrence: startDateUTC, 
+            status: 'pending', repeat: repeat || 'none', repeatCount: repeat && repeat !== 'none' ? (parseInt(repeatCount) || 7) : 0, 
+            subtasks: [], createdAt: new Date(), orderIndex: (await db.collection('tasks').countDocuments()) || 0, 
+            startTimeStr: startTime, endTimeStr: endTime, startDateStr: startDate 
+        };
+        await db.collection('tasks').insertOne(task);
+        if (task.startDate > new Date()) scheduleTask(task);
+        res.json({success: true});
+    } catch (error) { res.status(500).send(error.message); }
+});
+
+app.post('/api/tasks/:taskId/update', async (req, res) => {
+    try {
+        const { title, description, startDate, startTime, endTime, repeat, repeatCount } = req.body;
+        const startDateUTC = istToUTC(startDate, startTime); 
+        const endDateUTC = istToUTC(startDate, endTime);
+        if (!startDateUTC || endDateUTC <= startDateUTC) return res.status(400).send('End time must be after start time.');
+        
+        cancelTaskSchedule(req.params.taskId);
+        await db.collection('tasks').updateOne(
+            { taskId: req.params.taskId }, 
+            { $set: { title: title.trim(), description: description ? description.trim() : '', startDate: startDateUTC, endDate: endDateUTC, nextOccurrence: startDateUTC, repeat: repeat || 'none', repeatCount: repeat && repeat !== 'none' ? (parseInt(repeatCount) || 7) : 0, startTimeStr: startTime, endTimeStr: endTime, startDateStr: startDate, updatedAt: new Date() } }
+        );
+        const t = await db.collection('tasks').findOne({ taskId: req.params.taskId });
+        if (t && t.nextOccurrence > new Date()) scheduleTask(t);
+        res.json({success: true});
+    } catch (error) { res.status(500).send(error.message); }
+});
+
+app.post('/api/tasks/:taskId/complete', async (req, res) => {
+    try {
+        const task = await db.collection('tasks').findOne({ taskId: req.params.taskId });
+        if (!task) return res.status(400).send('Task not found');
+        
+        const istNow = getCurrentISTDisplay();
+        await db.collection('history').insertOne({ 
+            taskId: task.taskId, completedAt: new Date(), completedDateStr: istNow.displayDate, completedTimeStr: istNow.displayTime, status: 'completed' 
+        });
+        cancelTaskSchedule(task.taskId);
+        
+        if (task.repeat !== 'none' && task.repeatCount > 0) {
+            const nextUTC = new Date(task.nextOccurrence); nextUTC.setUTCDate(nextUTC.getUTCDate() + (task.repeat === 'weekly' ? 7 : 1));
+            const nextISTDisplay = formatLegacyIST(nextUTC, 'date');
+            await db.collection('tasks').updateOne({ taskId: task.taskId }, { $set: { nextOccurrence: nextUTC, repeatCount: task.repeatCount - 1, startDate: nextUTC, startDateStr: nextISTDisplay, endDate: new Date(nextUTC.getTime() + (task.endDate.getTime() - task.startDate.getTime())), subtasks: (task.subtasks || []).map(s => ({...s, completed: false})) } });
+            const t = await db.collection('tasks').findOne({ taskId: task.taskId });
+            if (t && t.nextOccurrence > new Date()) scheduleTask(t);
+        } else {
+            await db.collection('deleted_tasks').insertOne({ ...task, deletedAt: new Date(), deleteReason: 'completed' });
+            await db.collection('tasks').deleteOne({ taskId: task.taskId });
+        }
+        res.json({success: true});
+    } catch (error) { res.status(500).send(error.message); }
+});
+
+app.post('/api/tasks/:taskId/move', async (req, res) => {
+    try {
+        const { direction } = req.body;
+        const tasks = await db.collection('tasks').find({ status: 'pending' }).sort({ orderIndex: 1 }).toArray();
+        const idx = tasks.findIndex(t => t.taskId === req.params.taskId);
+        if (direction === 'up' && idx > 0) {
+            await db.collection('tasks').updateOne({ taskId: tasks[idx].taskId }, { $set: { orderIndex: tasks[idx-1].orderIndex } });
+            await db.collection('tasks').updateOne({ taskId: tasks[idx-1].taskId }, { $set: { orderIndex: tasks[idx].orderIndex } });
+        } else if (direction === 'down' && idx < tasks.length - 1) {
+            await db.collection('tasks').updateOne({ taskId: tasks[idx].taskId }, { $set: { orderIndex: tasks[idx+1].orderIndex } });
+            await db.collection('tasks').updateOne({ taskId: tasks[idx+1].taskId }, { $set: { orderIndex: tasks[idx].orderIndex } });
+        }
+        res.json({success:true});
+    } catch (error) { res.status(500).send(error.message); }
+});
+
+app.post('/api/tasks/:taskId/delete', async (req, res) => {
+    try {
+        const t = await db.collection('tasks').findOne({taskId: req.params.taskId});
+        cancelTaskSchedule(req.params.taskId);
+        if(t) {
+            await db.collection('deleted_tasks').insertOne({ ...t, deletedAt: new Date(), deleteReason: 'manual' });
+            await db.collection('tasks').deleteOne({ taskId: req.params.taskId });
+        }
+        res.json({success: true});
+    } catch (error) { res.status(500).send(error.message); }
+});
+
+app.post('/api/tasks/:taskId/subtasks', async (req, res) => {
+    try {
+        if (!req.body.title) return res.status(400).send('Empty title');
+        await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { $push: { subtasks: { id: generateSubtaskId(), title: req.body.title.trim(), description: req.body.description || '', completed: false, createdAt: new Date() } } });
+        res.json({success: true});
+    } catch (error) { res.status(500).send(error.message); }
+});
+
+app.post('/api/tasks/:taskId/subtasks/:subtaskId/update', async (req, res) => {
+    try {
+        if (!req.body.title) return res.status(400).send('Empty title');
+        await db.collection('tasks').updateOne({ taskId: req.params.taskId, "subtasks.id": req.params.subtaskId }, { $set: { "subtasks.$.title": req.body.title.trim(), "subtasks.$.description": req.body.description || '' } });
+        res.json({success: true});
+    } catch (error) { res.status(500).send(error.message); }
+});
+
+app.post('/api/tasks/:taskId/subtasks/:subtaskId/toggle', async (req, res) => {
+    try {
+        const task = await db.collection('tasks').findOne({ taskId: req.params.taskId });
+        const sub = (task.subtasks || []).find(s => s.id === req.params.subtaskId);
+        await db.collection('tasks').updateOne({ taskId: req.params.taskId, "subtasks.id": req.params.subtaskId }, { $set: { "subtasks.$.completed": !sub.completed } });
+        res.json({success: true});
+    } catch (error) { res.status(500).send(error.message); }
+});
+
+app.post('/api/tasks/:taskId/subtasks/:subtaskId/delete', async (req, res) => {
+    try {
+        await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { $pull: { subtasks: { id: req.params.subtaskId } } });
+        res.json({success: true});
+    } catch (error) { res.status(500).send(error.message); }
+});
+
+app.post('/api/tasks/:taskId/subtasks/:subtaskId/move', async (req, res) => {
+    try {
+        const task = await db.collection('tasks').findOne({ taskId: req.params.taskId });
+        const subs = task.subtasks || [];
+        const idx = subs.findIndex(s => s.id === req.params.subtaskId);
+        const { direction } = req.body;
+        
+        if (direction === 'up' && idx > 0) {
+            [subs[idx], subs[idx-1]] = [subs[idx-1], subs[idx]];
+        } else if (direction === 'down' && idx < subs.length - 1) {
+            [subs[idx], subs[idx+1]] = [subs[idx+1], subs[idx]];
+        }
+        await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { $set: { subtasks: subs } });
+        res.json({success: true});
+    } catch (error) { res.status(500).send(error.message); }
+});
+
+app.post('/api/notes', async (req, res) => {
+    try {
+        if (!req.body.title) return res.status(400).send('Empty title');
+        const note = { noteId: generateId('n'), title: req.body.title.trim(), description: req.body.description || '', createdAt: new Date(), updatedAt: new Date(), orderIndex: await db.collection('notes').countDocuments() };
+        await db.collection('notes').insertOne(note);
+        res.json({success: true});
+    } catch (error) { res.status(500).send(error.message); }
+});
+
+app.post('/api/notes/:noteId/update', async (req, res) => {
+    try {
+        if (!req.body.title) return res.status(400).send('Empty title');
+        await db.collection('notes').updateOne({ noteId: req.params.noteId }, { $set: { title: req.body.title.trim(), description: req.body.description || '', updatedAt: new Date() } });
+        res.json({success: true});
+    } catch (error) { res.status(500).send(error.message); }
+});
+
+app.post('/api/notes/:noteId/delete', async (req, res) => {
+    try {
+        await db.collection('notes').deleteOne({ noteId: req.params.noteId });
+        res.json({success: true});
+    } catch (error) { res.status(500).send(error.message); }
+});
+
+app.post('/api/notes/:noteId/move', async (req, res) => {
+    try {
+        const notes = await db.collection('notes').find().sort({ orderIndex: 1 }).toArray();
+        const idx = notes.findIndex(n => n.noteId === req.params.noteId);
+        if (req.body.direction === 'up' && idx > 0) {
+            await db.collection('notes').updateOne({ noteId: notes[idx].noteId }, { $set: { orderIndex: notes[idx-1].orderIndex } });
+            await db.collection('notes').updateOne({ noteId: notes[idx-1].noteId }, { $set: { orderIndex: notes[idx].orderIndex } });
+        } else if (req.body.direction === 'down' && idx < notes.length - 1) {
+            await db.collection('notes').updateOne({ noteId: notes[idx].noteId }, { $set: { orderIndex: notes[idx+1].orderIndex } });
+            await db.collection('notes').updateOne({ noteId: notes[idx+1].noteId }, { $set: { orderIndex: notes[idx].orderIndex } });
+        }
+        res.json({success: true});
+    } catch (error) { res.status(500).send(error.message); }
+});
+
+// ==========================================
 // 🚀 BOOTSTRAP
 // ==========================================
 async function start() {
     try {
         if (await connectDB()) {
             await rescheduleAllPending();
-            
-            // Initialize scheduled jobs
             setupHourlyNotifications();
             setupAutoCompletion();
             
             app.listen(PORT, '0.0.0.0', () => {
                 console.log('🌐 Web interface running on port ' + PORT);
-                console.log('🌍 Public Web URL: ' + WEB_APP_URL);
                 console.log('🕐 IST Time: ' + getCurrentISTDisplay().dateTime);
             });
             
