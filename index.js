@@ -1476,9 +1476,15 @@ function writeMainEJS() {
         function submitNoteForm(event) { event.preventDefault(); fetch('/api/notes', { method: 'POST', body: new URLSearchParams(new FormData(event.target)) }).then(res => { if(res.ok){ closeModal('addNoteModal'); showToast('Note created!'); switchPage('notes'); } else throw new Error(''); }).catch(err => { showToast('Error creating note', 'error'); }); }
         function submitEditNoteForm(event) { event.preventDefault(); const formData = new FormData(event.target); fetch('/api/notes/' + formData.get('noteId') + '/update', { method: 'POST', body: new URLSearchParams(formData) }).then(res => { if(res.ok){ closeModal('editNoteModal'); showToast('Note updated!'); switchPage('notes'); } else throw new Error(''); }).catch(err => { showToast('Error updating note', 'error'); }); }
         function toggleSubtask(taskId, subtaskId) { fetch('/api/tasks/' + taskId + '/subtasks/' + subtaskId + '/toggle', { method: 'POST' }).then(res => { if(res.ok){ showToast('Subtask toggled'); switchPage('tasks'); } else throw new Error(''); }).catch(err => { showToast('Error toggling', 'error'); }); }
-        function deleteSubtask(taskId, subtaskId) { if (!confirm('Delete this subtask?')) return; fetch('/api/tasks/' + taskId + '/subtasks/' + subtaskId + '/delete', { method: 'POST' }).then(res => { if(res.ok){ showToast('Subtask deleted'); switchPage('tasks'); } else throw new Error(''); }).catch(err => { showToast('Error deleting', 'error'); }); }
+        function deleteSubtask(taskId, subtaskId) { 
+            if (!confirm('Delete this subtask?')) return; 
+            fetch('/api/tasks/' + taskId + '/subtasks/' + subtaskId + '/delete', { method: 'POST' })
+            .then(res => { if(res.ok){ showToast('Subtask deleted'); switchPage('tasks'); } else throw new Error(''); })
+            .catch(err => { showToast('Error deleting', 'error'); }); 
+        }
         
         function completeTask(taskId) {
+            if (!confirm('Complete this task?')) return;
             fetch('/api/tasks/' + taskId + '/complete', { method: 'POST' })
             .then(res => { if(res.ok){ showToast('Task completed!'); switchPage('tasks'); } else { return res.text().then(t => {throw new Error(t);}); } })
             .catch(err => { showToast(err.message || 'Error completing task', 'error'); });
@@ -1669,37 +1675,34 @@ async function sendStartMenu(ctx) {
 
         const total = allTasks.length;
         let percentage = 0;
-        let progressBar = '░░░░░░░░░░░░░░░░░░░░'; // Default to 20 empty blocks
+        let progressBar = '▱▱▱▱▱▱▱▱▱▱'; 
         
         if (total > 0) {
             percentage = Math.round((completedTasks.length / total) * 100);
-            
-            // Divide by 5 because each of the 20 blocks represents 5%
-            const filledCount = Math.floor(percentage / 5); 
-            
-            progressBar = '█'.repeat(filledCount) + '░'.repeat(20 - filledCount);
+            const filledCount = Math.floor(percentage / 10);
+            progressBar = '▰'.repeat(filledCount) + '▱'.repeat(10 - filledCount);
         }
 
-        let msg = `<i>Welcome, <b><a href="tg://user?id=${ctx.from.id}">${(ctx.from.username || ctx.from.first_name || 'Admin').toUpperCase()}</a></b>!</i>\n`;
-        msg += `${progressBar} ${percentage}%\n`;
-        msg += `<b>👾 Day:</b> <i>${istDateObj.dayName}, ${istDateObj.displayDate}\n</i>`;
-        msg += `<i><u>⚙️ Completed:</u> <b>${completedTasks.length}/${total}</b> tasks.</i>\n`;
-        msg += `<blockquote expandable>`;
+        let msg = `Welcome, ${ctx.from.first_name || 'Admin'}!\n\n`;
+        msg += `You have completed ${completedTasks.length}/${total} tasks yet.\n`;
+        msg += `Progress: ${progressBar} ${percentage}%\n`;
+        
+        msg += `<blockquote expandable>\n`;
         if (total === 0) {
-            msg += `<i>No tasks scheduled for today.</i>\n`;
+            msg += `No tasks scheduled for today.\n`;
         } else {
             allTasks.forEach(t => {
-                msg += `${t.isCompleted ? '✅' : '❌'} ${escapeHTML(t.title)} (${t.startTimeStr}-${t.endTimeStr})\n`;
+                msg += `${t.isCompleted ? '✅' : '❌'} ${escapeHTML(t.title)} (${t.startTimeStr} - ${t.endTimeStr})\n`;
             });
         }
-        msg += `</blockquote>`;
+        msg += `</blockquote>\n\n`;
         
-        msg += `Notifications:  ${globalSettings.notifications ? '🔔 ON' : '🔕 OFF'}\n`;
-        msg += `Alerts : ${globalSettings.alerts ? '🔔 ON' : '🔕 OFF'}\n`;
-        msg += `Reminders : ${globalSettings.reminders ? '🔔 ON' : '🔕 OFF'}`;
+        msg += `Notifications:  ${globalSettings.notifications ? '🟢' : '🔴'}\n`;
+        msg += `Alerts : ${globalSettings.alerts ? '🟢' : '🔴'}\n`;
+        msg += `Reminders : ${globalSettings.reminders ? '🟢' : '🔴'}`;
 
         const kb = Markup.inlineKeyboard([
-            [ Markup.button.webApp('🌐 Task Manager', WEB_APP_URL) ],
+            [ Markup.button.webApp('🌐 Open Mini App', WEB_APP_URL) ],
             [ Markup.button.callback('⚙️ Settings', 'open_settings') ]
         ]);
 
@@ -1714,14 +1717,13 @@ async function sendStartMenu(ctx) {
 bot.command('start', sendStartMenu);
 
 bot.action('open_settings', async (ctx) => {
-    const gs = globalSettings;
     const kb = Markup.inlineKeyboard([
-        [ { text: gs.notifications ? '🔔 Notifications: ON' : '🔕 Notifications: OFF', callback_data: 'tgl_notif', style: gs.notifications ? 'success' : 'danger' } ],
-        [ { text: gs.alerts ? '🔔 Alerts: ON' : '🔕 Alerts: OFF', callback_data: 'tgl_alerts', style: gs.alerts ? 'success' : 'danger' } ],
-        [ { text: gs.reminders ? '🔔 Reminders: ON' : '🔕 Reminders: OFF', callback_data: 'tgl_reminders', style: gs.reminders ? 'success' : 'danger' } ],
-        [ Markup.button.callback('⬅️ Back', 'back_start'), Markup.button.webApp('🌐 Tasks', WEB_APP_URL) ]
+        [ Markup.button.callback(globalSettings.notifications ? '🟢 Notifications: ON' : '🔴 Notifications: OFF', 'tgl_notif') ],
+        [ Markup.button.callback(globalSettings.alerts ? '🟢 Alerts: ON' : '🔴 Alerts: OFF', 'tgl_alerts') ],
+        [ Markup.button.callback(globalSettings.reminders ? '🟢 Reminders: ON' : '🔴 Reminders: OFF', 'tgl_reminders') ],
+        [ Markup.button.callback('⬅️ Back', 'back_start'), Markup.button.webApp('🌐 Open App', WEB_APP_URL) ]
     ]);
-    await ctx.editMessageText('⚙️ <b>Bot Settings:</b>\n\n<i>Toggle your preferences below:</i>', { parse_mode: 'HTML', reply_markup: kb.reply_markup });
+    await ctx.editMessageText('⚙️ <b>Bot Settings</b>\nToggle your preferences below:', { parse_mode: 'HTML', reply_markup: kb.reply_markup });
 });
 
 bot.action('back_start', sendStartMenu);
@@ -1784,7 +1786,7 @@ function scheduleTask(task) {
                 const minutesLeft = Math.ceil((targetTimeUTC - currentTimeUTC) / 60000);
                 if (minutesLeft > 0) {
                     try { 
-                        const sent = await bot.telegram.sendMessage(CHAT_ID, `🔔 <b>In ${minutesLeft}m:</b> ${escapeHTML(task.title)}\n[${task.startTimeStr}-${task.endTimeStr}]`, { parse_mode: 'HTML' }); 
+                        const sent = await bot.telegram.sendMessage(CHAT_ID, `🔔 <b>In ${minutesLeft}m:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${task.startTimeStr} to ${task.endTimeStr}`, { parse_mode: 'HTML' }); 
                         activeReminderMessageIds.push(sent.message_id);
                     } catch (e) {}
                 }
@@ -1844,12 +1846,16 @@ function setupAutoCompletion() {
             }).toArray();
 
             for (const task of pendingTasks) {
+                // Store minimal representation of subtasks to save space
+                const historySubtasks = (task.subtasks || []).map(s => ({ id: s.id, completed: s.completed }));
+
                 await db.collection('history').insertOne({
                     taskId: task.taskId,
                     completedAt: new Date(),
                     completedDateStr: istDateObj.displayDate,
                     completedTimeStr: istDateObj.displayTime,
-                    status: 'completed'
+                    status: 'completed',
+                    subtasks: historySubtasks
                 });
 
                 cancelTaskSchedule(task.taskId);
@@ -1876,9 +1882,6 @@ function setupAutoCompletion() {
                     await db.collection('deleted_tasks').insertOne({ ...task, deletedAt: new Date(), deleteReason: 'auto_completed' });
                     await db.collection('tasks').deleteOne({ taskId: task.taskId });
                 }
-            }
-            if (pendingTasks.length > 0) {
-                try { await bot.telegram.sendMessage(CHAT_ID, `🌙 <b>Auto-completed ${pendingTasks.length} tasks today.</b>`, { parse_mode: 'HTML' }); } catch(e){}
             }
         } catch (error) {}
     });
@@ -1938,14 +1941,14 @@ function setupHourlyNotifications() {
             if (total === 0) return;
 
             let percentage = Math.round((completedTasks.length / total) * 100);
-            const filledCount = Math.floor(percentage / 5); // Divide by 5 for 20 blocks
-            let progressBar = '█'.repeat(filledCount) + '░'.repeat(20 - filledCount);
+            const filledCount = Math.floor(percentage / 10);
+            let progressBar = '▰'.repeat(filledCount) + '▱'.repeat(10 - filledCount);
+
+            let msg = `Current date - ${istDateObj.dayName}\n`;
+            msg += `📊 Progress: ${progressBar} ${percentage}%\n`;
+            msg += `You have completed ${completedTasks.length}/${total} tasks yet\n\n`;
             
-            let msg = `👾 Day: ${istDateObj.dayName}, ${istDateObj.displayDate}\n`;
-            msg += `${progressBar} ${percentage}%\n`;
-            msg += `<i>⚙️ Completed: <b>${completedTasks.length}/${total}</b> tasks.</i>\n`;
-            
-            msg += `<blockquote expandable>`;
+            msg += `<blockquote expandable>\n`;
             allTasks.forEach(t => {
                 msg += `${t.isCompleted ? '✅' : '❌'} ${escapeHTML(t.title)} (${t.startTimeStr} - ${t.endTimeStr})\n`;
             });
@@ -1974,9 +1977,22 @@ async function getHydratedHistory() {
 
     const groupedHistory = {};
     historyList.forEach(item => {
-        const baseTask = taskDict[item.taskId] || { title: 'Deleted Task', description: '', startTimeStr: '??:??', endTimeStr: '??:??', subtasks: [] };
+        const baseTask = taskDict[item.taskId] || { title: 'Deleted Task', description: '', startTimeStr: '??:??', endTimeStr: '??:??', subtasks: [], deleted_subtasks: [] };
         
+        // Item overwrites base attributes with strict history stats (completedTime etc)
         const combined = { ...baseTask, ...item }; 
+
+        // Hydrate subtasks visually from the saved references
+        if (item.subtasks && Array.isArray(item.subtasks)) {
+            combined.subtasks = item.subtasks.map(hSub => {
+                const baseSub = (baseTask.subtasks || []).find(s => s.id === hSub.id) 
+                             || (baseTask.deleted_subtasks || []).find(s => s.id === hSub.id) 
+                             || { title: 'Deleted Subtask', description: '' };
+                return { ...baseSub, completed: hSub.completed };
+            });
+        } else {
+            combined.subtasks = [];
+        }
 
         const dateKey = combined.completedDateStr || formatLegacyIST(combined.completedAt, 'date');
         if (!groupedHistory[dateKey]) groupedHistory[dateKey] = [];
@@ -2199,6 +2215,7 @@ app.post('/api/tasks/:taskId/update', async (req, res) => {
     } catch (error) { res.status(500).send(error.message); }
 });
 
+// COMPLETING TASKS: Pushes minimal state (ID and completion metrics) to history
 app.post('/api/tasks/:taskId/complete', async (req, res) => {
     try {
         const task = await db.collection('tasks').findOne({ taskId: req.params.taskId });
@@ -2206,20 +2223,29 @@ app.post('/api/tasks/:taskId/complete', async (req, res) => {
         
         const istNow = getCurrentISTDisplay();
         
+        // Store minimal representation of subtasks to save space
+        const historySubtasks = (task.subtasks || []).map(s => ({ id: s.id, completed: s.completed }));
+
         await db.collection('history').insertOne({ 
-            ...task,
-            _id: new ObjectId(),
-            taskId: task.taskId, completedAt: new Date(), completedDateStr: istNow.displayDate, completedTimeStr: istNow.displayTime, status: 'completed' 
+            taskId: task.taskId, 
+            completedAt: new Date(), 
+            completedDateStr: istNow.displayDate, 
+            completedTimeStr: istNow.displayTime, 
+            status: 'completed',
+            subtasks: historySubtasks 
         });
+        
         cancelTaskSchedule(task.taskId);
         
         if (task.repeat !== 'none' && task.repeatCount > 0) {
             const nextUTC = new Date(task.nextOccurrence); nextUTC.setUTCDate(nextUTC.getUTCDate() + (task.repeat === 'weekly' ? 7 : 1));
             const nextISTDisplay = formatLegacyIST(nextUTC, 'date');
+            
             await db.collection('tasks').updateOne({ taskId: task.taskId }, { $set: { nextOccurrence: nextUTC, repeatCount: task.repeatCount - 1, startDate: nextUTC, startDateStr: nextISTDisplay, endDate: new Date(nextUTC.getTime() + (task.endDate.getTime() - task.startDate.getTime())), subtasks: (task.subtasks || []).map(s => ({...s, completed: false})) } });
             const t = await db.collection('tasks').findOne({ taskId: task.taskId });
             if (t && t.nextOccurrence > new Date()) scheduleTask(t);
         } else {
+            // Move non-repeating completely to deleted_tasks for reference via history
             await db.collection('deleted_tasks').insertOne({ ...task, deletedAt: new Date(), deleteReason: 'completed' });
             await db.collection('tasks').deleteOne({ taskId: task.taskId });
         }
@@ -2244,12 +2270,21 @@ app.post('/api/tasks/:taskId/move', async (req, res) => {
     } catch (error) { res.status(500).send(error.message); }
 });
 
+// CONDITIONAL DELETION: Preserves history reference or permanently erases to save space
 app.post('/api/tasks/:taskId/delete', async (req, res) => {
     try {
         const t = await db.collection('tasks').findOne({taskId: req.params.taskId});
         cancelTaskSchedule(req.params.taskId);
         if(t) {
-            await db.collection('deleted_tasks').insertOne({ ...t, deletedAt: new Date(), deleteReason: 'manual' });
+            // Check if this task exists in the history ledger
+            const inHistory = await db.collection('history').findOne({ taskId: req.params.taskId });
+            
+            if (inHistory) {
+                // If it is in history, transfer it to deleted_tasks so it can be read later
+                await db.collection('deleted_tasks').insertOne({ ...t, deletedAt: new Date(), deleteReason: 'manual' });
+            }
+            
+            // Delete the live task. If it wasn't in history, it's purged completely, saving space.
             await db.collection('tasks').deleteOne({ taskId: req.params.taskId });
         }
         res.json({success: true});
@@ -2281,9 +2316,28 @@ app.post('/api/tasks/:taskId/subtasks/:subtaskId/toggle', async (req, res) => {
     } catch (error) { res.status(500).send(error.message); }
 });
 
+// CONDITIONAL SUBTASK DELETION: Preserves history reference or permanently erases to save space
 app.post('/api/tasks/:taskId/subtasks/:subtaskId/delete', async (req, res) => {
     try {
-        await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { $pull: { subtasks: { id: req.params.subtaskId } } });
+        const task = await db.collection('tasks').findOne({ taskId: req.params.taskId });
+        const subtask = (task.subtasks || []).find(s => s.id === req.params.subtaskId);
+        
+        // Check if the history has a record referencing this exact subtask ID
+        const inHistory = await db.collection('history').findOne({ 
+            taskId: req.params.taskId, 
+            "subtasks.id": req.params.subtaskId 
+        });
+        
+        if (inHistory && subtask) {
+            // Move subtask to deleted_subtasks array for historical display
+            await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { 
+                $pull: { subtasks: { id: req.params.subtaskId } },
+                $push: { deleted_subtasks: subtask }
+            });
+        } else {
+            // No history record, perfectly safe to permanently purge the subtask to save database space
+            await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { $pull: { subtasks: { id: req.params.subtaskId } } });
+        }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
