@@ -1773,13 +1773,22 @@ bot.command('start', sendStartMenu);
 
 bot.action('open_settings', async (ctx) => {
     const gs = globalSettings;
-    const kb = Markup.inlineKeyboard([
-        [ { text: gs.notifications ? '🔔 Notifications: ON' : '🔕 Notifications: OFF', callback_data: 'tgl_notif', style: gs.notifications ? 'success' : 'danger' } ],
-        [ { text: gs.alerts ? '🔔 Alerts: ON' : '🔕 Alerts: OFF', callback_data: 'tgl_alerts', style: gs.alerts ? 'success' : 'danger' } ],
-        [ { text: gs.reminders ? '🔔 Reminders: ON' : '🔕 Reminders: OFF', callback_data: 'tgl_reminders', style: gs.reminders ? 'success' : 'danger' } ],
-        [ Markup.button.callback('⬅️ Back', 'back_start'), Markup.button.webApp('🌐 Tasks', WEB_APP_URL) ]
-    ]);
-    await ctx.editMessageText('⚙️ <b>Bot Settings:</b>\n\n<i>Toggle your preferences below:</i>', { parse_mode: 'HTML', reply_markup: kb.reply_markup });
+    const kb = {
+        inline_keyboard: [
+            [ { text: gs.notifications ? '🔔 Notifications: ON' : '🔕 Notifications: OFF', callback_data: 'tgl_notif', style: gs.notifications ? 'success' : 'danger' } ],
+            [ { text: gs.alerts ? '🔔 Alerts: ON' : '🔕 Alerts: OFF', callback_data: 'tgl_alerts', style: gs.alerts ? 'success' : 'danger' } ],
+            [ { text: gs.reminders ? '🔔 Reminders: ON' : '🔕 Reminders: OFF', callback_data: 'tgl_reminders', style: gs.reminders ? 'success' : 'danger' } ],
+            [ 
+                { text: '⬅️ Back', callback_data: 'back_start', style: 'primary' }, 
+                { text: '🌐 Tasks', web_app: { url: WEB_APP_URL }, style: 'primary' } 
+            ]
+        ]
+    };
+    
+    await ctx.editMessageText('⚙️ <b>Bot Settings:</b>\n\n<i>Toggle your preferences below:</i>', { 
+        parse_mode: 'HTML', 
+        reply_markup: kb 
+    });
 });
 
 bot.action('back_start', sendStartMenu);
