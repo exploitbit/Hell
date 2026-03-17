@@ -620,7 +620,7 @@ function writeMainEJS() {
                 </div>
                 <div id="qGrowDesc"></div>
                 <div class="form-group" style="margin-bottom: 12px;">
-                    <label id="qGrowLabel" style="font-size:1.05rem; font-weight: 600; color:var(--text-primary-light);"></label>
+                    <label id="qGrowLabel"></label>
                     <div id="qGrowInput" style="margin-top: 10px;"></div>
                 </div>
                 <button class="btn btn-primary" id="saveGrowLogBtn" style="width: 100%;">Save Value</button>
@@ -1170,11 +1170,13 @@ function writeMainEJS() {
             growLogContext = {item, date};
             document.getElementById("qGrowTitle").innerText = item.title;
             
-            // Clear description entirely so only the Question shows
-            document.getElementById("qGrowDesc").innerHTML = ""; 
+            const displayQuestion = (item.question && item.question.trim() !== "") ? item.question : "Please enter your data for today:";
             
-            const displayQuestion = (item.question && item.question.trim() !== "") ? item.question : "Enter value:";
-            document.getElementById("qGrowLabel").innerText = displayQuestion;
+            // INJECT the Question directly into the nicely styled description box to replace what was there
+            document.getElementById("qGrowDesc").innerHTML = '<div class="task-description" style="border-left-color:var(--accent-light); margin-bottom:16px; font-size: 1rem; font-weight: 500; color: var(--text-primary-light);">' + escapeHtml(displayQuestion) + '</div>';
+            
+            // Clear the old label so we don't have duplicates
+            document.getElementById("qGrowLabel").innerText = ""; 
             
             const wrapper = document.getElementById("qGrowInput");
             const step = item.type === "float" ? "0.01" : "1";
