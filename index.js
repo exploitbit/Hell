@@ -1725,34 +1725,37 @@ async function sendStartMenu(ctx) {
 
         const total = allTasks.length;
         let percentage = 0;
-        let progressBar = '▱▱▱▱▱▱▱▱▱▱'; 
+        let progressBar = '░░░░░░░░░░░░░░░░░░░░'; // Default to 20 empty blocks
         
         if (total > 0) {
             percentage = Math.round((completedTasks.length / total) * 100);
-            const filledCount = Math.floor(percentage / 10);
-            progressBar = '▰'.repeat(filledCount) + '▱'.repeat(10 - filledCount);
+            
+            // Divide by 5 because each of the 20 blocks represents 5%
+            const filledCount = Math.floor(percentage / 5); 
+            
+            progressBar = '█'.repeat(filledCount) + '░'.repeat(20 - filledCount);
         }
 
-        let msg = `Welcome, ${ctx.from.first_name || 'Admin'}!\n\n`;
-        msg += `You have completed ${completedTasks.length}/${total} tasks yet.\n`;
-        msg += `Progress: ${progressBar} ${percentage}%\n`;
+        let msg = `<i>Welcome, <b><a href="tg://user?id=${ctx.from.id}">${(ctx.from.username || ctx.from.first_name || 'Admin').toUpperCase()}</a></b>!</i>\n`;
+        msg += `${progressBar} ${percentage}%\n`;
+        msg += `⚙️Completed: <i><b>${completedTasks.length}/${total}</b></i> tasks.\n`;
         
-        msg += `<blockquote expandable>\n`;
+        msg += `<blockquote expandable>`;
         if (total === 0) {
-            msg += `No tasks scheduled for today.\n`;
+            msg += `No tasks scheduled for today.`;
         } else {
             allTasks.forEach(t => {
                 msg += `${t.isCompleted ? '✅' : '❌'} ${escapeHTML(t.title)} (${t.startTimeStr} - ${t.endTimeStr})\n`;
             });
         }
-        msg += `</blockquote>\n\n`;
+        msg += `</blockquote>`;
         
-        msg += `Notifications:  ${globalSettings.notifications ? '🟢' : '🔴'}\n`;
-        msg += `Alerts : ${globalSettings.alerts ? '🟢' : '🔴'}\n`;
-        msg += `Reminders : ${globalSettings.reminders ? '🟢' : '🔴'}`;
+        msg += `Notifications:  ${globalSettings.notifications ? '🔔 ON' : '🔕 OFF'}\n`;
+        msg += `Alerts : ${globalSettings.alerts ? '🔔 ON' : '🔕 OFF'}\n`;
+        msg += `Reminders : ${globalSettings.reminders ? '🔔 ON' : '🔕 OFF'}`;
 
         const kb = Markup.inlineKeyboard([
-            [ Markup.button.webApp('🌐 Open Mini App', WEB_APP_URL) ],
+            [ Markup.button.webApp('🌐 Task Manager', WEB_APP_URL) ],
             [ Markup.button.callback('⚙️ Settings', 'open_settings') ]
         ]);
 
@@ -1768,12 +1771,12 @@ bot.command('start', sendStartMenu);
 
 bot.action('open_settings', async (ctx) => {
     const kb = Markup.inlineKeyboard([
-        [ Markup.button.callback(globalSettings.notifications ? '🟢 Notifications: ON' : '🔴 Notifications: OFF', 'tgl_notif') ],
-        [ Markup.button.callback(globalSettings.alerts ? '🟢 Alerts: ON' : '🔴 Alerts: OFF', 'tgl_alerts') ],
-        [ Markup.button.callback(globalSettings.reminders ? '🟢 Reminders: ON' : '🔴 Reminders: OFF', 'tgl_reminders') ],
-        [ Markup.button.callback('⬅️ Back', 'back_start'), Markup.button.webApp('🌐 Open App', WEB_APP_URL) ]
+        [ Markup.button.callback(globalSettings.notifications ? '🔔 Notifications: ON' : '🔕 Notifications: OFF', 'tgl_notif') ],
+        [ Markup.button.callback(globalSettings.alerts ? '🔔 Alerts: ON' : '🔕 Alerts: OFF', 'tgl_alerts') ],
+        [ Markup.button.callback(globalSettings.reminders ? '🔔 Reminders: ON' : '🔕 Reminders: OFF', 'tgl_reminders') ],
+        [ Markup.button.callback('⬅️ Back', 'back_start'), Markup.button.webApp('🌐 Tasks', WEB_APP_URL) ]
     ]);
-    await ctx.editMessageText('⚙️ <b>Bot Settings</b>\nToggle your preferences below:', { parse_mode: 'HTML', reply_markup: kb.reply_markup });
+    await ctx.editMessageText('⚙️ <b>Bot Settings</b>\n\n<i>Toggle your preferences below:</i>', { parse_mode: 'HTML', reply_markup: kb.reply_markup });
 });
 
 bot.action('back_start', sendStartMenu);
@@ -1932,6 +1935,9 @@ function setupAutoCompletion() {
                     await db.collection('tasks').deleteOne({ taskId: task.taskId });
                 }
             }
+            if (pendingTasks.length > 0) {
+                try { await bot.telegram.sendMessage(CHAT_ID, `🌙 <b>Auto-completed</b> ${pendingTasks.length} tasks.\n🕒 <b>Time:</b> ${istDateObj.displayTime}\n📅 <b>Date:</b> ${istDateObj.displayDate}\n🗓 <b>Day:</b> ${dayName}\n`, { parse_mode: 'HTML' }); } catch(e){}
+            }
         } catch (error) {}
     });
 }
@@ -1988,14 +1994,13 @@ function setupHourlyNotifications() {
 
             const total = allTasks.length;
             if (total === 0) return;
-
             let percentage = Math.round((completedTasks.length / total) * 100);
-            const filledCount = Math.floor(percentage / 10);
-            let progressBar = '▰'.repeat(filledCount) + '▱'.repeat(10 - filledCount);
-
-            let msg = `Current date - ${istDateObj.dayName}\n`;
-            msg += `📊 Progress: ${progressBar} ${percentage}%\n`;
-            msg += `You have completed ${completedTasks.length}/${total} tasks yet\n\n`;
+            const filledCount = Math.floor(percentage / 5); // Divide by 5 for 20 blocks
+            let progressBar = '█'.repeat(filledCount) + '░'.repeat(20 - filledCount);
+            
+            let msg = `${istDateObj.displayDate} - ${istDateObj.dayName}\n`;
+            msg += `${progressBar} ${percentage}%\n`;
+            msg += `⚙️ Completed: <i><b>${completedTasks.length}/${total}</b></i> tasks\n\n`;
             
             msg += `<blockquote expandable>\n`;
             allTasks.forEach(t => {
