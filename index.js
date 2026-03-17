@@ -94,16 +94,17 @@ function writeMainEJS() {
         #settingsAppModal {
             align-items: flex-start !important;
             justify-content: flex-end !important;
-            background: transparent !important; /* Removes the dark overlay */
-            backdrop-filter: none !important; /* Removes the blur */
-            padding-top: 55px; /* Pushes it exactly below the header */
-            padding-right: 12px; /* Aligns with the gear icon */
+            background: transparent !important;
+            backdrop-filter: none !important;
+            padding-top: 55px; 
+            padding-right: 12px; 
         }
         
         #settingsAppModal .modal-content {
-            width: 240px;
-            max-width: 240px;
+            width: 170px;
+            max-width: 170px;
             margin: 0;
+            padding: 12px;
             border-radius: 16px;
             box-shadow: 0 8px 25px rgba(0,0,0,0.15);
             transform-origin: top right;
@@ -440,11 +441,6 @@ function writeMainEJS() {
 
     <div class="modal" id="settingsAppModal">
         <div class="modal-content">
-            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                <h2 style="font-size: 1.2rem;">Settings</h2>
-                <button class="action-btn" onclick="closeModal('settingsAppModal')">&times;</button>
-            </div>
-            
             <div class="settings-row">
                 <span class="settings-label">Dark Theme</span>
                 <label class="switch"><input type="checkbox" id="themeToggle" onchange="toggleTheme()"><span class="slider"></span></label>
@@ -623,7 +619,10 @@ function writeMainEJS() {
                     <button class="action-btn" onclick="showGrowLogList()"><i class="fas fa-arrow-left"></i></button>
                 </div>
                 <div id="qGrowDesc"></div>
-                <div class="form-group" style="margin-bottom: 12px;"><label id="qGrowLabel" style="font-size:0.95rem; font-weight: 500; color:var(--text-primary-light);"></label><div id="qGrowInput"></div></div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label id="qGrowLabel" style="font-size:1.05rem; font-weight: 600; color:var(--text-primary-light);"></label>
+                    <div id="qGrowInput" style="margin-top: 10px;"></div>
+                </div>
                 <button class="btn btn-primary" id="saveGrowLogBtn" style="width: 100%;">Save Value</button>
             </div>
         </div>
@@ -745,7 +744,7 @@ function writeMainEJS() {
         }
 
         // ==========================================
-        // 🌱 GROW FRONTEND LOGIC (Ported from old.js)
+        // 🌱 GROW FRONTEND LOGIC 
         // ==========================================
         function renderGrowPageStaticShell() {
             const istObj = getGrowIST();
@@ -1061,7 +1060,7 @@ function writeMainEJS() {
 
         window.openAddGrowModal = function() {
             if (growTrackerData.items && growTrackerData.items.length >= 10) {
-                showToast("All colors occupied! Cannot add more.", "error");
+                showToast("Failed", "error");
                 return;
             }
             document.getElementById("addGrowStart").value = growToday;
@@ -1107,9 +1106,9 @@ function writeMainEJS() {
             };
             fetch("/api/grow", { method:"POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload) })
             .then(res => {
-                if(res.ok) { closeModal("addGrowModal"); document.getElementById("addGrowForm").reset(); showToast("Tracker created!"); switchPage("grow"); }
+                if(res.ok) { closeModal("addGrowModal"); document.getElementById("addGrowForm").reset(); showToast("Success"); switchPage("grow"); }
                 else throw new Error("Failed");
-            }).catch(e => { showToast("Failed to create tracker", "error"); });
+            }).catch(e => { showToast("Failed", "error"); });
         });
 
         document.getElementById("editGrowForm").addEventListener("submit", function(e) {
@@ -1124,18 +1123,18 @@ function writeMainEJS() {
             };
             fetch("/api/grow/" + id + "/update", { method:"POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload) })
             .then(res => {
-                if(res.ok) { closeModal("editGrowModal"); showToast("Tracker updated!"); switchPage("grow"); }
+                if(res.ok) { closeModal("editGrowModal"); showToast("Success"); switchPage("grow"); }
                 else throw new Error("Failed");
-            }).catch(e => { showToast("Failed to update", "error"); });
+            }).catch(e => { showToast("Failed", "error"); });
         });
 
         window.deleteGrowTracker = function(id) {
             if(confirm("Delete this tracker and all its logs?")) { 
                 fetch("/api/grow/" + id + "/delete", {method:"POST"})
                 .then(res => {
-                    if(res.ok) { showToast("Tracker deleted!"); switchPage("grow"); }
+                    if(res.ok) { showToast("Success"); switchPage("grow"); }
                     else throw new Error("Failed");
-                }).catch(e => { showToast("Error deleting tracker", "error"); });
+                }).catch(e => { showToast("Failed", "error"); });
             }
         };
 
@@ -1171,18 +1170,19 @@ function writeMainEJS() {
             growLogContext = {item, date};
             document.getElementById("qGrowTitle").innerText = item.title;
             
-            // Optional: You can completely remove this next line if you NEVER want the description to show here
-            document.getElementById("qGrowDesc").innerHTML = item.description ? '<div class="task-description" style="border-left-color:var(--accent-light);margin-bottom:12px;">' + escapeHtml(item.description) + '</div>' : "";
+            // Clear description entirely so only the Question shows
+            document.getElementById("qGrowDesc").innerHTML = ""; 
             
-            // FORCE the question to show, with a fallback just in case the database entry is missing it
-            document.getElementById("qGrowLabel").innerText = item.question && item.question.trim() !== "" ? item.question : "Log your data for today:";
+            const displayQuestion = (item.question && item.question.trim() !== "") ? item.question : "Enter value:";
+            document.getElementById("qGrowLabel").innerText = displayQuestion;
             
             const wrapper = document.getElementById("qGrowInput");
             const step = item.type === "float" ? "0.01" : "1";
-            wrapper.innerHTML = '<input type="number" step="' + step + '" class="form-control" id="logGrowValue" placeholder="Enter numerical value here" autofocus>';
+            wrapper.innerHTML = '<input type="number" step="' + step + '" class="form-control" id="logGrowValue" placeholder="Enter numerical value" autofocus>';
             
             document.getElementById("logGrowListView").style.display = "none";
             document.getElementById("logGrowQuestionView").style.display = "block";
+            setTimeout(() => { const input = document.getElementById("logGrowValue"); if(input) input.focus(); }, 100);
         }
 
         function saveGrowLog(item, date, val) {
@@ -1190,16 +1190,16 @@ function writeMainEJS() {
             fetch("/api/grow/log", { method:"POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload) })
             .then(res => {
                 if(res.ok) { 
-                    showToast("Progress logged!");
+                    showToast("Success");
                     switchPage("grow"); 
                     closeModal("logGrowModal");
                 } else throw new Error("Failed");
-            }).catch (err => { showToast("Failed to save progress.", "error"); });
+            }).catch (err => { showToast("Failed", "error"); });
         }
 
         document.getElementById("saveGrowLogBtn").addEventListener("click", function() {
             const input = document.getElementById("logGrowValue");
-            if(!input || !input.value) { showToast("Please enter a valid numerical value.", "error"); return; }
+            if(!input || !input.value) { showToast("Failed", "error"); return; }
             const {item, date} = growLogContext;
             const val = item.type === "float" ? parseFloat(input.value) : parseInt(input.value);
             saveGrowLog(item, date, val);
@@ -1232,13 +1232,13 @@ function writeMainEJS() {
         window.moveTask = function(taskId, direction) {
             fetch('/api/tasks/' + taskId + '/move', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({direction}) })
             .then(res => { if(res.ok) switchPage('tasks'); else throw new Error(''); })
-            .catch(e => showToast('Error moving', 'error'));
+            .catch(e => showToast('Failed', 'error'));
         };
 
         window.moveSubtask = function(taskId, subtaskId, direction) {
             fetch('/api/tasks/' + taskId + '/subtasks/' + subtaskId + '/move', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({direction}) })
             .then(res => { if(res.ok) switchPage('tasks'); else throw new Error(''); })
-            .catch(e => showToast('Error moving', 'error'));
+            .catch(e => showToast('Failed', 'error'));
         };
 
         function renderTasksPage() {
@@ -1423,7 +1423,7 @@ function writeMainEJS() {
                 method: 'POST', 
                 headers: {'Content-Type': 'application/json'}, 
                 body: JSON.stringify(globalAppVars) 
-            }).then(() => showToast('Settings Updated'));
+            }).then(() => showToast('Success'));
         }
 
         function openAddTaskModal() {
@@ -1452,7 +1452,7 @@ function writeMainEJS() {
                 document.getElementById('editRepeatCount').value = task.repeatCount || 7;
                 document.getElementById('editRepeatCountGroup').style.display = task.repeat !== 'none' ? 'block' : 'none';
                 openModal('editTaskModal');
-            }).catch(err => { showToast('Error loading task', 'error'); });
+            }).catch(err => { showToast('Failed', 'error'); });
         }
 
         function openAddSubtaskModal(taskId) { document.getElementById('subtaskTaskId').value = taskId; openModal('addSubtaskModal'); }
@@ -1463,40 +1463,40 @@ function writeMainEJS() {
         function submitTaskForm(event) {
             event.preventDefault(); 
             fetch('/api/tasks', { method: 'POST', body: new URLSearchParams(new FormData(event.target)) })
-            .then(res => { if(res.ok){ closeModal('addTaskModal'); showToast('Task created!'); switchPage('tasks'); } else { return res.text().then(t => {throw new Error(t);}); } })
-            .catch(err => { showToast(err.message || 'Error creating task', 'error'); });
+            .then(res => { if(res.ok){ closeModal('addTaskModal'); showToast('Success'); switchPage('tasks'); } else { return res.text().then(t => {throw new Error(t);}); } })
+            .catch(err => { showToast('Failed', 'error'); });
         }
 
         function submitEditTaskForm(event) {
             event.preventDefault(); 
             const formData = new FormData(event.target);
             fetch('/api/tasks/' + formData.get('taskId') + '/update', { method: 'POST', body: new URLSearchParams(formData) })
-            .then(res => { if(res.ok){ closeModal('editTaskModal'); showToast('Task updated!'); switchPage('tasks'); } else { return res.text().then(t => {throw new Error(t);}); } })
-            .catch(err => { showToast(err.message || 'Error updating task', 'error'); });
+            .then(res => { if(res.ok){ closeModal('editTaskModal'); showToast('Success'); switchPage('tasks'); } else { return res.text().then(t => {throw new Error(t);}); } })
+            .catch(err => { showToast('Failed', 'error'); });
         }
 
-        function submitSubtaskForm(event) { event.preventDefault(); const formData = new FormData(event.target); fetch('/api/tasks/' + formData.get('taskId') + '/subtasks', { method: 'POST', body: new URLSearchParams(formData) }).then(res => { if(res.ok){ closeModal('addSubtaskModal'); showToast('Subtask added!'); switchPage('tasks'); } else throw new Error(''); }).catch(err => { showToast('Error adding subtask', 'error'); }); }
-        function submitEditSubtaskForm(event) { event.preventDefault(); const formData = new FormData(event.target); fetch('/api/tasks/' + formData.get('taskId') + '/subtasks/' + formData.get('subtaskId') + '/update', { method: 'POST', body: new URLSearchParams(formData) }).then(res => { if(res.ok){ closeModal('editSubtaskModal'); showToast('Subtask updated!'); switchPage('tasks'); } else throw new Error(''); }).catch(err => { showToast('Error updating subtask', 'error'); }); }
-        function submitNoteForm(event) { event.preventDefault(); fetch('/api/notes', { method: 'POST', body: new URLSearchParams(new FormData(event.target)) }).then(res => { if(res.ok){ closeModal('addNoteModal'); showToast('Note created!'); switchPage('notes'); } else throw new Error(''); }).catch(err => { showToast('Error creating note', 'error'); }); }
-        function submitEditNoteForm(event) { event.preventDefault(); const formData = new FormData(event.target); fetch('/api/notes/' + formData.get('noteId') + '/update', { method: 'POST', body: new URLSearchParams(formData) }).then(res => { if(res.ok){ closeModal('editNoteModal'); showToast('Note updated!'); switchPage('notes'); } else throw new Error(''); }).catch(err => { showToast('Error updating note', 'error'); }); }
-        function toggleSubtask(taskId, subtaskId) { fetch('/api/tasks/' + taskId + '/subtasks/' + subtaskId + '/toggle', { method: 'POST' }).then(res => { if(res.ok){ showToast('Subtask toggled'); switchPage('tasks'); } else throw new Error(''); }).catch(err => { showToast('Error toggling', 'error'); }); }
+        function submitSubtaskForm(event) { event.preventDefault(); const formData = new FormData(event.target); fetch('/api/tasks/' + formData.get('taskId') + '/subtasks', { method: 'POST', body: new URLSearchParams(formData) }).then(res => { if(res.ok){ closeModal('addSubtaskModal'); showToast('Success'); switchPage('tasks'); } else throw new Error(''); }).catch(err => { showToast('Failed', 'error'); }); }
+        function submitEditSubtaskForm(event) { event.preventDefault(); const formData = new FormData(event.target); fetch('/api/tasks/' + formData.get('taskId') + '/subtasks/' + formData.get('subtaskId') + '/update', { method: 'POST', body: new URLSearchParams(formData) }).then(res => { if(res.ok){ closeModal('editSubtaskModal'); showToast('Success'); switchPage('tasks'); } else throw new Error(''); }).catch(err => { showToast('Failed', 'error'); }); }
+        function submitNoteForm(event) { event.preventDefault(); fetch('/api/notes', { method: 'POST', body: new URLSearchParams(new FormData(event.target)) }).then(res => { if(res.ok){ closeModal('addNoteModal'); showToast('Success'); switchPage('notes'); } else throw new Error(''); }).catch(err => { showToast('Failed', 'error'); }); }
+        function submitEditNoteForm(event) { event.preventDefault(); const formData = new FormData(event.target); fetch('/api/notes/' + formData.get('noteId') + '/update', { method: 'POST', body: new URLSearchParams(formData) }).then(res => { if(res.ok){ closeModal('editNoteModal'); showToast('Success'); switchPage('notes'); } else throw new Error(''); }).catch(err => { showToast('Failed', 'error'); }); }
+        function toggleSubtask(taskId, subtaskId) { fetch('/api/tasks/' + taskId + '/subtasks/' + subtaskId + '/toggle', { method: 'POST' }).then(res => { if(res.ok){ showToast('Success'); switchPage('tasks'); } else throw new Error(''); }).catch(err => { showToast('Failed', 'error'); }); }
         function deleteSubtask(taskId, subtaskId) { 
             if (!confirm('Delete this subtask?')) return; 
             fetch('/api/tasks/' + taskId + '/subtasks/' + subtaskId + '/delete', { method: 'POST' })
-            .then(res => { if(res.ok){ showToast('Subtask deleted'); switchPage('tasks'); } else throw new Error(''); })
-            .catch(err => { showToast('Error deleting', 'error'); }); 
+            .then(res => { if(res.ok){ showToast('Success'); switchPage('tasks'); } else throw new Error(''); })
+            .catch(err => { showToast('Failed', 'error'); }); 
         }
         
         function completeTask(taskId) {
             if (!confirm('Complete this task?')) return;
             fetch('/api/tasks/' + taskId + '/complete', { method: 'POST' })
-            .then(res => { if(res.ok){ showToast('Task completed!'); switchPage('tasks'); } else { return res.text().then(t => {throw new Error(t);}); } })
-            .catch(err => { showToast(err.message || 'Error completing task', 'error'); });
+            .then(res => { if(res.ok){ showToast('Success'); switchPage('tasks'); } else { return res.text().then(t => {throw new Error(t);}); } })
+            .catch(err => { showToast('Failed', 'error'); });
         }
         
-        function deleteTask(taskId) { if (!confirm('Delete this task?')) return; fetch('/api/tasks/' + taskId + '/delete', { method: 'POST' }).then(res => { if(res.ok){ showToast('Task deleted'); switchPage('tasks'); } else throw new Error(''); }).catch(err => { showToast('Error deleting', 'error'); }); }
-        function deleteNote(noteId) { if (!confirm('Delete this note?')) return; fetch('/api/notes/' + noteId + '/delete', { method: 'POST' }).then(res => { if(res.ok){ showToast('Note deleted'); switchPage('notes'); } else throw new Error(''); }).catch(err => { showToast('Error deleting', 'error'); }); }
-        function moveNote(noteId, direction) { const formData = new FormData(); formData.append('direction', direction); fetch('/api/notes/' + noteId + '/move', { method: 'POST', body: new URLSearchParams(formData) }).then(res => { if(res.ok){ switchPage('notes'); } else throw new Error(''); }).catch(err => { showToast('Error moving', 'error'); }); }
+        function deleteTask(taskId) { if (!confirm('Delete this task?')) return; fetch('/api/tasks/' + taskId + '/delete', { method: 'POST' }).then(res => { if(res.ok){ showToast('Success'); switchPage('tasks'); } else throw new Error(''); }).catch(err => { showToast('Failed', 'error'); }); }
+        function deleteNote(noteId) { if (!confirm('Delete this note?')) return; fetch('/api/notes/' + noteId + '/delete', { method: 'POST' }).then(res => { if(res.ok){ showToast('Success'); switchPage('notes'); } else throw new Error(''); }).catch(err => { showToast('Failed', 'error'); }); }
+        function moveNote(noteId, direction) { const formData = new FormData(); formData.append('direction', direction); fetch('/api/notes/' + noteId + '/move', { method: 'POST', body: new URLSearchParams(formData) }).then(res => { if(res.ok){ switchPage('notes'); } else throw new Error(''); }).catch(err => { showToast('Failed', 'error'); }); }
 
         document.addEventListener('DOMContentLoaded', function() {
             // Apply System Theme Auto-Sync
@@ -1509,14 +1509,12 @@ function writeMainEJS() {
                 document.body.setAttribute('data-theme', 'light');
             }
 
-            // Sync System preference changes in real-time
             window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
                 const newColorScheme = event.matches ? "dark" : "light";
                 if (themeToggle) themeToggle.checked = event.matches;
                 document.body.setAttribute('data-theme', newColorScheme);
             });
             
-            // Set initial Grow Time Context
             const gIst = getGrowIST();
             growToday = gIst.date; growMonth = gIst.month; growYear = gIst.year;
 
@@ -1548,7 +1546,6 @@ function writeMainEJS() {
             
             // Prevent Browser Context Menu
             window.oncontextmenu = function(event) {
-                // Allow our custom priority menus to trigger without bringing up browser menu
                 event.preventDefault(); 
             };
         });
@@ -1575,7 +1572,6 @@ async function connectDB() {
             db = client.db('telegram_bot');
             console.log('✅ Connected to MongoDB');
             
-            // Auto-init Settings
             let s = await db.collection('settings').findOne({ _id: 'bot_config' });
             if (!s) {
                 await db.collection('settings').insertOne({ _id: 'bot_config', notifications: true, alerts: true, reminders: true });
@@ -1584,7 +1580,6 @@ async function connectDB() {
                 globalSettings = { notifications: s.notifications !== false, alerts: s.alerts !== false, reminders: s.reminders !== false };
             }
             
-            // Initialize collections if missing (Old.js logic requirement)
             const exists = await db.collection('grow').findOne({ type: 'tracker' });
             if (!exists) {
                 await db.collection('grow').insertOne({ type: 'tracker', items: [], progress: {} });
@@ -1850,7 +1845,6 @@ function setupAutoCompletion() {
             }).toArray();
 
             for (const task of pendingTasks) {
-                // Store minimal representation of subtasks to save space
                 const historySubtasks = (task.subtasks || []).map(s => ({ id: s.id, completed: s.completed }));
 
                 await db.collection('history').insertOne({
@@ -1983,10 +1977,8 @@ async function getHydratedHistory() {
     historyList.forEach(item => {
         const baseTask = taskDict[item.taskId] || { title: 'Deleted Task', description: '', startTimeStr: '??:??', endTimeStr: '??:??', subtasks: [], deleted_subtasks: [] };
         
-        // Item overwrites base attributes with strict history stats (completedTime etc)
         const combined = { ...baseTask, ...item }; 
 
-        // Hydrate subtasks visually from the saved references
         if (item.subtasks && Array.isArray(item.subtasks)) {
             combined.subtasks = item.subtasks.map(hSub => {
                 const baseSub = (baseTask.subtasks || []).find(s => s.id === hSub.id) 
@@ -2098,7 +2090,7 @@ app.get('/api/page/:page', async (req, res) => {
 });
 
 // ==========================================
-// 🌱 GROW BACKEND ROUTES (Reverted to old.js logic)
+// 🌱 GROW BACKEND ROUTES 
 // ==========================================
 app.post('/api/grow', async (req, res) => {
     try {
@@ -2116,6 +2108,12 @@ app.post('/api/grow', async (req, res) => {
         }
         
         await db.collection('grow').updateOne({ type: 'tracker' }, { $push: { items: item } }, { upsert: true });
+        
+        if(globalSettings.alerts) {
+            let msg = `🌱 <b>Grow Added</b>\n📌 <b>Title:</b> ${escapeHTML(item.title)}\n⏳ <b>Duration:</b> ${item.endCount} Days`;
+            if (item.description) msg += `\n📝 <b>Desc:</b> ${escapeHTML(item.description.substring(0, 60))}`;
+            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
+        }
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
@@ -2144,6 +2142,12 @@ app.post('/api/grow/:id/update', async (req, res) => {
         }
         
         await db.collection('grow').updateOne({ type: 'tracker', 'items.id': id }, { $set: { 'items.$': updatedItem } });
+        
+        if(globalSettings.alerts) {
+            let msg = `✏️ <b>Grow Edited</b>\n📌 <b>Title:</b> ${escapeHTML(updatedItem.title)}\n⏳ <b>Duration:</b> ${updatedItem.endCount} Days`;
+            if (updatedItem.description) msg += `\n📝 <b>Desc:</b> ${escapeHTML(updatedItem.description.substring(0, 60))}`;
+            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
+        }
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
@@ -2152,11 +2156,17 @@ app.post('/api/grow/:id/delete', async (req, res) => {
     try {
         const tracker = await db.collection('grow').findOne({ type: 'tracker' });
         const item = tracker?.items.find(i => i.id === req.params.id);
+        
         await db.collection('grow').updateOne({ type: 'tracker' }, { $pull: { items: { id: req.params.id } } });
         if (tracker?.progress) {
             const prog = { ...tracker.progress };
             Object.keys(prog).forEach(date => { if (prog[date] && prog[date][req.params.id] !== undefined) delete prog[date][req.params.id]; });
             await db.collection('grow').updateOne({ type: 'tracker' }, { $set: { progress: prog } });
+        }
+        
+        if(globalSettings.alerts && item) {
+            let msg = `🗑️ <b>Grow Deleted</b>\n📌 <b>Title:</b> ${escapeHTML(item.title)}`;
+            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
         }
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
@@ -2166,6 +2176,15 @@ app.post('/api/grow/log', async (req, res) => {
     try {
         const { itemId, dateStr, value } = req.body;
         await db.collection('grow').updateOne({ type: 'tracker' }, { $set: { [`progress.${dateStr}.${itemId}`]: value } });
+        
+        if(globalSettings.alerts) {
+            const tracker = await db.collection('grow').findOne({ type: 'tracker' });
+            const item = tracker?.items.find(i => i.id === itemId);
+            if(item) {
+                let msg = `📈 <b>Grow Logged</b>\n📌 <b>Title:</b> ${escapeHTML(item.title)}\n📅 <b>Date:</b> ${dateStr}\n🔢 <b>Value:</b> ${value}`;
+                try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
+            }
+        }
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
@@ -2197,6 +2216,12 @@ app.post('/api/tasks', async (req, res) => {
         };
         await db.collection('tasks').insertOne(task);
         if (task.startDate > new Date()) scheduleTask(task);
+        
+        if(globalSettings.alerts) {
+            let msg = `➕ <b>Task Added</b>\n📌 <b>Title:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${task.startTimeStr} - ${task.endTimeStr}`;
+            if (task.description) msg += `\n📝 <b>Desc:</b> ${escapeHTML(task.description.substring(0, 60))}`;
+            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
+        }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -2215,19 +2240,22 @@ app.post('/api/tasks/:taskId/update', async (req, res) => {
         );
         const t = await db.collection('tasks').findOne({ taskId: req.params.taskId });
         if (t && t.nextOccurrence > new Date()) scheduleTask(t);
+        
+        if(globalSettings.alerts && t) {
+            let msg = `✏️ <b>Task Edited</b>\n📌 <b>Title:</b> ${escapeHTML(t.title)}\n🕒 <b>Time:</b> ${t.startTimeStr} - ${t.endTimeStr}`;
+            if (t.description) msg += `\n📝 <b>Desc:</b> ${escapeHTML(t.description.substring(0, 60))}`;
+            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
+        }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
 
-// COMPLETING TASKS: Pushes minimal state (ID and completion metrics) to history
 app.post('/api/tasks/:taskId/complete', async (req, res) => {
     try {
         const task = await db.collection('tasks').findOne({ taskId: req.params.taskId });
         if (!task) return res.status(400).send('Task not found');
         
         const istNow = getCurrentISTDisplay();
-        
-        // Store minimal representation of subtasks to save space
         const historySubtasks = (task.subtasks || []).map(s => ({ id: s.id, completed: s.completed }));
 
         await db.collection('history').insertOne({ 
@@ -2249,11 +2277,14 @@ app.post('/api/tasks/:taskId/complete', async (req, res) => {
             const t = await db.collection('tasks').findOne({ taskId: task.taskId });
             if (t && t.nextOccurrence > new Date()) scheduleTask(t);
         } else {
-            // Move non-repeating completely to deleted_tasks for reference via history
             await db.collection('deleted_tasks').insertOne({ ...task, deletedAt: new Date(), deleteReason: 'completed' });
             await db.collection('tasks').deleteOne({ taskId: task.taskId });
         }
 
+        if(globalSettings.alerts) {
+            let msg = `✅ <b>Task Completed</b>\n📌 <b>Title:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${task.startTimeStr} - ${task.endTimeStr}`;
+            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
+        }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -2274,22 +2305,19 @@ app.post('/api/tasks/:taskId/move', async (req, res) => {
     } catch (error) { res.status(500).send(error.message); }
 });
 
-// CONDITIONAL DELETION: Preserves history reference or permanently erases to save space
 app.post('/api/tasks/:taskId/delete', async (req, res) => {
     try {
         const t = await db.collection('tasks').findOne({taskId: req.params.taskId});
         cancelTaskSchedule(req.params.taskId);
         if(t) {
-            // Check if this task exists in the history ledger
             const inHistory = await db.collection('history').findOne({ taskId: req.params.taskId });
-            
-            if (inHistory) {
-                // If it is in history, transfer it to deleted_tasks so it can be read later
-                await db.collection('deleted_tasks').insertOne({ ...t, deletedAt: new Date(), deleteReason: 'manual' });
-            }
-            
-            // Delete the live task. If it wasn't in history, it's purged completely, saving space.
+            if (inHistory) await db.collection('deleted_tasks').insertOne({ ...t, deletedAt: new Date(), deleteReason: 'manual' });
             await db.collection('tasks').deleteOne({ taskId: req.params.taskId });
+            
+            if(globalSettings.alerts) {
+                let msg = `🗑️ <b>Task Deleted</b>\n📌 <b>Title:</b> ${escapeHTML(t.title)}`;
+                try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
+            }
         }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
@@ -2299,6 +2327,15 @@ app.post('/api/tasks/:taskId/subtasks', async (req, res) => {
     try {
         if (!req.body.title) return res.status(400).send('Empty title');
         await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { $push: { subtasks: { id: generateSubtaskId(), title: req.body.title.trim(), description: req.body.description || '', completed: false, createdAt: new Date() } } });
+        
+        if(globalSettings.alerts) {
+            const parent = await db.collection('tasks').findOne({taskId: req.params.taskId});
+            if(parent) {
+                let msg = `➕ <b>Subtask Added</b>\n📂 <b>Task:</b> ${escapeHTML(parent.title)}\n📌 <b>Subtask:</b> ${escapeHTML(req.body.title.trim())}`;
+                if (req.body.description) msg += `\n📝 <b>Desc:</b> ${escapeHTML(req.body.description.substring(0, 60))}`;
+                try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
+            }
+        }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -2307,6 +2344,15 @@ app.post('/api/tasks/:taskId/subtasks/:subtaskId/update', async (req, res) => {
     try {
         if (!req.body.title) return res.status(400).send('Empty title');
         await db.collection('tasks').updateOne({ taskId: req.params.taskId, "subtasks.id": req.params.subtaskId }, { $set: { "subtasks.$.title": req.body.title.trim(), "subtasks.$.description": req.body.description || '' } });
+        
+        if(globalSettings.alerts) {
+            const parent = await db.collection('tasks').findOne({taskId: req.params.taskId});
+            if(parent) {
+                let msg = `✏️ <b>Subtask Edited</b>\n📂 <b>Task:</b> ${escapeHTML(parent.title)}\n📌 <b>Subtask:</b> ${escapeHTML(req.body.title.trim())}`;
+                if (req.body.description) msg += `\n📝 <b>Desc:</b> ${escapeHTML(req.body.description.substring(0, 60))}`;
+                try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
+            }
+        }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -2316,31 +2362,30 @@ app.post('/api/tasks/:taskId/subtasks/:subtaskId/toggle', async (req, res) => {
         const task = await db.collection('tasks').findOne({ taskId: req.params.taskId });
         const sub = (task.subtasks || []).find(s => s.id === req.params.subtaskId);
         await db.collection('tasks').updateOne({ taskId: req.params.taskId, "subtasks.id": req.params.subtaskId }, { $set: { "subtasks.$.completed": !sub.completed } });
+        
+        if(globalSettings.alerts) {
+            let msg = `${!sub.completed ? '✅' : '🔄'} <b>Subtask Toggled</b>\n📂 <b>Task:</b> ${escapeHTML(task.title)}\n📌 <b>Subtask:</b> ${escapeHTML(sub.title)}`;
+            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
+        }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
 
-// CONDITIONAL SUBTASK DELETION: Preserves history reference or permanently erases to save space
 app.post('/api/tasks/:taskId/subtasks/:subtaskId/delete', async (req, res) => {
     try {
         const task = await db.collection('tasks').findOne({ taskId: req.params.taskId });
         const subtask = (task.subtasks || []).find(s => s.id === req.params.subtaskId);
         
-        // Check if the history has a record referencing this exact subtask ID
-        const inHistory = await db.collection('history').findOne({ 
-            taskId: req.params.taskId, 
-            "subtasks.id": req.params.subtaskId 
-        });
-        
+        const inHistory = await db.collection('history').findOne({ taskId: req.params.taskId, "subtasks.id": req.params.subtaskId });
         if (inHistory && subtask) {
-            // Move subtask to deleted_subtasks array for historical display
-            await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { 
-                $pull: { subtasks: { id: req.params.subtaskId } },
-                $push: { deleted_subtasks: subtask }
-            });
+            await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { $pull: { subtasks: { id: req.params.subtaskId } }, $push: { deleted_subtasks: subtask } });
         } else {
-            // No history record, perfectly safe to permanently purge the subtask to save database space
             await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { $pull: { subtasks: { id: req.params.subtaskId } } });
+        }
+
+        if(globalSettings.alerts && subtask) {
+            let msg = `🗑️ <b>Subtask Deleted</b>\n📂 <b>Task:</b> ${escapeHTML(task.title)}\n📌 <b>Subtask:</b> ${escapeHTML(subtask.title)}`;
+            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
         }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
@@ -2368,6 +2413,12 @@ app.post('/api/notes', async (req, res) => {
         if (!req.body.title) return res.status(400).send('Empty title');
         const note = { noteId: generateId('n'), title: req.body.title.trim(), description: req.body.description || '', createdAt: new Date(), updatedAt: new Date(), orderIndex: await db.collection('notes').countDocuments() };
         await db.collection('notes').insertOne(note);
+        
+        if(globalSettings.alerts) {
+            let msg = `📝 <b>Note Added</b>\n📌 <b>Title:</b> ${escapeHTML(note.title)}`;
+            if (note.description) msg += `\n📄 <b>Content:</b> ${escapeHTML(note.description.substring(0, 60))}...`;
+            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
+        }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -2376,13 +2427,25 @@ app.post('/api/notes/:noteId/update', async (req, res) => {
     try {
         if (!req.body.title) return res.status(400).send('Empty title');
         await db.collection('notes').updateOne({ noteId: req.params.noteId }, { $set: { title: req.body.title.trim(), description: req.body.description || '', updatedAt: new Date() } });
+        
+        if(globalSettings.alerts) {
+            let msg = `✏️ <b>Note Edited</b>\n📌 <b>Title:</b> ${escapeHTML(req.body.title.trim())}`;
+            if (req.body.description) msg += `\n📄 <b>Content:</b> ${escapeHTML(req.body.description.substring(0, 60))}...`;
+            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
+        }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
 
 app.post('/api/notes/:noteId/delete', async (req, res) => {
     try {
+        const doc = await db.collection('notes').findOne({noteId: req.params.noteId});
         await db.collection('notes').deleteOne({ noteId: req.params.noteId });
+        
+        if(globalSettings.alerts && doc) {
+            let msg = `🗑️ <b>Note Deleted</b>\n📌 <b>Title:</b> ${escapeHTML(doc.title)}`;
+            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
+        }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
