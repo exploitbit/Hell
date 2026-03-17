@@ -1756,7 +1756,7 @@ async function sendStartMenu(ctx) {
 
         const kb = Markup.inlineKeyboard([
             [ Markup.button.webApp('🌐 Task Manager', WEB_APP_URL) ],
-            [ Markup.button.callback('⚙️ Settings', 'open_settings') ]
+            [ Markup.button.callback('⚙️ Settings', 'open_settings', { style: 'primary' }) ]
         ]);
 
         if (ctx.callbackQuery) {
