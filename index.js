@@ -1754,15 +1754,17 @@ async function sendStartMenu(ctx) {
         msg += `Alerts : ${globalSettings.alerts ? '🔔 ON' : '🔕 OFF'}\n`;
         msg += `Reminders : ${globalSettings.reminders ? '🔔 ON' : '🔕 OFF'}`;
 
-        const kb = Markup.inlineKeyboard([
-            [ Markup.button.webApp('🌐 Task Manager', WEB_APP_URL) ],
-            [ Markup.button.callback('⚙️ Settings', 'open_settings', { style: 'primary' }) ]
-        ]);
+        const kb = {
+            inline_keyboard: [
+                [ { text: '🌐 Task Manager', web_app: { url: WEB_APP_URL }, style: 'primary' } ],
+                [ { text: '⚙️ Settings', callback_data: 'open_settings', style: 'primary' } ]
+            ]
+        };
 
         if (ctx.callbackQuery) {
-            await ctx.editMessageText(msg, { parse_mode: 'HTML', reply_markup: kb.reply_markup });
+            await ctx.editMessageText(msg, { parse_mode: 'HTML', reply_markup: kb });
         } else {
-            await ctx.reply(msg, { parse_mode: 'HTML', reply_markup: kb.reply_markup });
+            await ctx.reply(msg, { parse_mode: 'HTML', reply_markup: kb });
         }
     } catch (err) { console.error("Start Menu Error:", err); }
 }
