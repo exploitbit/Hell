@@ -2012,9 +2012,9 @@ function setupHourlyNotifications() {
             
             let msg = `${istDateObj.displayDate} - ${istDateObj.dayName}\n`;
             msg += `${progressBar} ${percentage}%\n`;
-            msg += `⚙️ Completed: <i><b>${completedTasks.length}/${total}</b></i> tasks\n`;
+            msg += `⚙️ Completed: <i><b>${completedTasks.length}/${total}</b></i> tasks\n\n`;
             
-            msg += `<blockquote expandable>\n`;
+            msg += `<blockquote expandable>`;
             allTasks.forEach(t => {
                 msg += `${t.isCompleted ? '✅' : '❌'} ${escapeHTML(t.title)} (${t.startTimeStr} - ${t.endTimeStr})\n`;
             });
