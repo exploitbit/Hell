@@ -2012,7 +2012,7 @@ function setupHourlyNotifications() {
             
             let msg = `${istDateObj.displayDate} - ${istDateObj.dayName}\n`;
             msg += `${progressBar} ${percentage}%\n`;
-            msg += `⚙️ Completed: <i><b>${completedTasks.length}/${total}</b></i> tasks\n\n`;
+            msg += `⚙️ Completed: <i><b>${completedTasks.length}/${total}</b></i> tasks\n`;
             
             msg += `<blockquote expandable>\n`;
             allTasks.forEach(t => {
