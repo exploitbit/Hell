@@ -26,7 +26,7 @@ app.set('views', path.join(__dirname, 'views'));
 const viewsDir = path.join(__dirname, 'views');
 if (!fs.existsSync(viewsDir)) fs.mkdirSync(viewsDir, { recursive: true });
 
-let globalSettings = { notifications: true, alerts: true, reminders: true, dayType: 'working', dayTypeDate: '' };
+let globalSettings = { notifications: true, alerts: true, reminders: true };
 
 // ==========================================
 // 🕐 TIMEZONE & UTILITIES
@@ -76,27 +76,12 @@ function f12(timeStr) {
 function generateId(type = 'task') { return type.charAt(0) + Math.random().toString(36).substring(2, 10); }
 
 // ==========================================
-// 🌴 DAY TYPE & TASK LIFECYCLE
+// 🔄 TASK LIFECYCLE MANAGEMENT
 // ==========================================
-function getTodayDayType() {
-    const istDateObj = getCurrentISTDisplay();
-    if (globalSettings.dayTypeDate === istDateObj.displayDate && globalSettings.dayType) {
-        return globalSettings.dayType;
-    }
-    const dayOfWeek = new Date(Date.now() + IST_OFFSET_MS).getUTCDay();
-    return (dayOfWeek === 0 || dayOfWeek === 6) ? 'holiday' : 'working';
-}
-
-async function setTodayDayType(type) {
-    const istDateObj = getCurrentISTDisplay();
-    globalSettings.dayType = type;
-    globalSettings.dayTypeDate = istDateObj.displayDate;
-    await db.collection('settings').updateOne({ _id: 'bot_config' }, { $set: { dayType: type, dayTypeDate: istDateObj.displayDate } }, { upsert: true });
-}
-
 async function cleanExpiredTasks() {
     const istDateObj = getCurrentISTDisplay();
     const startOfDayUTC = istToUTC(istDateObj.date, "00:00");
+    
     const expiredTasks = await db.collection('tasks').find({ status: 'pending', endDate: { $lt: startOfDayUTC } }).toArray();
     if (expiredTasks.length > 0) {
         for (let t of expiredTasks) {
@@ -113,11 +98,17 @@ async function getActiveTasksForToday() {
     const currentDayOfWeek = new Date(Date.now() + IST_OFFSET_MS).getUTCDay(); 
     const startOfDayUTC = istToUTC(istDateObj.date, "00:00");
     const endOfDayUTC = istToUTC(istDateObj.date, "23:59");
-    const todayDayType = getTodayDayType();
+
+    const dStatus = await db.collection('daily_status').findOne({ _id: 'current' });
+    let currentType = null;
+    if (dStatus && dStatus.dateStr === istDateObj.displayDate) currentType = dStatus.type;
+
+    if (!currentType) return { pendingTasks: [], completedTasks: [], todayHistory: [], totalToday: 0 };
 
     const pending = await db.collection('tasks').find({
         status: 'pending',
         selectedDays: currentDayOfWeek,
+        dayTypes: currentType, 
         startDate: { $lte: endOfDayUTC },
         endDate: { $gte: startOfDayUTC }
     }).sort({ orderIndex: 1 }).toArray();
@@ -125,11 +116,8 @@ async function getActiveTasksForToday() {
     const todayHistory = await db.collection('history').find({ completedDateStr: istDateObj.displayDate }).toArray();
     const completedTaskIds = todayHistory.map(h => h.taskId);
 
-    // Apply DayType Filter ONLY for showing tasks today (Does not affect internal expiry)
-    const activeForTodayType = pending.filter(t => t.dayType && t.dayType.includes(todayDayType));
-
-    const toShow = activeForTodayType.filter(t => !completedTaskIds.includes(t.taskId));
-    const completed = activeForTodayType.filter(t => completedTaskIds.includes(t.taskId));
+    const toShow = pending.filter(t => !completedTaskIds.includes(t.taskId));
+    const completed = pending.filter(t => completedTaskIds.includes(t.taskId));
 
     let finalCompleted = [...completed];
     const historicalIds = todayHistory.filter(h => !completedTaskIds.includes(h.taskId)).map(h => h.taskId);
@@ -140,7 +128,6 @@ async function getActiveTasksForToday() {
 
     return { pendingTasks: toShow, completedTasks: finalCompleted, todayHistory, totalToday: toShow.length + finalCompleted.length };
 }
-
 
 // ==========================================
 // 🎨 EJS TEMPLATE GENERATOR
@@ -194,7 +181,7 @@ function writeMainEJS() {
         body[data-theme="light"] .app-header { background: var(--card-bg-light); border-color: var(--border-light); color: var(--text-primary-light); }
 
         .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-        .header-title { font-weight: 600; font-size: 1.1rem; text-transform: capitalize; flex: 1; margin-left: 12px; }
+        .header-title { font-weight: 600; font-size: 1.1rem; text-transform: capitalize; }
         .header-icon { font-size: 1.2rem; cursor: pointer; color: var(--accent-light); padding: 4px; }
         
         .nav-links { display: flex; gap: 2px; background: var(--hover-light); padding: 3px; border-radius: 100px; width: 100%; justify-content: space-between;}
@@ -236,7 +223,7 @@ function writeMainEJS() {
         body[data-theme="light"] .badge { background: var(--hover-light); color: var(--text-secondary-light); }
 
         /* DAY BOXES CSS */
-        .day-box { display: inline-flex; align-items: center; justify-content: center; padding: 3px 7px; border-radius: 6px; background: var(--hover-light); border: 1px solid var(--border-light); font-size: 0.75rem; font-weight: 600; color: var(--text-secondary-light); margin-right: 4px; margin-bottom: 4px; }
+        .day-box { display: inline-flex; align-items: center; justify-content: center; padding: 2px 6px; border-radius: 4px; background: var(--hover-light); border: 1px solid var(--border-light); font-size: 0.7rem; font-weight: 600; color: var(--text-secondary-light); margin-right: 2px; }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .day-box { background: var(--hover-dark); border-color: var(--border-dark); color: var(--text-secondary-dark); } }
         body[data-theme="dark"] .day-box { background: var(--hover-dark); border-color: var(--border-dark); color: var(--text-secondary-dark); }
 
@@ -521,12 +508,7 @@ function writeMainEJS() {
     <div class="app-header">
         <div class="header-top">
             <div class="header-icon" onclick="switchPage('tasks')"><i class="fas fa-tasks"></i></div>
-            
-            <div id="dayTypeToggleBtn" onclick="toggleDayType()" style="font-size: 0.85rem; background: var(--hover-light); padding: 4px 10px; border-radius: 100px; display: flex; align-items: center; gap: 6px; cursor:pointer; margin: 0 auto; transition: 0.2s;">
-                <i class="fas <%= todayDayType === 'working' ? 'fa-briefcase' : 'fa-umbrella-beach' %>" style="color: var(--accent-light);"></i> 
-                <span style="font-weight: 600;"><%= todayDayType === 'working' ? 'Working Day' : 'Holiday' %></span>
-            </div>
-
+            <div class="header-title" id="pageTitleDisplay"><%= currentPage %></div>
             <div class="header-icon" onclick="openSettingsModal()"><i class="fas fa-cog"></i></div>
         </div>
         <div class="nav-links">
@@ -549,6 +531,18 @@ function writeMainEJS() {
     <div class="main-content" id="mainContent"></div>
     
     <div class="grow-bubble" id="growBubble"><div id="growBubbleContent"></div><div id="growTail"></div></div>
+
+    <div class="modal" id="dailyStatusModal" style="background: var(--bg-light); z-index: 9999;">
+        <div class="modal-content" style="text-align: center; margin-top: 15vh; border:none; box-shadow:none; background:transparent;">
+            <i class="fas fa-calendar-day" style="font-size: 3rem; color: var(--accent-light); margin-bottom:16px;"></i>
+            <h2 style="font-size:1.5rem; margin-bottom:8px;">Good Morning!</h2>
+            <p style="color:var(--text-secondary-light); margin-bottom:24px; font-size:1rem;">Is today a Working Day or a Holiday?</p>
+            <div style="display:flex; gap:16px; flex-wrap:wrap;">
+                <button class="btn btn-primary" style="flex:1; min-width:140px; padding:14px; font-size:1rem;" onclick="setDailyStatus('WD')">💼 Working Day</button>
+                <button class="btn btn-secondary" style="flex:1; min-width:140px; padding:14px; font-size:1rem; background:var(--danger-light); color:white;" onclick="setDailyStatus('HOL')">🏖️ Holiday</button>
+            </div>
+        </div>
+    </div>
 
     <div class="modal" id="settingsAppModal">
         <div class="modal-content">
@@ -586,15 +580,13 @@ function writeMainEJS() {
                     <label style="font-size: 0.95rem; font-weight: 500;">Description</label>
                     <textarea class="form-control" name="description" rows="3" placeholder="Enter description"></textarea>
                 </div>
-                
                 <div class="form-group" style="margin-bottom: 12px;">
                     <label style="font-size: 0.95rem; font-weight: 500;">Day Type *</label>
-                    <div style="display: flex; gap: 16px; margin-top: 4px;">
-                        <label class="grow-checkbox" style="margin:0;"><input type="checkbox" name="dayType" value="working" checked> Working Day</label>
-                        <label class="grow-checkbox" style="margin:0;"><input type="checkbox" name="dayType" value="holiday"> Holiday</label>
+                    <div style="display:flex; gap:16px; margin-top:4px;">
+                        <label><input type="checkbox" name="dayTypes" value="WD" checked> Working Day</label>
+                        <label><input type="checkbox" name="dayTypes" value="HOL"> Holiday</label>
                     </div>
                 </div>
-
                 <div class="form-group" style="margin-bottom: 12px;">
                     <label style="font-size: 0.95rem; font-weight: 500;">Select Days *</label>
                     <div class="day-selector" id="addDaySelector">
@@ -640,15 +632,13 @@ function writeMainEJS() {
                     <label style="font-size: 0.95rem; font-weight: 500;">Description</label>
                     <textarea class="form-control" name="description" id="editDescription" rows="3"></textarea>
                 </div>
-                
                 <div class="form-group" style="margin-bottom: 12px;">
                     <label style="font-size: 0.95rem; font-weight: 500;">Day Type *</label>
-                    <div style="display: flex; gap: 16px; margin-top: 4px;">
-                        <label class="grow-checkbox" style="margin:0;"><input type="checkbox" name="dayType" value="working" id="editTypeWorking"> Working Day</label>
-                        <label class="grow-checkbox" style="margin:0;"><input type="checkbox" name="dayType" value="holiday" id="editTypeHoliday"> Holiday</label>
+                    <div style="display:flex; gap:16px; margin-top:4px;">
+                        <label><input type="checkbox" name="dayTypes" value="WD"> Working Day</label>
+                        <label><input type="checkbox" name="dayTypes" value="HOL"> Holiday</label>
                     </div>
                 </div>
-
                 <div class="form-group" style="margin-bottom: 12px;">
                     <label style="font-size: 0.95rem; font-weight: 500;">Select Days *</label>
                     <div class="day-selector" id="editDaySelector">
@@ -803,6 +793,7 @@ function writeMainEJS() {
         let notesData = <%- JSON.stringify(notes || []) %>;
         let historyData = <%- JSON.stringify(groupedHistory || {}) %>;
         let growTrackerData = <%- JSON.stringify(growData || {items: [], progress: {}}) %>;
+        let dailyStatus = <%- JSON.stringify(dailyStatus || null) %>;
         
         let currentMonth = new Date().getMonth();
         let currentYear = new Date().getFullYear();
@@ -815,6 +806,7 @@ function writeMainEJS() {
             if (!daysArr || daysArr.length === 0) return '';
             const map = {1:'MO', 2:'TU', 3:'WE', 4:'TH', 5:'FR', 6:'SA', 0:'SU'};
             const sortOrder = {1:1, 2:2, 3:3, 4:4, 5:5, 6:6, 0:7};
+            
             const sortedDays = [...daysArr].sort((a, b) => sortOrder[a] - sortOrder[b]);
             return '<div style="display:flex; gap:4px; flex-wrap:wrap; margin-top:4px;">' + 
                    sortedDays.map(d => '<span class="day-box">' + map[d] + '</span>').join('') + 
@@ -853,17 +845,6 @@ function writeMainEJS() {
             };
         }
 
-        function toggleDayType() {
-            fetch('/api/settings/toggleDayType', {method: 'POST'})
-            .then(res => res.json())
-            .then(data => {
-                if(data.success) {
-                    showToast("Changed to " + (data.dayType === 'working' ? 'Working Day' : 'Holiday'));
-                    setTimeout(() => window.location.reload(), 500);
-                }
-            });
-        }
-
         function switchPage(page) {
             currentPage = page;
             updateActiveNav(); 
@@ -886,6 +867,16 @@ function writeMainEJS() {
             document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll('.nav-btn').forEach(btn => {
                 if (btn.innerText.toLowerCase().includes(currentPage)) btn.classList.add('active');
+            });
+        }
+
+        function setDailyStatus(type) {
+            fetch('/api/daily_status', { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({type}) })
+            .then(res => {
+                if(res.ok) {
+                    document.getElementById('dailyStatusModal').style.display = 'none';
+                    window.location.reload();
+                }
             });
         }
 
@@ -1224,13 +1215,9 @@ function writeMainEJS() {
                     if (hasDescription) html += '<div id="' + descriptionId + '" class="task-description-container hidden"><div class="task-description">' + preserveLineBreaks(task.description) + '</div></div>';
                     
                     const time12 = f12(task.startTimeStr) + ' - ' + f12(task.endTimeStr);
-                    const weekText = task.repeatWeeks === 1 ? '1 Week' : task.repeatWeeks + ' Weeks';
+                    html += '<div class="task-time-row"><span class="time-chip"><i class="fas fa-clock"></i> ' + time12 + '</span>';
+                    html += '<span class="badge" style="margin-left:auto;"><i class="fas fa-sync"></i> ' + (task.repeatWeeks == 1 ? '1 Week' : task.repeatWeeks + ' Weeks') + '</span></div>';
                     
-                    html += '<div class="task-time-row" style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin: 8px 0 4px 0;">';
-                    html += '<span class="time-chip"><i class="fas fa-clock"></i> ' + time12 + '</span>';
-                    html += '<span style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary-light);"><i class="fas fa-sync"></i> ' + weekText + '</span>';
-                    html += '</div>';
-
                     if (totalSubtasks > 0) {
                         html += '<details class="task-subtasks"><summary class="flex-row" style="cursor: pointer;"><div class="progress-ring-small"><svg width="34" height="34"><circle class="progress-ring-circle-small" stroke="var(--progress-bg-light)" stroke-width="3" fill="transparent" r="14" cx="17" cy="17"/><circle class="progress-ring-circle-small" stroke="var(--accent-light)" stroke-width="3" fill="transparent" r="14" cx="17" cy="17" style="stroke-dasharray: ' + circleCircumference + '; stroke-dashoffset: ' + circleOffset + '; "/></svg><span class="progress-text-small">' + progress + '%</span></div><span style="font-size: 0.85rem; font-weight: 500; color: var(--text-secondary-light);">' + completedSubtasks + '/' + totalSubtasks + ' subtasks</span></summary><div class="subtasks-container w-100">';
                         task.subtasks.forEach((subtask) => {
@@ -1250,8 +1237,10 @@ function writeMainEJS() {
                         html += '</div></details>';
                     } else { html += '<div class="flex-row" style="margin-top: 8px;"><span style="font-size: 0.85rem; color: var(--text-secondary-light);"><i class="fas fa-tasks"></i> No subtasks</span></div>'; }
                     
-                    html += getDayBoxes(task.selectedDays);
-                    html += '</div>';
+                    html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px; flex-wrap:wrap; gap:8px;">';
+                    html += '<div>' + getDayBoxes(task.selectedDays) + '</div>';
+                    html += '<span class="badge" style="font-weight:bold; letter-spacing:1px;">' + (task.dayTypes || []).join('/') + '</span>';
+                    html += '</div></div>';
                 });
             }
             html += '</div>';
@@ -1300,7 +1289,9 @@ function writeMainEJS() {
                     html += '<div class="history-date-card"><details class="history-details">';
                     
                     const taskText = tasks.length === 1 ? '1 Task' : tasks.length + ' Tasks';
-                    html += '<summary><i class="fas fa-calendar-alt"></i><span style="font-weight: 600;">' + displayDateHeader + '</span><span class="badge" style="margin-left: auto;">' + taskText + '</span></summary>';
+                    const dailyType = tasks[0].dailyType || 'WD';
+
+                    html += '<summary style="display:flex; justify-content:space-between; align-items:center; width:100%;"><span style="font-weight: 600;"><i class="fas fa-calendar-alt"></i> ' + displayDateHeader + '</span><span class="badge" style="font-weight:bold;">' + dailyType + '</span><span class="badge" style="margin-left: auto;">' + taskText + '</span></summary>';
                     html += '<div class="history-tasks-grid">';
                     
                     tasks.forEach(task => {
@@ -1310,12 +1301,8 @@ function writeMainEJS() {
                         html += '<div class="history-task-card"><div class="history-task-header"><div class="task-title-container" onclick="toggleDescription(\\'' + historyDescId + '\\')"><i class="fas fa-chevron-right"></i><span class="history-task-title">' + escapedHistoryTitle + '</span></div><span class="history-task-time"><i class="fas fa-check-circle" style="color: var(--success-light);"></i> ' + f12(task.completedTimeIST) + '</span></div>';
                         if (hasDescription) html += '<div id="' + historyDescId + '" class="history-description-container hidden"><div class="history-description">' + preserveLineBreaks(task.description) + '</div></div>';
                         
-                        const wks = task.repeatWeeks || 1;
-                        const weekText = wks === 1 ? '1 Week' : wks + ' Weeks';
-                        html += '<div style="display: flex; justify-content: space-between; align-items: center; margin: 8px 0 4px 0;">';
-                        html += '<span class="badge"><i class="fas fa-clock"></i> ' + f12(task.startTimeStr || task.startTimeIST) + '-' + f12(task.endTimeStr || task.endTimeIST) + '</span>';
-                        html += '<span style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary-light);"><i class="fas fa-sync"></i> ' + weekText + '</span>';
-                        html += '</div>';
+                        html += '<div style="display: flex; gap: 6px; margin: 8px 0 4px 0; flex-wrap: wrap;"><span class="badge"><i class="fas fa-clock"></i> ' + f12(task.startTimeStr || task.startTimeIST) + '-' + f12(task.endTimeStr || task.endTimeIST) + '</span>';
+                        html += '<span class="badge"><i class="fas fa-sync"></i> ' + (task.repeatWeeks == 1 ? '1 Week' : (task.repeatWeeks||1) + ' Weeks') + '</span></div>';
 
                         html += getDayBoxes(task.selectedDays);
 
@@ -1404,8 +1391,12 @@ function writeMainEJS() {
                 document.getElementById('editEndTime').value = task.endTimeStr || task.endTimeIST;
                 document.getElementById('editRepeatWeeks').value = task.repeatWeeks || 1;
                 
-                document.getElementById('editTypeWorking').checked = task.dayType && task.dayType.includes('working');
-                document.getElementById('editTypeHoliday').checked = task.dayType && task.dayType.includes('holiday');
+                document.querySelectorAll('#editTaskForm input[name="dayTypes"]').forEach(cb => cb.checked = false);
+                if (task.dayTypes) {
+                    task.dayTypes.forEach(dt => { const cb = document.querySelector('#editTaskForm input[name="dayTypes"][value="'+dt+'"]'); if(cb) cb.checked = true; });
+                } else {
+                    document.querySelector('#editTaskForm input[name="dayTypes"][value="WD"]').checked = true;
+                }
 
                 document.querySelectorAll('#editDaySelector .day-circle').forEach(el => el.classList.remove('selected'));
                 if (task.selectedDays && Array.isArray(task.selectedDays)) {
@@ -1428,7 +1419,18 @@ function writeMainEJS() {
             event.preventDefault(); 
             const selected = document.getElementById('addSelectedDays').value;
             if (!selected || selected === '[]') { showToast('Please select at least one day.', 'error'); return; }
-            fetch('/api/tasks', { method: 'POST', body: new URLSearchParams(new FormData(event.target)) })
+            
+            const dtCheckboxes = event.target.querySelectorAll('input[name="dayTypes"]:checked');
+            if (dtCheckboxes.length === 0) { showToast('Select at least one Day Type (WD or HOL).', 'error'); return; }
+
+            const payload = {
+                title: event.target.title.value, description: event.target.description.value,
+                startTime: event.target.startTime.value, endTime: event.target.endTime.value,
+                selectedDays: selected, repeatWeeks: event.target.repeatWeeks.value,
+                dayTypes: Array.from(dtCheckboxes).map(cb=>cb.value)
+            };
+
+            fetch('/api/tasks', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) })
             .then(res => { if(res.ok){ closeModal('addTaskModal'); showToast('Success'); switchPage('tasks'); } else { return res.text().then(t => {throw new Error(t);}); } })
             .catch(err => { showToast('Failed', 'error'); });
         }
@@ -1437,8 +1439,19 @@ function writeMainEJS() {
             event.preventDefault(); 
             const selected = document.getElementById('editSelectedDays').value;
             if (!selected || selected === '[]') { showToast('Please select at least one day.', 'error'); return; }
-            const formData = new FormData(event.target);
-            fetch('/api/tasks/' + formData.get('taskId') + '/update', { method: 'POST', body: new URLSearchParams(formData) })
+            
+            const dtCheckboxes = event.target.querySelectorAll('input[name="dayTypes"]:checked');
+            if (dtCheckboxes.length === 0) { showToast('Select at least one Day Type (WD or HOL).', 'error'); return; }
+
+            const payload = {
+                taskId: event.target.taskId.value,
+                title: event.target.title.value, description: event.target.description.value,
+                startTime: event.target.startTime.value, endTime: event.target.endTime.value,
+                selectedDays: selected, repeatWeeks: event.target.repeatWeeks.value,
+                dayTypes: Array.from(dtCheckboxes).map(cb=>cb.value)
+            };
+
+            fetch('/api/tasks/' + payload.taskId + '/update', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) })
             .then(res => { if(res.ok){ closeModal('editTaskModal'); showToast('Success'); switchPage('tasks'); } else { return res.text().then(t => {throw new Error(t);}); } })
             .catch(err => { showToast('Failed', 'error'); });
         }
@@ -1485,9 +1498,13 @@ function writeMainEJS() {
 
             document.getElementById('pageTitleDisplay').innerText = currentPage;
             renderPage(); updateActiveNav();
+
+            if (!dailyStatus || dailyStatus.dateStr !== growToday) {
+                document.getElementById('dailyStatusModal').style.display = 'block';
+            }
             
             window.addEventListener('click', function(event) { 
-                if (event.target.classList.contains('modal')) { event.target.style.display = 'none'; document.body.style.overflow = 'auto'; } 
+                if (event.target.classList.contains('modal') && event.target.id !== 'dailyStatusModal') { event.target.style.display = 'none'; document.body.style.overflow = 'auto'; } 
                 if(!event.target.closest(".grow-day") && !event.target.closest(".grow-bubble")) hideGrowBubble();
                 if (!event.target.closest('.task-title-container') && !event.target.closest('.priority-btns')) document.querySelectorAll('.priority-mode').forEach(el => el.classList.remove('priority-mode'));
             });
@@ -1518,10 +1535,10 @@ async function connectDB() {
             
             let s = await db.collection('settings').findOne({ _id: 'bot_config' });
             if (!s) {
-                await db.collection('settings').insertOne({ _id: 'bot_config', notifications: true, alerts: true, reminders: true, dayType: 'working', dayTypeDate: '' });
-                globalSettings = { notifications: true, alerts: true, reminders: true, dayType: 'working', dayTypeDate: '' };
+                await db.collection('settings').insertOne({ _id: 'bot_config', notifications: true, alerts: true, reminders: true });
+                globalSettings = { notifications: true, alerts: true, reminders: true };
             } else {
-                globalSettings = { notifications: s.notifications !== false, alerts: s.alerts !== false, reminders: s.reminders !== false, dayType: s.dayType || 'working', dayTypeDate: s.dayTypeDate || '' };
+                globalSettings = { notifications: s.notifications !== false, alerts: s.alerts !== false, reminders: s.reminders !== false };
             }
             
             const exists = await db.collection('grow').findOne({ type: 'tracker' });
@@ -1558,33 +1575,20 @@ bot.use(async (ctx, next) => {
     return next();
 });
 
-async function sendStartMenu(ctx, isEdit = false) {
+async function sendStartMenu(ctx) {
     try {
-        const istDateObj = getCurrentISTDisplay();
-        
-        // If today's dayType isn't set, ask them first!
-        if (globalSettings.dayTypeDate !== istDateObj.displayDate) {
-            const kb = { inline_keyboard: [[{text: '💼 Working Day', callback_data: 'set_day_working'}, {text: '🌴 Holiday', callback_data: 'set_day_holiday'}]] };
-            const m = "Good morning! ☀️\nIs today a Working Day or a Holiday?";
-            if (isEdit && ctx.callbackQuery) await ctx.editMessageText(m, { reply_markup: kb });
-            else await ctx.reply(m, { reply_markup: kb });
-            return;
-        }
-
         const { pendingTasks, completedTasks, totalToday } = await getActiveTasksForToday();
         
         let percentage = 0;
         let progressBar = '░░░░░░░░░░░░░░░░░░░░'; 
+        
         if (totalToday > 0) {
             percentage = Math.round((completedTasks.length / totalToday) * 100);
             const filledCount = Math.floor(percentage / 5); 
             progressBar = '█'.repeat(filledCount) + '░'.repeat(20 - filledCount);
         }
 
-        const modeIcon = globalSettings.dayType === 'working' ? '💼 Working Day' : '🌴 Holiday';
-
         let msg = `<i>Welcome, <b><a href="tg://user?id=${ctx.from.id}">${(ctx.from.username || ctx.from.first_name || 'Admin').toUpperCase()}</a></b>!</i>\n`;
-        msg += `<i>Today is: <b>${modeIcon}</b></i>\n\n`;
         msg += `${progressBar} ${percentage}%\n`;
         msg += `⚙️Completed: <i><b>${completedTasks.length}/${totalToday}</b></i> tasks.\n\n`;
         
@@ -1601,17 +1605,14 @@ async function sendStartMenu(ctx, isEdit = false) {
         msg += `Alerts : ${globalSettings.alerts ? '🔔 ON' : '🔕 OFF'}\n`;
         msg += `Reminders : ${globalSettings.reminders ? '🔔 ON' : '🔕 OFF'}`;
 
-        const kb = { inline_keyboard: [ [ { text: '🌐 Task Manager', web_app: { url: WEB_APP_URL }, style: 'primary' } ], [ { text: '⚙️ Settings', callback_data: 'open_settings', style: 'primary' } ] ] };
+        const kb = { inline_keyboard: [ [ { text: '🌐 Task Manager', web_app: { url: WEB_APP_URL } } ], [ { text: '⚙️ Settings', callback_data: 'open_settings' } ] ] };
 
-        if (isEdit && ctx.callbackQuery) await ctx.editMessageText(msg, { parse_mode: 'HTML', reply_markup: kb });
+        if (ctx.callbackQuery) await ctx.editMessageText(msg, { parse_mode: 'HTML', reply_markup: kb });
         else await ctx.reply(msg, { parse_mode: 'HTML', reply_markup: kb });
     } catch (err) { console.error("Start Menu Error:", err); }
 }
 
-bot.command('start', (ctx) => sendStartMenu(ctx, false));
-
-bot.action('set_day_working', async ctx => { await setTodayDayType('working'); await sendStartMenu(ctx, true); });
-bot.action('set_day_holiday', async ctx => { await setTodayDayType('holiday'); await sendStartMenu(ctx, true); });
+bot.command('start', sendStartMenu);
 
 bot.action('open_settings', async (ctx) => {
     const gs = globalSettings;
@@ -1626,7 +1627,7 @@ bot.action('open_settings', async (ctx) => {
     await ctx.editMessageText('⚙️ <b>Bot Settings:</b>\n\n<i>Toggle your preferences below:</i>', { parse_mode: 'HTML', reply_markup: kb });
 });
 
-bot.action('back_start', (ctx) => sendStartMenu(ctx, true));
+bot.action('back_start', sendStartMenu);
 
 async function toggleSetting(ctx, key) {
     globalSettings[key] = !globalSettings[key];
@@ -1638,7 +1639,32 @@ bot.action('tgl_notif', ctx => toggleSetting(ctx, 'notifications'));
 bot.action('tgl_alerts', ctx => toggleSetting(ctx, 'alerts'));
 bot.action('tgl_reminders', ctx => toggleSetting(ctx, 'reminders'));
 
-// 10 Messages Per Minute Reminder System
+// 12:01 AM Daily Status Ask
+function setupDailyBotPrompt() {
+    const rule = new schedule.RecurrenceRule();
+    rule.hour = 0; rule.minute = 1; rule.tz = 'Asia/Kolkata';
+
+    schedule.scheduleJob(rule, async function() {
+        const istDateObj = getCurrentISTDisplay();
+        const kb = { inline_keyboard: [[{text:'💼 Working Day', callback_data:'set_wd'}, {text:'🏖️ Holiday', callback_data:'set_hol'}]] };
+        try { await bot.telegram.sendMessage(CHAT_ID, `Good Morning! 🌅\nIs today (${istDateObj.displayDate}) a Working Day or Holiday?`, {reply_markup: kb}); } catch(e){}
+    });
+}
+setupDailyBotPrompt();
+
+bot.action('set_wd', async ctx => {
+    const istDateObj = getCurrentISTDisplay();
+    await db.collection('daily_status').updateOne({_id:'current'}, {$set:{dateStr: istDateObj.displayDate, type: 'WD'}}, {upsert:true});
+    await ctx.editMessageText(`✅ Today (${istDateObj.displayDate}) successfully set as a Working Day (WD).`);
+});
+
+bot.action('set_hol', async ctx => {
+    const istDateObj = getCurrentISTDisplay();
+    await db.collection('daily_status').updateOne({_id:'current'}, {$set:{dateStr: istDateObj.displayDate, type: 'HOL'}}, {upsert:true});
+    await ctx.editMessageText(`✅ Today (${istDateObj.displayDate}) successfully set as a Holiday (HOL).`);
+});
+
+
 function scheduleTask(task) {
     cancelTaskSchedule(task.taskId);
     if (new Date() > new Date(task.endDate)) return; 
@@ -1655,40 +1681,39 @@ function scheduleTask(task) {
 
     const startJob = schedule.scheduleJob({ rule: cronExp10Min, tz: 'Asia/Kolkata' }, async function() {
         if (isShuttingDown || !globalSettings.reminders) return;
-        
-        // Skip if task shouldn't run today due to dayType
-        const todayDayType = getTodayDayType();
-        if (!task.dayType || !task.dayType.includes(todayDayType)) return;
-
         const istDateObj = getCurrentISTDisplay();
-        const hist = await db.collection('history').findOne({ taskId: task.taskId, completedDateStr: istDateObj.displayDate });
-        if (hist) return; // Completed today!
         
+        const dStatus = await db.collection('daily_status').findOne({_id:'current'});
+        if (!dStatus || dStatus.dateStr !== istDateObj.displayDate || !(task.dayTypes || ['WD']).includes(dStatus.type)) return;
+
+        const hist = await db.collection('history').findOne({ taskId: task.taskId, completedDateStr: istDateObj.displayDate });
+        if (hist) return; 
+
         let count = 0;
-        const intervalObj = setInterval(async () => {
-            count++;
-            if (count > 10 || isShuttingDown || !globalSettings.reminders) {
-                if (activeSchedules.has(task.taskId) && activeSchedules.get(task.taskId).interval) {
-                    clearInterval(activeSchedules.get(task.taskId).interval);
-                    activeSchedules.get(task.taskId).interval = null;
-                }
-                // Send the exact START NOW message on the 10th interval (which lands exactly on the start time)
-                if (count === 10) {
-                    try { await bot.telegram.sendMessage(CHAT_ID, `🚀 <b>START NOW:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} to ${f12(task.endTimeStr)}`, { parse_mode: 'HTML' }); } catch(e){}
-                }
+        const sendRem = async () => {
+            if (isShuttingDown || !globalSettings.reminders) return;
+            const histCheck = await db.collection('history').findOne({ taskId: task.taskId, completedDateStr: istDateObj.displayDate });
+            if (histCheck) {
+                if(activeSchedules.has(task.taskId) && activeSchedules.get(task.taskId).interval) clearInterval(activeSchedules.get(task.taskId).interval);
                 return;
             }
-            if (count < 10) {
-                const minsLeft = 10 - count + 1;
+            
+            let minsLeft = 10 - count;
+            if (minsLeft === 0) {
+                try { await bot.telegram.sendMessage(CHAT_ID, `🚀 <b>START NOW:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} to ${f12(task.endTimeStr)}`, { parse_mode: 'HTML' }); } catch(e){}
+            } else {
                 try { await bot.telegram.sendMessage(CHAT_ID, `🔔 <b>In ${minsLeft}m:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} to ${f12(task.endTimeStr)}`, { parse_mode: 'HTML' }); } catch(e){}
             }
-        }, 60000);
-
-        if (activeSchedules.has(task.taskId)) activeSchedules.get(task.taskId).interval = intervalObj;
+            
+            count++;
+            if(count >= 11) { // 10,9,8,7,6,5,4,3,2,1,0 -> 11 iterations
+                if(activeSchedules.has(task.taskId) && activeSchedules.get(task.taskId).interval) clearInterval(activeSchedules.get(task.taskId).interval);
+            }
+        };
         
-        // Trigger immediate 1st message (T-10)
-        count++;
-        try { await bot.telegram.sendMessage(CHAT_ID, `🔔 <b>In 10m:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} to ${f12(task.endTimeStr)}`, { parse_mode: 'HTML' }); } catch(e){}
+        await sendRem(); 
+        const iv = setInterval(sendRem, 60000); 
+        if(activeSchedules.has(task.taskId)) activeSchedules.get(task.taskId).interval = iv;
     });
 
     activeSchedules.set(task.taskId, { startJob });
@@ -1708,17 +1733,6 @@ async function rescheduleAllPending() {
         const tasks = await db.collection('tasks').find({ status: 'pending' }).toArray();
         tasks.forEach(task => scheduleTask(task));
     } catch (error) {}
-}
-
-// 7:00 AM Prompt for Day Type
-function setupMorningPrompt() {
-    const rule = new schedule.RecurrenceRule();
-    rule.hour = 7; rule.minute = 0; rule.tz = 'Asia/Kolkata';
-    schedule.scheduleJob(rule, async function() {
-        if (isShuttingDown) return;
-        const kb = { inline_keyboard: [[{text: '💼 Working Day', callback_data: 'set_day_working'}, {text: '🌴 Holiday', callback_data: 'set_day_holiday'}]] };
-        try { await bot.telegram.sendMessage(CHAT_ID, "Good morning! ☀️\nIs today a Working Day or a Holiday?", { reply_markup: kb }); } catch(e){}
-    });
 }
 
 // Hourly Updates
@@ -1761,6 +1775,9 @@ function setupAutoCompletion() {
         try {
             const istDateObj = getCurrentISTDisplay();
             const { pendingTasks } = await getActiveTasksForToday();
+            
+            const dStatus = await db.collection('daily_status').findOne({_id:'current'});
+            const typeToSave = (dStatus && dStatus.dateStr === istDateObj.displayDate) ? dStatus.type : 'WD'; 
 
             for (const task of pendingTasks) {
                 const historySubtasks = (task.subtasks || []).map(s => ({ id: s.id, completed: s.completed }));
@@ -1770,6 +1787,7 @@ function setupAutoCompletion() {
                     completedDateStr: istDateObj.displayDate,
                     completedTimeStr: istDateObj.displayTime,
                     status: 'completed',
+                    dailyType: typeToSave,
                     subtasks: historySubtasks
                 });
             }
@@ -1782,8 +1800,55 @@ function setupAutoCompletion() {
 }
 
 // ==========================================
+// 🛠️ SHARED HISTORY HYDRATION TOOL
+// ==========================================
+async function getHydratedHistory() {
+    const historyList = await db.collection('history').find().sort({ completedAt: -1 }).limit(500).toArray();
+    if (historyList.length === 0) return {};
+
+    const taskIds = [...new Set(historyList.map(h => h.taskId))];
+    const activeTasks = await db.collection('tasks').find({ taskId: { $in: taskIds } }).toArray();
+    const deletedTasks = await db.collection('deleted_tasks').find({ taskId: { $in: taskIds } }).toArray();
+
+    const taskDict = {};
+    activeTasks.forEach(t => taskDict[t.taskId] = t);
+    deletedTasks.forEach(t => { if (!taskDict[t.taskId]) taskDict[t.taskId] = t; });
+
+    const groupedHistory = {};
+    historyList.forEach(item => {
+        const baseTask = taskDict[item.taskId] || { title: 'Deleted Task', description: '', startTimeStr: '??:??', endTimeStr: '??:??', subtasks: [], deleted_subtasks: [] };
+        const combined = { ...baseTask, ...item }; 
+
+        if (item.subtasks && Array.isArray(item.subtasks)) {
+            combined.subtasks = item.subtasks.map(hSub => {
+                const baseSub = (baseTask.subtasks || []).find(s => s.id === hSub.id) || (baseTask.deleted_subtasks || []).find(s => s.id === hSub.id) || { title: 'Deleted Subtask', description: '' };
+                return { ...baseSub, completed: hSub.completed };
+            });
+        } else combined.subtasks = [];
+
+        const dateKey = combined.completedDateStr || formatLegacyIST(combined.completedAt, 'date');
+        if (!groupedHistory[dateKey]) groupedHistory[dateKey] = [];
+        groupedHistory[dateKey].push({
+            ...combined,
+            dailyType: combined.dailyType || 'WD',
+            repeatWeeks: combined.repeatWeeks || 1, 
+            completedTimeIST: combined.completedTimeStr || formatLegacyIST(combined.completedAt, 'time'),
+        });
+    });
+    return groupedHistory;
+}
+
+// ==========================================
 // 📱 WEB INTERFACE ROUTES
 // ==========================================
+app.post('/api/daily_status', async (req, res) => {
+    try {
+        const istDateObj = getCurrentISTDisplay();
+        await db.collection('daily_status').updateOne({_id:'current'}, {$set: {dateStr: istDateObj.displayDate, type: req.body.type}}, {upsert:true});
+        res.json({success:true});
+    } catch(e) { res.status(500).json({error: e.message}); }
+});
+
 app.post('/api/settings/update', async (req, res) => {
     try {
         globalSettings = { ...globalSettings, ...req.body };
@@ -1792,51 +1857,48 @@ app.post('/api/settings/update', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.post('/api/settings/toggleDayType', async (req, res) => {
-    try {
-        const current = getTodayDayType();
-        const newType = current === 'working' ? 'holiday' : 'working';
-        await setTodayDayType(newType);
-        res.json({ success: true, dayType: newType });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
 app.get('/', (req, res) => res.redirect('/tasks'));
 
 app.get('/tasks', async (req, res) => {
     try {
+        const istDateObj = getCurrentISTDisplay();
+        const dStatus = await db.collection('daily_status').findOne({_id:'current'});
         const { pendingTasks } = await getActiveTasksForToday();
+        
         res.render('index', {
-            currentPage: 'tasks', globalSettings, todayDayType: getTodayDayType(),
+            currentPage: 'tasks', globalSettings,
             tasks: pendingTasks.map(task => ({
                 ...task, 
                 subtasks: task.subtasks || [],
                 selectedDays: task.selectedDays || [],
             })),
-            notes: [], groupedHistory: {}, growData: {items: [], progress: {}}
+            notes: [], groupedHistory: {}, growData: {items: [], progress: {}}, dailyStatus: dStatus
         });
     } catch (error) { res.status(500).send("Server Error"); }
 });
 
 app.get('/grow', async (req, res) => {
     try {
+        const dStatus = await db.collection('daily_status').findOne({_id:'current'});
         const data = await db.collection('grow').findOne({ type: 'tracker' });
         const cleanData = data ? { items: data.items || [], progress: data.progress || {} } : { items: [], progress: {} };
-        res.render('index', { currentPage: 'grow', globalSettings, todayDayType: getTodayDayType(), tasks: [], notes: [], groupedHistory: {}, growData: cleanData });
+        res.render('index', { currentPage: 'grow', globalSettings, tasks: [], notes: [], groupedHistory: {}, growData: cleanData, dailyStatus: dStatus });
     } catch (error) { res.status(500).send("Server Error"); }
 });
 
 app.get('/notes', async (req, res) => {
     try {
+        const dStatus = await db.collection('daily_status').findOne({_id:'current'});
         const notes = await db.collection('notes').find().sort({ orderIndex: 1, createdAt: -1 }).toArray();
-        res.render('index', { currentPage: 'notes', globalSettings, todayDayType: getTodayDayType(), tasks: [], notes: notes.map(n => ({ ...n, createdAtIST: formatLegacyIST(n.createdAt, 'date') + ' ' + formatLegacyIST(n.createdAt, 'time'), updatedAtIST: n.updatedAt ? formatLegacyIST(n.updatedAt, 'date') + ' ' + formatLegacyIST(n.updatedAt, 'time') : '' })), groupedHistory: {}, growData: {items: [], progress: {}} });
+        res.render('index', { currentPage: 'notes', globalSettings, tasks: [], notes: notes.map(n => ({ ...n, createdAtIST: formatLegacyIST(n.createdAt, 'date') + ' ' + formatLegacyIST(n.createdAt, 'time'), updatedAtIST: n.updatedAt ? formatLegacyIST(n.updatedAt, 'date') + ' ' + formatLegacyIST(n.updatedAt, 'time') : '' })), groupedHistory: {}, growData: {items: [], progress: {}}, dailyStatus: dStatus });
     } catch (error) { res.status(500).send("Server Error"); }
 });
 
 app.get('/history', async (req, res) => {
     try {
+        const dStatus = await db.collection('daily_status').findOne({_id:'current'});
         const groupedHistory = await getHydratedHistory();
-        res.render('index', { currentPage: 'history', globalSettings, todayDayType: getTodayDayType(), tasks: [], notes: [], groupedHistory, growData: {items: [], progress: {}} });
+        res.render('index', { currentPage: 'history', globalSettings, tasks: [], notes: [], groupedHistory, growData: {items: [], progress: {}}, dailyStatus: dStatus });
     } catch (error) { res.status(500).send("Server Error"); }
 });
 
@@ -1936,14 +1998,11 @@ app.get('/api/tasks/:taskId', async (req, res) => {
 
 app.post('/api/tasks', async (req, res) => {
     try {
-        let dt = req.body.dayType;
-        if (!dt) return res.status(400).send('Select at least one Task Type (Working/Holiday).');
-        if (!Array.isArray(dt)) dt = [dt];
-
-        const { title, description, startTime, endTime, selectedDays, repeatWeeks } = req.body;
+        const { title, description, startTime, endTime, selectedDays, repeatWeeks, dayTypes } = req.body;
         
         const daysArr = JSON.parse(selectedDays || '[]');
         if (daysArr.length === 0) return res.status(400).send('Select at least one day.');
+        if (!dayTypes || dayTypes.length === 0) return res.status(400).send('Select at least one Day Type.');
         
         const repeatWks = parseInt(repeatWeeks) || 1;
         const nowUTC = new Date();
@@ -1951,7 +2010,7 @@ app.post('/api/tasks', async (req, res) => {
         
         const task = { 
             taskId: generateId('t'), title: title.trim(), description: description ? description.trim() : '', 
-            selectedDays: daysArr, repeatWeeks: repeatWks, dayType: dt,
+            selectedDays: daysArr, dayTypes: dayTypes, repeatWeeks: repeatWks,
             startDate: nowUTC, endDate: endDateUTC, 
             status: 'pending', subtasks: [], createdAt: new Date(), orderIndex: (await db.collection('tasks').countDocuments()) || 0, 
             startTimeStr: startTime, endTimeStr: endTime
@@ -1961,7 +2020,7 @@ app.post('/api/tasks', async (req, res) => {
         scheduleTask(task);
         
         if(globalSettings.alerts) {
-            let msg = `➕ <b>Task Added</b>\n📌 <b>Title:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} - ${f12(task.endTimeStr)}\n🔄 <b>Repeats:</b> ${repeatWks} ${repeatWks===1?'Week':'Weeks'}`;
+            let msg = `➕ <b>Task Added</b>\n📌 <b>Title:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} - ${f12(task.endTimeStr)}\n🔄 <b>Repeats:</b> ${repeatWks} Week(s)`;
             try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
         }
         res.json({success: true});
@@ -1970,14 +2029,11 @@ app.post('/api/tasks', async (req, res) => {
 
 app.post('/api/tasks/:taskId/update', async (req, res) => {
     try {
-        let dt = req.body.dayType;
-        if (!dt) return res.status(400).send('Select at least one Task Type (Working/Holiday).');
-        if (!Array.isArray(dt)) dt = [dt];
-
-        const { title, description, startTime, endTime, selectedDays, repeatWeeks } = req.body;
+        const { title, description, startTime, endTime, selectedDays, repeatWeeks, dayTypes } = req.body;
         
         const daysArr = JSON.parse(selectedDays || '[]');
         if (daysArr.length === 0) return res.status(400).send('Select at least one day.');
+        if (!dayTypes || dayTypes.length === 0) return res.status(400).send('Select at least one Day Type.');
         
         const repeatWks = parseInt(repeatWeeks) || 1;
         const nowUTC = new Date();
@@ -1986,7 +2042,7 @@ app.post('/api/tasks/:taskId/update', async (req, res) => {
         await db.collection('tasks').updateOne(
             { taskId: req.params.taskId }, 
             { $set: { title: title.trim(), description: description ? description.trim() : '', 
-                selectedDays: daysArr, repeatWeeks: repeatWks, dayType: dt,
+                selectedDays: daysArr, dayTypes: dayTypes, repeatWeeks: repeatWks,
                 endDate: endDateUTC, startTimeStr: startTime, endTimeStr: endTime, updatedAt: new Date() } }
         );
         const t = await db.collection('tasks').findOne({ taskId: req.params.taskId });
@@ -2009,12 +2065,16 @@ app.post('/api/tasks/:taskId/complete', async (req, res) => {
         const istNow = getCurrentISTDisplay();
         const historySubtasks = (task.subtasks || []).map(s => ({ id: s.id, completed: s.completed }));
 
+        const dStatus = await db.collection('daily_status').findOne({_id:'current'});
+        const typeToSave = (dStatus && dStatus.dateStr === istNow.displayDate) ? dStatus.type : 'WD'; 
+
         await db.collection('history').insertOne({ 
             taskId: task.taskId, 
             completedAt: new Date(), 
             completedDateStr: istNow.displayDate, 
             completedTimeStr: istNow.displayTime, 
             status: 'completed',
+            dailyType: typeToSave,
             subtasks: historySubtasks 
         });
         
@@ -2197,7 +2257,6 @@ async function start() {
         if (await connectDB()) {
             await cleanExpiredTasks();
             await rescheduleAllPending();
-            setupMorningPrompt();
             setupHourlyNotifications();
             setupAutoCompletion();
             
