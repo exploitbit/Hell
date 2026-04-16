@@ -26,7 +26,7 @@ app.set('views', path.join(__dirname, 'views'));
 const viewsDir = path.join(__dirname, 'views');
 if (!fs.existsSync(viewsDir)) fs.mkdirSync(viewsDir, { recursive: true });
 
-let globalSettings = { notifications: true, alerts: true, reminders: true };
+let globalSettings = { notifications: true, alerts: true, reminders: true, dailyType: null, dailyTypeDate: null };
 
 // ==========================================
 // 🕐 TIMEZONE & UTILITIES
@@ -99,10 +99,7 @@ async function getActiveTasksForToday() {
     const startOfDayUTC = istToUTC(istDateObj.date, "00:00");
     const endOfDayUTC = istToUTC(istDateObj.date, "23:59");
 
-    const dStatus = await db.collection('daily_status').findOne({ _id: 'current' });
-    let currentType = null;
-    if (dStatus && dStatus.dateStr === istDateObj.displayDate) currentType = dStatus.type;
-
+    let currentType = (globalSettings.dailyTypeDate === istDateObj.displayDate) ? globalSettings.dailyType : null;
     if (!currentType) return { pendingTasks: [], completedTasks: [], todayHistory: [], totalToday: 0 };
 
     const pending = await db.collection('tasks').find({
@@ -232,6 +229,11 @@ function writeMainEJS() {
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .modal-content { background: var(--card-bg-dark); border: 1px solid var(--border-dark); } }
         body[data-theme="dark"] .modal-content { background: var(--card-bg-dark); border-color: var(--border-dark); color: var(--text-primary-dark); }
         body[data-theme="light"] .modal-content { background: var(--card-bg-light); border-color: var(--border-light); color: var(--text-primary-light); }
+
+        /* GLASSMORPHISM UI FOR DAILY STATUS */
+        #dailyStatusModal { background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 10000; display: none; align-items: center; justify-content: center; }
+        .glass-content { background: rgba(255, 255, 255, 0.65); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.4); border-radius: 24px; padding: 40px 24px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2); width: 85%; max-width: 360px; text-align: center; }
+        body[data-theme="dark"] .glass-content { background: rgba(30, 41, 59, 0.65); border-color: rgba(255, 255, 255, 0.1); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5); color: #f8fafc; }
 
         #settingsAppModal { align-items: flex-start !important; justify-content: flex-end !important; background: transparent !important; backdrop-filter: none !important; padding-top: 55px; padding-right: 12px; }
         #settingsAppModal .modal-content { width: 170px; max-width: 170px; margin: 0; padding: 12px; border-radius: 16px; box-shadow: 0 8px 25px rgba(0,0,0,0.15); transform-origin: top right; animation: dropdownPop 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
@@ -532,14 +534,14 @@ function writeMainEJS() {
     
     <div class="grow-bubble" id="growBubble"><div id="growBubbleContent"></div><div id="growTail"></div></div>
 
-    <div class="modal" id="dailyStatusModal" style="background: var(--bg-light); z-index: 9999;">
-        <div class="modal-content" style="text-align: center; margin-top: 15vh; border:none; box-shadow:none; background:transparent;">
+    <div class="modal" id="dailyStatusModal">
+        <div class="glass-content">
             <i class="fas fa-calendar-day" style="font-size: 3rem; color: var(--accent-light); margin-bottom:16px;"></i>
             <h2 style="font-size:1.5rem; margin-bottom:8px;">Good Morning!</h2>
             <p style="color:var(--text-secondary-light); margin-bottom:24px; font-size:1rem;">Is today a Working Day or a Holiday?</p>
             <div style="display:flex; gap:16px; flex-wrap:wrap;">
-                <button class="btn btn-primary" style="flex:1; min-width:140px; padding:14px; font-size:1rem;" onclick="setDailyStatus('WD')">💼 Working Day</button>
-                <button class="btn btn-secondary" style="flex:1; min-width:140px; padding:14px; font-size:1rem; background:var(--danger-light); color:white;" onclick="setDailyStatus('HOL')">🏖️ Holiday</button>
+                <button class="btn btn-primary" style="flex:1; min-width:130px; padding:14px; font-size:1rem;" onclick="setDailyStatus('WD')">💼 Working Day</button>
+                <button class="btn btn-secondary" style="flex:1; min-width:130px; padding:14px; font-size:1rem; background:var(--danger-light); color:white;" onclick="setDailyStatus('HOL')">🏖️ Holiday</button>
             </div>
         </div>
     </div>
@@ -793,7 +795,8 @@ function writeMainEJS() {
         let notesData = <%- JSON.stringify(notes || []) %>;
         let historyData = <%- JSON.stringify(groupedHistory || {}) %>;
         let growTrackerData = <%- JSON.stringify(growData || {items: [], progress: {}}) %>;
-        let dailyStatus = <%- JSON.stringify(dailyStatus || null) %>;
+        let dailyTypeSaved = '<%= globalSettings.dailyType || "" %>';
+        let dailyTypeDateSaved = '<%= globalSettings.dailyTypeDate || "" %>';
         
         let currentMonth = new Date().getMonth();
         let currentYear = new Date().getFullYear();
@@ -808,7 +811,7 @@ function writeMainEJS() {
             const sortOrder = {1:1, 2:2, 3:3, 4:4, 5:5, 6:6, 0:7};
             
             const sortedDays = [...daysArr].sort((a, b) => sortOrder[a] - sortOrder[b]);
-            return '<div style="display:flex; gap:4px; flex-wrap:wrap; margin-top:4px;">' + 
+            return '<div style="display:flex; gap:4px; flex-wrap:wrap;">' + 
                    sortedDays.map(d => '<span class="day-box">' + map[d] + '</span>').join('') + 
                    '</div>';
         }
@@ -841,6 +844,7 @@ function writeMainEJS() {
                 date: ist.getUTCFullYear()+"-"+String(ist.getUTCMonth()+1).padStart(2,"0")+"-"+String(ist.getUTCDate()).padStart(2,"0"),
                 month: ist.getUTCMonth(),
                 year: ist.getUTCFullYear(),
+                displayDate: String(ist.getUTCDate()).padStart(2,"0")+"-"+String(ist.getUTCMonth()+1).padStart(2,"0")+"-"+ist.getUTCFullYear(),
                 time: String(ist.getUTCHours()).padStart(2,"0")+":"+String(ist.getUTCMinutes()).padStart(2,"0")
             };
         }
@@ -1215,8 +1219,8 @@ function writeMainEJS() {
                     if (hasDescription) html += '<div id="' + descriptionId + '" class="task-description-container hidden"><div class="task-description">' + preserveLineBreaks(task.description) + '</div></div>';
                     
                     const time12 = f12(task.startTimeStr) + ' - ' + f12(task.endTimeStr);
-                    html += '<div class="task-time-row"><span class="time-chip"><i class="fas fa-clock"></i> ' + time12 + '</span>';
-                    html += '<span class="badge" style="margin-left:auto;"><i class="fas fa-sync"></i> ' + (task.repeatWeeks == 1 ? '1 Week' : task.repeatWeeks + ' Weeks') + '</span></div>';
+                    html += '<div class="task-time-row" style="margin-bottom:8px;"><span class="time-chip"><i class="fas fa-clock"></i> ' + time12 + '</span>';
+                    html += '<span class="badge" style="margin-left:auto; background:transparent; border:1px solid var(--border-light);"><i class="fas fa-sync"></i> ' + (task.repeatWeeks == 1 ? '1 Week' : task.repeatWeeks + ' Weeks') + '</span></div>';
                     
                     if (totalSubtasks > 0) {
                         html += '<details class="task-subtasks"><summary class="flex-row" style="cursor: pointer;"><div class="progress-ring-small"><svg width="34" height="34"><circle class="progress-ring-circle-small" stroke="var(--progress-bg-light)" stroke-width="3" fill="transparent" r="14" cx="17" cy="17"/><circle class="progress-ring-circle-small" stroke="var(--accent-light)" stroke-width="3" fill="transparent" r="14" cx="17" cy="17" style="stroke-dasharray: ' + circleCircumference + '; stroke-dashoffset: ' + circleOffset + '; "/></svg><span class="progress-text-small">' + progress + '%</span></div><span style="font-size: 0.85rem; font-weight: 500; color: var(--text-secondary-light);">' + completedSubtasks + '/' + totalSubtasks + ' subtasks</span></summary><div class="subtasks-container w-100">';
@@ -1235,11 +1239,11 @@ function writeMainEJS() {
                             html += '</div>';
                         });
                         html += '</div></details>';
-                    } else { html += '<div class="flex-row" style="margin-top: 8px;"><span style="font-size: 0.85rem; color: var(--text-secondary-light);"><i class="fas fa-tasks"></i> No subtasks</span></div>'; }
+                    } else { html += '<div class="flex-row" style="margin-top: 8px; margin-bottom:8px;"><span style="font-size: 0.85rem; color: var(--text-secondary-light);"><i class="fas fa-tasks"></i> No subtasks</span></div>'; }
                     
-                    html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px; flex-wrap:wrap; gap:8px;">';
+                    html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px; flex-wrap:wrap; gap:8px;">';
                     html += '<div>' + getDayBoxes(task.selectedDays) + '</div>';
-                    html += '<span class="badge" style="font-weight:bold; letter-spacing:1px;">' + (task.dayTypes || []).join('/') + '</span>';
+                    html += '<span class="badge" style="font-weight:bold; letter-spacing:1px; border:1px solid var(--border-light);">' + (task.dayTypes || []).join('/') + '</span>';
                     html += '</div></div>';
                 });
             }
@@ -1291,7 +1295,7 @@ function writeMainEJS() {
                     const taskText = tasks.length === 1 ? '1 Task' : tasks.length + ' Tasks';
                     const dailyType = tasks[0].dailyType || 'WD';
 
-                    html += '<summary style="display:flex; justify-content:space-between; align-items:center; width:100%;"><span style="font-weight: 600;"><i class="fas fa-calendar-alt"></i> ' + displayDateHeader + '</span><span class="badge" style="font-weight:bold;">' + dailyType + '</span><span class="badge" style="margin-left: auto;">' + taskText + '</span></summary>';
+                    html += '<summary style="display:flex; justify-content:space-between; align-items:center; width:100%;"><span style="font-weight: 600;"><i class="fas fa-calendar-alt"></i> ' + displayDateHeader + '</span><span class="badge" style="font-weight:bold; letter-spacing:1px;">' + dailyType + '</span><span class="badge" style="margin-left: auto;">' + taskText + '</span></summary>';
                     html += '<div class="history-tasks-grid">';
                     
                     tasks.forEach(task => {
@@ -1301,8 +1305,8 @@ function writeMainEJS() {
                         html += '<div class="history-task-card"><div class="history-task-header"><div class="task-title-container" onclick="toggleDescription(\\'' + historyDescId + '\\')"><i class="fas fa-chevron-right"></i><span class="history-task-title">' + escapedHistoryTitle + '</span></div><span class="history-task-time"><i class="fas fa-check-circle" style="color: var(--success-light);"></i> ' + f12(task.completedTimeIST) + '</span></div>';
                         if (hasDescription) html += '<div id="' + historyDescId + '" class="history-description-container hidden"><div class="history-description">' + preserveLineBreaks(task.description) + '</div></div>';
                         
-                        html += '<div style="display: flex; gap: 6px; margin: 8px 0 4px 0; flex-wrap: wrap;"><span class="badge"><i class="fas fa-clock"></i> ' + f12(task.startTimeStr || task.startTimeIST) + '-' + f12(task.endTimeStr || task.endTimeIST) + '</span>';
-                        html += '<span class="badge"><i class="fas fa-sync"></i> ' + (task.repeatWeeks == 1 ? '1 Week' : (task.repeatWeeks||1) + ' Weeks') + '</span></div>';
+                        html += '<div style="display: flex; gap: 6px; margin: 8px 0 6px 0; flex-wrap: wrap;"><span class="badge"><i class="fas fa-clock"></i> ' + f12(task.startTimeStr || task.startTimeIST) + '-' + f12(task.endTimeStr || task.endTimeIST) + '</span>';
+                        html += '<span class="badge" style="margin-left:auto; border:1px solid var(--border-light); background:transparent;"><i class="fas fa-sync"></i> ' + (task.repeatWeeks == 1 ? '1 Week' : (task.repeatWeeks||1) + ' Weeks') + '</span></div>';
 
                         html += getDayBoxes(task.selectedDays);
 
@@ -1499,8 +1503,8 @@ function writeMainEJS() {
             document.getElementById('pageTitleDisplay').innerText = currentPage;
             renderPage(); updateActiveNav();
 
-            if (!dailyStatus || dailyStatus.dateStr !== growToday) {
-                document.getElementById('dailyStatusModal').style.display = 'block';
+            if (!dailyTypeDateSaved || dailyTypeDateSaved !== gIst.displayDate) {
+                document.getElementById('dailyStatusModal').style.display = 'flex';
             }
             
             window.addEventListener('click', function(event) { 
@@ -1535,10 +1539,10 @@ async function connectDB() {
             
             let s = await db.collection('settings').findOne({ _id: 'bot_config' });
             if (!s) {
-                await db.collection('settings').insertOne({ _id: 'bot_config', notifications: true, alerts: true, reminders: true });
-                globalSettings = { notifications: true, alerts: true, reminders: true };
+                await db.collection('settings').insertOne({ _id: 'bot_config', notifications: true, alerts: true, reminders: true, dailyType: null, dailyTypeDate: null });
+                globalSettings = { notifications: true, alerts: true, reminders: true, dailyType: null, dailyTypeDate: null };
             } else {
-                globalSettings = { notifications: s.notifications !== false, alerts: s.alerts !== false, reminders: s.reminders !== false };
+                globalSettings = { notifications: s.notifications !== false, alerts: s.alerts !== false, reminders: s.reminders !== false, dailyType: s.dailyType, dailyTypeDate: s.dailyTypeDate };
             }
             
             const exists = await db.collection('grow').findOne({ type: 'tracker' });
@@ -1612,7 +1616,14 @@ async function sendStartMenu(ctx) {
     } catch (err) { console.error("Start Menu Error:", err); }
 }
 
-bot.command('start', sendStartMenu);
+bot.command('start', async (ctx) => {
+    const istDateObj = getCurrentISTDisplay();
+    if (globalSettings.dailyTypeDate !== istDateObj.displayDate) {
+        const kb = { inline_keyboard: [[{text:'💼 Working Day', callback_data:'set_wd_start'}, {text:'🏖️ Holiday', callback_data:'set_hol_start'}]] };
+        return ctx.reply(`Good Morning! 🌅\nIs today (${istDateObj.displayDate}) a Working Day or Holiday?`, {reply_markup: kb});
+    }
+    return sendStartMenu(ctx);
+});
 
 bot.action('open_settings', async (ctx) => {
     const gs = globalSettings;
@@ -1639,31 +1650,24 @@ bot.action('tgl_notif', ctx => toggleSetting(ctx, 'notifications'));
 bot.action('tgl_alerts', ctx => toggleSetting(ctx, 'alerts'));
 bot.action('tgl_reminders', ctx => toggleSetting(ctx, 'reminders'));
 
-// 12:01 AM Daily Status Ask
-function setupDailyBotPrompt() {
-    const rule = new schedule.RecurrenceRule();
-    rule.hour = 0; rule.minute = 1; rule.tz = 'Asia/Kolkata';
-
-    schedule.scheduleJob(rule, async function() {
-        const istDateObj = getCurrentISTDisplay();
-        const kb = { inline_keyboard: [[{text:'💼 Working Day', callback_data:'set_wd'}, {text:'🏖️ Holiday', callback_data:'set_hol'}]] };
-        try { await bot.telegram.sendMessage(CHAT_ID, `Good Morning! 🌅\nIs today (${istDateObj.displayDate}) a Working Day or Holiday?`, {reply_markup: kb}); } catch(e){}
-    });
-}
-setupDailyBotPrompt();
-
-bot.action('set_wd', async ctx => {
+// Set Daily Status via Telegram Command
+bot.action('set_wd_start', async ctx => {
     const istDateObj = getCurrentISTDisplay();
-    await db.collection('daily_status').updateOne({_id:'current'}, {$set:{dateStr: istDateObj.displayDate, type: 'WD'}}, {upsert:true});
+    globalSettings.dailyType = 'WD';
+    globalSettings.dailyTypeDate = istDateObj.displayDate;
+    await db.collection('settings').updateOne({_id:'bot_config'}, {$set:{dailyType: 'WD', dailyTypeDate: istDateObj.displayDate}}, {upsert:true});
     await ctx.editMessageText(`✅ Today (${istDateObj.displayDate}) successfully set as a Working Day (WD).`);
+    sendStartMenu(ctx);
 });
 
-bot.action('set_hol', async ctx => {
+bot.action('set_hol_start', async ctx => {
     const istDateObj = getCurrentISTDisplay();
-    await db.collection('daily_status').updateOne({_id:'current'}, {$set:{dateStr: istDateObj.displayDate, type: 'HOL'}}, {upsert:true});
+    globalSettings.dailyType = 'HOL';
+    globalSettings.dailyTypeDate = istDateObj.displayDate;
+    await db.collection('settings').updateOne({_id:'bot_config'}, {$set:{dailyType: 'HOL', dailyTypeDate: istDateObj.displayDate}}, {upsert:true});
     await ctx.editMessageText(`✅ Today (${istDateObj.displayDate}) successfully set as a Holiday (HOL).`);
+    sendStartMenu(ctx);
 });
-
 
 function scheduleTask(task) {
     cancelTaskSchedule(task.taskId);
@@ -1683,8 +1687,8 @@ function scheduleTask(task) {
         if (isShuttingDown || !globalSettings.reminders) return;
         const istDateObj = getCurrentISTDisplay();
         
-        const dStatus = await db.collection('daily_status').findOne({_id:'current'});
-        if (!dStatus || dStatus.dateStr !== istDateObj.displayDate || !(task.dayTypes || ['WD']).includes(dStatus.type)) return;
+        const currentType = (globalSettings.dailyTypeDate === istDateObj.displayDate) ? globalSettings.dailyType : null;
+        if (!currentType || !(task.dayTypes || ['WD']).includes(currentType)) return;
 
         const hist = await db.collection('history').findOne({ taskId: task.taskId, completedDateStr: istDateObj.displayDate });
         if (hist) return; 
@@ -1706,7 +1710,7 @@ function scheduleTask(task) {
             }
             
             count++;
-            if(count >= 11) { // 10,9,8,7,6,5,4,3,2,1,0 -> 11 iterations
+            if(count >= 11) { 
                 if(activeSchedules.has(task.taskId) && activeSchedules.get(task.taskId).interval) clearInterval(activeSchedules.get(task.taskId).interval);
             }
         };
@@ -1776,8 +1780,7 @@ function setupAutoCompletion() {
             const istDateObj = getCurrentISTDisplay();
             const { pendingTasks } = await getActiveTasksForToday();
             
-            const dStatus = await db.collection('daily_status').findOne({_id:'current'});
-            const typeToSave = (dStatus && dStatus.dateStr === istDateObj.displayDate) ? dStatus.type : 'WD'; 
+            const currentType = (globalSettings.dailyTypeDate === istDateObj.displayDate) ? globalSettings.dailyType : 'WD';
 
             for (const task of pendingTasks) {
                 const historySubtasks = (task.subtasks || []).map(s => ({ id: s.id, completed: s.completed }));
@@ -1787,7 +1790,7 @@ function setupAutoCompletion() {
                     completedDateStr: istDateObj.displayDate,
                     completedTimeStr: istDateObj.displayTime,
                     status: 'completed',
-                    dailyType: typeToSave,
+                    dailyType: currentType,
                     subtasks: historySubtasks
                 });
             }
@@ -1795,6 +1798,12 @@ function setupAutoCompletion() {
                 try { await bot.telegram.sendMessage(CHAT_ID, `🌙 <b>Auto-completed</b> ${pendingTasks.length} tasks.\n🕒 <b>Time:</b> ${istDateObj.displayTime}\n📅 <b>Date:</b> ${istDateObj.displayDate}\n🗓 <b>Day:</b> ${istDateObj.dayName}\n`, { parse_mode: 'HTML' }); } catch(e){}
             }
             await cleanExpiredTasks();
+            
+            // Remove daily setting securely to force ask next day
+            globalSettings.dailyType = null;
+            globalSettings.dailyTypeDate = null;
+            await db.collection('settings').updateOne({ _id: 'bot_config' }, { $unset: { dailyType: "", dailyTypeDate: "" } });
+
         } catch (error) {}
     });
 }
@@ -1844,7 +1853,9 @@ async function getHydratedHistory() {
 app.post('/api/daily_status', async (req, res) => {
     try {
         const istDateObj = getCurrentISTDisplay();
-        await db.collection('daily_status').updateOne({_id:'current'}, {$set: {dateStr: istDateObj.displayDate, type: req.body.type}}, {upsert:true});
+        globalSettings.dailyType = req.body.type;
+        globalSettings.dailyTypeDate = istDateObj.displayDate;
+        await db.collection('settings').updateOne({_id:'bot_config'}, {$set: {dailyTypeDate: istDateObj.displayDate, dailyType: req.body.type}}, {upsert:true});
         res.json({success:true});
     } catch(e) { res.status(500).json({error: e.message}); }
 });
@@ -1861,10 +1872,7 @@ app.get('/', (req, res) => res.redirect('/tasks'));
 
 app.get('/tasks', async (req, res) => {
     try {
-        const istDateObj = getCurrentISTDisplay();
-        const dStatus = await db.collection('daily_status').findOne({_id:'current'});
         const { pendingTasks } = await getActiveTasksForToday();
-        
         res.render('index', {
             currentPage: 'tasks', globalSettings,
             tasks: pendingTasks.map(task => ({
@@ -1872,33 +1880,30 @@ app.get('/tasks', async (req, res) => {
                 subtasks: task.subtasks || [],
                 selectedDays: task.selectedDays || [],
             })),
-            notes: [], groupedHistory: {}, growData: {items: [], progress: {}}, dailyStatus: dStatus
+            notes: [], groupedHistory: {}, growData: {items: [], progress: {}}
         });
     } catch (error) { res.status(500).send("Server Error"); }
 });
 
 app.get('/grow', async (req, res) => {
     try {
-        const dStatus = await db.collection('daily_status').findOne({_id:'current'});
         const data = await db.collection('grow').findOne({ type: 'tracker' });
         const cleanData = data ? { items: data.items || [], progress: data.progress || {} } : { items: [], progress: {} };
-        res.render('index', { currentPage: 'grow', globalSettings, tasks: [], notes: [], groupedHistory: {}, growData: cleanData, dailyStatus: dStatus });
+        res.render('index', { currentPage: 'grow', globalSettings, tasks: [], notes: [], groupedHistory: {}, growData: cleanData });
     } catch (error) { res.status(500).send("Server Error"); }
 });
 
 app.get('/notes', async (req, res) => {
     try {
-        const dStatus = await db.collection('daily_status').findOne({_id:'current'});
         const notes = await db.collection('notes').find().sort({ orderIndex: 1, createdAt: -1 }).toArray();
-        res.render('index', { currentPage: 'notes', globalSettings, tasks: [], notes: notes.map(n => ({ ...n, createdAtIST: formatLegacyIST(n.createdAt, 'date') + ' ' + formatLegacyIST(n.createdAt, 'time'), updatedAtIST: n.updatedAt ? formatLegacyIST(n.updatedAt, 'date') + ' ' + formatLegacyIST(n.updatedAt, 'time') : '' })), groupedHistory: {}, growData: {items: [], progress: {}}, dailyStatus: dStatus });
+        res.render('index', { currentPage: 'notes', globalSettings, tasks: [], notes: notes.map(n => ({ ...n, createdAtIST: formatLegacyIST(n.createdAt, 'date') + ' ' + formatLegacyIST(n.createdAt, 'time'), updatedAtIST: n.updatedAt ? formatLegacyIST(n.updatedAt, 'date') + ' ' + formatLegacyIST(n.updatedAt, 'time') : '' })), groupedHistory: {}, growData: {items: [], progress: {}} });
     } catch (error) { res.status(500).send("Server Error"); }
 });
 
 app.get('/history', async (req, res) => {
     try {
-        const dStatus = await db.collection('daily_status').findOne({_id:'current'});
         const groupedHistory = await getHydratedHistory();
-        res.render('index', { currentPage: 'history', globalSettings, tasks: [], notes: [], groupedHistory, growData: {items: [], progress: {}}, dailyStatus: dStatus });
+        res.render('index', { currentPage: 'history', globalSettings, tasks: [], notes: [], groupedHistory, growData: {items: [], progress: {}} });
     } catch (error) { res.status(500).send("Server Error"); }
 });
 
@@ -2065,8 +2070,7 @@ app.post('/api/tasks/:taskId/complete', async (req, res) => {
         const istNow = getCurrentISTDisplay();
         const historySubtasks = (task.subtasks || []).map(s => ({ id: s.id, completed: s.completed }));
 
-        const dStatus = await db.collection('daily_status').findOne({_id:'current'});
-        const typeToSave = (dStatus && dStatus.dateStr === istNow.displayDate) ? dStatus.type : 'WD'; 
+        const currentType = (globalSettings.dailyTypeDate === istNow.displayDate) ? globalSettings.dailyType : 'WD'; 
 
         await db.collection('history').insertOne({ 
             taskId: task.taskId, 
@@ -2074,7 +2078,7 @@ app.post('/api/tasks/:taskId/complete', async (req, res) => {
             completedDateStr: istNow.displayDate, 
             completedTimeStr: istNow.displayTime, 
             status: 'completed',
-            dailyType: typeToSave,
+            dailyType: currentType,
             subtasks: historySubtasks 
         });
         
