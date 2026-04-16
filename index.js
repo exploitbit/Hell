@@ -1568,51 +1568,87 @@ bot.action('tgl_alerts', ctx => toggleSetting(ctx, 'alerts'));
 bot.action('tgl_reminders', ctx => toggleSetting(ctx, 'reminders'));
 
 function scheduleTask(task) {
-    cancelTaskSchedule(task.taskId);
-    if (new Date() > new Date(task.endDate)) return; 
-    if (!task.selectedDays || task.selectedDays.length === 0) return;
+    if (!task || !task.taskId || !task.nextOccurrence) return;
+    try {
+        const taskId = task.taskId;
+        const targetTimeUTC = new Date(task.nextOccurrence);
+        const nowUTC = new Date();
 
-    const [h, m] = task.startTimeStr.split(':').map(Number);
-    let notifyMins = m - 10;
-    let notifyH = h;
-    if (notifyMins < 0) { notifyMins += 60; notifyH -= 1; }
-    if (notifyH < 0) notifyH += 24;
+        cancelTaskSchedule(taskId);
+        if (targetTimeUTC <= nowUTC) return;
 
-    const daysStr = task.selectedDays.join(',');
-    const cronExp10Min = `${notifyMins} ${notifyH} * * ${daysStr}`;
-    const cronExpExact = `${m} ${h} * * ${daysStr}`;
+        const notifyTimeUTC = new Date(targetTimeUTC.getTime() - 10 * 60000);
+        const triggerDateUTC = notifyTimeUTC > nowUTC ? notifyTimeUTC : nowUTC;
 
-    const startJob = schedule.scheduleJob({ rule: cronExp10Min, tz: 'Asia/Kolkata' }, async function() {
-        if (isShuttingDown || !globalSettings.reminders) return;
-        const istDateObj = getCurrentISTDisplay();
-        const hist = await db.collection('history').findOne({ taskId: task.taskId, completedDateStr: istDateObj.displayDate });
-        if (hist) return; // Completed today!
-        try { await bot.telegram.sendMessage(CHAT_ID, `🔔 <b>In 10m:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} to ${f12(task.endTimeStr)}`, { parse_mode: 'HTML' }); } catch(e){}
-    });
+        const startJob = schedule.scheduleJob(triggerDateUTC, async function() {
+            if (isShuttingDown || !globalSettings.reminders) return;
+            
+            if (currentReminderTaskId !== taskId) {
+                for (const msgId of activeReminderMessageIds) {
+                    try { await bot.telegram.deleteMessage(CHAT_ID, msgId); } catch(e){}
+                }
+                activeReminderMessageIds = [];
+                currentReminderTaskId = taskId;
+            }
 
-    const exactJob = schedule.scheduleJob({ rule: cronExpExact, tz: 'Asia/Kolkata' }, async function() {
-        if (isShuttingDown || !globalSettings.reminders) return;
-        const istDateObj = getCurrentISTDisplay();
-        const hist = await db.collection('history').findOne({ taskId: task.taskId, completedDateStr: istDateObj.displayDate });
-        if (hist) return;
-        try { await bot.telegram.sendMessage(CHAT_ID, `🚀 <b>START NOW:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} to ${f12(task.endTimeStr)}`, { parse_mode: 'HTML' }); } catch(e){}
-    });
+            let count = 0;
+            const maxNotifications = 10;
+            
+            const sendNotification = async () => {
+                if (isShuttingDown || !globalSettings.reminders) return;
+                const currentTimeUTC = new Date();
 
-    activeSchedules.set(task.taskId, { startJob, exactJob });
+                if (currentTimeUTC >= targetTimeUTC || count >= maxNotifications) {
+                    const activeSchedule = activeSchedules.get(taskId);
+                    if (activeSchedule && activeSchedule.interval) {
+                        clearInterval(activeSchedule.interval);
+                        activeSchedule.interval = null;
+                    }
+                    if (currentTimeUTC >= targetTimeUTC) {
+                        try { 
+                            const sent = await bot.telegram.sendMessage(CHAT_ID, `🚀 <b>START NOW:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${task.startTimeStr} to ${task.endTimeStr}`, { parse_mode: 'HTML' }); 
+                            activeReminderMessageIds.push(sent.message_id);
+                        } catch (e) {}
+                    }
+                    return;
+                }
+                const minutesLeft = Math.ceil((targetTimeUTC - currentTimeUTC) / 60000);
+                if (minutesLeft > 0) {
+                    try { 
+                        const sent = await bot.telegram.sendMessage(CHAT_ID, `🔔 <b>In ${minutesLeft}m:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${task.startTimeStr} to ${task.endTimeStr}`, { parse_mode: 'HTML' }); 
+                        activeReminderMessageIds.push(sent.message_id);
+                    } catch (e) {}
+                }
+                count++;
+            };
+            
+            await sendNotification();
+            const interval = setInterval(sendNotification, 60000);
+            if (activeSchedules.has(taskId)) {
+                if (activeSchedules.get(taskId).interval) clearInterval(activeSchedules.get(taskId).interval);
+                activeSchedules.get(taskId).interval = interval;
+            } else { activeSchedules.set(taskId, { startJob, interval }); }
+        });
+        
+        if (activeSchedules.has(taskId)) {
+            if (activeSchedules.get(taskId).startJob) activeSchedules.get(taskId).startJob.cancel();
+            activeSchedules.get(taskId).startJob = startJob;
+        } else { activeSchedules.set(taskId, { startJob }); }
+    } catch (error) {}
 }
 
 function cancelTaskSchedule(taskId) {
     if (activeSchedules.has(taskId)) {
         const s = activeSchedules.get(taskId);
         if (s.startJob) try { s.startJob.cancel(); } catch (e) {}
-        if (s.exactJob) try { s.exactJob.cancel(); } catch (e) {}
+        if (s.interval) try { clearInterval(s.interval); } catch (e) {}
         activeSchedules.delete(taskId);
     }
 }
 
 async function rescheduleAllPending() {
     try {
-        const tasks = await db.collection('tasks').find({ status: 'pending' }).toArray();
+        const tasks = await db.collection('tasks').find({ status: 'pending', nextOccurrence: { $gt: new Date() } }).toArray();
         tasks.forEach(task => scheduleTask(task));
     } catch (error) {}
 }
