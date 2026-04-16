@@ -219,6 +219,11 @@ function writeMainEJS() {
         body[data-theme="dark"] .badge { background: var(--hover-dark); color: var(--text-secondary-dark); }
         body[data-theme="light"] .badge { background: var(--hover-light); color: var(--text-secondary-light); }
 
+        /* DAY BOXES CSS */
+        .day-box { display: inline-flex; align-items: center; justify-content: center; padding: 2px 6px; border-radius: 4px; background: var(--hover-light); border: 1px solid var(--border-light); font-size: 0.7rem; font-weight: 600; color: var(--text-secondary-light); margin-right: 2px; }
+        @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .day-box { background: var(--hover-dark); border-color: var(--border-dark); color: var(--text-secondary-dark); } }
+        body[data-theme="dark"] .day-box { background: var(--hover-dark); border-color: var(--border-dark); color: var(--text-secondary-dark); }
+
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); align-items: center; justify-content: center; z-index: 1000; }
         .modal-content { background: var(--card-bg-light); border: 1px solid var(--border-light); border-radius: 20px; padding: 20px; width: 90%; max-width: 500px; max-height: 85vh; overflow-y: auto; }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .modal-content { background: var(--card-bg-dark); border: 1px solid var(--border-dark); } }
@@ -563,13 +568,13 @@ function writeMainEJS() {
                 <div class="form-group" style="margin-bottom: 12px;">
                     <label style="font-size: 0.95rem; font-weight: 500;">Select Days *</label>
                     <div class="day-selector" id="addDaySelector">
-                        <div class="day-circle" data-day="1">M</div>
-                        <div class="day-circle" data-day="2">T</div>
-                        <div class="day-circle" data-day="3">W</div>
-                        <div class="day-circle" data-day="4">T</div>
-                        <div class="day-circle" data-day="5">F</div>
-                        <div class="day-circle" data-day="6">S</div>
-                        <div class="day-circle" data-day="0">S</div>
+                        <div class="day-circle" data-day="1">MO</div>
+                        <div class="day-circle" data-day="2">TU</div>
+                        <div class="day-circle" data-day="3">WE</div>
+                        <div class="day-circle" data-day="4">TH</div>
+                        <div class="day-circle" data-day="5">FR</div>
+                        <div class="day-circle" data-day="6">SA</div>
+                        <div class="day-circle" data-day="0">SU</div>
                     </div>
                     <input type="hidden" name="selectedDays" id="addSelectedDays" required>
                 </div>
@@ -608,13 +613,13 @@ function writeMainEJS() {
                 <div class="form-group" style="margin-bottom: 12px;">
                     <label style="font-size: 0.95rem; font-weight: 500;">Select Days *</label>
                     <div class="day-selector" id="editDaySelector">
-                        <div class="day-circle" data-day="1">M</div>
-                        <div class="day-circle" data-day="2">T</div>
-                        <div class="day-circle" data-day="3">W</div>
-                        <div class="day-circle" data-day="4">T</div>
-                        <div class="day-circle" data-day="5">F</div>
-                        <div class="day-circle" data-day="6">S</div>
-                        <div class="day-circle" data-day="0">S</div>
+                        <div class="day-circle" data-day="1">MO</div>
+                        <div class="day-circle" data-day="2">TU</div>
+                        <div class="day-circle" data-day="3">WE</div>
+                        <div class="day-circle" data-day="4">TH</div>
+                        <div class="day-circle" data-day="5">FR</div>
+                        <div class="day-circle" data-day="6">SA</div>
+                        <div class="day-circle" data-day="0">SU</div>
                     </div>
                     <input type="hidden" name="selectedDays" id="editSelectedDays" required>
                 </div>
@@ -764,8 +769,21 @@ function writeMainEJS() {
         let currentYear = new Date().getFullYear();
 
         let growToday = "", growMonth = 0, growYear = 2026, growLogContext = null;
+        
         const growColors = ["#ec4899","#a855f7","#38bdf8","#ef4444","#f97316","#16a34a","#84cc16","#3b82f6", "#eab308", "#14b8a6"];
-        const DAYS_MAP = ['Su','M','T','W','Th','F','Sa']; // used for display
+        
+        function getDayBoxes(daysArr) {
+            if (!daysArr || daysArr.length === 0) return '';
+            // Map day numerical values to Strings 
+            const map = {1:'MO', 2:'TU', 3:'WE', 4:'TH', 5:'FR', 6:'SA', 0:'SU'};
+            // Sort by Monday as start of week
+            const sortOrder = {1:1, 2:2, 3:3, 4:4, 5:5, 6:6, 0:7};
+            
+            const sortedDays = [...daysArr].sort((a, b) => sortOrder[a] - sortOrder[b]);
+            return '<div style="display:flex; gap:4px; flex-wrap:wrap; margin-top:4px;">' + 
+                   sortedDays.map(d => '<span class="day-box">' + map[d] + '</span>').join('') + 
+                   '</div>';
+        }
 
         function setupDaySelector(selectorId, inputId) {
             const container = document.getElementById(selectorId);
@@ -1180,9 +1198,9 @@ function writeMainEJS() {
                         html += '</div></details>';
                     } else { html += '<div class="flex-row" style="margin-top: 8px;"><span style="font-size: 0.85rem; color: var(--text-secondary-light);"><i class="fas fa-tasks"></i> No subtasks</span></div>'; }
                     
-                    const daysStr = (task.selectedDays || []).map(d => DAYS_MAP[d]).join(', ');
+                    html += getDayBoxes(task.selectedDays);
+                    
                     html += '<div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">';
-                    if (task.selectedDays && task.selectedDays.length > 0) html += '<span class="badge"><i class="fas fa-calendar-week"></i> ' + daysStr + '</span>';
                     html += '<span class="badge"><i class="fas fa-sync"></i> ' + task.repeatWeeks + ' Wks</span>';
                     html += '</div></div>';
                 });
@@ -1231,7 +1249,9 @@ function writeMainEJS() {
                         const parts = date.split('-'); displayDateHeader = parts[2] + '-' + parts[1] + '-' + parts[0];
                     }
                     html += '<div class="history-date-card"><details class="history-details">';
-                    html += '<summary><i class="fas fa-calendar-alt"></i><span style="font-weight: 600;">' + displayDateHeader + '</span><span class="badge" style="margin-left: auto;">' + tasks.length + ' task(s)</span></summary>';
+                    
+                    const taskText = tasks.length === 1 ? '1 Task' : tasks.length + ' Tasks';
+                    html += '<summary><i class="fas fa-calendar-alt"></i><span style="font-weight: 600;">' + displayDateHeader + '</span><span class="badge" style="margin-left: auto;">' + taskText + '</span></summary>';
                     html += '<div class="history-tasks-grid">';
                     
                     tasks.forEach(task => {
@@ -1241,10 +1261,11 @@ function writeMainEJS() {
                         html += '<div class="history-task-card"><div class="history-task-header"><div class="task-title-container" onclick="toggleDescription(\\'' + historyDescId + '\\')"><i class="fas fa-chevron-right"></i><span class="history-task-title">' + escapedHistoryTitle + '</span></div><span class="history-task-time"><i class="fas fa-check-circle" style="color: var(--success-light);"></i> ' + f12(task.completedTimeIST) + '</span></div>';
                         if (hasDescription) html += '<div id="' + historyDescId + '" class="history-description-container hidden"><div class="history-description">' + preserveLineBreaks(task.description) + '</div></div>';
                         
-                        const daysStr = (task.selectedDays || []).map(d => DAYS_MAP[d]).join(', ');
-                        html += '<div style="display: flex; gap: 6px; margin: 8px 0; flex-wrap: wrap;"><span class="badge"><i class="fas fa-clock"></i> ' + f12(task.startTimeStr || task.startTimeIST) + '-' + f12(task.endTimeStr || task.endTimeIST) + '</span>';
-                        if (daysStr) html += '<span class="badge"><i class="fas fa-calendar-week"></i> ' + daysStr + '</span>';
+                        html += '<div style="display: flex; gap: 6px; margin: 8px 0 4px 0; flex-wrap: wrap;"><span class="badge"><i class="fas fa-clock"></i> ' + f12(task.startTimeStr || task.startTimeIST) + '-' + f12(task.endTimeStr || task.endTimeIST) + '</span>';
+                        html += '<span class="badge"><i class="fas fa-sync"></i> ' + (task.repeatWeeks || 1) + ' Wks</span>';
                         html += '</div>';
+
+                        html += getDayBoxes(task.selectedDays);
 
                         if (task.subtasks && task.subtasks.length > 0) {
                             html += '<details style="margin-top: 8px;"><summary style="cursor: pointer; color: var(--accent-light); font-weight: 600; font-size: 0.85rem;"><i class="fas fa-tasks"></i> Subtasks (' + task.subtasks.filter(s => s.completed).length + '/' + task.subtasks.length + ')</summary><div style="margin-top: 8px;">';
@@ -1688,6 +1709,7 @@ async function getHydratedHistory() {
         if (!groupedHistory[dateKey]) groupedHistory[dateKey] = [];
         groupedHistory[dateKey].push({
             ...combined,
+            repeatWeeks: combined.repeatWeeks || 1, // Ensured repeatWeeks passes to frontend History
             completedTimeIST: combined.completedTimeStr || formatLegacyIST(combined.completedAt, 'time'),
         });
     });
@@ -1789,13 +1811,25 @@ app.post('/api/grow/:id/update', async (req, res) => {
         const updatedItem = { id: id, title: title, description: description || '', startDate: startDate, endCount: parseInt(endCount), color: color, hasData: hasData === true, type: hasData ? type : 'boolean' };
         if (updatedItem.hasData) { updatedItem.question = question || ''; if (start !== undefined && start !== '') updatedItem.start = type === 'float' ? parseFloat(start) : parseInt(start); if (end !== undefined && end !== '') updatedItem.end = type === 'float' ? parseFloat(end) : parseInt(end); }
         await db.collection('grow').updateOne({ type: 'tracker', 'items.id': id }, { $set: { 'items.$': updatedItem } });
+        
+        if(globalSettings.alerts) {
+            let msg = `✏️ <b>Grow Edited</b>\n📌 <b>Title:</b> ${escapeHTML(updatedItem.title)}`;
+            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
+        }
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 app.post('/api/grow/:id/delete', async (req, res) => {
     try {
+        const tracker = await db.collection('grow').findOne({ type: 'tracker' });
+        const item = tracker?.items.find(i => i.id === req.params.id);
         await db.collection('grow').updateOne({ type: 'tracker' }, { $pull: { items: { id: req.params.id } } });
+        
+        if(globalSettings.alerts && item) {
+            let msg = `🗑️ <b>Grow Deleted</b>\n📌 <b>Title:</b> ${escapeHTML(item.title)}`;
+            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
+        }
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
@@ -1804,6 +1838,15 @@ app.post('/api/grow/log', async (req, res) => {
     try {
         const { itemId, dateStr, value } = req.body;
         await db.collection('grow').updateOne({ type: 'tracker' }, { $set: { [`progress.${dateStr}.${itemId}`]: value } });
+        
+        if(globalSettings.alerts) {
+            const tracker = await db.collection('grow').findOne({ type: 'tracker' });
+            const item = tracker?.items.find(i => i.id === itemId);
+            if(item) {
+                let msg = `📈 <b>Grow Logged</b>\n📌 <b>Title:</b> ${escapeHTML(item.title)}\n📅 <b>Date:</b> ${dateStr}\n🔢 <b>Value:</b> ${value}`;
+                try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
+            }
+        }
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
@@ -1867,8 +1910,13 @@ app.post('/api/tasks/:taskId/update', async (req, res) => {
                 endDate: endDateUTC, startTimeStr: startTime, endTimeStr: endTime, updatedAt: new Date() } }
         );
         const t = await db.collection('tasks').findOne({ taskId: req.params.taskId });
-        if (t) scheduleTask(t);
-        
+        if (t) {
+            scheduleTask(t);
+            if(globalSettings.alerts) {
+                let msg = `✏️ <b>Task Edited</b>\n📌 <b>Title:</b> ${escapeHTML(t.title)}\n🕒 <b>Time:</b> ${f12(t.startTimeStr)} - ${f12(t.endTimeStr)}`;
+                try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
+            }
+        }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -1925,6 +1973,11 @@ app.post('/api/tasks/:taskId/delete', async (req, res) => {
             const inHistory = await db.collection('history').findOne({ taskId: req.params.taskId });
             if (inHistory) await db.collection('deleted_tasks').insertOne({ ...t, deletedAt: new Date(), deleteReason: 'manual' });
             await db.collection('tasks').deleteOne({ taskId: req.params.taskId });
+            
+            if(globalSettings.alerts) {
+                let msg = `🗑️ <b>Task Deleted</b>\n📌 <b>Title:</b> ${escapeHTML(t.title)}`;
+                try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
+            }
         }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
@@ -1934,6 +1987,14 @@ app.post('/api/tasks/:taskId/subtasks', async (req, res) => {
     try {
         if (!req.body.title) return res.status(400).send('Empty title');
         await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { $push: { subtasks: { id: generateId('s'), title: req.body.title.trim(), description: req.body.description || '', completed: false, createdAt: new Date() } } });
+        
+        if(globalSettings.alerts) {
+            const parent = await db.collection('tasks').findOne({taskId: req.params.taskId});
+            if(parent) {
+                let msg = `➕ <b>Subtask Added</b>\n📂 <b>Task:</b> ${escapeHTML(parent.title)}\n📌 <b>Subtask:</b> ${escapeHTML(req.body.title.trim())}`;
+                try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
+            }
+        }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -1942,6 +2003,14 @@ app.post('/api/tasks/:taskId/subtasks/:subtaskId/update', async (req, res) => {
     try {
         if (!req.body.title) return res.status(400).send('Empty title');
         await db.collection('tasks').updateOne({ taskId: req.params.taskId, "subtasks.id": req.params.subtaskId }, { $set: { "subtasks.$.title": req.body.title.trim(), "subtasks.$.description": req.body.description || '' } });
+        
+        if(globalSettings.alerts) {
+            const parent = await db.collection('tasks').findOne({taskId: req.params.taskId});
+            if(parent) {
+                let msg = `✏️ <b>Subtask Edited</b>\n📂 <b>Task:</b> ${escapeHTML(parent.title)}\n📌 <b>Subtask:</b> ${escapeHTML(req.body.title.trim())}`;
+                try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
+            }
+        }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -1951,6 +2020,11 @@ app.post('/api/tasks/:taskId/subtasks/:subtaskId/toggle', async (req, res) => {
         const task = await db.collection('tasks').findOne({ taskId: req.params.taskId });
         const sub = (task.subtasks || []).find(s => s.id === req.params.subtaskId);
         await db.collection('tasks').updateOne({ taskId: req.params.taskId, "subtasks.id": req.params.subtaskId }, { $set: { "subtasks.$.completed": !sub.completed } });
+        
+        if(globalSettings.alerts) {
+            let msg = `${!sub.completed ? '✅' : '🔄'} <b>Subtask Toggled</b>\n📂 <b>Task:</b> ${escapeHTML(task.title)}\n📌 <b>Subtask:</b> ${escapeHTML(sub.title)}`;
+            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
+        }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -1960,8 +2034,14 @@ app.post('/api/tasks/:taskId/subtasks/:subtaskId/delete', async (req, res) => {
         const task = await db.collection('tasks').findOne({ taskId: req.params.taskId });
         const subtask = (task.subtasks || []).find(s => s.id === req.params.subtaskId);
         const inHistory = await db.collection('history').findOne({ taskId: req.params.taskId, "subtasks.id": req.params.subtaskId });
+        
         if (inHistory && subtask) await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { $pull: { subtasks: { id: req.params.subtaskId } }, $push: { deleted_subtasks: subtask } });
         else await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { $pull: { subtasks: { id: req.params.subtaskId } } });
+        
+        if(globalSettings.alerts && subtask) {
+            let msg = `🗑️ <b>Subtask Deleted</b>\n📂 <b>Task:</b> ${escapeHTML(task.title)}\n📌 <b>Subtask:</b> ${escapeHTML(subtask.title)}`;
+            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
+        }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -1982,6 +2062,11 @@ app.post('/api/notes', async (req, res) => {
     try {
         if (!req.body.title) return res.status(400).send('Empty title');
         await db.collection('notes').insertOne({ noteId: generateId('n'), title: req.body.title.trim(), description: req.body.description || '', createdAt: new Date(), updatedAt: new Date(), orderIndex: await db.collection('notes').countDocuments() });
+        
+        if(globalSettings.alerts) {
+            let msg = `📝 <b>Note Added</b>\n📌 <b>Title:</b> ${escapeHTML(req.body.title.trim())}`;
+            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
+        }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -1990,13 +2075,24 @@ app.post('/api/notes/:noteId/update', async (req, res) => {
     try {
         if (!req.body.title) return res.status(400).send('Empty title');
         await db.collection('notes').updateOne({ noteId: req.params.noteId }, { $set: { title: req.body.title.trim(), description: req.body.description || '', updatedAt: new Date() } });
+        
+        if(globalSettings.alerts) {
+            let msg = `✏️ <b>Note Edited</b>\n📌 <b>Title:</b> ${escapeHTML(req.body.title.trim())}`;
+            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
+        }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
 
 app.post('/api/notes/:noteId/delete', async (req, res) => {
     try {
+        const doc = await db.collection('notes').findOne({noteId: req.params.noteId});
         await db.collection('notes').deleteOne({ noteId: req.params.noteId });
+        
+        if(globalSettings.alerts && doc) {
+            let msg = `🗑️ <b>Note Deleted</b>\n📌 <b>Title:</b> ${escapeHTML(doc.title)}`;
+            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
+        }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
