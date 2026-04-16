@@ -1295,7 +1295,7 @@ function writeMainEJS() {
                     const taskText = tasks.length === 1 ? '1 Task' : tasks.length + ' Tasks';
                     const dailyType = tasks[0].dailyType || 'WD';
 
-                    html += '<summary style="display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; width: 100%;"><span style="font-weight: 600; text-align: left;"><i class="fas fa-calendar-alt"></i> ' + displayDateHeader + '</span><span style="font-weight: bold; letter-spacing: 1px; background: var(--hover-light); padding: 2px 12px; border-radius: 30px; font-size: 0.8rem; text-align: center;">' + dailyType + '</span><span style="text-align: right;">' + taskText + '</span></summary>';
+                    html += '<summary style="display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; width: 100%;"><span style="font-weight: 600; text-align: left;"><i class="fas fa-calendar-alt"></i> ' + displayDateHeader + '</span><span class="badge" style="font-weight: bold; letter-spacing: 1px; text-align: center;">' + dailyType + '</span><span style="text-align: right;">' + taskText + '</span></summary>';
                     html += '<div class="history-tasks-grid">';
                     
                     tasks.forEach(task => {
