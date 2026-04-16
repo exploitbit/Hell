@@ -214,7 +214,7 @@ function writeMainEJS() {
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .fab { background: var(--accent-dark); box-shadow: 0 4px 12px rgba(96,165,250,0.3); } }
         .fab:hover { transform: scale(1.05); }
 
-        .badge { display: inline-flex; align-items: center; padding: 2px 6px; border-radius: 100px; font-size: 0.7rem; gap: 4px; background: var(--hover-light); color: var(--text-secondary-light); width: fit-content; }
+        .badge { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 100px; font-size: 0.75rem; gap: 4px; background: var(--hover-light); color: var(--text-secondary-light); width: fit-content; }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .badge { background: var(--hover-dark); color: var(--text-secondary-dark); } }
         body[data-theme="dark"] .badge { background: var(--hover-dark); color: var(--text-secondary-dark); }
         body[data-theme="light"] .badge { background: var(--hover-light); color: var(--text-secondary-light); }
@@ -764,15 +764,11 @@ function writeMainEJS() {
         const tg = window.Telegram.WebApp;
         tg.ready(); tg.expand();
 
-        let globalAppVars = { notifications: <%= globalSettings.notifications %>, alerts: <%= globalSettings.alerts %>, reminders: <%= globalSettings.reminders %> };
-
-        function f12(tStr) {
-            if (!tStr) return '';
-            let [h, m] = tStr.split(':').map(Number);
-            let ampm = h >= 12 ? 'PM' : 'AM';
-            h = h % 12 || 12;
-            return h + ':' + String(m).padStart(2, '0') + ' ' + ampm;
-        }
+        let globalAppVars = {
+            notifications: <%= globalSettings.notifications %>,
+            alerts: <%= globalSettings.alerts %>,
+            reminders: <%= globalSettings.reminders %>
+        };
 
         function showToast(message, type = 'success') {
             const container = document.getElementById('toastContainer');
@@ -787,7 +783,10 @@ function writeMainEJS() {
             void toast.offsetWidth; 
             toast.classList.add('show');
             
-            setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 400); }, 3000);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 400);
+            }, 3000);
         }
 
         let currentPage = '<%= currentPage || "tasks" %>';
@@ -802,9 +801,8 @@ function writeMainEJS() {
         let currentYear = new Date().getFullYear();
 
         let growToday = "", growMonth = 0, growYear = 2026, growLogContext = null;
-        
         const growColors = ["#ec4899","#a855f7","#38bdf8","#ef4444","#f97316","#16a34a","#84cc16","#3b82f6", "#eab308", "#14b8a6"];
-        
+
         function getDayBoxes(daysArr) {
             if (!daysArr || daysArr.length === 0) return '';
             const map = {1:'MO', 2:'TU', 3:'WE', 4:'TH', 5:'FR', 6:'SA', 0:'SU'};
@@ -932,9 +930,17 @@ function writeMainEJS() {
         }
 
         function renderGrowAll() {
-            renderGrowCalendar(); renderGrowGraphs(); renderGrowList();
+            renderGrowCalendar();
+            renderGrowGraphs();
+            renderGrowList();
+            
             const fabBtn = document.getElementById("fabButton");
-            if(growTrackerData.items && growTrackerData.items.length >= 10) { fabBtn.style.opacity = "0.5"; } else { fabBtn.style.opacity = "1"; }
+            if(growTrackerData.items && growTrackerData.items.length >= 10) {
+                fabBtn.style.opacity = "0.5";
+            } else {
+                fabBtn.style.opacity = "1";
+            }
+            
             const cal = document.getElementById("growCalendar");
             if(cal) {
                 cal.onclick = function(e) {
@@ -944,7 +950,12 @@ function writeMainEJS() {
                         const active = (growTrackerData.items || []).filter(g => isGrowActive(g, d));
                         const dayData = (growTrackerData.progress || {})[d] || {};
                         const allDone = active.length && active.every(g => dayData[g.id] !== undefined);
-                        if(d === growToday && !allDone) { openLogGrowModal(d); } else { showGrowBubble(cell, d); }
+                        
+                        if(d === growToday && !allDone) {
+                            openLogGrowModal(d);
+                        } else {
+                            showGrowBubble(cell, d);
+                        }
                     }
                 };
             }
@@ -989,36 +1000,58 @@ function writeMainEJS() {
 
         function renderGrowList() {
             const container = document.getElementById("growList");
-            if(!growTrackerData.items || !growTrackerData.items.length) { container.innerHTML = '<div class="empty-state"><i class="fas fa-seedling" style="font-size:2.5rem;margin-bottom:10px;"></i><br>No items tracked. Click + to add.</div>'; return; }
+            if(!growTrackerData.items || !growTrackerData.items.length) { 
+                container.innerHTML = '<div class="empty-state"><i class="fas fa-seedling" style="font-size:2.5rem;margin-bottom:10px;"></i><br>No items tracked. Click + to add.</div>'; 
+                return; 
+            }
             let html = "";
             const now = new Date(growToday + "T00:00:00");
             
             for(let i=0; i<growTrackerData.items.length; i++) {
                 const item = growTrackerData.items[i];
                 const start = new Date(item.startDate + "T00:00:00");
+                
                 let passed = Math.floor((now - start) / 86400000);
                 if(passed < 0) passed = 0;
                 let left = item.endCount - passed;
                 if(left < 0) left = 0;
                 
-                html += '<div class="grow-card"><details><summary><div class="grow-title-section"><i class="fas fa-chevron-right"></i><span class="grow-title">' + escapeHtml(item.title) + '</span></div><div class="task-actions-wrapper"><button class="action-btn" onclick="event.preventDefault(); openEditGrowModal(\\'' + item.id + '\\')" title="Edit"><i class="fas fa-pencil"></i></button><button class="action-btn delete" onclick="event.preventDefault(); deleteGrowTracker(\\'' + item.id + '\\')" title="Delete"><i class="fas fa-trash"></i></button></div></summary>';
-                if(item.description) { html += '<div class="task-description-container"><div class="task-description" style="border-left-color:var(--accent-light)">' + escapeHtml(item.description) + '</div></div>'; }
+                html += '<div class="grow-card"><details><summary><div class="grow-title-section"><i class="fas fa-chevron-right"></i><span class="grow-title">' + escapeHtml(item.title) + '</span></div>' +
+                        '<div class="task-actions-wrapper"><button class="action-btn" onclick="event.preventDefault(); openEditGrowModal(\\'' + item.id + '\\')" title="Edit"><i class="fas fa-pencil"></i></button>' +
+                        '<button class="action-btn delete" onclick="event.preventDefault(); deleteGrowTracker(\\'' + item.id + '\\')" title="Delete"><i class="fas fa-trash"></i></button></div></summary>';
+                        
+                if(item.description) {
+                    html += '<div class="task-description-container"><div class="task-description" style="border-left-color:var(--accent-light)">' + escapeHtml(item.description) + '</div></div>';
+                }
                 
                 let timePct = item.endCount > 0 ? (passed / item.endCount) * 100 : 0;
                 timePct = Math.max(0, Math.min(100, timePct));
                 
-                html += '<div class="grow-progress-bar-container"><div class="grow-progress-stats"><span><strong>Time Elapsed</strong></span><span>' + passed + ' / ' + item.endCount + ' Days</span></div><div class="grow-progress-bar"><div class="grow-progress-fill" style="width:' + timePct + '%; background:' + item.color + 'cc"></div></div><div class="grow-progress-stats"><span>Started: ' + item.startDate + '</span><span>' + Math.round(timePct) + '% Complete</span></div></div>';
+                html += '<div class="grow-progress-bar-container"><div class="grow-progress-stats"><span><strong>Time Elapsed</strong></span><span>' + passed + ' / ' + item.endCount + ' Days</span></div>' +
+                        '<div class="grow-progress-bar"><div class="grow-progress-fill" style="width:' + timePct + '%; background:' + item.color + 'cc"></div></div>' +
+                        '<div class="grow-progress-stats"><span>Started: ' + item.startDate + '</span><span>' + Math.round(timePct) + '% Complete</span></div></div>';
 
                 if(item.hasData && item.type !== "boolean") {
                     html += '<hr style="border: none; border-top: 1px solid var(--border-light); margin: 12px 0 8px 0;">';
+                    
                     let latestValue = item.start !== undefined ? item.start : 0;
                     let sortedDates = Object.keys(growTrackerData.progress || {}).sort();
-                    for(let d of sortedDates) { if(growTrackerData.progress[d][item.id] !== undefined && typeof growTrackerData.progress[d][item.id] === 'number') { latestValue = growTrackerData.progress[d][item.id]; } }
+                    for(let d of sortedDates) {
+                        if(growTrackerData.progress[d][item.id] !== undefined && typeof growTrackerData.progress[d][item.id] === 'number') {
+                            latestValue = growTrackerData.progress[d][item.id];
+                        }
+                    }
                     if(item.start !== undefined && item.end !== undefined) {
-                        const min = Math.min(item.start, item.end); const max = Math.max(item.start, item.end); const range = max - min;
+                        const min = Math.min(item.start, item.end);
+                        const max = Math.max(item.start, item.end);
+                        const range = max - min;
                         let pct = range === 0 ? 0 : ((latestValue - min) / range) * 100;
                         pct = Math.max(0, Math.min(100, pct));
-                        html += '<div class="grow-progress-bar-container" style="border-top: none; padding-top: 0; margin-top: 0;"><div class="grow-progress-stats"><span><strong>' + escapeHtml(item.question) + '</strong></span><span>Current: ' + latestValue + '</span></div><div class="grow-progress-bar"><div class="grow-progress-fill" style="width:' + pct + '%; background:' + item.color + '"></div></div><div class="grow-progress-stats"><span>Start: ' + item.start + '</span><span>Goal: ' + item.end + '</span></div></div>';
+                        
+                        html += '<div class="grow-progress-bar-container" style="border-top: none; padding-top: 0; margin-top: 0;">' +
+                                '<div class="grow-progress-stats"><span><strong>' + escapeHtml(item.question) + '</strong></span><span>Current: ' + latestValue + '</span></div>' +
+                                '<div class="grow-progress-bar"><div class="grow-progress-fill" style="width:' + pct + '%; background:' + item.color + '"></div></div>' +
+                                '<div class="grow-progress-stats"><span>Start: ' + item.start + '</span><span>Goal: ' + item.end + '</span></div></div>';
                     }
                 }
                 html += '</details></div>';
@@ -1045,13 +1078,24 @@ function writeMainEJS() {
                     const dObj = new Date(d + "T00:00:00");
                     if(dObj >= start && dObj <= now && prog[d] && prog[d][item.id] !== undefined) completed++;
                 }
+                
                 let pct = totalDaysSoFar ? Math.min(100, completed/totalDaysSoFar*100) : 0;
-                html += '<div class="grow-bar"><div class="grow-bar-pct">' + Math.round(pct) + '%</div><div class="grow-bar-track" style="background:' + item.color + '40"><div class="grow-bar-fill" style="height:' + pct + '%; background:' + item.color + '"></div><div class="grow-bar-label">' + escapeHtml(item.title) + '</div></div></div>';
+                
+                html += '<div class="grow-bar"><div class="grow-bar-pct">' + Math.round(pct) + '%</div>' +
+                        '<div class="grow-bar-track" style="background:' + item.color + '40">' +
+                        '<div class="grow-bar-fill" style="height:' + pct + '%; background:' + item.color + '"></div>' +
+                        '<div class="grow-bar-label">' + escapeHtml(item.title) + '</div></div></div>';
             }
-            html += "</div></div>"; container.innerHTML = html;
+            html += "</div></div>";
+            container.innerHTML = html;
         }
 
-        function changeGrowMonth(dir) { growMonth += dir; if(growMonth > 11) { growMonth = 0; growYear++; } else if(growMonth < 0) { growMonth = 11; growYear--; } renderGrowCalendar(); }
+        function changeGrowMonth(dir) {
+            growMonth += dir;
+            if(growMonth > 11) { growMonth = 0; growYear++; }
+            else if(growMonth < 0) { growMonth = 11; growYear--; }
+            renderGrowCalendar();
+        }
 
         function renderGrowCalendar() {
             const grid = document.getElementById("growCalendar");
@@ -1059,9 +1103,8 @@ function writeMainEJS() {
             const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
             document.getElementById("growMonthYear").innerText = months[growMonth] + " " + growYear;
             
-            const firstDay = new Date(growYear, growMonth, 1).getDay(); // 0(Su) to 6(Sa)
-            let adjustedFirstDay = firstDay === 0 ? 6 : firstDay - 1;   // Now 0(Mo) to 6(Su)
-
+            const firstDay = new Date(growYear, growMonth, 1).getDay();
+            let adjustedFirstDay = firstDay === 0 ? 6 : firstDay - 1;   
             const daysInMonth = new Date(growYear, growMonth+1, 0).getDate();
             
             let html = "";
@@ -1071,8 +1114,9 @@ function writeMainEJS() {
             const prog = growTrackerData.progress || {};
             
             for(let i = 0; i < 42; i++) {
-                if(i < adjustedFirstDay || currentDay > daysInMonth) { html += '<div class="grow-day empty"></div>'; } 
-                else {
+                if(i < adjustedFirstDay || currentDay > daysInMonth) {
+                    html += '<div class="grow-day empty"></div>';
+                } else {
                     const date = growYear + "-" + String(growMonth+1).padStart(2,"0") + "-" + String(currentDay).padStart(2,"0");
                     const isToday = date === growToday;
                     const dayData = prog[date] || {};
@@ -1084,12 +1128,18 @@ function writeMainEJS() {
                     }
                     
                     let bg = "transparent", cls = "";
-                    if(activeColors.length === 1) { bg = activeColors[0]; cls = "has-data"; } 
-                    else if(activeColors.length > 1) {
+                    if(activeColors.length === 1) { 
+                        bg = activeColors[0]; cls = "has-data"; 
+                    } else if(activeColors.length > 1) {
                         let stops = "";
-                        for(let j=0; j<activeColors.length; j++) { stops += activeColors[j] + " " + (j*100/activeColors.length) + "% " + ((j+1)*100/activeColors.length) + "%"; if(j < activeColors.length-1) stops += ", "; }
-                        bg = "conic-gradient(" + stops + ")"; cls = "has-data";
+                        for(let j=0; j<activeColors.length; j++) {
+                            stops += activeColors[j] + " " + (j*100/activeColors.length) + "% " + ((j+1)*100/activeColors.length) + "%";
+                            if(j < activeColors.length-1) stops += ", ";
+                        }
+                        bg = "conic-gradient(" + stops + ")";
+                        cls = "has-data";
                     }
+                    
                     html += '<div class="grow-day" data-date="' + date + '"><div class="grow-circle ' + (isToday?'today ':'') + cls + '" style="background:' + bg + '">' + currentDay + '</div></div>';
                     currentDay++;
                 }
@@ -1097,99 +1147,299 @@ function writeMainEJS() {
             grid.innerHTML = html;
         }
 
-        function hideGrowBubble() { const bubble = document.getElementById("growBubble"); if(bubble && bubble.classList.contains("show")) { bubble.classList.remove("show"); setTimeout(() => bubble.style.display = "none", 200); } }
+        function hideGrowBubble() {
+            const bubble = document.getElementById("growBubble");
+            if(bubble && bubble.classList.contains("show")) {
+                bubble.classList.remove("show");
+                setTimeout(() => bubble.style.display = "none", 200);
+            }
+        }
 
         function showGrowBubble(cell, date) {
-            const bubble = document.getElementById("growBubble"); const content = document.getElementById("growBubbleContent"); const tail = document.getElementById("growTail");
-            const active = (growTrackerData.items || []).filter(g => isGrowActive(g, date)); const dayData = (growTrackerData.progress || {})[date] || {}; const d = new Date(date+"T00:00:00");
+            const bubble = document.getElementById("growBubble");
+            const content = document.getElementById("growBubbleContent");
+            const tail = document.getElementById("growTail");
+            const active = (growTrackerData.items || []).filter(g => isGrowActive(g, date));
+            const dayData = (growTrackerData.progress || {})[date] || {};
+            const d = new Date(date+"T00:00:00");
             
             let html = '<div class="grow-bubble-date">' + d.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}) + '</div>';
             if(!active.length) html += "<div style='text-align:center;font-size:0.8rem;color:var(--text-secondary-light);'>No tasks active.</div>";
-            else { for(let i=0; i<active.length; i++) { const g = active[i]; const isDone = dayData[g.id] !== undefined; html += '<div class="grow-bubble-item" style="color:' + g.color + '"><span>' + escapeHtml(g.title) + '</span><i class="fas ' + (isDone?'fa-check-circle':'fa-circle') + '"></i></div>'; } }
+            else {
+                for(let i=0; i<active.length; i++) {
+                    const g = active[i];
+                    const isDone = dayData[g.id] !== undefined;
+                    html += '<div class="grow-bubble-item" style="color:' + g.color + '"><span>' + escapeHtml(g.title) + '</span><i class="fas ' + (isDone?'fa-check-circle':'fa-circle') + '"></i></div>';
+                }
+            }
             content.innerHTML = html;
-            bubble.style.display = "block"; bubble.style.opacity = "0";
             
-            const bRect = bubble.getBoundingClientRect(); const cRect = cell.getBoundingClientRect();
+            bubble.style.display = "block";
+            bubble.style.opacity = "0";
+            
+            const bRect = bubble.getBoundingClientRect();
+            const cRect = cell.getBoundingClientRect();
+            
             let top = cRect.top + window.scrollY - bRect.height - 12; 
             let left = cRect.left + window.scrollX + (cRect.width / 2) - (bRect.width / 2);
             let placement = 'top';
-            if(cRect.top - bRect.height < 20) { top = cRect.bottom + window.scrollY + 12; placement = 'bottom'; }
+            
+            if(cRect.top - bRect.height < 20) { 
+                top = cRect.bottom + window.scrollY + 12;
+                placement = 'bottom';
+            }
+            
             if(left < 10) left = 10;
             if(left + bRect.width > window.innerWidth - 10) left = window.innerWidth - bRect.width - 10;
-            bubble.style.top = top + "px"; bubble.style.left = left + "px";
+            
+            bubble.style.top = top + "px";
+            bubble.style.left = left + "px";
             
             let tailLeft = (cRect.left + window.scrollX + cRect.width / 2) - left;
             tailLeft = Math.max(12, Math.min(bRect.width - 24, tailLeft));
-            tail.className = "grow-tail placement-" + placement; tail.style.left = (tailLeft - 6) + "px";
+            
+            tail.className = "grow-tail placement-" + placement;
+            tail.style.left = (tailLeft - 6) + "px";
+            
             setTimeout(() => { bubble.style.opacity = "1"; bubble.classList.add("show"); }, 10);
         }
 
         function initAddGrowPalette() {
-            const container = document.getElementById("addGrowPalette"); const input = document.getElementById("addGrowColor");
-            const used = (growTrackerData.items || []).map(g => g.color); let html = "", first = null;
-            for(let i=0; i<growColors.length; i++) { const c = growColors[i]; const isUsed = used.includes(c); if(!isUsed && !first) first = c; html += '<div class="grow-swatch ' + (isUsed?'hidden':'') + '" style="background:' + c + '" data-color="' + c + '"></div>'; }
+            const container = document.getElementById("addGrowPalette");
+            const input = document.getElementById("addGrowColor");
+            const used = (growTrackerData.items || []).map(g => g.color);
+            let html = "", first = null;
+            
+            for(let i=0; i<growColors.length; i++) {
+                const c = growColors[i];
+                const isUsed = used.includes(c);
+                if(!isUsed && !first) first = c;
+                html += '<div class="grow-swatch ' + (isUsed?'hidden':'') + '" style="background:' + c + '" data-color="' + c + '"></div>';
+            }
             container.innerHTML = html;
-            if(first) { input.value = first; const firstSwatch = container.querySelector('[data-color="' + first + '"]'); if(firstSwatch) firstSwatch.classList.add("selected"); }
-            container.onclick = function(e) { if(e.target.classList.contains("grow-swatch") && !e.target.classList.contains("hidden")) { Array.from(container.children).forEach(el => el.classList.remove("selected")); e.target.classList.add("selected"); input.value = e.target.dataset.color; } };
+            
+            if(first) {
+                input.value = first;
+                const firstSwatch = container.querySelector('[data-color="' + first + '"]');
+                if(firstSwatch) firstSwatch.classList.add("selected");
+            }
+            
+            container.onclick = function(e) {
+                if(e.target.classList.contains("grow-swatch") && !e.target.classList.contains("hidden")) {
+                    Array.from(container.children).forEach(el => el.classList.remove("selected"));
+                    e.target.classList.add("selected");
+                    input.value = e.target.dataset.color;
+                }
+            };
         }
 
         function initEditGrowPalette(current) {
-            const container = document.getElementById("editGrowPalette"); const input = document.getElementById("editGrowColor"); let html = "";
-            for(let i=0; i<growColors.length; i++) { const c = growColors[i]; html += '<div class="grow-swatch ' + (c===current?'selected':'') + '" style="background:' + c + '" data-color="' + c + '"></div>'; }
-            container.innerHTML = html; input.value = current;
-            container.onclick = function(e) { if(e.target.classList.contains("grow-swatch")) { Array.from(container.children).forEach(el => el.classList.remove("selected")); e.target.classList.add("selected"); input.value = e.target.dataset.color; } };
+            const container = document.getElementById("editGrowPalette");
+            const input = document.getElementById("editGrowColor");
+            let html = "";
+            for(let i=0; i<growColors.length; i++) {
+                const c = growColors[i];
+                html += '<div class="grow-swatch ' + (c===current?'selected':'') + '" style="background:' + c + '" data-color="' + c + '"></div>';
+            }
+            container.innerHTML = html;
+            input.value = current;
+            
+            container.onclick = function(e) {
+                if(e.target.classList.contains("grow-swatch")) {
+                    Array.from(container.children).forEach(el => el.classList.remove("selected"));
+                    e.target.classList.add("selected");
+                    input.value = e.target.dataset.color;
+                }
+            };
         }
 
-        window.toggleGrowDataFields = function(mode) { const prefix = mode === "add" ? "addGrow" : "editGrow"; const checked = document.getElementById(prefix+"HasData").checked; document.getElementById(prefix+"DataFields").style.display = checked ? "block" : "none"; };
-        window.openAddGrowModal = function() { if (growTrackerData.items && growTrackerData.items.length >= 10) { showToast("Failed", "error"); return; } document.getElementById("addGrowStart").value = growToday; document.getElementById("addGrowType").value = "integer"; initAddGrowPalette(); openModal("addGrowModal"); };
+        window.toggleGrowDataFields = function(mode) {
+            const prefix = mode === "add" ? "addGrow" : "editGrow";
+            const checked = document.getElementById(prefix+"HasData").checked;
+            document.getElementById(prefix+"DataFields").style.display = checked ? "block" : "none";
+        };
+
+        window.openAddGrowModal = function() {
+            if (growTrackerData.items && growTrackerData.items.length >= 10) {
+                showToast("Failed", "error");
+                return;
+            }
+            document.getElementById("addGrowStart").value = growToday;
+            document.getElementById("addGrowType").value = "integer";
+            initAddGrowPalette();
+            openModal("addGrowModal");
+        };
+
         window.openEditGrowModal = function(id) {
-            const item = growTrackerData.items.find(g => g.id === id); if(!item) return;
-            document.getElementById("editGrowId").value = item.id; document.getElementById("editGrowTitle").value = item.title; document.getElementById("editGrowDesc").value = item.description || ""; document.getElementById("editGrowStart").value = item.startDate; document.getElementById("editGrowDays").value = item.endCount; document.getElementById("editGrowHasData").checked = item.hasData || false;
+            const item = growTrackerData.items.find(g => g.id === id);
+            if(!item) return;
+            document.getElementById("editGrowId").value = item.id;
+            document.getElementById("editGrowTitle").value = item.title;
+            document.getElementById("editGrowDesc").value = item.description || "";
+            document.getElementById("editGrowStart").value = item.startDate;
+            document.getElementById("editGrowDays").value = item.endCount;
+            document.getElementById("editGrowHasData").checked = item.hasData || false;
+            
             toggleGrowDataFields("edit");
-            if(item.hasData) { document.getElementById("editGrowQuestion").value = item.question || ""; document.getElementById("editGrowType").value = item.type || "float"; document.getElementById("editGrowMin").value = item.start !== undefined ? item.start : 0; document.getElementById("editGrowMax").value = item.end !== undefined ? item.end : 100; }
-            initEditGrowPalette(item.color); openModal("editGrowModal");
+            if(item.hasData) {
+                document.getElementById("editGrowQuestion").value = item.question || "";
+                document.getElementById("editGrowType").value = item.type || "float";
+                document.getElementById("editGrowMin").value = item.start !== undefined ? item.start : 0;
+                document.getElementById("editGrowMax").value = item.end !== undefined ? item.end : 100;
+            }
+            initEditGrowPalette(item.color);
+            openModal("editGrowModal");
         };
 
         document.getElementById("addGrowForm").addEventListener("submit", function(e) {
             e.preventDefault(); 
-            const payload = { title: document.getElementById("addGrowTitle").value.trim(), description: document.getElementById("addGrowDesc").value.trim(), startDate: document.getElementById("addGrowStart").value, endCount: parseInt(document.getElementById("addGrowDays").value), color: document.getElementById("addGrowColor").value, hasData: document.getElementById("addGrowHasData").checked, type: document.getElementById("addGrowType").value, question: document.getElementById("addGrowQuestion").value.trim(), start: document.getElementById("addGrowMin").value, end: document.getElementById("addGrowMax").value };
-            fetch("/api/grow", { method:"POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload) }).then(res => { if(res.ok) { closeModal("addGrowModal"); document.getElementById("addGrowForm").reset(); showToast("Success"); switchPage("grow"); } else throw new Error("Failed"); }).catch(e => { showToast("Failed", "error"); });
+            const payload = {
+                title: document.getElementById("addGrowTitle").value.trim(),
+                description: document.getElementById("addGrowDesc").value.trim(),
+                startDate: document.getElementById("addGrowStart").value,
+                endCount: parseInt(document.getElementById("addGrowDays").value),
+                color: document.getElementById("addGrowColor").value,
+                hasData: document.getElementById("addGrowHasData").checked,
+                type: document.getElementById("addGrowType").value,
+                question: document.getElementById("addGrowQuestion").value.trim(),
+                start: document.getElementById("addGrowMin").value,
+                end: document.getElementById("addGrowMax").value
+            };
+            fetch("/api/grow", { method:"POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload) })
+            .then(res => {
+                if(res.ok) { closeModal("addGrowModal"); document.getElementById("addGrowForm").reset(); showToast("Success"); switchPage("grow"); }
+                else throw new Error("Failed");
+            }).catch(e => { showToast("Failed", "error"); });
         });
 
         document.getElementById("editGrowForm").addEventListener("submit", function(e) {
-            e.preventDefault(); const id = document.getElementById("editGrowId").value;
-            const payload = { id: id, title: document.getElementById("editGrowTitle").value.trim(), description: document.getElementById("editGrowDesc").value.trim(), startDate: document.getElementById("editGrowStart").value, endCount: parseInt(document.getElementById("editGrowDays").value), color: document.getElementById("editGrowColor").value, hasData: document.getElementById("editGrowHasData").checked, type: document.getElementById("editGrowType").value, question: document.getElementById("editGrowQuestion").value.trim(), start: document.getElementById("editGrowMin").value, end: document.getElementById("editGrowMax").value };
-            fetch("/api/grow/" + id + "/update", { method:"POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload) }).then(res => { if(res.ok) { closeModal("editGrowModal"); showToast("Success"); switchPage("grow"); } else throw new Error("Failed"); }).catch(e => { showToast("Failed", "error"); });
+            e.preventDefault();
+            const id = document.getElementById("editGrowId").value;
+            const payload = {
+                id: id, title: document.getElementById("editGrowTitle").value.trim(), description: document.getElementById("editGrowDesc").value.trim(),
+                startDate: document.getElementById("editGrowStart").value, endCount: parseInt(document.getElementById("editGrowDays").value),
+                color: document.getElementById("editGrowColor").value, hasData: document.getElementById("editGrowHasData").checked,
+                type: document.getElementById("editGrowType").value, question: document.getElementById("editGrowQuestion").value.trim(),
+                start: document.getElementById("editGrowMin").value, end: document.getElementById("editGrowMax").value
+            };
+            fetch("/api/grow/" + id + "/update", { method:"POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload) })
+            .then(res => {
+                if(res.ok) { closeModal("editGrowModal"); showToast("Success"); switchPage("grow"); }
+                else throw new Error("Failed");
+            }).catch(e => { showToast("Failed", "error"); });
         });
 
-        window.deleteGrowTracker = function(id) { if(confirm("Delete this tracker and all its logs?")) { fetch("/api/grow/" + id + "/delete", {method:"POST"}).then(res => { if(res.ok) { showToast("Success"); switchPage("grow"); } else throw new Error("Failed"); }).catch(e => { showToast("Failed", "error"); }); } };
-        window.openLogGrowModal = function(date) {
-            const active = growTrackerData.items.filter(g => isGrowActive(g, date)); const d = new Date(date+"T00:00:00");
-            document.getElementById("logGrowTitle").innerText = d.toLocaleDateString("en-US",{month:"long",day:"numeric"}); let html = ""; const dayData = (growTrackerData.progress || {})[date] || {};
-            for(let i=0; i<active.length; i++) { const item = active[i]; const done = dayData[item.id] !== undefined; html += '<div class="grow-card"><details style="display:contents;"><summary style="outline:none; list-style:none;"><div class="grow-title-section"><i class="fas fa-chevron-right"></i><span class="grow-title">' + escapeHtml(item.title) + '</span></div><div class="task-actions-wrapper"><button class="action-btn" onclick="event.preventDefault(); handleGrowLogClick(\\'' + item.id + '\\',\\'' + date + '\\')" style="background:' + (done?'var(--hover-light)':'var(--accent-light)') + ';color:' + (done?'var(--text-secondary-light)':'white') + '; width:32px; height:32px;" ' + (done?'disabled':'') + '><i class="fas fa-check"></i></button></div></summary>'; if(item.description) html += '<div class="task-description-container"><div class="task-description" style="border-left-color:var(--accent-light)">' + escapeHtml(item.description) + '</div></div>'; html += '</details></div>'; }
-            document.getElementById("dailyGrowList").innerHTML = html; showGrowLogList(); openModal("logGrowModal");
+        window.deleteGrowTracker = function(id) {
+            if(confirm("Delete this tracker and all its logs?")) { 
+                fetch("/api/grow/" + id + "/delete", {method:"POST"})
+                .then(res => {
+                    if(res.ok) { showToast("Success"); switchPage("grow"); }
+                    else throw new Error("Failed");
+                }).catch(e => { showToast("Failed", "error"); });
+            }
         };
 
-        window.handleGrowLogClick = function(id, date) { const item = growTrackerData.items.find(g => g.id === id); if(item.hasData) { openLogGrowQuestion(item, date); } else { saveGrowLog(item, date, true); } };
+        window.openLogGrowModal = function(date) {
+            const active = growTrackerData.items.filter(g => isGrowActive(g, date));
+            const d = new Date(date+"T00:00:00");
+            document.getElementById("logGrowTitle").innerText = d.toLocaleDateString("en-US",{month:"long",day:"numeric"});
+            let html = "";
+            const dayData = (growTrackerData.progress || {})[date] || {};
+            
+            for(let i=0; i<active.length; i++) {
+                const item = active[i];
+                const done = dayData[item.id] !== undefined;
+                
+                html += '<div class="grow-card"><details style="display:contents;"><summary style="outline:none; list-style:none;">' +
+                        '<div class="grow-title-section"><i class="fas fa-chevron-right"></i><span class="grow-title">' + escapeHtml(item.title) + '</span></div>' +
+                        '<div class="task-actions-wrapper"><button class="action-btn" onclick="event.preventDefault(); handleGrowLogClick(\\'' + item.id + '\\',\\'' + date + '\\')" style="background:' + (done?'var(--hover-light)':'var(--accent-light)') + ';color:' + (done?'var(--text-secondary-light)':'white') + '; width:32px; height:32px;" ' + (done?'disabled':'') + '><i class="fas fa-check"></i></button></div></summary>';
+                if(item.description) html += '<div class="task-description-container"><div class="task-description" style="border-left-color:var(--accent-light)">' + escapeHtml(item.description) + '</div></div>';
+                html += '</details></div>';
+            }
+            document.getElementById("dailyGrowList").innerHTML = html;
+            showGrowLogList();
+            openModal("logGrowModal");
+        };
+
+        window.handleGrowLogClick = function(id, date) {
+            const item = growTrackerData.items.find(g => g.id === id);
+            if(item.hasData) { openLogGrowQuestion(item, date); } 
+            else { saveGrowLog(item, date, true); }
+        };
+
         function openLogGrowQuestion(item, date) {
-            growLogContext = {item, date}; document.getElementById("qGrowTitle").innerText = item.title;
+            growLogContext = {item, date};
+            document.getElementById("qGrowTitle").innerText = item.title;
+            
             const displayQuestion = (item.question && item.question.trim() !== "") ? item.question : "Please enter your data for today:";
-            document.getElementById("qGrowDesc").innerHTML = '<div class="task-description" style="border-left-color:var(--accent-light); margin-bottom:16px; font-size: 1rem; font-weight: 500; color: var(--text-primary-light);">' + escapeHtml(displayQuestion) + '</div>'; document.getElementById("qGrowLabel").innerText = ""; 
-            const wrapper = document.getElementById("qGrowInput"); const step = item.type === "float" ? "0.01" : "1"; wrapper.innerHTML = '<input type="number" step="' + step + '" class="form-control" id="logGrowValue" placeholder="Enter numerical value" autofocus>';
-            document.getElementById("logGrowListView").style.display = "none"; document.getElementById("logGrowQuestionView").style.display = "block"; setTimeout(() => { const input = document.getElementById("logGrowValue"); if(input) input.focus(); }, 100);
+            
+            document.getElementById("qGrowDesc").innerHTML = '<div class="task-description" style="border-left-color:var(--accent-light); margin-bottom:16px; font-size: 1rem; font-weight: 500; color: var(--text-primary-light);">' + escapeHtml(displayQuestion) + '</div>';
+            document.getElementById("qGrowLabel").innerText = ""; 
+            
+            const wrapper = document.getElementById("qGrowInput");
+            const step = item.type === "float" ? "0.01" : "1";
+            wrapper.innerHTML = '<input type="number" step="' + step + '" class="form-control" id="logGrowValue" placeholder="Enter numerical value" autofocus>';
+            
+            document.getElementById("logGrowListView").style.display = "none";
+            document.getElementById("logGrowQuestionView").style.display = "block";
+            setTimeout(() => { const input = document.getElementById("logGrowValue"); if(input) input.focus(); }, 100);
         }
 
-        function saveGrowLog(item, date, val) { const payload = { itemId: item.id, dateStr: date, value: val }; fetch("/api/grow/log", { method:"POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload) }).then(res => { if(res.ok) { showToast("Success"); switchPage("grow"); closeModal("logGrowModal"); } else throw new Error("Failed"); }).catch (err => { showToast("Failed", "error"); }); }
-        document.getElementById("saveGrowLogBtn").addEventListener("click", function() { const input = document.getElementById("logGrowValue"); if(!input || !input.value) { showToast("Failed", "error"); return; } const {item, date} = growLogContext; const val = item.type === "float" ? parseFloat(input.value) : parseInt(input.value); saveGrowLog(item, date, val); });
+        function saveGrowLog(item, date, val) {
+            const payload = { itemId: item.id, dateStr: date, value: val };
+            fetch("/api/grow/log", { method:"POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload) })
+            .then(res => {
+                if(res.ok) { 
+                    showToast("Success");
+                    switchPage("grow"); 
+                    closeModal("logGrowModal");
+                } else throw new Error("Failed");
+            }).catch (err => { showToast("Failed", "error"); });
+        }
+
+        document.getElementById("saveGrowLogBtn").addEventListener("click", function() {
+            const input = document.getElementById("logGrowValue");
+            if(!input || !input.value) { showToast("Failed", "error"); return; }
+            const {item, date} = growLogContext;
+            const val = item.type === "float" ? parseFloat(input.value) : parseInt(input.value);
+            saveGrowLog(item, date, val);
+        });
+
         window.showGrowLogList = function() { document.getElementById("logGrowListView").style.display = "block"; document.getElementById("logGrowQuestionView").style.display = "none"; };
 
         // Priority Mode Toggles
-        window.toggleTaskPriorityMode = function(taskId) { document.querySelectorAll('.priority-mode').forEach(el => { if(el.id !== 'task_actions_' + taskId) el.classList.remove('priority-mode'); }); document.getElementById('task_actions_' + taskId).classList.add('priority-mode'); };
-        window.toggleSubtaskPriorityMode = function(taskId, subtaskId) { document.querySelectorAll('.priority-mode').forEach(el => { if(el.id !== 'subtask_actions_' + taskId + '_' + subtaskId) el.classList.remove('priority-mode'); }); document.getElementById('subtask_actions_' + taskId + '_' + subtaskId).classList.add('priority-mode'); };
-        window.toggleNotePriorityMode = function(noteId) { document.querySelectorAll('.priority-mode').forEach(el => { if(el.id !== 'note_actions_' + noteId) el.classList.remove('priority-mode'); }); document.getElementById('note_actions_' + noteId).classList.add('priority-mode'); };
+        window.toggleTaskPriorityMode = function(taskId) {
+            document.querySelectorAll('.priority-mode').forEach(el => {
+                if(el.id !== 'task_actions_' + taskId) el.classList.remove('priority-mode');
+            });
+            document.getElementById('task_actions_' + taskId).classList.add('priority-mode');
+        };
 
-        window.moveTask = function(taskId, direction) { fetch('/api/tasks/' + taskId + '/move', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({direction}) }).then(res => { if(res.ok) switchPage('tasks'); else throw new Error(''); }).catch(e => showToast('Failed', 'error')); };
-        window.moveSubtask = function(taskId, subtaskId, direction) { fetch('/api/tasks/' + taskId + '/subtasks/' + subtaskId + '/move', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({direction}) }).then(res => { if(res.ok) switchPage('tasks'); else throw new Error(''); }).catch(e => showToast('Failed', 'error')); };
+        window.toggleSubtaskPriorityMode = function(taskId, subtaskId) {
+            document.querySelectorAll('.priority-mode').forEach(el => {
+                if(el.id !== 'subtask_actions_' + taskId + '_' + subtaskId) el.classList.remove('priority-mode');
+            });
+            document.getElementById('subtask_actions_' + taskId + '_' + subtaskId).classList.add('priority-mode');
+        };
+        
+        window.toggleNotePriorityMode = function(noteId) {
+            document.querySelectorAll('.priority-mode').forEach(el => {
+                if(el.id !== 'note_actions_' + noteId) el.classList.remove('priority-mode');
+            });
+            document.getElementById('note_actions_' + noteId).classList.add('priority-mode');
+        };
+
+        window.moveTask = function(taskId, direction) {
+            fetch('/api/tasks/' + taskId + '/move', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({direction}) })
+            .then(res => { if(res.ok) switchPage('tasks'); else throw new Error(''); })
+            .catch(e => showToast('Failed', 'error'));
+        };
+
+        window.moveSubtask = function(taskId, subtaskId, direction) {
+            fetch('/api/tasks/' + taskId + '/subtasks/' + subtaskId + '/move', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({direction}) })
+            .then(res => { if(res.ok) switchPage('tasks'); else throw new Error(''); })
+            .catch(e => showToast('Failed', 'error'));
+        };
 
         function renderTasksPage() {
             let html = '<div class="tasks-grid">';
@@ -1567,6 +1817,19 @@ function escapeHTML(str) {
 // 🤖 BOT SETUP & CRON SCHEDULERS
 // ==========================================
 const bot = new Telegraf(BOT_TOKEN);
+
+// Auto-delete all sent messages after 1 hour (3,600,000 ms)
+const originalSendMessage = bot.telegram.sendMessage.bind(bot.telegram);
+bot.telegram.sendMessage = async function(chatId, text, extra) {
+    const msg = await originalSendMessage(chatId, text, extra);
+    if (msg && msg.message_id && msg.chat && msg.chat.id) {
+        setTimeout(() => {
+            bot.telegram.deleteMessage(msg.chat.id, msg.message_id).catch(() => {});
+        }, 3600000);
+    }
+    return msg;
+};
+
 const activeSchedules = new Map();
 let isShuttingDown = false;
 let lastHourlyMessageId = null;
@@ -1997,7 +2260,7 @@ app.get('/api/tasks/:taskId', async (req, res) => {
     try {
         const task = await db.collection('tasks').findOne({ taskId: req.params.taskId });
         if (!task) return res.status(404).json({ error: 'Not found' });
-        res.json(task);
+        res.json({ ...task, startDateIST: task.startDateStr || formatLegacyIST(task.startDate, 'date'), startTimeIST: task.startTimeStr || formatLegacyIST(task.startDate, 'time'), endTimeIST: task.endTimeStr || formatLegacyIST(task.endDate, 'time') });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
