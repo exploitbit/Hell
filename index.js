@@ -214,13 +214,13 @@ function writeMainEJS() {
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .fab { background: var(--accent-dark); box-shadow: 0 4px 12px rgba(96,165,250,0.3); } }
         .fab:hover { transform: scale(1.05); }
 
-        .badge { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 100px; font-size: 0.75rem; gap: 4px; background: var(--hover-light); color: var(--text-secondary-light); width: fit-content; }
+        .badge { display: inline-flex; align-items: center; padding: 2px 6px; border-radius: 100px; font-size: 0.7rem; gap: 4px; background: var(--hover-light); color: var(--text-secondary-light); width: fit-content; }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .badge { background: var(--hover-dark); color: var(--text-secondary-dark); } }
         body[data-theme="dark"] .badge { background: var(--hover-dark); color: var(--text-secondary-dark); }
         body[data-theme="light"] .badge { background: var(--hover-light); color: var(--text-secondary-light); }
 
         /* DAY BOXES CSS */
-        .day-box { display: inline-flex; align-items: center; justify-content: center; padding: 2px 6px; border-radius: 4px; background: var(--hover-light); border: 1px solid var(--border-light); font-size: 0.7rem; font-weight: 600; color: var(--text-secondary-light); margin-right: 2px; }
+        .day-box { display: inline-flex; align-items: center; justify-content: center; padding: 1px 4px; border-radius: 4px; background: var(--hover-light); border: 1px solid var(--border-light); font-size: 0.65rem; font-weight: 500; color: var(--text-secondary-light); margin-right: 2px; }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .day-box { background: var(--hover-dark); border-color: var(--border-dark); color: var(--text-secondary-dark); } }
         body[data-theme="dark"] .day-box { background: var(--hover-dark); border-color: var(--border-dark); color: var(--text-secondary-dark); }
 
@@ -1295,7 +1295,7 @@ function writeMainEJS() {
                     const taskText = tasks.length === 1 ? '1 Task' : tasks.length + ' Tasks';
                     const dailyType = tasks[0].dailyType || 'WD';
 
-                    html += '<summary style="display:flex; justify-content:space-between; align-items:center; width:100%;"><span style="font-weight: 600;"><i class="fas fa-calendar-alt"></i> ' + displayDateHeader + '</span><span class="badge" style="font-weight:bold; letter-spacing:1px;">' + dailyType + '</span><span class="badge" style="margin-left: auto;">' + taskText + '</span></summary>';
+                    html += '<summary style="display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; width: 100%;"><span style="font-weight: 600; text-align: left;"><i class="fas fa-calendar-alt"></i> ' + displayDateHeader + '</span><span style="font-weight: bold; letter-spacing: 1px; background: var(--hover-light); padding: 2px 12px; border-radius: 30px; font-size: 0.8rem; text-align: center;">' + dailyType + '</span><span style="text-align: right;">' + taskText + '</span></summary>';
                     html += '<div class="history-tasks-grid">';
                     
                     tasks.forEach(task => {
