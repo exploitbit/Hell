@@ -29,7 +29,7 @@ if (!fs.existsSync(viewsDir)) fs.mkdirSync(viewsDir, { recursive: true });
 let globalSettings = { notifications: true, alerts: true, reminders: true };
 
 // ==========================================
-// 🕐 TIMEZONE UTILITIES
+// 🕐 TIMEZONE & UTILITIES
 // ==========================================
 function istToUTC(istDate, istTime) {
     if (!istDate || !istTime) return null;
@@ -65,43 +65,66 @@ function formatLegacyIST(utcDate, type) {
     return '';
 }
 
-function calculateNextOccurrence(baseDateUTC, startTimeStr, selectedDaysArr) {
-    if (!selectedDaysArr || selectedDaysArr.length === 0) return null;
-    
-    const istNow = new Date(baseDateUTC.getTime() + IST_OFFSET_MS);
-    const [hour, minute] = startTimeStr.split(':').map(Number);
-    
-    let nextIST = null;
-    
-    for (let i = 0; i <= 7; i++) {
-        let checkDate = new Date(istNow.getTime() + i * 24 * 60 * 60 * 1000);
-        let dayOfWeek = checkDate.getUTCDay(); // 0 = Sunday
-        
-        if (selectedDaysArr.includes(dayOfWeek)) {
-            if (i === 0) {
-                let currentHour = istNow.getUTCHours();
-                let currentMin = istNow.getUTCMinutes();
-                if (currentHour < hour || (currentHour === hour && currentMin < minute)) {
-                    nextIST = new Date(Date.UTC(checkDate.getUTCFullYear(), checkDate.getUTCMonth(), checkDate.getUTCDate(), hour, minute, 0));
-                    break;
-                }
-            } else {
-                nextIST = new Date(Date.UTC(checkDate.getUTCFullYear(), checkDate.getUTCMonth(), checkDate.getUTCDate(), hour, minute, 0));
-                break;
-            }
-        }
-    }
-    
-    if (!nextIST) {
-        let checkDate = new Date(istNow.getTime() + 24 * 60 * 60 * 1000);
-        while(!selectedDaysArr.includes(checkDate.getUTCDay())) {
-            checkDate = new Date(checkDate.getTime() + 24 * 60 * 60 * 1000);
-        }
-        nextIST = new Date(Date.UTC(checkDate.getUTCFullYear(), checkDate.getUTCMonth(), checkDate.getUTCDate(), hour, minute, 0));
-    }
-    
-    return new Date(nextIST.getTime() - IST_OFFSET_MS);
+function f12(timeStr) {
+    if (!timeStr) return '';
+    let [h, m] = timeStr.split(':').map(Number);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')} ${ampm}`;
 }
+
+// Generates concise IDs
+function generateId(type = 'task') { return type.charAt(0) + Math.random().toString(36).substring(2, 10); }
+
+// ==========================================
+// 🔄 TASK LIFECYCLE MANAGEMENT
+// ==========================================
+async function cleanExpiredTasks() {
+    const istDateObj = getCurrentISTDisplay();
+    const startOfDayUTC = istToUTC(istDateObj.date, "00:00");
+    
+    // Automatically expire tasks where endDate has passed securely
+    const expiredTasks = await db.collection('tasks').find({ status: 'pending', endDate: { $lt: startOfDayUTC } }).toArray();
+    if (expiredTasks.length > 0) {
+        for (let t of expiredTasks) {
+            await db.collection('deleted_tasks').insertOne({ ...t, deletedAt: new Date(), deleteReason: 'expired' });
+            await db.collection('tasks').deleteOne({ taskId: t.taskId });
+            cancelTaskSchedule(t.taskId);
+        }
+    }
+}
+
+async function getActiveTasksForToday() {
+    await cleanExpiredTasks();
+    const istDateObj = getCurrentISTDisplay();
+    const currentDayOfWeek = new Date(Date.now() + IST_OFFSET_MS).getUTCDay(); // 0(Sun) - 6(Sat)
+    const startOfDayUTC = istToUTC(istDateObj.date, "00:00");
+    const endOfDayUTC = istToUTC(istDateObj.date, "23:59");
+
+    const pending = await db.collection('tasks').find({
+        status: 'pending',
+        selectedDays: currentDayOfWeek,
+        startDate: { $lte: endOfDayUTC },
+        endDate: { $gte: startOfDayUTC }
+    }).sort({ orderIndex: 1 }).toArray();
+
+    const todayHistory = await db.collection('history').find({ completedDateStr: istDateObj.displayDate }).toArray();
+    const completedTaskIds = todayHistory.map(h => h.taskId);
+
+    const toShow = pending.filter(t => !completedTaskIds.includes(t.taskId));
+    const completed = pending.filter(t => completedTaskIds.includes(t.taskId));
+
+    // Gather items logically grouped to reconstruct deleted items completed today
+    let finalCompleted = [...completed];
+    const historicalIds = todayHistory.filter(h => !completedTaskIds.includes(h.taskId)).map(h => h.taskId);
+    if(historicalIds.length > 0) {
+        const delTasks = await db.collection('deleted_tasks').find({ taskId: { $in: historicalIds } }).toArray();
+        finalCompleted.push(...delTasks);
+    }
+
+    return { pendingTasks: toShow, completedTasks: finalCompleted, todayHistory, totalToday: toShow.length + finalCompleted.length };
+}
+
 
 // ==========================================
 // 🎨 EJS TEMPLATE GENERATOR
@@ -232,7 +255,7 @@ function writeMainEJS() {
         .toast.show { opacity: 1; transform: translateY(0) scale(1); }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .toast { background: #222; } }
 
-        /* Day Selector CSS */
+        /* Day Selector CSS - MONDAY START */
         .day-selector { display: flex; justify-content: space-between; margin-bottom: 12px; }
         .day-circle { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--hover-light); color: var(--text-secondary-light); cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: 0.2s; border: 1px solid var(--border-light); }
         .day-circle.selected { background: var(--accent-light); color: white; border-color: var(--accent-light); }
@@ -319,7 +342,7 @@ function writeMainEJS() {
         .grow-panel > summary > i { transition: transform 0.3s; color: var(--text-secondary-light); }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .grow-panel > summary > i { color: var(--text-secondary-dark); } }
         .grow-panel[open] > summary > i { transform: rotate(180deg); }
-        .grow-panel-body { padding: 14px; border-top: 1px solid var(--border-light); }
+        .grow-panel-body { padding: 14px; border-top: 1px solid var(--border-light); overflow: hidden;}
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .grow-panel-body { border-top-color: var(--border-dark); } }
         
         .grow-graph-container { width: 100%; aspect-ratio: 1; display: flex; flex-direction: column; }
@@ -340,8 +363,8 @@ function writeMainEJS() {
         .grow-month-nav h2 { font-size: 1.05rem; font-weight: 600; background: var(--hover-light); padding: 5px 14px; border-radius: 30px; border: 1px solid var(--border-light); }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .grow-month-nav h2 { background: var(--hover-dark); border-color: var(--border-dark); } }
         
-        .grow-calendar { width: 100%; aspect-ratio: 1 / 1; display: flex; flex-direction: column; }
-        .grow-grid { flex: 1; width: 100%; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-template-rows: auto repeat(6, minmax(0, 1fr)); gap: 4px; }
+        .grow-calendar { width: 100%; aspect-ratio: 1 / 1; display: flex; flex-direction: column; overflow: hidden; position: relative;}
+        .grow-grid { flex: 1; width: 100%; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-template-rows: auto repeat(6, minmax(0, 1fr)); gap: 4px; transition: transform 0.25s ease-out, opacity 0.25s ease-out; }
         .grow-weekday { display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 600; color: var(--text-secondary-light); text-transform: uppercase; }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .grow-weekday { color: var(--text-secondary-dark); } }
         .grow-day { display: flex; align-items: center; justify-content: center; border-radius: 10px; position: relative; width: 100%; height: 100%; }
@@ -450,7 +473,6 @@ function writeMainEJS() {
         .history-subtask { padding: 6px 6px 6px 20px; border-left: 2px solid var(--border-light); margin: 6px 0; width: 100%; }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .history-subtask { border-left-color: var(--border-dark); } }
 
-
         /* NOTES CSS */
         .note-card { margin-bottom: 12px; background: var(--card-bg-light); border: 1px solid var(--border-light); border-radius: 16px; padding: 14px; transition: all 0.2s ease; word-wrap: break-word; overflow-wrap: break-word; }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .note-card { background: var(--card-bg-dark); border: 1px solid var(--border-dark); } }
@@ -541,13 +563,13 @@ function writeMainEJS() {
                 <div class="form-group" style="margin-bottom: 12px;">
                     <label style="font-size: 0.95rem; font-weight: 500;">Select Days *</label>
                     <div class="day-selector" id="addDaySelector">
-                        <div class="day-circle" data-day="0">S</div>
                         <div class="day-circle" data-day="1">M</div>
                         <div class="day-circle" data-day="2">T</div>
                         <div class="day-circle" data-day="3">W</div>
                         <div class="day-circle" data-day="4">T</div>
                         <div class="day-circle" data-day="5">F</div>
                         <div class="day-circle" data-day="6">S</div>
+                        <div class="day-circle" data-day="0">S</div>
                     </div>
                     <input type="hidden" name="selectedDays" id="addSelectedDays" required>
                 </div>
@@ -557,7 +579,7 @@ function writeMainEJS() {
                 </div>
                 <div class="form-group" style="margin-bottom: 12px;">
                     <label style="font-size: 0.95rem; font-weight: 500;">Weeks to Repeat (1 = this week only)</label>
-                    <input type="number" class="form-control" name="repeatWeeks" id="addRepeatWeeks" value="1" min="1" max="52">
+                    <input type="number" class="form-control" name="repeatWeeks" id="addRepeatWeeks" value="1" min="1" max="52" required>
                 </div>
                 <div style="display: flex; gap: 12px; margin-top: 16px;">
                     <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('addTaskModal')">Cancel</button>
@@ -586,13 +608,13 @@ function writeMainEJS() {
                 <div class="form-group" style="margin-bottom: 12px;">
                     <label style="font-size: 0.95rem; font-weight: 500;">Select Days *</label>
                     <div class="day-selector" id="editDaySelector">
-                        <div class="day-circle" data-day="0">S</div>
                         <div class="day-circle" data-day="1">M</div>
                         <div class="day-circle" data-day="2">T</div>
                         <div class="day-circle" data-day="3">W</div>
                         <div class="day-circle" data-day="4">T</div>
                         <div class="day-circle" data-day="5">F</div>
                         <div class="day-circle" data-day="6">S</div>
+                        <div class="day-circle" data-day="0">S</div>
                     </div>
                     <input type="hidden" name="selectedDays" id="editSelectedDays" required>
                 </div>
@@ -602,7 +624,7 @@ function writeMainEJS() {
                 </div>
                 <div class="form-group" style="margin-bottom: 12px;">
                     <label style="font-size: 0.95rem; font-weight: 500;">Weeks to Repeat (1 = this week only)</label>
-                    <input type="number" class="form-control" name="repeatWeeks" id="editRepeatWeeks" min="1" max="52">
+                    <input type="number" class="form-control" name="repeatWeeks" id="editRepeatWeeks" min="1" max="52" required>
                 </div>
                 <div style="display: flex; gap: 12px; margin-top: 16px;">
                     <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('editTaskModal')">Cancel</button>
@@ -708,6 +730,14 @@ function writeMainEJS() {
 
         let globalAppVars = { notifications: <%= globalSettings.notifications %>, alerts: <%= globalSettings.alerts %>, reminders: <%= globalSettings.reminders %> };
 
+        function f12(tStr) {
+            if (!tStr) return '';
+            let [h, m] = tStr.split(':').map(Number);
+            let ampm = h >= 12 ? 'PM' : 'AM';
+            h = h % 12 || 12;
+            return h + ':' + String(m).padStart(2, '0') + ' ' + ampm;
+        }
+
         function showToast(message, type = 'success') {
             const container = document.getElementById('toastContainer');
             const toast = document.createElement('div');
@@ -735,7 +765,7 @@ function writeMainEJS() {
 
         let growToday = "", growMonth = 0, growYear = 2026, growLogContext = null;
         const growColors = ["#ec4899","#a855f7","#38bdf8","#ef4444","#f97316","#16a34a","#84cc16","#3b82f6", "#eab308", "#14b8a6"];
-        const DAYS_MAP = ['S','M','T','W','T','F','S'];
+        const DAYS_MAP = ['Su','M','T','W','Th','F','Sa']; // used for display
 
         function setupDaySelector(selectorId, inputId) {
             const container = document.getElementById(selectorId);
@@ -803,6 +833,7 @@ function writeMainEJS() {
                 fabButton.style.display = 'flex'; 
                 content.innerHTML = renderGrowPageStaticShell();
                 renderGrowAll();
+                setupGrowSwipeGestures();
             }
             else if (currentPage === 'notes') { fabButton.style.display = 'flex'; content.innerHTML = renderNotesPage(); } 
             else if (currentPage === 'history') { fabButton.style.display = 'none'; content.innerHTML = renderHistoryPage(); }
@@ -831,14 +862,11 @@ function writeMainEJS() {
         // 🌱 GROW FRONTEND LOGIC 
         // ==========================================
         function renderGrowPageStaticShell() {
-            const istObj = getGrowIST();
             return '<details class="grow-panel"><summary><span>Progress Overview</span><i class="fas fa-chevron-down"></i></summary>' +
                 '<div class="grow-panel-body" id="growGraphs"></div></details>' +
                 '<details class="grow-panel" open><summary><span>Activity Calendar</span><i class="fas fa-chevron-down"></i></summary>' +
-                '<div class="grow-panel-body"><div class="grow-month-nav"><button class="action-btn" onclick="changeGrowMonth(-1)"><i class="fas fa-chevron-left"></i></button><h2 id="growMonthYear">' + 
-                ["January","February","March","April","May","June","July","August","September","October","November","December"][growMonth] + ' ' + growYear + 
-                '</h2><button class="action-btn" onclick="changeGrowMonth(1)"><i class="fas fa-chevron-right"></i></button></div>' +
-                '<div class="grow-calendar"><div class="grow-grid" id="growCalendar"></div></div></div></details>' +
+                '<div class="grow-panel-body"><div class="grow-month-nav"><button class="action-btn" onclick="animateGrowMonth(-1)"><i class="fas fa-chevron-left"></i></button><h2 id="growMonthYear">...</h2><button class="action-btn" onclick="animateGrowMonth(1)"><i class="fas fa-chevron-right"></i></button></div>' +
+                '<div class="grow-calendar" id="growCalendarContainer"><div class="grow-grid" id="growCalendar"></div></div></div></details>' +
                 '<details class="grow-panel" open><summary><span>Manage Growth</span><i class="fas fa-chevron-down"></i></summary>' +
                 '<div class="grow-panel-body" id="growList"></div></details>';
         }
@@ -860,6 +888,36 @@ function writeMainEJS() {
                     }
                 };
             }
+        }
+
+        function setupGrowSwipeGestures() {
+            let touchstartX = 0; let touchendX = 0;
+            const container = document.getElementById('growCalendarContainer');
+            if(container) {
+                container.addEventListener('touchstart', e => { touchstartX = e.changedTouches[0].screenX; }, {passive: true});
+                container.addEventListener('touchend', e => {
+                    touchendX = e.changedTouches[0].screenX;
+                    if (touchendX < touchstartX - 50) animateGrowMonth(1); 
+                    if (touchendX > touchstartX + 50) animateGrowMonth(-1);
+                }, {passive: true});
+            }
+        }
+
+        function animateGrowMonth(dir) {
+            const grid = document.getElementById("growCalendar");
+            if(!grid) return;
+            grid.style.transform = dir > 0 ? 'translateX(-30px)' : 'translateX(30px)';
+            grid.style.opacity = '0';
+            setTimeout(() => {
+                changeGrowMonth(dir); 
+                grid.style.transition = 'none';
+                grid.style.transform = dir > 0 ? 'translateX(30px)' : 'translateX(-30px)';
+                setTimeout(() => {
+                    grid.style.transition = 'transform 0.25s ease-out, opacity 0.25s ease-out';
+                    grid.style.transform = 'translateX(0)';
+                    grid.style.opacity = '1';
+                }, 30);
+            }, 250);
         }
         
         function isGrowActive(item, d) {
@@ -941,17 +999,19 @@ function writeMainEJS() {
             const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
             document.getElementById("growMonthYear").innerText = months[growMonth] + " " + growYear;
             
-            const firstDay = new Date(growYear, growMonth, 1).getDay();
+            const firstDay = new Date(growYear, growMonth, 1).getDay(); // 0(Su) to 6(Sa)
+            let adjustedFirstDay = firstDay === 0 ? 6 : firstDay - 1;   // Now 0(Mo) to 6(Su)
+
             const daysInMonth = new Date(growYear, growMonth+1, 0).getDate();
             
             let html = "";
-            ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].forEach(d => html += '<div class="grow-weekday">' + d + '</div>');
+            ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].forEach(d => html += '<div class="grow-weekday">' + d + '</div>');
             
             let currentDay = 1;
             const prog = growTrackerData.progress || {};
             
             for(let i = 0; i < 42; i++) {
-                if(i < firstDay || currentDay > daysInMonth) { html += '<div class="grow-day empty"></div>'; } 
+                if(i < adjustedFirstDay || currentDay > daysInMonth) { html += '<div class="grow-day empty"></div>'; } 
                 else {
                     const date = growYear + "-" + String(growMonth+1).padStart(2,"0") + "-" + String(currentDay).padStart(2,"0");
                     const isToday = date === growToday;
@@ -1098,12 +1158,8 @@ function writeMainEJS() {
                     
                     if (hasDescription) html += '<div id="' + descriptionId + '" class="task-description-container hidden"><div class="task-description">' + preserveLineBreaks(task.description) + '</div></div>';
                     
-                    let displayDate = task.dateIST || task.startDateStr;
-                    if (displayDate && displayDate.includes('-') && displayDate.split('-')[0].length === 4) {
-                        const parts = displayDate.split('-');
-                        displayDate = parts[2] + '-' + parts[1] + '-' + parts[0];
-                    }
-                    html += '<div class="task-time-row"><span class="date-chip"><i class="fas fa-calendar-alt"></i> ' + displayDate + '</span><span class="time-chip"><i class="fas fa-clock"></i> ' + (task.startTimeIST || task.startTimeStr) + '-' + (task.endTimeIST || task.endTimeStr) + '</span></div>';
+                    const time12 = f12(task.startTimeStr) + ' - ' + f12(task.endTimeStr);
+                    html += '<div class="task-time-row"><span class="time-chip"><i class="fas fa-clock"></i> ' + time12 + '</span></div>';
                     
                     if (totalSubtasks > 0) {
                         html += '<details class="task-subtasks"><summary class="flex-row" style="cursor: pointer;"><div class="progress-ring-small"><svg width="34" height="34"><circle class="progress-ring-circle-small" stroke="var(--progress-bg-light)" stroke-width="3" fill="transparent" r="14" cx="17" cy="17"/><circle class="progress-ring-circle-small" stroke="var(--accent-light)" stroke-width="3" fill="transparent" r="14" cx="17" cy="17" style="stroke-dasharray: ' + circleCircumference + '; stroke-dashoffset: ' + circleOffset + '; "/></svg><span class="progress-text-small">' + progress + '%</span></div><span style="font-size: 0.85rem; font-weight: 500; color: var(--text-secondary-light);">' + completedSubtasks + '/' + totalSubtasks + ' subtasks</span></summary><div class="subtasks-container w-100">';
@@ -1127,8 +1183,7 @@ function writeMainEJS() {
                     const daysStr = (task.selectedDays || []).map(d => DAYS_MAP[d]).join(', ');
                     html += '<div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">';
                     if (task.selectedDays && task.selectedDays.length > 0) html += '<span class="badge"><i class="fas fa-calendar-week"></i> ' + daysStr + '</span>';
-                    html += '<span class="badge"><i class="fas fa-hourglass-half"></i> ' + task.durationFormatted + '</span>';
-                    if (task.remainingOccurrences > 0) html += '<span class="badge"><i class="fas fa-hashtag"></i> ' + task.remainingOccurrences + ' left</span>';
+                    html += '<span class="badge"><i class="fas fa-sync"></i> ' + task.repeatWeeks + ' Wks</span>';
                     html += '</div></div>';
                 });
             }
@@ -1183,11 +1238,11 @@ function writeMainEJS() {
                         const hasDescription = hasContent(task.description);
                         const historyDescId = 'history_desc_' + task.taskId + '_' + task.completedAt;
                         const escapedHistoryTitle = escapeHtml(task.title);
-                        html += '<div class="history-task-card"><div class="history-task-header"><div class="task-title-container" onclick="toggleDescription(\\'' + historyDescId + '\\')"><i class="fas fa-chevron-right"></i><span class="history-task-title">' + escapedHistoryTitle + '</span></div><span class="history-task-time"><i class="fas fa-check-circle" style="color: var(--success-light);"></i> ' + task.completedTimeIST + '</span></div>';
+                        html += '<div class="history-task-card"><div class="history-task-header"><div class="task-title-container" onclick="toggleDescription(\\'' + historyDescId + '\\')"><i class="fas fa-chevron-right"></i><span class="history-task-title">' + escapedHistoryTitle + '</span></div><span class="history-task-time"><i class="fas fa-check-circle" style="color: var(--success-light);"></i> ' + f12(task.completedTimeIST) + '</span></div>';
                         if (hasDescription) html += '<div id="' + historyDescId + '" class="history-description-container hidden"><div class="history-description">' + preserveLineBreaks(task.description) + '</div></div>';
                         
                         const daysStr = (task.selectedDays || []).map(d => DAYS_MAP[d]).join(', ');
-                        html += '<div style="display: flex; gap: 6px; margin: 8px 0; flex-wrap: wrap;"><span class="badge"><i class="fas fa-clock"></i> ' + task.startTimeIST + '-' + task.endTimeIST + '</span><span class="badge"><i class="fas fa-hourglass-half"></i> ' + task.durationFormatted + '</span>';
+                        html += '<div style="display: flex; gap: 6px; margin: 8px 0; flex-wrap: wrap;"><span class="badge"><i class="fas fa-clock"></i> ' + f12(task.startTimeStr || task.startTimeIST) + '-' + f12(task.endTimeStr || task.endTimeIST) + '</span>';
                         if (daysStr) html += '<span class="badge"><i class="fas fa-calendar-week"></i> ' + daysStr + '</span>';
                         html += '</div>';
 
@@ -1394,9 +1449,7 @@ async function connectDB() {
             }
             
             const exists = await db.collection('grow').findOne({ type: 'tracker' });
-            if (!exists) {
-                await db.collection('grow').insertOne({ type: 'tracker', items: [], progress: {} });
-            }
+            if (!exists) await db.collection('grow').insertOne({ type: 'tracker', items: [], progress: {} });
 
             return true;
         } catch (error) {
@@ -1414,36 +1467,11 @@ function escapeHTML(str) {
 }
 
 // ==========================================
-// 🛠️ UTILITY FUNCTIONS
-// ==========================================
-function generateId(type = 'task') { return type.charAt(0) + Math.random().toString(36).substring(2, 10); }
-function generateSubtaskId() { return 'sub_' + Date.now().toString(36); }
-function calculateDuration(startDate, endDate) { 
-    if (!startDate || !endDate) return 0;
-    return Math.round((endDate - startDate) / 60000); 
-}
-function formatDuration(minutes) {
-    if (isNaN(minutes) || minutes < 0) return '0 mins';
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    if (hours === 0) return mins + ' mins';
-    if (mins === 0) return hours + ' hours';
-    return hours + 'h ' + mins + 'm';
-}
-function calculateSubtaskProgress(subtasks) {
-    if (!subtasks || subtasks.length === 0) return 0;
-    return Math.round((subtasks.filter(s => s.completed).length / subtasks.length) * 100);
-}
-
-// ==========================================
-// 🤖 BOT SETUP & SCHEDULERS
+// 🤖 BOT SETUP & CRON SCHEDULERS
 // ==========================================
 const bot = new Telegraf(BOT_TOKEN);
 const activeSchedules = new Map();
 let isShuttingDown = false;
-
-let currentReminderTaskId = null;
-let activeReminderMessageIds = [];
 let lastHourlyMessageId = null;
 
 bot.use(async (ctx, next) => {
@@ -1456,53 +1484,27 @@ bot.use(async (ctx, next) => {
 
 async function sendStartMenu(ctx) {
     try {
-        const istDateObj = getCurrentISTDisplay();
-        const startOfDayUTC = istToUTC(istDateObj.date, "00:00");
-        const endOfDayUTC = istToUTC(istDateObj.date, "23:59");
-
-        const pendingTasks = await db.collection('tasks').find({
-            status: 'pending', nextOccurrence: { $gte: startOfDayUTC, $lt: endOfDayUTC }
-        }).toArray();
-
-        const todayHistory = await db.collection('history').find({ completedDateStr: istDateObj.displayDate }).toArray();
-        const completedTaskIds = [...new Set(todayHistory.map(h => h.taskId))];
+        const { pendingTasks, completedTasks, totalToday } = await getActiveTasksForToday();
         
-        let completedTasks = [];
-        if (completedTaskIds.length > 0) {
-            const activeC = await db.collection('tasks').find({ taskId: { $in: completedTaskIds } }).toArray();
-            const deletedC = await db.collection('deleted_tasks').find({ taskId: { $in: completedTaskIds } }).toArray();
-            const combined = {};
-            activeC.forEach(t => combined[t.taskId] = t);
-            deletedC.forEach(t => { if (!combined[t.taskId]) combined[t.taskId] = t; });
-            completedTasks = Object.values(combined);
-        }
-
-        let allTasks = [];
-        completedTasks.forEach(t => allTasks.push({ ...t, isCompleted: true }));
-        pendingTasks.forEach(t => allTasks.push({ ...t, isCompleted: false }));
-        allTasks.sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
-
-        const total = allTasks.length;
         let percentage = 0;
         let progressBar = '░░░░░░░░░░░░░░░░░░░░'; 
         
-        if (total > 0) {
-            percentage = Math.round((completedTasks.length / total) * 100);
+        if (totalToday > 0) {
+            percentage = Math.round((completedTasks.length / totalToday) * 100);
             const filledCount = Math.floor(percentage / 5); 
             progressBar = '█'.repeat(filledCount) + '░'.repeat(20 - filledCount);
         }
 
         let msg = `<i>Welcome, <b><a href="tg://user?id=${ctx.from.id}">${(ctx.from.username || ctx.from.first_name || 'Admin').toUpperCase()}</a></b>!</i>\n`;
         msg += `${progressBar} ${percentage}%\n`;
-        msg += `⚙️Completed: <i><b>${completedTasks.length}/${total}</b></i> tasks.\n\n`;
+        msg += `⚙️Completed: <i><b>${completedTasks.length}/${totalToday}</b></i> tasks.\n\n`;
         
         msg += `<blockquote expandable>`;
-        if (total === 0) {
+        if (totalToday === 0) {
             msg += `No tasks scheduled for today.`;
         } else {
-            allTasks.forEach(t => {
-                msg += `${t.isCompleted ? '✅' : '❌'} ${escapeHTML(t.title)} (${t.startTimeStr} - ${t.endTimeStr})\n`;
-            });
+            completedTasks.forEach(t => msg += `✅ ${escapeHTML(t.title)} (${f12(t.startTimeStr)} - ${f12(t.endTimeStr)})\n`);
+            pendingTasks.forEach(t => msg += `❌ ${escapeHTML(t.title)} (${f12(t.startTimeStr)} - ${f12(t.endTimeStr)})\n`);
         }
         msg += `</blockquote>\n`;
         
@@ -1510,18 +1512,10 @@ async function sendStartMenu(ctx) {
         msg += `Alerts : ${globalSettings.alerts ? '🔔 ON' : '🔕 OFF'}\n`;
         msg += `Reminders : ${globalSettings.reminders ? '🔔 ON' : '🔕 OFF'}`;
 
-        const kb = {
-            inline_keyboard: [
-                [ { text: '🌐 Task Manager', web_app: { url: WEB_APP_URL }, style: 'primary' } ],
-                [ { text: '⚙️ Settings', callback_data: 'open_settings', style: 'primary' } ]
-            ]
-        };
+        const kb = { inline_keyboard: [ [ { text: '🌐 Task Manager', web_app: { url: WEB_APP_URL }, style: 'primary' } ], [ { text: '⚙️ Settings', callback_data: 'open_settings', style: 'primary' } ] ] };
 
-        if (ctx.callbackQuery) {
-            await ctx.editMessageText(msg, { parse_mode: 'HTML', reply_markup: kb });
-        } else {
-            await ctx.reply(msg, { parse_mode: 'HTML', reply_markup: kb });
-        }
+        if (ctx.callbackQuery) await ctx.editMessageText(msg, { parse_mode: 'HTML', reply_markup: kb });
+        else await ctx.reply(msg, { parse_mode: 'HTML', reply_markup: kb });
     } catch (err) { console.error("Start Menu Error:", err); }
 }
 
@@ -1531,20 +1525,13 @@ bot.action('open_settings', async (ctx) => {
     const gs = globalSettings;
     const kb = {
         inline_keyboard: [
-            [ { text: gs.notifications ? '🔔 Notifications: ON' : '🔕 Notifications: OFF', callback_data: 'tgl_notif', style: gs.notifications ? 'success' : 'danger' } ],
-            [ { text: gs.alerts ? '🔔 Alerts: ON' : '🔕 Alerts: OFF', callback_data: 'tgl_alerts', style: gs.alerts ? 'success' : 'danger' } ],
-            [ { text: gs.reminders ? '🔔 Reminders: ON' : '🔕 Reminders: OFF', callback_data: 'tgl_reminders', style: gs.reminders ? 'success' : 'danger' } ],
-            [ 
-                { text: '⬅️ Back', callback_data: 'back_start', style: 'primary' }, 
-                { text: '🌐 Tasks', web_app: { url: WEB_APP_URL }, style: 'primary' } 
-            ]
+            [ { text: gs.notifications ? '🔔 Notifications: ON' : '🔕 Notifications: OFF', callback_data: 'tgl_notif' } ],
+            [ { text: gs.alerts ? '🔔 Alerts: ON' : '🔕 Alerts: OFF', callback_data: 'tgl_alerts' } ],
+            [ { text: gs.reminders ? '🔔 Reminders: ON' : '🔕 Reminders: OFF', callback_data: 'tgl_reminders' } ],
+            [ { text: '⬅️ Back', callback_data: 'back_start' }, { text: '🌐 Tasks', web_app: { url: WEB_APP_URL } } ]
         ]
     };
-    
-    await ctx.editMessageText('⚙️ <b>Bot Settings:</b>\n\n<i>Toggle your preferences below:</i>', { 
-        parse_mode: 'HTML', 
-        reply_markup: kb 
-    });
+    await ctx.editMessageText('⚙️ <b>Bot Settings:</b>\n\n<i>Toggle your preferences below:</i>', { parse_mode: 'HTML', reply_markup: kb });
 });
 
 bot.action('back_start', sendStartMenu);
@@ -1560,115 +1547,98 @@ bot.action('tgl_alerts', ctx => toggleSetting(ctx, 'alerts'));
 bot.action('tgl_reminders', ctx => toggleSetting(ctx, 'reminders'));
 
 function scheduleTask(task) {
-    if (!task || !task.taskId || !task.nextOccurrence) return;
-    try {
-        const taskId = task.taskId;
-        const targetTimeUTC = new Date(task.nextOccurrence);
-        const nowUTC = new Date();
+    cancelTaskSchedule(task.taskId);
+    if (new Date() > new Date(task.endDate)) return; 
+    if (!task.selectedDays || task.selectedDays.length === 0) return;
 
-        cancelTaskSchedule(taskId);
-        if (targetTimeUTC <= nowUTC) return;
+    const [h, m] = task.startTimeStr.split(':').map(Number);
+    let notifyMins = m - 10;
+    let notifyH = h;
+    if (notifyMins < 0) { notifyMins += 60; notifyH -= 1; }
+    if (notifyH < 0) notifyH += 24;
 
-        const notifyTimeUTC = new Date(targetTimeUTC.getTime() - 10 * 60000);
-        const triggerDateUTC = notifyTimeUTC > nowUTC ? notifyTimeUTC : nowUTC;
+    const daysStr = task.selectedDays.join(',');
+    const cronExp10Min = `${notifyMins} ${notifyH} * * ${daysStr}`;
+    const cronExpExact = `${m} ${h} * * ${daysStr}`;
 
-        const startJob = schedule.scheduleJob(triggerDateUTC, async function() {
-            if (isShuttingDown || !globalSettings.reminders) return;
-            
-            if (currentReminderTaskId !== taskId) {
-                for (const msgId of activeReminderMessageIds) {
-                    try { await bot.telegram.deleteMessage(CHAT_ID, msgId); } catch(e){}
-                }
-                activeReminderMessageIds = [];
-                currentReminderTaskId = taskId;
-            }
+    const startJob = schedule.scheduleJob({ rule: cronExp10Min, tz: 'Asia/Kolkata' }, async function() {
+        if (isShuttingDown || !globalSettings.reminders) return;
+        const istDateObj = getCurrentISTDisplay();
+        const hist = await db.collection('history').findOne({ taskId: task.taskId, completedDateStr: istDateObj.displayDate });
+        if (hist) return; // Completed today!
+        try { await bot.telegram.sendMessage(CHAT_ID, `🔔 <b>In 10m:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} to ${f12(task.endTimeStr)}`, { parse_mode: 'HTML' }); } catch(e){}
+    });
 
-            let count = 0;
-            const maxNotifications = 10;
-            
-            const sendNotification = async () => {
-                if (isShuttingDown || !globalSettings.reminders) return;
-                const currentTimeUTC = new Date();
+    const exactJob = schedule.scheduleJob({ rule: cronExpExact, tz: 'Asia/Kolkata' }, async function() {
+        if (isShuttingDown || !globalSettings.reminders) return;
+        const istDateObj = getCurrentISTDisplay();
+        const hist = await db.collection('history').findOne({ taskId: task.taskId, completedDateStr: istDateObj.displayDate });
+        if (hist) return;
+        try { await bot.telegram.sendMessage(CHAT_ID, `🚀 <b>START NOW:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} to ${f12(task.endTimeStr)}`, { parse_mode: 'HTML' }); } catch(e){}
+    });
 
-                if (currentTimeUTC >= targetTimeUTC || count >= maxNotifications) {
-                    const activeSchedule = activeSchedules.get(taskId);
-                    if (activeSchedule && activeSchedule.interval) {
-                        clearInterval(activeSchedule.interval);
-                        activeSchedule.interval = null;
-                    }
-                    if (currentTimeUTC >= targetTimeUTC) {
-                        try { 
-                            const sent = await bot.telegram.sendMessage(CHAT_ID, `🚀 <b>START NOW:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${task.startTimeStr} to ${task.endTimeStr}`, { parse_mode: 'HTML' }); 
-                            activeReminderMessageIds.push(sent.message_id);
-                        } catch (e) {}
-                    }
-                    return;
-                }
-                const minutesLeft = Math.ceil((targetTimeUTC - currentTimeUTC) / 60000);
-                if (minutesLeft > 0) {
-                    try { 
-                        const sent = await bot.telegram.sendMessage(CHAT_ID, `🔔 <b>In ${minutesLeft}m:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${task.startTimeStr} to ${task.endTimeStr}`, { parse_mode: 'HTML' }); 
-                        activeReminderMessageIds.push(sent.message_id);
-                    } catch (e) {}
-                }
-                count++;
-            };
-            
-            await sendNotification();
-            const interval = setInterval(sendNotification, 60000);
-            if (activeSchedules.has(taskId)) {
-                if (activeSchedules.get(taskId).interval) clearInterval(activeSchedules.get(taskId).interval);
-                activeSchedules.get(taskId).interval = interval;
-            } else { activeSchedules.set(taskId, { startJob, interval }); }
-        });
-        
-        if (activeSchedules.has(taskId)) {
-            if (activeSchedules.get(taskId).startJob) activeSchedules.get(taskId).startJob.cancel();
-            activeSchedules.get(taskId).startJob = startJob;
-        } else { activeSchedules.set(taskId, { startJob }); }
-    } catch (error) {}
+    activeSchedules.set(task.taskId, { startJob, exactJob });
 }
 
 function cancelTaskSchedule(taskId) {
     if (activeSchedules.has(taskId)) {
         const s = activeSchedules.get(taskId);
         if (s.startJob) try { s.startJob.cancel(); } catch (e) {}
-        if (s.interval) try { clearInterval(s.interval); } catch (e) {}
+        if (s.exactJob) try { s.exactJob.cancel(); } catch (e) {}
         activeSchedules.delete(taskId);
     }
 }
 
 async function rescheduleAllPending() {
     try {
-        const tasks = await db.collection('tasks').find({ status: 'pending', nextOccurrence: { $gt: new Date() } }).toArray();
+        const tasks = await db.collection('tasks').find({ status: 'pending' }).toArray();
         tasks.forEach(task => scheduleTask(task));
     } catch (error) {}
 }
-         
-// ==========================================
-// 🌙 AUTO-COMPLETE TASKS AT 23:57 IST
-// ==========================================
+
+// Hourly Updates
+function setupHourlyNotifications() {
+    const rule = new schedule.RecurrenceRule();
+    rule.minute = 0; rule.hour = new schedule.Range(8, 23); rule.tz = 'Asia/Kolkata';
+
+    schedule.scheduleJob(rule, async function() {
+        if (isShuttingDown || !globalSettings.notifications) return;
+        if (lastHourlyMessageId) { try { await bot.telegram.deleteMessage(CHAT_ID, lastHourlyMessageId); } catch(e){} lastHourlyMessageId = null; }
+        
+        try {
+            const istDateObj = getCurrentISTDisplay();
+            const { pendingTasks, completedTasks, totalToday } = await getActiveTasksForToday();
+            if (totalToday === 0) return;
+
+            let percentage = Math.round((completedTasks.length / totalToday) * 100);
+            const filledCount = Math.floor(percentage / 5);
+            let progressBar = '█'.repeat(filledCount) + '░'.repeat(20 - filledCount);
+            
+            let msg = `${istDateObj.displayDate} - ${istDateObj.dayName}\n${progressBar} ${percentage}%\n`;
+            msg += `⚙️ Completed: <i><b>${completedTasks.length}/${totalToday}</b></i> tasks\n\n<blockquote expandable>`;
+            completedTasks.forEach(t => msg += `✅ ${escapeHTML(t.title)} (${f12(t.startTimeStr)})\n`);
+            pendingTasks.forEach(t => msg += `❌ ${escapeHTML(t.title)} (${f12(t.startTimeStr)})\n`);
+            msg += `</blockquote>`;
+
+            const sentMsg = await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' });
+            lastHourlyMessageId = sentMsg.message_id;
+        } catch (e) {}
+    });
+}
+
+// End of Day Autocompletion
 function setupAutoCompletion() {
     const rule = new schedule.RecurrenceRule();
-    rule.hour = 23;
-    rule.minute = 57;
-    rule.tz = 'Asia/Kolkata';
+    rule.hour = 23; rule.minute = 57; rule.tz = 'Asia/Kolkata';
 
     schedule.scheduleJob(rule, async function() {
         if (isShuttingDown) return;
         try {
             const istDateObj = getCurrentISTDisplay();
-            const startOfDayUTC = istToUTC(istDateObj.date, "00:00");
-            const endOfDayUTC = istToUTC(istDateObj.date, "23:59");
-
-            const pendingTasks = await db.collection('tasks').find({
-                status: 'pending',
-                nextOccurrence: { $gte: startOfDayUTC, $lt: endOfDayUTC }
-            }).toArray();
+            const { pendingTasks } = await getActiveTasksForToday();
 
             for (const task of pendingTasks) {
                 const historySubtasks = (task.subtasks || []).map(s => ({ id: s.id, completed: s.completed }));
-
                 await db.collection('history').insertOne({
                     taskId: task.taskId,
                     completedAt: new Date(),
@@ -1677,107 +1647,13 @@ function setupAutoCompletion() {
                     status: 'completed',
                     subtasks: historySubtasks
                 });
-
-                cancelTaskSchedule(task.taskId);
-
-                if (task.remainingOccurrences > 1) {
-                    let searchBase = new Date(task.nextOccurrence.getTime() + 60000); 
-                    let nextUTC = calculateNextOccurrence(searchBase, task.startTimeStr, task.selectedDays);
-                    let endUTC = new Date(nextUTC.getTime() + (task.endDate.getTime() - task.startDate.getTime()));
-                    let nextISTDisplay = formatLegacyIST(nextUTC, 'date');
-
-                    await db.collection('tasks').updateOne(
-                        { taskId: task.taskId },
-                        { $set: {
-                            nextOccurrence: nextUTC,
-                            remainingOccurrences: task.remainingOccurrences - 1,
-                            startDate: nextUTC,
-                            startDateStr: nextISTDisplay,
-                            endDate: endUTC,
-                            subtasks: (task.subtasks || []).map(s => ({...s, completed: false}))
-                        }}
-                    );
-                    const t = await db.collection('tasks').findOne({ taskId: task.taskId });
-                    if (t && t.nextOccurrence > new Date()) scheduleTask(t);
-                } else {
-                    await db.collection('deleted_tasks').insertOne({ ...task, deletedAt: new Date(), deleteReason: 'auto_completed' });
-                    await db.collection('tasks').deleteOne({ taskId: task.taskId });
-                }
             }
             if (pendingTasks.length > 0) {
                 try { await bot.telegram.sendMessage(CHAT_ID, `🌙 <b>Auto-completed</b> ${pendingTasks.length} tasks.\n🕒 <b>Time:</b> ${istDateObj.displayTime}\n📅 <b>Date:</b> ${istDateObj.displayDate}\n🗓 <b>Day:</b> ${istDateObj.dayName}\n`, { parse_mode: 'HTML' }); } catch(e){}
             }
+            // Cleanup expired entries officially.
+            await cleanExpiredTasks();
         } catch (error) {}
-    });
-}
-
-// ==========================================
-// 🕒 HOURLY NOTIFICATIONS (8 AM - 11 PM)
-// ==========================================
-function setupHourlyNotifications() {
-    const rule = new schedule.RecurrenceRule();
-    rule.minute = 0;
-    rule.hour = new schedule.Range(8, 23); 
-    rule.tz = 'Asia/Kolkata';
-
-    schedule.scheduleJob(rule, async function() {
-        if (isShuttingDown || !globalSettings.notifications) return;
-        
-        if (lastHourlyMessageId) {
-            try { await bot.telegram.deleteMessage(CHAT_ID, lastHourlyMessageId); } catch(e){}
-            lastHourlyMessageId = null;
-        }
-        
-        try {
-            const istDateObj = getCurrentISTDisplay();
-            const startOfDayUTC = istToUTC(istDateObj.date, "00:00");
-            const endOfDayUTC = istToUTC(istDateObj.date, "23:59");
-
-            const pendingTasks = await db.collection('tasks').find({
-                status: 'pending', nextOccurrence: { $gte: startOfDayUTC, $lt: endOfDayUTC }
-            }).toArray();
-
-            const todayHistory = await db.collection('history').find({
-                completedDateStr: istDateObj.displayDate
-            }).toArray();
-
-            const completedTaskIds = [...new Set(todayHistory.map(h => h.taskId))];
-            
-            let completedTasks = [];
-            if (completedTaskIds.length > 0) {
-                const activeC = await db.collection('tasks').find({ taskId: { $in: completedTaskIds } }).toArray();
-                const deletedC = await db.collection('deleted_tasks').find({ taskId: { $in: completedTaskIds } }).toArray();
-                
-                const combined = {};
-                activeC.forEach(t => combined[t.taskId] = t);
-                deletedC.forEach(t => { if (!combined[t.taskId]) combined[t.taskId] = t; });
-                completedTasks = Object.values(combined);
-            }
-
-            let allTasks = [];
-            completedTasks.forEach(t => allTasks.push({ ...t, isCompleted: true }));
-            pendingTasks.forEach(t => allTasks.push({ ...t, isCompleted: false }));
-            allTasks.sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
-
-            const total = allTasks.length;
-            if (total === 0) return;
-            let percentage = Math.round((completedTasks.length / total) * 100);
-            const filledCount = Math.floor(percentage / 5);
-            let progressBar = '█'.repeat(filledCount) + '░'.repeat(20 - filledCount);
-            
-            let msg = `${istDateObj.displayDate} - ${istDateObj.dayName}\n`;
-            msg += `${progressBar} ${percentage}%\n`;
-            msg += `⚙️ Completed: <i><b>${completedTasks.length}/${total}</b></i> tasks\n\n`;
-            
-            msg += `<blockquote expandable>`;
-            allTasks.forEach(t => {
-                msg += `${t.isCompleted ? '✅' : '❌'} ${escapeHTML(t.title)} (${t.startTimeStr} - ${t.endTimeStr})\n`;
-            });
-            msg += `</blockquote>`;
-
-            const sentMsg = await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' });
-            lastHourlyMessageId = sentMsg.message_id;
-        } catch (e) {}
     });
 }
 
@@ -1799,28 +1675,20 @@ async function getHydratedHistory() {
     const groupedHistory = {};
     historyList.forEach(item => {
         const baseTask = taskDict[item.taskId] || { title: 'Deleted Task', description: '', startTimeStr: '??:??', endTimeStr: '??:??', subtasks: [], deleted_subtasks: [] };
-        
         const combined = { ...baseTask, ...item }; 
 
         if (item.subtasks && Array.isArray(item.subtasks)) {
             combined.subtasks = item.subtasks.map(hSub => {
-                const baseSub = (baseTask.subtasks || []).find(s => s.id === hSub.id) 
-                             || (baseTask.deleted_subtasks || []).find(s => s.id === hSub.id) 
-                             || { title: 'Deleted Subtask', description: '' };
+                const baseSub = (baseTask.subtasks || []).find(s => s.id === hSub.id) || (baseTask.deleted_subtasks || []).find(s => s.id === hSub.id) || { title: 'Deleted Subtask', description: '' };
                 return { ...baseSub, completed: hSub.completed };
             });
-        } else {
-            combined.subtasks = [];
-        }
+        } else combined.subtasks = [];
 
         const dateKey = combined.completedDateStr || formatLegacyIST(combined.completedAt, 'date');
         if (!groupedHistory[dateKey]) groupedHistory[dateKey] = [];
         groupedHistory[dateKey].push({
             ...combined,
             completedTimeIST: combined.completedTimeStr || formatLegacyIST(combined.completedAt, 'time'),
-            startTimeIST: combined.startTimeStr || formatLegacyIST(combined.startDate, 'time'),
-            endTimeIST: combined.endTimeStr || formatLegacyIST(combined.endDate, 'time'),
-            durationFormatted: formatDuration(calculateDuration(combined.startDate, combined.endDate))
         });
     });
     return groupedHistory;
@@ -1829,7 +1697,6 @@ async function getHydratedHistory() {
 // ==========================================
 // 📱 WEB INTERFACE ROUTES
 // ==========================================
-
 app.post('/api/settings/update', async (req, res) => {
     try {
         globalSettings = { ...globalSettings, ...req.body };
@@ -1843,52 +1710,39 @@ app.get('/', (req, res) => res.redirect('/tasks'));
 app.get('/tasks', async (req, res) => {
     try {
         const istDateObj = getCurrentISTDisplay();
-        const startOfDayUTC = istToUTC(istDateObj.date, "00:00");
-        const endOfDayUTC = istToUTC(istDateObj.date, "23:59");
+        const { pendingTasks } = await getActiveTasksForToday();
         
-        const tasks = await db.collection('tasks').find({ status: 'pending', nextOccurrence: { $gte: startOfDayUTC, $lt: endOfDayUTC } }).sort({ orderIndex: 1, nextOccurrence: 1 }).toArray();
         res.render('index', {
-            currentPage: 'tasks',
-            globalSettings,
-            tasks: tasks.map(task => ({
+            currentPage: 'tasks', globalSettings,
+            tasks: pendingTasks.map(task => ({
                 ...task, 
-                taskId: task.taskId, 
-                startTimeIST: task.startTimeStr || formatLegacyIST(task.startDate, 'time'), 
-                endTimeIST: task.endTimeStr || formatLegacyIST(task.endDate, 'time'), 
-                dateIST: task.startDateStr || formatLegacyIST(task.startDate, 'date'), 
-                durationFormatted: formatDuration(calculateDuration(task.startDate, task.endDate)), 
-                subtaskProgress: calculateSubtaskProgress(task.subtasks), 
                 subtasks: task.subtasks || [],
                 selectedDays: task.selectedDays || [],
-                remainingOccurrences: task.remainingOccurrences || 0
             })),
-            notes: [], groupedHistory: {}, growData: {items: [], progress: {}}, currentTime: istDateObj.displayTime, currentDate: istDateObj.displayDate
+            notes: [], groupedHistory: {}, growData: {items: [], progress: {}}
         });
     } catch (error) { res.status(500).send("Server Error"); }
 });
 
 app.get('/grow', async (req, res) => {
     try {
-        const istDateObj = getCurrentISTDisplay();
         const data = await db.collection('grow').findOne({ type: 'tracker' });
         const cleanData = data ? { items: data.items || [], progress: data.progress || {} } : { items: [], progress: {} };
-        res.render('index', { currentPage: 'grow', globalSettings, tasks: [], notes: [], groupedHistory: {}, growData: cleanData, currentTime: istDateObj.displayTime, currentDate: istDateObj.displayDate });
+        res.render('index', { currentPage: 'grow', globalSettings, tasks: [], notes: [], groupedHistory: {}, growData: cleanData });
     } catch (error) { res.status(500).send("Server Error"); }
 });
 
 app.get('/notes', async (req, res) => {
     try {
         const notes = await db.collection('notes').find().sort({ orderIndex: 1, createdAt: -1 }).toArray();
-        const istDateObj = getCurrentISTDisplay();
-        res.render('index', { currentPage: 'notes', globalSettings, tasks: [], notes: notes.map(n => ({ ...n, createdAtIST: formatLegacyIST(n.createdAt, 'date') + ' ' + formatLegacyIST(n.createdAt, 'time'), updatedAtIST: n.updatedAt ? formatLegacyIST(n.updatedAt, 'date') + ' ' + formatLegacyIST(n.updatedAt, 'time') : '' })), groupedHistory: {}, growData: {items: [], progress: {}}, currentTime: istDateObj.displayTime, currentDate: istDateObj.displayDate });
+        res.render('index', { currentPage: 'notes', globalSettings, tasks: [], notes: notes.map(n => ({ ...n, createdAtIST: formatLegacyIST(n.createdAt, 'date') + ' ' + formatLegacyIST(n.createdAt, 'time'), updatedAtIST: n.updatedAt ? formatLegacyIST(n.updatedAt, 'date') + ' ' + formatLegacyIST(n.updatedAt, 'time') : '' })), groupedHistory: {}, growData: {items: [], progress: {}} });
     } catch (error) { res.status(500).send("Server Error"); }
 });
 
 app.get('/history', async (req, res) => {
     try {
         const groupedHistory = await getHydratedHistory();
-        const istDateObj = getCurrentISTDisplay();
-        res.render('index', { currentPage: 'history', globalSettings, tasks: [], notes: [], groupedHistory, growData: {items: [], progress: {}}, currentTime: istDateObj.displayTime, currentDate: istDateObj.displayDate });
+        res.render('index', { currentPage: 'history', globalSettings, tasks: [], notes: [], groupedHistory, growData: {items: [], progress: {}} });
     } catch (error) { res.status(500).send("Server Error"); }
 });
 
@@ -1896,11 +1750,8 @@ app.get('/api/page/:page', async (req, res) => {
     try {
         const page = req.params.page;
         if (page === 'tasks') {
-            const istDateObj = getCurrentISTDisplay();
-            const startOfDayUTC = istToUTC(istDateObj.date, "00:00");
-            const endOfDayUTC = istToUTC(istDateObj.date, "23:59");
-            const tasks = await db.collection('tasks').find({ status: 'pending', nextOccurrence: { $gte: startOfDayUTC, $lt: endOfDayUTC } }).sort({ orderIndex: 1, nextOccurrence: 1 }).toArray();
-            res.json({ tasks: tasks.map(t => ({ ...t, startTimeIST: t.startTimeStr || formatLegacyIST(t.startDate, 'time'), endTimeIST: t.endTimeStr || formatLegacyIST(t.endDate, 'time'), dateIST: t.startDateStr || formatLegacyIST(t.startDate, 'date'), durationFormatted: formatDuration(calculateDuration(t.startDate, t.endDate)), subtaskProgress: calculateSubtaskProgress(t.subtasks), selectedDays: t.selectedDays || [], remainingOccurrences: t.remainingOccurrences || 0 })) });
+            const { pendingTasks } = await getActiveTasksForToday();
+            res.json({ tasks: pendingTasks });
         } else if (page === 'grow') {
             const data = await db.collection('grow').findOne({ type: 'tracker' });
             res.json({ growData: data ? { items: data.items || [], progress: data.progress || {} } : { items: [], progress: {} } });
@@ -1920,23 +1771,12 @@ app.get('/api/page/:page', async (req, res) => {
 app.post('/api/grow', async (req, res) => {
     try {
         const { title, description, startDate, endCount, color, hasData, type, question, start, end } = req.body;
-        const item = {
-            id: generateId('g'),
-            title: title, description: description || '', startDate: startDate, endCount: parseInt(endCount),
-            color: color, hasData: hasData === true, type: hasData ? type : 'boolean'
-        };
-        
-        if (item.hasData) {
-            item.question = question || '';
-            if (start !== undefined && start !== '') item.start = type === 'float' ? parseFloat(start) : parseInt(start);
-            if (end !== undefined && end !== '') item.end = type === 'float' ? parseFloat(end) : parseInt(end);
-        }
-        
+        const item = { id: generateId('g'), title: title, description: description || '', startDate: startDate, endCount: parseInt(endCount), color: color, hasData: hasData === true, type: hasData ? type : 'boolean' };
+        if (item.hasData) { item.question = question || ''; if (start !== undefined && start !== '') item.start = type === 'float' ? parseFloat(start) : parseInt(start); if (end !== undefined && end !== '') item.end = type === 'float' ? parseFloat(end) : parseInt(end); }
         await db.collection('grow').updateOne({ type: 'tracker' }, { $push: { items: item } }, { upsert: true });
         
         if(globalSettings.alerts) {
             let msg = `🌱 <b>Grow Added</b>\n📌 <b>Title:</b> ${escapeHTML(item.title)}\n⏳ <b>Duration:</b> ${item.endCount} Days`;
-            if (item.description) msg += `\n📝 <b>Desc:</b> ${escapeHTML(item.description.substring(0, 60))}`;
             try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
         }
         res.json({ success: true });
@@ -1946,53 +1786,16 @@ app.post('/api/grow', async (req, res) => {
 app.post('/api/grow/:id/update', async (req, res) => {
     try {
         const { id, title, description, startDate, endCount, color, hasData, type, question, start, end } = req.body;
-        const tracker = await db.collection('grow').findOne({ type: 'tracker' });
-        if (!tracker) return res.status(404).json({ error: 'Tracker not found' });
-        
-        const currentItem = tracker.items.find(i => i.id === id);
-        if (currentItem && currentItem.color !== color) {
-            const conflictingItem = tracker.items.find(i => i.id !== id && i.color === color);
-            if (conflictingItem) await db.collection('grow').updateOne({ type: 'tracker', 'items.id': conflictingItem.id }, { $set: { 'items.$.color': currentItem.color } });
-        }
-        
-        const updatedItem = {
-            id: id, title: title, description: description || '', startDate: startDate,
-            endCount: parseInt(endCount), color: color, hasData: hasData === true, type: hasData ? type : 'boolean'
-        };
-        
-        if (updatedItem.hasData) {
-            updatedItem.question = question || '';
-            if (start !== undefined && start !== '') updatedItem.start = type === 'float' ? parseFloat(start) : parseInt(start);
-            if (end !== undefined && end !== '') updatedItem.end = type === 'float' ? parseFloat(end) : parseInt(end);
-        }
-        
+        const updatedItem = { id: id, title: title, description: description || '', startDate: startDate, endCount: parseInt(endCount), color: color, hasData: hasData === true, type: hasData ? type : 'boolean' };
+        if (updatedItem.hasData) { updatedItem.question = question || ''; if (start !== undefined && start !== '') updatedItem.start = type === 'float' ? parseFloat(start) : parseInt(start); if (end !== undefined && end !== '') updatedItem.end = type === 'float' ? parseFloat(end) : parseInt(end); }
         await db.collection('grow').updateOne({ type: 'tracker', 'items.id': id }, { $set: { 'items.$': updatedItem } });
-        
-        if(globalSettings.alerts) {
-            let msg = `✏️ <b>Grow Edited</b>\n📌 <b>Title:</b> ${escapeHTML(updatedItem.title)}\n⏳ <b>Duration:</b> ${updatedItem.endCount} Days`;
-            if (updatedItem.description) msg += `\n📝 <b>Desc:</b> ${escapeHTML(updatedItem.description.substring(0, 60))}`;
-            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
-        }
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 app.post('/api/grow/:id/delete', async (req, res) => {
     try {
-        const tracker = await db.collection('grow').findOne({ type: 'tracker' });
-        const item = tracker?.items.find(i => i.id === req.params.id);
-        
         await db.collection('grow').updateOne({ type: 'tracker' }, { $pull: { items: { id: req.params.id } } });
-        if (tracker?.progress) {
-            const prog = { ...tracker.progress };
-            Object.keys(prog).forEach(date => { if (prog[date] && prog[date][req.params.id] !== undefined) delete prog[date][req.params.id]; });
-            await db.collection('grow').updateOne({ type: 'tracker' }, { $set: { progress: prog } });
-        }
-        
-        if(globalSettings.alerts && item) {
-            let msg = `🗑️ <b>Grow Deleted</b>\n📌 <b>Title:</b> ${escapeHTML(item.title)}`;
-            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
-        }
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
@@ -2001,15 +1804,6 @@ app.post('/api/grow/log', async (req, res) => {
     try {
         const { itemId, dateStr, value } = req.body;
         await db.collection('grow').updateOne({ type: 'tracker' }, { $set: { [`progress.${dateStr}.${itemId}`]: value } });
-        
-        if(globalSettings.alerts) {
-            const tracker = await db.collection('grow').findOne({ type: 'tracker' });
-            const item = tracker?.items.find(i => i.id === itemId);
-            if(item) {
-                let msg = `📈 <b>Grow Logged</b>\n📌 <b>Title:</b> ${escapeHTML(item.title)}\n📅 <b>Date:</b> ${dateStr}\n🔢 <b>Value:</b> ${value}`;
-                try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
-            }
-        }
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
@@ -2021,7 +1815,7 @@ app.get('/api/tasks/:taskId', async (req, res) => {
     try {
         const task = await db.collection('tasks').findOne({ taskId: req.params.taskId });
         if (!task) return res.status(404).json({ error: 'Not found' });
-        res.json({ ...task, startDateIST: task.startDateStr || formatLegacyIST(task.startDate, 'date'), startTimeIST: task.startTimeStr || formatLegacyIST(task.startDate, 'time'), endTimeIST: task.endTimeStr || formatLegacyIST(task.endDate, 'time') });
+        res.json(task);
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
@@ -2032,35 +1826,23 @@ app.post('/api/tasks', async (req, res) => {
         const daysArr = JSON.parse(selectedDays || '[]');
         if (daysArr.length === 0) return res.status(400).send('Select at least one day.');
         
-        let wks = parseInt(repeatWeeks) || 1;
-        let totalOccurrences = daysArr.length * wks;
-        
-        let nowUTC = new Date();
-        let nextUTC = calculateNextOccurrence(nowUTC, startTime, daysArr);
-        if (!nextUTC) return res.status(400).send('Invalid date calculation.');
-
-        const [startH, startM] = startTime.split(':').map(Number);
-        const [endH, endM] = endTime.split(':').map(Number);
-        let durationMins = (endH * 60 + endM) - (startH * 60 + startM);
-        if (durationMins < 0) durationMins += 24 * 60;
-        let endUTC = new Date(nextUTC.getTime() + durationMins * 60000);
-        
-        const startDateISTDisplay = formatLegacyIST(nextUTC, 'date');
+        const repeatWks = parseInt(repeatWeeks) || 1;
+        const nowUTC = new Date();
+        const endDateUTC = new Date(nowUTC.getTime() + (repeatWks * 7 * 24 * 60 * 60 * 1000));
         
         const task = { 
             taskId: generateId('t'), title: title.trim(), description: description ? description.trim() : '', 
-            selectedDays: daysArr, repeatWeeks: wks, remainingOccurrences: totalOccurrences,
-            startDate: nextUTC, endDate: endUTC, nextOccurrence: nextUTC, 
+            selectedDays: daysArr, repeatWeeks: repeatWks,
+            startDate: nowUTC, endDate: endDateUTC, 
             status: 'pending', subtasks: [], createdAt: new Date(), orderIndex: (await db.collection('tasks').countDocuments()) || 0, 
-            startTimeStr: startTime, endTimeStr: endTime, startDateStr: startDateISTDisplay 
+            startTimeStr: startTime, endTimeStr: endTime
         };
         
         await db.collection('tasks').insertOne(task);
-        if (task.startDate > new Date()) scheduleTask(task);
+        scheduleTask(task);
         
         if(globalSettings.alerts) {
-            let msg = `➕ <b>Task Added</b>\n📌 <b>Title:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${task.startTimeStr} - ${task.endTimeStr}`;
-            if (task.description) msg += `\n📝 <b>Desc:</b> ${escapeHTML(task.description.substring(0, 60))}`;
+            let msg = `➕ <b>Task Added</b>\n📌 <b>Title:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} - ${f12(task.endTimeStr)}\n🔄 <b>Repeats:</b> ${repeatWks} Wks`;
             try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
         }
         res.json({success: true});
@@ -2074,37 +1856,19 @@ app.post('/api/tasks/:taskId/update', async (req, res) => {
         const daysArr = JSON.parse(selectedDays || '[]');
         if (daysArr.length === 0) return res.status(400).send('Select at least one day.');
         
-        let wks = parseInt(repeatWeeks) || 1;
-        let totalOccurrences = daysArr.length * wks;
+        const repeatWks = parseInt(repeatWeeks) || 1;
+        const nowUTC = new Date();
+        const endDateUTC = new Date(nowUTC.getTime() + (repeatWks * 7 * 24 * 60 * 60 * 1000));
         
-        let nowUTC = new Date();
-        let nextUTC = calculateNextOccurrence(nowUTC, startTime, daysArr);
-        if (!nextUTC) return res.status(400).send('Invalid date calculation.');
-
-        const [startH, startM] = startTime.split(':').map(Number);
-        const [endH, endM] = endTime.split(':').map(Number);
-        let durationMins = (endH * 60 + endM) - (startH * 60 + startM);
-        if (durationMins < 0) durationMins += 24 * 60;
-        let endUTC = new Date(nextUTC.getTime() + durationMins * 60000);
-        
-        const startDateISTDisplay = formatLegacyIST(nextUTC, 'date');
-        
-        cancelTaskSchedule(req.params.taskId);
         await db.collection('tasks').updateOne(
             { taskId: req.params.taskId }, 
             { $set: { title: title.trim(), description: description ? description.trim() : '', 
-                selectedDays: daysArr, repeatWeeks: wks, remainingOccurrences: totalOccurrences,
-                startDate: nextUTC, endDate: endUTC, nextOccurrence: nextUTC, 
-                startTimeStr: startTime, endTimeStr: endTime, startDateStr: startDateISTDisplay, updatedAt: new Date() } }
+                selectedDays: daysArr, repeatWeeks: repeatWks,
+                endDate: endDateUTC, startTimeStr: startTime, endTimeStr: endTime, updatedAt: new Date() } }
         );
         const t = await db.collection('tasks').findOne({ taskId: req.params.taskId });
-        if (t && t.nextOccurrence > new Date()) scheduleTask(t);
+        if (t) scheduleTask(t);
         
-        if(globalSettings.alerts && t) {
-            let msg = `✏️ <b>Task Edited</b>\n📌 <b>Title:</b> ${escapeHTML(t.title)}\n🕒 <b>Time:</b> ${t.startTimeStr} - ${t.endTimeStr}`;
-            if (t.description) msg += `\n📝 <b>Desc:</b> ${escapeHTML(t.description.substring(0, 60))}`;
-            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
-        }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -2117,6 +1881,7 @@ app.post('/api/tasks/:taskId/complete', async (req, res) => {
         const istNow = getCurrentISTDisplay();
         const historySubtasks = (task.subtasks || []).map(s => ({ id: s.id, completed: s.completed }));
 
+        // Marks the task complete FOR TODAY
         await db.collection('history').insertOne({ 
             taskId: task.taskId, 
             completedAt: new Date(), 
@@ -2125,35 +1890,11 @@ app.post('/api/tasks/:taskId/complete', async (req, res) => {
             status: 'completed',
             subtasks: historySubtasks 
         });
-        
-        cancelTaskSchedule(task.taskId);
-        
-        if (task.remainingOccurrences > 1) {
-            let searchBase = new Date(task.nextOccurrence.getTime() + 60000); 
-            let nextUTC = calculateNextOccurrence(searchBase, task.startTimeStr, task.selectedDays);
-            let endUTC = new Date(nextUTC.getTime() + (task.endDate.getTime() - task.startDate.getTime()));
-            let nextISTDisplay = formatLegacyIST(nextUTC, 'date');
 
-            await db.collection('tasks').updateOne(
-                { taskId: task.taskId },
-                { $set: {
-                    nextOccurrence: nextUTC,
-                    remainingOccurrences: task.remainingOccurrences - 1,
-                    startDate: nextUTC,
-                    startDateStr: nextISTDisplay,
-                    endDate: endUTC,
-                    subtasks: (task.subtasks || []).map(s => ({...s, completed: false}))
-                }}
-            );
-            const t = await db.collection('tasks').findOne({ taskId: task.taskId });
-            if (t && t.nextOccurrence > new Date()) scheduleTask(t);
-        } else {
-            await db.collection('deleted_tasks').insertOne({ ...task, deletedAt: new Date(), deleteReason: 'completed' });
-            await db.collection('tasks').deleteOne({ taskId: task.taskId });
-        }
-
+        // We DO NOT mutate task logic or days here. It stays in Pending logic so next week it shows up again seamlessly!
+        
         if(globalSettings.alerts) {
-            let msg = `✅ <b>Task Completed</b>\n📌 <b>Title:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${task.startTimeStr} - ${task.endTimeStr}`;
+            let msg = `✅ <b>Task Completed</b>\n📌 <b>Title:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} - ${f12(task.endTimeStr)}`;
             try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
         }
         res.json({success: true});
@@ -2184,11 +1925,6 @@ app.post('/api/tasks/:taskId/delete', async (req, res) => {
             const inHistory = await db.collection('history').findOne({ taskId: req.params.taskId });
             if (inHistory) await db.collection('deleted_tasks').insertOne({ ...t, deletedAt: new Date(), deleteReason: 'manual' });
             await db.collection('tasks').deleteOne({ taskId: req.params.taskId });
-            
-            if(globalSettings.alerts) {
-                let msg = `🗑️ <b>Task Deleted</b>\n📌 <b>Title:</b> ${escapeHTML(t.title)}`;
-                try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
-            }
         }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
@@ -2197,16 +1933,7 @@ app.post('/api/tasks/:taskId/delete', async (req, res) => {
 app.post('/api/tasks/:taskId/subtasks', async (req, res) => {
     try {
         if (!req.body.title) return res.status(400).send('Empty title');
-        await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { $push: { subtasks: { id: generateSubtaskId(), title: req.body.title.trim(), description: req.body.description || '', completed: false, createdAt: new Date() } } });
-        
-        if(globalSettings.alerts) {
-            const parent = await db.collection('tasks').findOne({taskId: req.params.taskId});
-            if(parent) {
-                let msg = `➕ <b>Subtask Added</b>\n📂 <b>Task:</b> ${escapeHTML(parent.title)}\n📌 <b>Subtask:</b> ${escapeHTML(req.body.title.trim())}`;
-                if (req.body.description) msg += `\n📝 <b>Desc:</b> ${escapeHTML(req.body.description.substring(0, 60))}`;
-                try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
-            }
-        }
+        await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { $push: { subtasks: { id: generateId('s'), title: req.body.title.trim(), description: req.body.description || '', completed: false, createdAt: new Date() } } });
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -2215,15 +1942,6 @@ app.post('/api/tasks/:taskId/subtasks/:subtaskId/update', async (req, res) => {
     try {
         if (!req.body.title) return res.status(400).send('Empty title');
         await db.collection('tasks').updateOne({ taskId: req.params.taskId, "subtasks.id": req.params.subtaskId }, { $set: { "subtasks.$.title": req.body.title.trim(), "subtasks.$.description": req.body.description || '' } });
-        
-        if(globalSettings.alerts) {
-            const parent = await db.collection('tasks').findOne({taskId: req.params.taskId});
-            if(parent) {
-                let msg = `✏️ <b>Subtask Edited</b>\n📂 <b>Task:</b> ${escapeHTML(parent.title)}\n📌 <b>Subtask:</b> ${escapeHTML(req.body.title.trim())}`;
-                if (req.body.description) msg += `\n📝 <b>Desc:</b> ${escapeHTML(req.body.description.substring(0, 60))}`;
-                try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
-            }
-        }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -2233,11 +1951,6 @@ app.post('/api/tasks/:taskId/subtasks/:subtaskId/toggle', async (req, res) => {
         const task = await db.collection('tasks').findOne({ taskId: req.params.taskId });
         const sub = (task.subtasks || []).find(s => s.id === req.params.subtaskId);
         await db.collection('tasks').updateOne({ taskId: req.params.taskId, "subtasks.id": req.params.subtaskId }, { $set: { "subtasks.$.completed": !sub.completed } });
-        
-        if(globalSettings.alerts) {
-            let msg = `${!sub.completed ? '✅' : '🔄'} <b>Subtask Toggled</b>\n📂 <b>Task:</b> ${escapeHTML(task.title)}\n📌 <b>Subtask:</b> ${escapeHTML(sub.title)}`;
-            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
-        }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -2246,18 +1959,9 @@ app.post('/api/tasks/:taskId/subtasks/:subtaskId/delete', async (req, res) => {
     try {
         const task = await db.collection('tasks').findOne({ taskId: req.params.taskId });
         const subtask = (task.subtasks || []).find(s => s.id === req.params.subtaskId);
-        
         const inHistory = await db.collection('history').findOne({ taskId: req.params.taskId, "subtasks.id": req.params.subtaskId });
-        if (inHistory && subtask) {
-            await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { $pull: { subtasks: { id: req.params.subtaskId } }, $push: { deleted_subtasks: subtask } });
-        } else {
-            await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { $pull: { subtasks: { id: req.params.subtaskId } } });
-        }
-
-        if(globalSettings.alerts && subtask) {
-            let msg = `🗑️ <b>Subtask Deleted</b>\n📂 <b>Task:</b> ${escapeHTML(task.title)}\n📌 <b>Subtask:</b> ${escapeHTML(subtask.title)}`;
-            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
-        }
+        if (inHistory && subtask) await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { $pull: { subtasks: { id: req.params.subtaskId } }, $push: { deleted_subtasks: subtask } });
+        else await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { $pull: { subtasks: { id: req.params.subtaskId } } });
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -2267,13 +1971,8 @@ app.post('/api/tasks/:taskId/subtasks/:subtaskId/move', async (req, res) => {
         const task = await db.collection('tasks').findOne({ taskId: req.params.taskId });
         const subs = task.subtasks || [];
         const idx = subs.findIndex(s => s.id === req.params.subtaskId);
-        const { direction } = req.body;
-        
-        if (direction === 'up' && idx > 0) {
-            [subs[idx], subs[idx-1]] = [subs[idx-1], subs[idx]];
-        } else if (direction === 'down' && idx < subs.length - 1) {
-            [subs[idx], subs[idx+1]] = [subs[idx+1], subs[idx]];
-        }
+        if (req.body.direction === 'up' && idx > 0) [subs[idx], subs[idx-1]] = [subs[idx-1], subs[idx]];
+        else if (req.body.direction === 'down' && idx < subs.length - 1) [subs[idx], subs[idx+1]] = [subs[idx+1], subs[idx]];
         await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { $set: { subtasks: subs } });
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
@@ -2282,14 +1981,7 @@ app.post('/api/tasks/:taskId/subtasks/:subtaskId/move', async (req, res) => {
 app.post('/api/notes', async (req, res) => {
     try {
         if (!req.body.title) return res.status(400).send('Empty title');
-        const note = { noteId: generateId('n'), title: req.body.title.trim(), description: req.body.description || '', createdAt: new Date(), updatedAt: new Date(), orderIndex: await db.collection('notes').countDocuments() };
-        await db.collection('notes').insertOne(note);
-        
-        if(globalSettings.alerts) {
-            let msg = `📝 <b>Note Added</b>\n📌 <b>Title:</b> ${escapeHTML(note.title)}`;
-            if (note.description) msg += `\n📄 <b>Content:</b> ${escapeHTML(note.description.substring(0, 60))}...`;
-            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
-        }
+        await db.collection('notes').insertOne({ noteId: generateId('n'), title: req.body.title.trim(), description: req.body.description || '', createdAt: new Date(), updatedAt: new Date(), orderIndex: await db.collection('notes').countDocuments() });
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -2298,25 +1990,13 @@ app.post('/api/notes/:noteId/update', async (req, res) => {
     try {
         if (!req.body.title) return res.status(400).send('Empty title');
         await db.collection('notes').updateOne({ noteId: req.params.noteId }, { $set: { title: req.body.title.trim(), description: req.body.description || '', updatedAt: new Date() } });
-        
-        if(globalSettings.alerts) {
-            let msg = `✏️ <b>Note Edited</b>\n📌 <b>Title:</b> ${escapeHTML(req.body.title.trim())}`;
-            if (req.body.description) msg += `\n📄 <b>Content:</b> ${escapeHTML(req.body.description.substring(0, 60))}...`;
-            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
-        }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
 
 app.post('/api/notes/:noteId/delete', async (req, res) => {
     try {
-        const doc = await db.collection('notes').findOne({noteId: req.params.noteId});
         await db.collection('notes').deleteOne({ noteId: req.params.noteId });
-        
-        if(globalSettings.alerts && doc) {
-            let msg = `🗑️ <b>Note Deleted</b>\n📌 <b>Title:</b> ${escapeHTML(doc.title)}`;
-            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
-        }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -2342,6 +2022,7 @@ app.post('/api/notes/:noteId/move', async (req, res) => {
 async function start() {
     try {
         if (await connectDB()) {
+            await cleanExpiredTasks();
             await rescheduleAllPending();
             setupHourlyNotifications();
             setupAutoCompletion();
