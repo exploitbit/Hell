@@ -65,44 +65,6 @@ function formatLegacyIST(utcDate, type) {
     return '';
 }
 
-function calculateNextOccurrence(baseDateUTC, startTimeStr, selectedDaysArr) {
-    if (!selectedDaysArr || selectedDaysArr.length === 0) return null;
-    
-    const istNow = new Date(baseDateUTC.getTime() + IST_OFFSET_MS);
-    const [hour, minute] = startTimeStr.split(':').map(Number);
-    
-    let nextIST = null;
-    
-    for (let i = 0; i <= 7; i++) {
-        let checkDate = new Date(istNow.getTime() + i * 24 * 60 * 60 * 1000);
-        let dayOfWeek = checkDate.getUTCDay(); // 0 = Sunday
-        
-        if (selectedDaysArr.includes(dayOfWeek)) {
-            if (i === 0) {
-                let currentHour = istNow.getUTCHours();
-                let currentMin = istNow.getUTCMinutes();
-                if (currentHour < hour || (currentHour === hour && currentMin < minute)) {
-                    nextIST = new Date(Date.UTC(checkDate.getUTCFullYear(), checkDate.getUTCMonth(), checkDate.getUTCDate(), hour, minute, 0));
-                    break;
-                }
-            } else {
-                nextIST = new Date(Date.UTC(checkDate.getUTCFullYear(), checkDate.getUTCMonth(), checkDate.getUTCDate(), hour, minute, 0));
-                break;
-            }
-        }
-    }
-    
-    if (!nextIST) {
-        let checkDate = new Date(istNow.getTime() + 24 * 60 * 60 * 1000);
-        while(!selectedDaysArr.includes(checkDate.getUTCDay())) {
-            checkDate = new Date(checkDate.getTime() + 24 * 60 * 60 * 1000);
-        }
-        nextIST = new Date(Date.UTC(checkDate.getUTCFullYear(), checkDate.getUTCMonth(), checkDate.getUTCDate(), hour, minute, 0));
-    }
-    
-    return new Date(nextIST.getTime() - IST_OFFSET_MS);
-}
-
 // ==========================================
 // 🎨 EJS TEMPLATE GENERATOR
 // ==========================================
@@ -116,6 +78,10 @@ function writeMainEJS() {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
+        
+        /* ==========================================================================
+           1. GLOBAL & THEME CSS
+           ========================================================================== */
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
         
         :root {
@@ -132,7 +98,12 @@ function writeMainEJS() {
         body { 
             background: var(--bg-light); color: var(--text-primary-light); transition: background-color 0.2s ease, color 0.2s ease; 
             min-height: 100vh; font-size: 13px; line-height: 1.4; 
-            -webkit-touch-callout: none; -webkit-user-select: none; -khtml-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
         }
         
         input, textarea, [contenteditable] { -webkit-user-select: auto; user-select: auto; }
@@ -140,7 +111,10 @@ function writeMainEJS() {
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) { background: var(--bg-dark); color: var(--text-primary-dark); } }
         body[data-theme="dark"] { background: var(--bg-dark); color: var(--text-primary-dark); }
         
+        /* Utility Classes */
         .hidden { display: none; }
+        .fit-content { width: fit-content; }
+        .word-break { word-break: break-word; overflow-wrap: break-word; }
         .flex-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
         .w-100 { width: 100%; }
 
@@ -149,6 +123,9 @@ function writeMainEJS() {
         body[data-theme="dark"] .empty-state { background: var(--hover-dark); color: var(--text-secondary-dark); }
         body[data-theme="light"] .empty-state { background: var(--hover-light); color: var(--text-secondary-light); }
 
+        /* ==========================================================================
+           2. LAYOUT & UI COMPONENTS (Header, Nav, Modals, Buttons)
+           ========================================================================== */
         .app-header { background: var(--card-bg-light); border-bottom: 1px solid var(--border-light); padding: 10px 12px; position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .app-header { background: var(--card-bg-dark); border-bottom: 1px solid var(--border-dark); } }
         body[data-theme="dark"] .app-header { background: var(--card-bg-dark); border-color: var(--border-dark); color: var(--text-primary-dark); }
@@ -158,6 +135,7 @@ function writeMainEJS() {
         .header-title { font-weight: 600; font-size: 1.1rem; text-transform: capitalize; }
         .header-icon { font-size: 1.2rem; cursor: pointer; color: var(--accent-light); padding: 4px; }
         
+        .nav-container { max-width: 1400px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px; }
         .nav-links { display: flex; gap: 2px; background: var(--hover-light); padding: 3px; border-radius: 100px; width: 100%; justify-content: space-between;}
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .nav-links { background: var(--hover-dark); } }
         body[data-theme="dark"] .nav-links { background: var(--hover-dark); color: var(--text-secondary-dark); }
@@ -202,6 +180,7 @@ function writeMainEJS() {
         body[data-theme="dark"] .modal-content { background: var(--card-bg-dark); border-color: var(--border-dark); color: var(--text-primary-dark); }
         body[data-theme="light"] .modal-content { background: var(--card-bg-light); border-color: var(--border-light); color: var(--text-primary-light); }
 
+        /* Settings Dropdown Override */
         #settingsAppModal { align-items: flex-start !important; justify-content: flex-end !important; background: transparent !important; backdrop-filter: none !important; padding-top: 55px; padding-right: 12px; }
         #settingsAppModal .modal-content { width: 170px; max-width: 170px; margin: 0; padding: 12px; border-radius: 16px; box-shadow: 0 8px 25px rgba(0,0,0,0.15); transform-origin: top right; animation: dropdownPop 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
         body[data-theme="dark"] #settingsAppModal .modal-content { box-shadow: 0 8px 25px rgba(0,0,0,0.5); }
@@ -218,6 +197,7 @@ function writeMainEJS() {
         .settings-row:last-child { border-bottom: none; }
         .settings-label { font-size: 0.95rem; font-weight: 500; }
 
+        /* Toggle Switch CSS */
         .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #cbd5e1; transition: .4s; border-radius: 34px; }
@@ -232,15 +212,12 @@ function writeMainEJS() {
         .toast.show { opacity: 1; transform: translateY(0) scale(1); }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .toast { background: #222; } }
 
-        /* Day Selector CSS */
-        .day-selector { display: flex; justify-content: space-between; margin-bottom: 12px; }
-        .day-circle { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--hover-light); color: var(--text-secondary-light); cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: 0.2s; border: 1px solid var(--border-light); }
-        .day-circle.selected { background: var(--accent-light); color: white; border-color: var(--accent-light); }
-        body[data-theme="dark"] .day-circle { background: var(--card-bg-dark); border-color: var(--border-dark); color: var(--text-secondary-dark); }
-        body[data-theme="dark"] .day-circle.selected { background: var(--accent-dark); color: var(--bg-dark); border-color: var(--accent-dark); }
 
-        /* TASKS CSS */
+        /* ==========================================================================
+           3. TASKS CSS
+           ========================================================================== */
         .tasks-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+        
         .task-card { background: var(--card-bg-light); border: 1px solid var(--border-light); border-radius: 16px; padding: 14px; transition: all 0.2s ease; word-wrap: break-word; overflow-wrap: break-word; }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .task-card { background: var(--card-bg-dark); border: 1px solid var(--border-dark); } }
         body[data-theme="dark"] .task-card { background: var(--card-bg-dark); border-color: var(--border-dark); color: var(--text-primary-dark); }
@@ -308,7 +285,10 @@ function writeMainEJS() {
         .subtask-description { font-size: 0.8rem; color: var(--text-secondary-light); padding: 4px 6px; background: var(--card-bg-light); border-radius: 8px; border-left: 2px solid var(--accent-light); word-break: break-word; white-space: pre-wrap; width: 100%; box-sizing: border-box; line-height: 1.4; }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .subtask-description { background: var(--card-bg-dark); color: var(--text-secondary-dark); } }
 
-        /* GROW CSS */
+
+        /* ==========================================================================
+           4. GROW CSS
+           ========================================================================== */
         .grow-panel { max-width: 600px; margin: 0 auto 12px; background: var(--card-bg-light); border: 1px solid var(--border-light); border-radius: 16px; overflow: hidden; }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .grow-panel { background: var(--card-bg-dark); border-color: var(--border-dark); } }
         body[data-theme="dark"] .grow-panel { background: var(--card-bg-dark); border-color: var(--border-dark); color: var(--text-primary-dark); }
@@ -410,11 +390,15 @@ function writeMainEJS() {
         .grow-hidden-fields { display: none; background: var(--hover-light); padding: 12px; border-radius: 10px; margin-bottom: 12px; }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .grow-hidden-fields { background: var(--hover-dark); } }
         
+        /* FIX: Force Grow Popup Question to respect theme */
         #qGrowLabel, #qGrowDesc .task-description { color: var(--text-primary-light) !important; }
         body[data-theme="dark"] #qGrowLabel, body[data-theme="dark"] #qGrowDesc .task-description { color: var(--text-primary-dark) !important; }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) #qGrowLabel, body:not([data-theme="light"]) #qGrowDesc .task-description { color: var(--text-primary-dark) !important; } }
 
-        /* HISTORY CSS */
+
+        /* ==========================================================================
+           5. HISTORY CSS
+           ========================================================================== */
         .history-header { display: flex; justify-content: center; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; width: 100%; }
         .month-selector { display: flex; align-items: center; gap: 12px; }
         .month-btn { padding: 6px 12px; border-radius: 100px; border: 1px solid var(--border-light); background: var(--card-bg-light); color: var(--text-primary-light); font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; gap: 4px; }
@@ -451,7 +435,9 @@ function writeMainEJS() {
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .history-subtask { border-left-color: var(--border-dark); } }
 
 
-        /* NOTES CSS */
+        /* ==========================================================================
+           6. NOTES CSS
+           ========================================================================== */
         .note-card { margin-bottom: 12px; background: var(--card-bg-light); border: 1px solid var(--border-light); border-radius: 16px; padding: 14px; transition: all 0.2s ease; word-wrap: break-word; overflow-wrap: break-word; }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .note-card { background: var(--card-bg-dark); border: 1px solid var(--border-dark); } }
         body[data-theme="dark"] .note-card { background: var(--card-bg-dark); border-color: var(--border-dark); color: var(--text-primary-dark); }
@@ -470,6 +456,47 @@ function writeMainEJS() {
         .note-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-light); font-size: 0.75rem; color: var(--text-secondary-light); }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .note-meta { border-top-color: var(--border-dark); color: var(--text-secondary-dark); } }
 
+        /* ==========================================================================
+           7. WEEKDAY SELECTOR
+           ========================================================================== */
+        .weekday-selector {
+            display: flex;
+            justify-content: space-around;
+            margin: 12px 0;
+            gap: 6px;
+        }
+        .weekday-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid var(--border-light);
+            background: var(--card-bg-light);
+            color: var(--text-primary-light);
+            font-weight: 600;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .weekday-btn.active {
+            background: var(--accent-light);
+            border-color: var(--accent-light);
+            color: white;
+        }
+        @media (prefers-color-scheme: dark) {
+            body:not([data-theme="light"]) .weekday-btn {
+                background: var(--card-bg-dark);
+                border-color: var(--border-dark);
+                color: var(--text-primary-dark);
+            }
+            body:not([data-theme="light"]) .weekday-btn.active {
+                background: var(--accent-dark);
+                border-color: var(--accent-dark);
+                color: white;
+            }
+        }
     </style>
 </head>
 <body>
@@ -523,6 +550,7 @@ function writeMainEJS() {
         </div>
     </div>
 
+    <!-- ADD TASK MODAL (MODIFIED) -->
     <div class="modal" id="addTaskModal">
         <div class="modal-content">
             <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
@@ -538,26 +566,26 @@ function writeMainEJS() {
                     <label style="font-size: 0.95rem; font-weight: 500;">Description</label>
                     <textarea class="form-control" name="description" rows="3" placeholder="Enter description"></textarea>
                 </div>
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 0.95rem; font-weight: 500;">Select Days *</label>
-                    <div class="day-selector" id="addDaySelector">
-                        <div class="day-circle" data-day="0">S</div>
-                        <div class="day-circle" data-day="1">M</div>
-                        <div class="day-circle" data-day="2">T</div>
-                        <div class="day-circle" data-day="3">W</div>
-                        <div class="day-circle" data-day="4">T</div>
-                        <div class="day-circle" data-day="5">F</div>
-                        <div class="day-circle" data-day="6">S</div>
-                    </div>
-                    <input type="hidden" name="selectedDays" id="addSelectedDays" required>
-                </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
                     <div><label style="font-size: 0.95rem; font-weight: 500;">Start Time</label><input type="time" class="form-control" name="startTime" id="startTime" required></div>
                     <div><label style="font-size: 0.95rem; font-weight: 500;">End Time</label><input type="time" class="form-control" name="endTime" id="endTime" required></div>
                 </div>
                 <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 0.95rem; font-weight: 500;">Weeks to Repeat (1 = this week only)</label>
-                    <input type="number" class="form-control" name="repeatWeeks" id="addRepeatWeeks" value="1" min="1" max="52">
+                    <label style="font-size: 0.95rem; font-weight: 500;">Repeat on Days</label>
+                    <div class="weekday-selector" id="weekdaySelectorAdd">
+                        <div class="weekday-btn" data-day="0">S</div>
+                        <div class="weekday-btn" data-day="1">M</div>
+                        <div class="weekday-btn" data-day="2">T</div>
+                        <div class="weekday-btn" data-day="3">W</div>
+                        <div class="weekday-btn" data-day="4">T</div>
+                        <div class="weekday-btn" data-day="5">F</div>
+                        <div class="weekday-btn" data-day="6">S</div>
+                    </div>
+                    <input type="hidden" name="selectedDays" id="selectedDaysInput" value="[]">
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label style="font-size: 0.95rem; font-weight: 500;">Repeat Count (per selected day)</label>
+                    <input type="number" class="form-control" name="repeatCount" value="1" min="1" max="365">
                 </div>
                 <div style="display: flex; gap: 12px; margin-top: 16px;">
                     <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('addTaskModal')">Cancel</button>
@@ -567,6 +595,7 @@ function writeMainEJS() {
         </div>
     </div>
 
+    <!-- EDIT TASK MODAL (MODIFIED) -->
     <div class="modal" id="editTaskModal">
         <div class="modal-content">
             <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
@@ -583,26 +612,26 @@ function writeMainEJS() {
                     <label style="font-size: 0.95rem; font-weight: 500;">Description</label>
                     <textarea class="form-control" name="description" id="editDescription" rows="3"></textarea>
                 </div>
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 0.95rem; font-weight: 500;">Select Days *</label>
-                    <div class="day-selector" id="editDaySelector">
-                        <div class="day-circle" data-day="0">S</div>
-                        <div class="day-circle" data-day="1">M</div>
-                        <div class="day-circle" data-day="2">T</div>
-                        <div class="day-circle" data-day="3">W</div>
-                        <div class="day-circle" data-day="4">T</div>
-                        <div class="day-circle" data-day="5">F</div>
-                        <div class="day-circle" data-day="6">S</div>
-                    </div>
-                    <input type="hidden" name="selectedDays" id="editSelectedDays" required>
-                </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
                     <div><label style="font-size: 0.95rem; font-weight: 500;">Start Time</label><input type="time" class="form-control" name="startTime" id="editStartTime" required></div>
                     <div><label style="font-size: 0.95rem; font-weight: 500;">End Time</label><input type="time" class="form-control" name="endTime" id="editEndTime" required></div>
                 </div>
                 <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="font-size: 0.95rem; font-weight: 500;">Weeks to Repeat (1 = this week only)</label>
-                    <input type="number" class="form-control" name="repeatWeeks" id="editRepeatWeeks" min="1" max="52">
+                    <label style="font-size: 0.95rem; font-weight: 500;">Repeat on Days</label>
+                    <div class="weekday-selector" id="weekdaySelectorEdit">
+                        <div class="weekday-btn" data-day="0">S</div>
+                        <div class="weekday-btn" data-day="1">M</div>
+                        <div class="weekday-btn" data-day="2">T</div>
+                        <div class="weekday-btn" data-day="3">W</div>
+                        <div class="weekday-btn" data-day="4">T</div>
+                        <div class="weekday-btn" data-day="5">F</div>
+                        <div class="weekday-btn" data-day="6">S</div>
+                    </div>
+                    <input type="hidden" name="selectedDays" id="editSelectedDaysInput" value="[]">
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label style="font-size: 0.95rem; font-weight: 500;">Repeat Count (per selected day)</label>
+                    <input type="number" class="form-control" name="repeatCount" id="editRepeatCount" min="1" max="365">
                 </div>
                 <div style="display: flex; gap: 12px; margin-top: 16px;">
                     <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('editTaskModal')">Cancel</button>
@@ -611,6 +640,8 @@ function writeMainEJS() {
             </form>
         </div>
     </div>
+
+    <!-- ... (rest of modals unchanged) ... -->
 
     <div class="modal" id="addGrowModal">
         <div class="modal-content">
@@ -706,7 +737,11 @@ function writeMainEJS() {
         const tg = window.Telegram.WebApp;
         tg.ready(); tg.expand();
 
-        let globalAppVars = { notifications: <%= globalSettings.notifications %>, alerts: <%= globalSettings.alerts %>, reminders: <%= globalSettings.reminders %> };
+        let globalAppVars = {
+            notifications: <%= globalSettings.notifications %>,
+            alerts: <%= globalSettings.alerts %>,
+            reminders: <%= globalSettings.reminders %>
+        };
 
         function showToast(message, type = 'success') {
             const container = document.getElementById('toastContainer');
@@ -721,7 +756,10 @@ function writeMainEJS() {
             void toast.offsetWidth; 
             toast.classList.add('show');
             
-            setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 400); }, 3000);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 400);
+            }, 3000);
         }
 
         let currentPage = '<%= currentPage || "tasks" %>';
@@ -735,28 +773,6 @@ function writeMainEJS() {
 
         let growToday = "", growMonth = 0, growYear = 2026, growLogContext = null;
         const growColors = ["#ec4899","#a855f7","#38bdf8","#ef4444","#f97316","#16a34a","#84cc16","#3b82f6", "#eab308", "#14b8a6"];
-        const DAYS_MAP = ['S','M','T','W','T','F','S'];
-
-        function setupDaySelector(selectorId, inputId) {
-            const container = document.getElementById(selectorId);
-            const input = document.getElementById(inputId);
-            container.addEventListener('click', function(e) {
-                if (e.target.classList.contains('day-circle')) {
-                    e.target.classList.toggle('selected');
-                    updateSelectedDays(selectorId, inputId);
-                }
-            });
-        }
-
-        function updateSelectedDays(selectorId, inputId) {
-            const container = document.getElementById(selectorId);
-            const input = document.getElementById(inputId);
-            const selected = [];
-            container.querySelectorAll('.day-circle.selected').forEach(el => {
-                selected.push(parseInt(el.getAttribute('data-day')));
-            });
-            input.value = JSON.stringify(selected);
-        }
 
         function getGrowIST() {
             const d = new Date();
@@ -827,6 +843,33 @@ function writeMainEJS() {
             }
         }
 
+        // Weekday selector logic
+        function initWeekdaySelector(containerId, hiddenInputId, initialDays = []) {
+            const container = document.getElementById(containerId);
+            const hidden = document.getElementById(hiddenInputId);
+            const btns = container.querySelectorAll('.weekday-btn');
+            
+            function updateHidden() {
+                const selected = [];
+                btns.forEach(btn => {
+                    if (btn.classList.contains('active')) selected.push(parseInt(btn.dataset.day));
+                });
+                hidden.value = JSON.stringify(selected);
+            }
+            
+            btns.forEach(btn => {
+                if (initialDays.includes(parseInt(btn.dataset.day))) {
+                    btn.classList.add('active');
+                }
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    this.classList.toggle('active');
+                    updateHidden();
+                });
+            });
+            updateHidden();
+        }
+
         // ==========================================
         // 🌱 GROW FRONTEND LOGIC 
         // ==========================================
@@ -844,9 +887,17 @@ function writeMainEJS() {
         }
 
         function renderGrowAll() {
-            renderGrowCalendar(); renderGrowGraphs(); renderGrowList();
+            renderGrowCalendar();
+            renderGrowGraphs();
+            renderGrowList();
+            
             const fabBtn = document.getElementById("fabButton");
-            if(growTrackerData.items && growTrackerData.items.length >= 10) { fabBtn.style.opacity = "0.5"; } else { fabBtn.style.opacity = "1"; }
+            if(growTrackerData.items && growTrackerData.items.length >= 10) {
+                fabBtn.style.opacity = "0.5";
+            } else {
+                fabBtn.style.opacity = "1";
+            }
+            
             const cal = document.getElementById("growCalendar");
             if(cal) {
                 cal.onclick = function(e) {
@@ -856,7 +907,12 @@ function writeMainEJS() {
                         const active = (growTrackerData.items || []).filter(g => isGrowActive(g, d));
                         const dayData = (growTrackerData.progress || {})[d] || {};
                         const allDone = active.length && active.every(g => dayData[g.id] !== undefined);
-                        if(d === growToday && !allDone) { openLogGrowModal(d); } else { showGrowBubble(cell, d); }
+                        
+                        if(d === growToday && !allDone) {
+                            openLogGrowModal(d);
+                        } else {
+                            showGrowBubble(cell, d);
+                        }
                     }
                 };
             }
@@ -871,36 +927,58 @@ function writeMainEJS() {
 
         function renderGrowList() {
             const container = document.getElementById("growList");
-            if(!growTrackerData.items || !growTrackerData.items.length) { container.innerHTML = '<div class="empty-state"><i class="fas fa-seedling" style="font-size:2.5rem;margin-bottom:10px;"></i><br>No items tracked. Click + to add.</div>'; return; }
+            if(!growTrackerData.items || !growTrackerData.items.length) { 
+                container.innerHTML = '<div class="empty-state"><i class="fas fa-seedling" style="font-size:2.5rem;margin-bottom:10px;"></i><br>No items tracked. Click + to add.</div>'; 
+                return; 
+            }
             let html = "";
             const now = new Date(growToday + "T00:00:00");
             
             for(let i=0; i<growTrackerData.items.length; i++) {
                 const item = growTrackerData.items[i];
                 const start = new Date(item.startDate + "T00:00:00");
+                
                 let passed = Math.floor((now - start) / 86400000);
                 if(passed < 0) passed = 0;
                 let left = item.endCount - passed;
                 if(left < 0) left = 0;
                 
-                html += '<div class="grow-card"><details><summary><div class="grow-title-section"><i class="fas fa-chevron-right"></i><span class="grow-title">' + escapeHtml(item.title) + '</span></div><div class="task-actions-wrapper"><button class="action-btn" onclick="event.preventDefault(); openEditGrowModal(\\'' + item.id + '\\')" title="Edit"><i class="fas fa-pencil"></i></button><button class="action-btn delete" onclick="event.preventDefault(); deleteGrowTracker(\\'' + item.id + '\\')" title="Delete"><i class="fas fa-trash"></i></button></div></summary>';
-                if(item.description) { html += '<div class="task-description-container"><div class="task-description" style="border-left-color:var(--accent-light)">' + escapeHtml(item.description) + '</div></div>'; }
+                html += '<div class="grow-card"><details><summary><div class="grow-title-section"><i class="fas fa-chevron-right"></i><span class="grow-title">' + escapeHtml(item.title) + '</span></div>' +
+                        '<div class="task-actions-wrapper"><button class="action-btn" onclick="event.preventDefault(); openEditGrowModal(\\'' + item.id + '\\')" title="Edit"><i class="fas fa-pencil"></i></button>' +
+                        '<button class="action-btn delete" onclick="event.preventDefault(); deleteGrowTracker(\\'' + item.id + '\\')" title="Delete"><i class="fas fa-trash"></i></button></div></summary>';
+                        
+                if(item.description) {
+                    html += '<div class="task-description-container"><div class="task-description" style="border-left-color:var(--accent-light)">' + escapeHtml(item.description) + '</div></div>';
+                }
                 
                 let timePct = item.endCount > 0 ? (passed / item.endCount) * 100 : 0;
                 timePct = Math.max(0, Math.min(100, timePct));
                 
-                html += '<div class="grow-progress-bar-container"><div class="grow-progress-stats"><span><strong>Time Elapsed</strong></span><span>' + passed + ' / ' + item.endCount + ' Days</span></div><div class="grow-progress-bar"><div class="grow-progress-fill" style="width:' + timePct + '%; background:' + item.color + 'cc"></div></div><div class="grow-progress-stats"><span>Started: ' + item.startDate + '</span><span>' + Math.round(timePct) + '% Complete</span></div></div>';
+                html += '<div class="grow-progress-bar-container"><div class="grow-progress-stats"><span><strong>Time Elapsed</strong></span><span>' + passed + ' / ' + item.endCount + ' Days</span></div>' +
+                        '<div class="grow-progress-bar"><div class="grow-progress-fill" style="width:' + timePct + '%; background:' + item.color + 'cc"></div></div>' +
+                        '<div class="grow-progress-stats"><span>Started: ' + item.startDate + '</span><span>' + Math.round(timePct) + '% Complete</span></div></div>';
 
                 if(item.hasData && item.type !== "boolean") {
                     html += '<hr style="border: none; border-top: 1px solid var(--border-light); margin: 12px 0 8px 0;">';
+                    
                     let latestValue = item.start !== undefined ? item.start : 0;
                     let sortedDates = Object.keys(growTrackerData.progress || {}).sort();
-                    for(let d of sortedDates) { if(growTrackerData.progress[d][item.id] !== undefined && typeof growTrackerData.progress[d][item.id] === 'number') { latestValue = growTrackerData.progress[d][item.id]; } }
+                    for(let d of sortedDates) {
+                        if(growTrackerData.progress[d][item.id] !== undefined && typeof growTrackerData.progress[d][item.id] === 'number') {
+                            latestValue = growTrackerData.progress[d][item.id];
+                        }
+                    }
                     if(item.start !== undefined && item.end !== undefined) {
-                        const min = Math.min(item.start, item.end); const max = Math.max(item.start, item.end); const range = max - min;
+                        const min = Math.min(item.start, item.end);
+                        const max = Math.max(item.start, item.end);
+                        const range = max - min;
                         let pct = range === 0 ? 0 : ((latestValue - min) / range) * 100;
                         pct = Math.max(0, Math.min(100, pct));
-                        html += '<div class="grow-progress-bar-container" style="border-top: none; padding-top: 0; margin-top: 0;"><div class="grow-progress-stats"><span><strong>' + escapeHtml(item.question) + '</strong></span><span>Current: ' + latestValue + '</span></div><div class="grow-progress-bar"><div class="grow-progress-fill" style="width:' + pct + '%; background:' + item.color + '"></div></div><div class="grow-progress-stats"><span>Start: ' + item.start + '</span><span>Goal: ' + item.end + '</span></div></div>';
+                        
+                        html += '<div class="grow-progress-bar-container" style="border-top: none; padding-top: 0; margin-top: 0;">' +
+                                '<div class="grow-progress-stats"><span><strong>' + escapeHtml(item.question) + '</strong></span><span>Current: ' + latestValue + '</span></div>' +
+                                '<div class="grow-progress-bar"><div class="grow-progress-fill" style="width:' + pct + '%; background:' + item.color + '"></div></div>' +
+                                '<div class="grow-progress-stats"><span>Start: ' + item.start + '</span><span>Goal: ' + item.end + '</span></div></div>';
                     }
                 }
                 html += '</details></div>';
@@ -927,13 +1005,24 @@ function writeMainEJS() {
                     const dObj = new Date(d + "T00:00:00");
                     if(dObj >= start && dObj <= now && prog[d] && prog[d][item.id] !== undefined) completed++;
                 }
+                
                 let pct = totalDaysSoFar ? Math.min(100, completed/totalDaysSoFar*100) : 0;
-                html += '<div class="grow-bar"><div class="grow-bar-pct">' + Math.round(pct) + '%</div><div class="grow-bar-track" style="background:' + item.color + '40"><div class="grow-bar-fill" style="height:' + pct + '%; background:' + item.color + '"></div><div class="grow-bar-label">' + escapeHtml(item.title) + '</div></div></div>';
+                
+                html += '<div class="grow-bar"><div class="grow-bar-pct">' + Math.round(pct) + '%</div>' +
+                        '<div class="grow-bar-track" style="background:' + item.color + '40">' +
+                        '<div class="grow-bar-fill" style="height:' + pct + '%; background:' + item.color + '"></div>' +
+                        '<div class="grow-bar-label">' + escapeHtml(item.title) + '</div></div></div>';
             }
-            html += "</div></div>"; container.innerHTML = html;
+            html += "</div></div>";
+            container.innerHTML = html;
         }
 
-        function changeGrowMonth(dir) { growMonth += dir; if(growMonth > 11) { growMonth = 0; growYear++; } else if(growMonth < 0) { growMonth = 11; growYear--; } renderGrowCalendar(); }
+        function changeGrowMonth(dir) {
+            growMonth += dir;
+            if(growMonth > 11) { growMonth = 0; growYear++; }
+            else if(growMonth < 0) { growMonth = 11; growYear--; }
+            renderGrowCalendar();
+        }
 
         function renderGrowCalendar() {
             const grid = document.getElementById("growCalendar");
@@ -951,8 +1040,9 @@ function writeMainEJS() {
             const prog = growTrackerData.progress || {};
             
             for(let i = 0; i < 42; i++) {
-                if(i < firstDay || currentDay > daysInMonth) { html += '<div class="grow-day empty"></div>'; } 
-                else {
+                if(i < firstDay || currentDay > daysInMonth) {
+                    html += '<div class="grow-day empty"></div>';
+                } else {
                     const date = growYear + "-" + String(growMonth+1).padStart(2,"0") + "-" + String(currentDay).padStart(2,"0");
                     const isToday = date === growToday;
                     const dayData = prog[date] || {};
@@ -964,12 +1054,18 @@ function writeMainEJS() {
                     }
                     
                     let bg = "transparent", cls = "";
-                    if(activeColors.length === 1) { bg = activeColors[0]; cls = "has-data"; } 
-                    else if(activeColors.length > 1) {
+                    if(activeColors.length === 1) { 
+                        bg = activeColors[0]; cls = "has-data"; 
+                    } else if(activeColors.length > 1) {
                         let stops = "";
-                        for(let j=0; j<activeColors.length; j++) { stops += activeColors[j] + " " + (j*100/activeColors.length) + "% " + ((j+1)*100/activeColors.length) + "%"; if(j < activeColors.length-1) stops += ", "; }
-                        bg = "conic-gradient(" + stops + ")"; cls = "has-data";
+                        for(let j=0; j<activeColors.length; j++) {
+                            stops += activeColors[j] + " " + (j*100/activeColors.length) + "% " + ((j+1)*100/activeColors.length) + "%";
+                            if(j < activeColors.length-1) stops += ", ";
+                        }
+                        bg = "conic-gradient(" + stops + ")";
+                        cls = "has-data";
                     }
+                    
                     html += '<div class="grow-day" data-date="' + date + '"><div class="grow-circle ' + (isToday?'today ':'') + cls + '" style="background:' + bg + '">' + currentDay + '</div></div>';
                     currentDay++;
                 }
@@ -977,99 +1073,302 @@ function writeMainEJS() {
             grid.innerHTML = html;
         }
 
-        function hideGrowBubble() { const bubble = document.getElementById("growBubble"); if(bubble && bubble.classList.contains("show")) { bubble.classList.remove("show"); setTimeout(() => bubble.style.display = "none", 200); } }
+        function hideGrowBubble() {
+            const bubble = document.getElementById("growBubble");
+            if(bubble && bubble.classList.contains("show")) {
+                bubble.classList.remove("show");
+                setTimeout(() => bubble.style.display = "none", 200);
+            }
+        }
 
         function showGrowBubble(cell, date) {
-            const bubble = document.getElementById("growBubble"); const content = document.getElementById("growBubbleContent"); const tail = document.getElementById("growTail");
-            const active = (growTrackerData.items || []).filter(g => isGrowActive(g, date)); const dayData = (growTrackerData.progress || {})[date] || {}; const d = new Date(date+"T00:00:00");
+            const bubble = document.getElementById("growBubble");
+            const content = document.getElementById("growBubbleContent");
+            const tail = document.getElementById("growTail");
+            const active = (growTrackerData.items || []).filter(g => isGrowActive(g, date));
+            const dayData = (growTrackerData.progress || {})[date] || {};
+            const d = new Date(date+"T00:00:00");
             
             let html = '<div class="grow-bubble-date">' + d.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}) + '</div>';
             if(!active.length) html += "<div style='text-align:center;font-size:0.8rem;color:var(--text-secondary-light);'>No tasks active.</div>";
-            else { for(let i=0; i<active.length; i++) { const g = active[i]; const isDone = dayData[g.id] !== undefined; html += '<div class="grow-bubble-item" style="color:' + g.color + '"><span>' + escapeHtml(g.title) + '</span><i class="fas ' + (isDone?'fa-check-circle':'fa-circle') + '"></i></div>'; } }
+            else {
+                for(let i=0; i<active.length; i++) {
+                    const g = active[i];
+                    const isDone = dayData[g.id] !== undefined;
+                    html += '<div class="grow-bubble-item" style="color:' + g.color + '"><span>' + escapeHtml(g.title) + '</span><i class="fas ' + (isDone?'fa-check-circle':'fa-circle') + '"></i></div>';
+                }
+            }
             content.innerHTML = html;
-            bubble.style.display = "block"; bubble.style.opacity = "0";
             
-            const bRect = bubble.getBoundingClientRect(); const cRect = cell.getBoundingClientRect();
+            bubble.style.display = "block";
+            bubble.style.opacity = "0";
+            
+            const bRect = bubble.getBoundingClientRect();
+            const cRect = cell.getBoundingClientRect();
+            
             let top = cRect.top + window.scrollY - bRect.height - 12; 
             let left = cRect.left + window.scrollX + (cRect.width / 2) - (bRect.width / 2);
             let placement = 'top';
-            if(cRect.top - bRect.height < 20) { top = cRect.bottom + window.scrollY + 12; placement = 'bottom'; }
+            
+            if(cRect.top - bRect.height < 20) { 
+                top = cRect.bottom + window.scrollY + 12;
+                placement = 'bottom';
+            }
+            
             if(left < 10) left = 10;
             if(left + bRect.width > window.innerWidth - 10) left = window.innerWidth - bRect.width - 10;
-            bubble.style.top = top + "px"; bubble.style.left = left + "px";
+            
+            bubble.style.top = top + "px";
+            bubble.style.left = left + "px";
             
             let tailLeft = (cRect.left + window.scrollX + cRect.width / 2) - left;
             tailLeft = Math.max(12, Math.min(bRect.width - 24, tailLeft));
-            tail.className = "grow-tail placement-" + placement; tail.style.left = (tailLeft - 6) + "px";
+            
+            tail.className = "grow-tail placement-" + placement;
+            tail.style.left = (tailLeft - 6) + "px";
+            
             setTimeout(() => { bubble.style.opacity = "1"; bubble.classList.add("show"); }, 10);
         }
 
         function initAddGrowPalette() {
-            const container = document.getElementById("addGrowPalette"); const input = document.getElementById("addGrowColor");
-            const used = (growTrackerData.items || []).map(g => g.color); let html = "", first = null;
-            for(let i=0; i<growColors.length; i++) { const c = growColors[i]; const isUsed = used.includes(c); if(!isUsed && !first) first = c; html += '<div class="grow-swatch ' + (isUsed?'hidden':'') + '" style="background:' + c + '" data-color="' + c + '"></div>'; }
+            const container = document.getElementById("addGrowPalette");
+            const input = document.getElementById("addGrowColor");
+            const used = (growTrackerData.items || []).map(g => g.color);
+            let html = "", first = null;
+            
+            for(let i=0; i<growColors.length; i++) {
+                const c = growColors[i];
+                const isUsed = used.includes(c);
+                if(!isUsed && !first) first = c;
+                html += '<div class="grow-swatch ' + (isUsed?'hidden':'') + '" style="background:' + c + '" data-color="' + c + '"></div>';
+            }
             container.innerHTML = html;
-            if(first) { input.value = first; const firstSwatch = container.querySelector('[data-color="' + first + '"]'); if(firstSwatch) firstSwatch.classList.add("selected"); }
-            container.onclick = function(e) { if(e.target.classList.contains("grow-swatch") && !e.target.classList.contains("hidden")) { Array.from(container.children).forEach(el => el.classList.remove("selected")); e.target.classList.add("selected"); input.value = e.target.dataset.color; } };
+            
+            if(first) {
+                input.value = first;
+                const firstSwatch = container.querySelector('[data-color="' + first + '"]');
+                if(firstSwatch) firstSwatch.classList.add("selected");
+            }
+            
+            container.onclick = function(e) {
+                if(e.target.classList.contains("grow-swatch") && !e.target.classList.contains("hidden")) {
+                    Array.from(container.children).forEach(el => el.classList.remove("selected"));
+                    e.target.classList.add("selected");
+                    input.value = e.target.dataset.color;
+                }
+            };
         }
 
         function initEditGrowPalette(current) {
-            const container = document.getElementById("editGrowPalette"); const input = document.getElementById("editGrowColor"); let html = "";
-            for(let i=0; i<growColors.length; i++) { const c = growColors[i]; html += '<div class="grow-swatch ' + (c===current?'selected':'') + '" style="background:' + c + '" data-color="' + c + '"></div>'; }
-            container.innerHTML = html; input.value = current;
-            container.onclick = function(e) { if(e.target.classList.contains("grow-swatch")) { Array.from(container.children).forEach(el => el.classList.remove("selected")); e.target.classList.add("selected"); input.value = e.target.dataset.color; } };
+            const container = document.getElementById("editGrowPalette");
+            const input = document.getElementById("editGrowColor");
+            let html = "";
+            for(let i=0; i<growColors.length; i++) {
+                const c = growColors[i];
+                html += '<div class="grow-swatch ' + (c===current?'selected':'') + '" style="background:' + c + '" data-color="' + c + '"></div>';
+            }
+            container.innerHTML = html;
+            input.value = current;
+            
+            container.onclick = function(e) {
+                if(e.target.classList.contains("grow-swatch")) {
+                    Array.from(container.children).forEach(el => el.classList.remove("selected"));
+                    e.target.classList.add("selected");
+                    input.value = e.target.dataset.color;
+                }
+            };
         }
 
-        window.toggleGrowDataFields = function(mode) { const prefix = mode === "add" ? "addGrow" : "editGrow"; const checked = document.getElementById(prefix+"HasData").checked; document.getElementById(prefix+"DataFields").style.display = checked ? "block" : "none"; };
-        window.openAddGrowModal = function() { if (growTrackerData.items && growTrackerData.items.length >= 10) { showToast("Failed", "error"); return; } document.getElementById("addGrowStart").value = growToday; document.getElementById("addGrowType").value = "integer"; initAddGrowPalette(); openModal("addGrowModal"); };
+        window.toggleGrowDataFields = function(mode) {
+            const prefix = mode === "add" ? "addGrow" : "editGrow";
+            const checked = document.getElementById(prefix+"HasData").checked;
+            document.getElementById(prefix+"DataFields").style.display = checked ? "block" : "none";
+        };
+
+        window.openAddGrowModal = function() {
+            if (growTrackerData.items && growTrackerData.items.length >= 10) {
+                showToast("Failed", "error");
+                return;
+            }
+            document.getElementById("addGrowStart").value = growToday;
+            document.getElementById("addGrowType").value = "integer";
+            initAddGrowPalette();
+            openModal("addGrowModal");
+        };
+
         window.openEditGrowModal = function(id) {
-            const item = growTrackerData.items.find(g => g.id === id); if(!item) return;
-            document.getElementById("editGrowId").value = item.id; document.getElementById("editGrowTitle").value = item.title; document.getElementById("editGrowDesc").value = item.description || ""; document.getElementById("editGrowStart").value = item.startDate; document.getElementById("editGrowDays").value = item.endCount; document.getElementById("editGrowHasData").checked = item.hasData || false;
+            const item = growTrackerData.items.find(g => g.id === id);
+            if(!item) return;
+            document.getElementById("editGrowId").value = item.id;
+            document.getElementById("editGrowTitle").value = item.title;
+            document.getElementById("editGrowDesc").value = item.description || "";
+            document.getElementById("editGrowStart").value = item.startDate;
+            document.getElementById("editGrowDays").value = item.endCount;
+            document.getElementById("editGrowHasData").checked = item.hasData || false;
+            
             toggleGrowDataFields("edit");
-            if(item.hasData) { document.getElementById("editGrowQuestion").value = item.question || ""; document.getElementById("editGrowType").value = item.type || "float"; document.getElementById("editGrowMin").value = item.start !== undefined ? item.start : 0; document.getElementById("editGrowMax").value = item.end !== undefined ? item.end : 100; }
-            initEditGrowPalette(item.color); openModal("editGrowModal");
+            if(item.hasData) {
+                document.getElementById("editGrowQuestion").value = item.question || "";
+                document.getElementById("editGrowType").value = item.type || "float";
+                document.getElementById("editGrowMin").value = item.start !== undefined ? item.start : 0;
+                document.getElementById("editGrowMax").value = item.end !== undefined ? item.end : 100;
+            }
+            initEditGrowPalette(item.color);
+            openModal("editGrowModal");
         };
 
         document.getElementById("addGrowForm").addEventListener("submit", function(e) {
             e.preventDefault(); 
-            const payload = { title: document.getElementById("addGrowTitle").value.trim(), description: document.getElementById("addGrowDesc").value.trim(), startDate: document.getElementById("addGrowStart").value, endCount: parseInt(document.getElementById("addGrowDays").value), color: document.getElementById("addGrowColor").value, hasData: document.getElementById("addGrowHasData").checked, type: document.getElementById("addGrowType").value, question: document.getElementById("addGrowQuestion").value.trim(), start: document.getElementById("addGrowMin").value, end: document.getElementById("addGrowMax").value };
-            fetch("/api/grow", { method:"POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload) }).then(res => { if(res.ok) { closeModal("addGrowModal"); document.getElementById("addGrowForm").reset(); showToast("Success"); switchPage("grow"); } else throw new Error("Failed"); }).catch(e => { showToast("Failed", "error"); });
+            const payload = {
+                title: document.getElementById("addGrowTitle").value.trim(),
+                description: document.getElementById("addGrowDesc").value.trim(),
+                startDate: document.getElementById("addGrowStart").value,
+                endCount: parseInt(document.getElementById("addGrowDays").value),
+                color: document.getElementById("addGrowColor").value,
+                hasData: document.getElementById("addGrowHasData").checked,
+                type: document.getElementById("addGrowType").value,
+                question: document.getElementById("addGrowQuestion").value.trim(),
+                start: document.getElementById("addGrowMin").value,
+                end: document.getElementById("addGrowMax").value
+            };
+            fetch("/api/grow", { method:"POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload) })
+            .then(res => {
+                if(res.ok) { closeModal("addGrowModal"); document.getElementById("addGrowForm").reset(); showToast("Success"); switchPage("grow"); }
+                else throw new Error("Failed");
+            }).catch(e => { showToast("Failed", "error"); });
         });
 
         document.getElementById("editGrowForm").addEventListener("submit", function(e) {
-            e.preventDefault(); const id = document.getElementById("editGrowId").value;
-            const payload = { id: id, title: document.getElementById("editGrowTitle").value.trim(), description: document.getElementById("editGrowDesc").value.trim(), startDate: document.getElementById("editGrowStart").value, endCount: parseInt(document.getElementById("editGrowDays").value), color: document.getElementById("editGrowColor").value, hasData: document.getElementById("editGrowHasData").checked, type: document.getElementById("editGrowType").value, question: document.getElementById("editGrowQuestion").value.trim(), start: document.getElementById("editGrowMin").value, end: document.getElementById("editGrowMax").value };
-            fetch("/api/grow/" + id + "/update", { method:"POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload) }).then(res => { if(res.ok) { closeModal("editGrowModal"); showToast("Success"); switchPage("grow"); } else throw new Error("Failed"); }).catch(e => { showToast("Failed", "error"); });
+            e.preventDefault();
+            const id = document.getElementById("editGrowId").value;
+            const payload = {
+                id: id, title: document.getElementById("editGrowTitle").value.trim(), description: document.getElementById("editGrowDesc").value.trim(),
+                startDate: document.getElementById("editGrowStart").value, endCount: parseInt(document.getElementById("editGrowDays").value),
+                color: document.getElementById("editGrowColor").value, hasData: document.getElementById("editGrowHasData").checked,
+                type: document.getElementById("editGrowType").value, question: document.getElementById("editGrowQuestion").value.trim(),
+                start: document.getElementById("editGrowMin").value, end: document.getElementById("editGrowMax").value
+            };
+            fetch("/api/grow/" + id + "/update", { method:"POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload) })
+            .then(res => {
+                if(res.ok) { closeModal("editGrowModal"); showToast("Success"); switchPage("grow"); }
+                else throw new Error("Failed");
+            }).catch(e => { showToast("Failed", "error"); });
         });
 
-        window.deleteGrowTracker = function(id) { if(confirm("Delete this tracker and all its logs?")) { fetch("/api/grow/" + id + "/delete", {method:"POST"}).then(res => { if(res.ok) { showToast("Success"); switchPage("grow"); } else throw new Error("Failed"); }).catch(e => { showToast("Failed", "error"); }); } };
-        window.openLogGrowModal = function(date) {
-            const active = growTrackerData.items.filter(g => isGrowActive(g, date)); const d = new Date(date+"T00:00:00");
-            document.getElementById("logGrowTitle").innerText = d.toLocaleDateString("en-US",{month:"long",day:"numeric"}); let html = ""; const dayData = (growTrackerData.progress || {})[date] || {};
-            for(let i=0; i<active.length; i++) { const item = active[i]; const done = dayData[item.id] !== undefined; html += '<div class="grow-card"><details style="display:contents;"><summary style="outline:none; list-style:none;"><div class="grow-title-section"><i class="fas fa-chevron-right"></i><span class="grow-title">' + escapeHtml(item.title) + '</span></div><div class="task-actions-wrapper"><button class="action-btn" onclick="event.preventDefault(); handleGrowLogClick(\\'' + item.id + '\\',\\'' + date + '\\')" style="background:' + (done?'var(--hover-light)':'var(--accent-light)') + ';color:' + (done?'var(--text-secondary-light)':'white') + '; width:32px; height:32px;" ' + (done?'disabled':'') + '><i class="fas fa-check"></i></button></div></summary>'; if(item.description) html += '<div class="task-description-container"><div class="task-description" style="border-left-color:var(--accent-light)">' + escapeHtml(item.description) + '</div></div>'; html += '</details></div>'; }
-            document.getElementById("dailyGrowList").innerHTML = html; showGrowLogList(); openModal("logGrowModal");
+        window.deleteGrowTracker = function(id) {
+            if(confirm("Delete this tracker and all its logs?")) { 
+                fetch("/api/grow/" + id + "/delete", {method:"POST"})
+                .then(res => {
+                    if(res.ok) { showToast("Success"); switchPage("grow"); }
+                    else throw new Error("Failed");
+                }).catch(e => { showToast("Failed", "error"); });
+            }
         };
 
-        window.handleGrowLogClick = function(id, date) { const item = growTrackerData.items.find(g => g.id === id); if(item.hasData) { openLogGrowQuestion(item, date); } else { saveGrowLog(item, date, true); } };
+        window.openLogGrowModal = function(date) {
+            const active = growTrackerData.items.filter(g => isGrowActive(g, date));
+            const d = new Date(date+"T00:00:00");
+            document.getElementById("logGrowTitle").innerText = d.toLocaleDateString("en-US",{month:"long",day:"numeric"});
+            let html = "";
+            const dayData = (growTrackerData.progress || {})[date] || {};
+            
+            for(let i=0; i<active.length; i++) {
+                const item = active[i];
+                const done = dayData[item.id] !== undefined;
+                
+                html += '<div class="grow-card"><details style="display:contents;"><summary style="outline:none; list-style:none;">' +
+                        '<div class="grow-title-section"><i class="fas fa-chevron-right"></i><span class="grow-title">' + escapeHtml(item.title) + '</span></div>' +
+                        '<div class="task-actions-wrapper"><button class="action-btn" onclick="event.preventDefault(); handleGrowLogClick(\\'' + item.id + '\\',\\'' + date + '\\')" style="background:' + (done?'var(--hover-light)':'var(--accent-light)') + ';color:' + (done?'var(--text-secondary-light)':'white') + '; width:32px; height:32px;" ' + (done?'disabled':'') + '><i class="fas fa-check"></i></button></div></summary>';
+                if(item.description) html += '<div class="task-description-container"><div class="task-description" style="border-left-color:var(--accent-light)">' + escapeHtml(item.description) + '</div></div>';
+                html += '</details></div>';
+            }
+            document.getElementById("dailyGrowList").innerHTML = html;
+            showGrowLogList();
+            openModal("logGrowModal");
+        };
+
+        window.handleGrowLogClick = function(id, date) {
+            const item = growTrackerData.items.find(g => g.id === id);
+            if(item.hasData) { openLogGrowQuestion(item, date); } 
+            else { saveGrowLog(item, date, true); }
+        };
+
         function openLogGrowQuestion(item, date) {
-            growLogContext = {item, date}; document.getElementById("qGrowTitle").innerText = item.title;
+            growLogContext = {item, date};
+            document.getElementById("qGrowTitle").innerText = item.title;
+            
             const displayQuestion = (item.question && item.question.trim() !== "") ? item.question : "Please enter your data for today:";
-            document.getElementById("qGrowDesc").innerHTML = '<div class="task-description" style="border-left-color:var(--accent-light); margin-bottom:16px; font-size: 1rem; font-weight: 500; color: var(--text-primary-light);">' + escapeHtml(displayQuestion) + '</div>'; document.getElementById("qGrowLabel").innerText = ""; 
-            const wrapper = document.getElementById("qGrowInput"); const step = item.type === "float" ? "0.01" : "1"; wrapper.innerHTML = '<input type="number" step="' + step + '" class="form-control" id="logGrowValue" placeholder="Enter numerical value" autofocus>';
-            document.getElementById("logGrowListView").style.display = "none"; document.getElementById("logGrowQuestionView").style.display = "block"; setTimeout(() => { const input = document.getElementById("logGrowValue"); if(input) input.focus(); }, 100);
+            
+            // INJECT the Question directly into the nicely styled description box to replace what was there
+            document.getElementById("qGrowDesc").innerHTML = '<div class="task-description" style="border-left-color:var(--accent-light); margin-bottom:16px; font-size: 1rem; font-weight: 500; color: var(--text-primary-light);">' + escapeHtml(displayQuestion) + '</div>';
+            
+            // Clear the old label so we don't have duplicates
+            document.getElementById("qGrowLabel").innerText = ""; 
+            
+            const wrapper = document.getElementById("qGrowInput");
+            const step = item.type === "float" ? "0.01" : "1";
+            wrapper.innerHTML = '<input type="number" step="' + step + '" class="form-control" id="logGrowValue" placeholder="Enter numerical value" autofocus>';
+            
+            document.getElementById("logGrowListView").style.display = "none";
+            document.getElementById("logGrowQuestionView").style.display = "block";
+            setTimeout(() => { const input = document.getElementById("logGrowValue"); if(input) input.focus(); }, 100);
         }
 
-        function saveGrowLog(item, date, val) { const payload = { itemId: item.id, dateStr: date, value: val }; fetch("/api/grow/log", { method:"POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload) }).then(res => { if(res.ok) { showToast("Success"); switchPage("grow"); closeModal("logGrowModal"); } else throw new Error("Failed"); }).catch (err => { showToast("Failed", "error"); }); }
-        document.getElementById("saveGrowLogBtn").addEventListener("click", function() { const input = document.getElementById("logGrowValue"); if(!input || !input.value) { showToast("Failed", "error"); return; } const {item, date} = growLogContext; const val = item.type === "float" ? parseFloat(input.value) : parseInt(input.value); saveGrowLog(item, date, val); });
+        function saveGrowLog(item, date, val) {
+            const payload = { itemId: item.id, dateStr: date, value: val };
+            fetch("/api/grow/log", { method:"POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload) })
+            .then(res => {
+                if(res.ok) { 
+                    showToast("Success");
+                    switchPage("grow"); 
+                    closeModal("logGrowModal");
+                } else throw new Error("Failed");
+            }).catch (err => { showToast("Failed", "error"); });
+        }
+
+        document.getElementById("saveGrowLogBtn").addEventListener("click", function() {
+            const input = document.getElementById("logGrowValue");
+            if(!input || !input.value) { showToast("Failed", "error"); return; }
+            const {item, date} = growLogContext;
+            const val = item.type === "float" ? parseFloat(input.value) : parseInt(input.value);
+            saveGrowLog(item, date, val);
+        });
+
         window.showGrowLogList = function() { document.getElementById("logGrowListView").style.display = "block"; document.getElementById("logGrowQuestionView").style.display = "none"; };
 
         // Priority Mode Toggles
-        window.toggleTaskPriorityMode = function(taskId) { document.querySelectorAll('.priority-mode').forEach(el => { if(el.id !== 'task_actions_' + taskId) el.classList.remove('priority-mode'); }); document.getElementById('task_actions_' + taskId).classList.add('priority-mode'); };
-        window.toggleSubtaskPriorityMode = function(taskId, subtaskId) { document.querySelectorAll('.priority-mode').forEach(el => { if(el.id !== 'subtask_actions_' + taskId + '_' + subtaskId) el.classList.remove('priority-mode'); }); document.getElementById('subtask_actions_' + taskId + '_' + subtaskId).classList.add('priority-mode'); };
-        window.toggleNotePriorityMode = function(noteId) { document.querySelectorAll('.priority-mode').forEach(el => { if(el.id !== 'note_actions_' + noteId) el.classList.remove('priority-mode'); }); document.getElementById('note_actions_' + noteId).classList.add('priority-mode'); };
+        window.toggleTaskPriorityMode = function(taskId) {
+            document.querySelectorAll('.priority-mode').forEach(el => {
+                if(el.id !== 'task_actions_' + taskId) el.classList.remove('priority-mode');
+            });
+            document.getElementById('task_actions_' + taskId).classList.add('priority-mode');
+        };
 
-        window.moveTask = function(taskId, direction) { fetch('/api/tasks/' + taskId + '/move', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({direction}) }).then(res => { if(res.ok) switchPage('tasks'); else throw new Error(''); }).catch(e => showToast('Failed', 'error')); };
-        window.moveSubtask = function(taskId, subtaskId, direction) { fetch('/api/tasks/' + taskId + '/subtasks/' + subtaskId + '/move', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({direction}) }).then(res => { if(res.ok) switchPage('tasks'); else throw new Error(''); }).catch(e => showToast('Failed', 'error')); };
+        window.toggleSubtaskPriorityMode = function(taskId, subtaskId) {
+            document.querySelectorAll('.priority-mode').forEach(el => {
+                if(el.id !== 'subtask_actions_' + taskId + '_' + subtaskId) el.classList.remove('priority-mode');
+            });
+            document.getElementById('subtask_actions_' + taskId + '_' + subtaskId).classList.add('priority-mode');
+        };
+        
+        window.toggleNotePriorityMode = function(noteId) {
+            document.querySelectorAll('.priority-mode').forEach(el => {
+                if(el.id !== 'note_actions_' + noteId) el.classList.remove('priority-mode');
+            });
+            document.getElementById('note_actions_' + noteId).classList.add('priority-mode');
+        };
+
+        window.moveTask = function(taskId, direction) {
+            fetch('/api/tasks/' + taskId + '/move', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({direction}) })
+            .then(res => { if(res.ok) switchPage('tasks'); else throw new Error(''); })
+            .catch(e => showToast('Failed', 'error'));
+        };
+
+        window.moveSubtask = function(taskId, subtaskId, direction) {
+            fetch('/api/tasks/' + taskId + '/subtasks/' + subtaskId + '/move', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({direction}) })
+            .then(res => { if(res.ok) switchPage('tasks'); else throw new Error(''); })
+            .catch(e => showToast('Failed', 'error'));
+        };
 
         function renderTasksPage() {
             let html = '<div class="tasks-grid">';
@@ -1105,6 +1404,16 @@ function writeMainEJS() {
                     }
                     html += '<div class="task-time-row"><span class="date-chip"><i class="fas fa-calendar-alt"></i> ' + displayDate + '</span><span class="time-chip"><i class="fas fa-clock"></i> ' + (task.startTimeIST || task.startTimeStr) + '-' + (task.endTimeIST || task.endTimeStr) + '</span></div>';
                     
+                    // Display selected days as badges
+                    if (task.selectedDays && task.selectedDays.length) {
+                        const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+                        const dayStr = task.selectedDays.map(d => dayNames[d]).join(', ');
+                        html += '<div style="margin: 4px 0;"><span class="badge"><i class="fas fa-calendar-week"></i> ' + dayStr + '</span></div>';
+                    }
+                    if (task.repeatCount > 0) {
+                        html += '<div style="margin: 4px 0;"><span class="badge"><i class="fas fa-redo-alt"></i> ' + task.repeatCount + ' times left per day</span></div>';
+                    }
+                    
                     if (totalSubtasks > 0) {
                         html += '<details class="task-subtasks"><summary class="flex-row" style="cursor: pointer;"><div class="progress-ring-small"><svg width="34" height="34"><circle class="progress-ring-circle-small" stroke="var(--progress-bg-light)" stroke-width="3" fill="transparent" r="14" cx="17" cy="17"/><circle class="progress-ring-circle-small" stroke="var(--accent-light)" stroke-width="3" fill="transparent" r="14" cx="17" cy="17" style="stroke-dasharray: ' + circleCircumference + '; stroke-dashoffset: ' + circleOffset + '; "/></svg><span class="progress-text-small">' + progress + '%</span></div><span style="font-size: 0.85rem; font-weight: 500; color: var(--text-secondary-light);">' + completedSubtasks + '/' + totalSubtasks + ' subtasks</span></summary><div class="subtasks-container w-100">';
                         task.subtasks.forEach((subtask) => {
@@ -1123,13 +1432,7 @@ function writeMainEJS() {
                         });
                         html += '</div></details>';
                     } else { html += '<div class="flex-row" style="margin-top: 8px;"><span style="font-size: 0.85rem; color: var(--text-secondary-light);"><i class="fas fa-tasks"></i> No subtasks</span></div>'; }
-                    
-                    const daysStr = (task.selectedDays || []).map(d => DAYS_MAP[d]).join(', ');
-                    html += '<div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">';
-                    if (task.selectedDays && task.selectedDays.length > 0) html += '<span class="badge"><i class="fas fa-calendar-week"></i> ' + daysStr + '</span>';
-                    html += '<span class="badge"><i class="fas fa-hourglass-half"></i> ' + task.durationFormatted + '</span>';
-                    if (task.remainingOccurrences > 0) html += '<span class="badge"><i class="fas fa-hashtag"></i> ' + task.remainingOccurrences + ' left</span>';
-                    html += '</div></div>';
+                    html += '</div>';
                 });
             }
             html += '</div>';
@@ -1185,12 +1488,13 @@ function writeMainEJS() {
                         const escapedHistoryTitle = escapeHtml(task.title);
                         html += '<div class="history-task-card"><div class="history-task-header"><div class="task-title-container" onclick="toggleDescription(\\'' + historyDescId + '\\')"><i class="fas fa-chevron-right"></i><span class="history-task-title">' + escapedHistoryTitle + '</span></div><span class="history-task-time"><i class="fas fa-check-circle" style="color: var(--success-light);"></i> ' + task.completedTimeIST + '</span></div>';
                         if (hasDescription) html += '<div id="' + historyDescId + '" class="history-description-container hidden"><div class="history-description">' + preserveLineBreaks(task.description) + '</div></div>';
-                        
-                        const daysStr = (task.selectedDays || []).map(d => DAYS_MAP[d]).join(', ');
                         html += '<div style="display: flex; gap: 6px; margin: 8px 0; flex-wrap: wrap;"><span class="badge"><i class="fas fa-clock"></i> ' + task.startTimeIST + '-' + task.endTimeIST + '</span><span class="badge"><i class="fas fa-hourglass-half"></i> ' + task.durationFormatted + '</span>';
-                        if (daysStr) html += '<span class="badge"><i class="fas fa-calendar-week"></i> ' + daysStr + '</span>';
+                        if (task.selectedDays && task.selectedDays.length) {
+                            const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+                            const dayStr = task.selectedDays.map(d => dayNames[d]).join(', ');
+                            html += '<span class="badge"><i class="fas fa-calendar-week"></i> ' + dayStr + '</span>';
+                        }
                         html += '</div>';
-
                         if (task.subtasks && task.subtasks.length > 0) {
                             html += '<details style="margin-top: 8px;"><summary style="cursor: pointer; color: var(--accent-light); font-weight: 600; font-size: 0.85rem;"><i class="fas fa-tasks"></i> Subtasks (' + task.subtasks.filter(s => s.completed).length + '/' + task.subtasks.length + ')</summary><div style="margin-top: 8px;">';
                             task.subtasks.forEach(subtask => {
@@ -1225,11 +1529,19 @@ function writeMainEJS() {
             return filtered;
         }
 
-        function changeMonth(delta) { currentMonth += delta; if (currentMonth < 0) { currentMonth = 11; currentYear--; } else if (currentMonth > 11) { currentMonth = 0; currentYear++; } renderPage(); }
+        function changeMonth(delta) {
+            currentMonth += delta;
+            if (currentMonth < 0) { currentMonth = 11; currentYear--; } else if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+            renderPage();
+        }
 
         function openModal(modalId) { document.getElementById(modalId).style.display = 'flex'; document.body.style.overflow = 'hidden'; }
         function closeModal(modalId) { document.getElementById(modalId).style.display = 'none'; document.body.style.overflow = 'auto'; }
-        function openAddModal() { if (currentPage === 'tasks') openAddTaskModal(); else if (currentPage === 'notes') openAddNoteModal(); else if (currentPage === 'grow') openAddGrowModal(); }
+        function openAddModal() { 
+            if (currentPage === 'tasks') openAddTaskModal(); 
+            else if (currentPage === 'notes') openAddNoteModal(); 
+            else if (currentPage === 'grow') openAddGrowModal(); 
+        }
 
         function openSettingsModal() {
             document.getElementById('notifToggle').checked = globalAppVars.notifications;
@@ -1249,21 +1561,29 @@ function writeMainEJS() {
             globalAppVars.notifications = document.getElementById('notifToggle').checked;
             globalAppVars.alerts = document.getElementById('alertsToggle').checked;
             globalAppVars.reminders = document.getElementById('remindersToggle').checked;
-            fetch('/api/settings/update', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(globalAppVars) }).then(() => showToast('Success'));
+            
+            fetch('/api/settings/update', { 
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'}, 
+                body: JSON.stringify(globalAppVars) 
+            }).then(() => showToast('Success'));
         }
 
         function openAddTaskModal() {
+            // Set default time to current IST time + 1 hour for end time
             const istNow = new Date(new Date().getTime() + 5.5 * 60 * 60 * 1000);
             const hours = String(istNow.getUTCHours()).padStart(2, '0');
             const minutes = String(istNow.getUTCMinutes()).padStart(2, '0');
             
             document.getElementById('startTime').value = hours + ':' + minutes;
-            document.getElementById('endTime').value = String(istNow.getUTCHours() + 1).padStart(2, '0') + ':' + minutes;
+            let endHour = istNow.getUTCHours() + 1;
+            if (endHour >= 24) endHour -= 24;
+            document.getElementById('endTime').value = String(endHour).padStart(2, '0') + ':' + minutes;
             
-            document.querySelectorAll('#addDaySelector .day-circle').forEach(el => el.classList.remove('selected'));
-            document.querySelector('#addDaySelector .day-circle[data-day="' + istNow.getUTCDay() + '"]').classList.add('selected');
-            updateSelectedDays('addDaySelector', 'addSelectedDays');
-            document.getElementById('addRepeatWeeks').value = 1;
+            // Reset weekday selector
+            document.querySelectorAll('#weekdaySelectorAdd .weekday-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('selectedDaysInput').value = '[]';
+            
             openModal('addTaskModal');
         }
 
@@ -1274,16 +1594,19 @@ function writeMainEJS() {
                 document.getElementById('editDescription').value = task.description || '';
                 document.getElementById('editStartTime').value = task.startTimeStr || task.startTimeIST;
                 document.getElementById('editEndTime').value = task.endTimeStr || task.endTimeIST;
-                document.getElementById('editRepeatWeeks').value = task.repeatWeeks || 1;
+                document.getElementById('editRepeatCount').value = task.repeatCount || 1;
                 
-                document.querySelectorAll('#editDaySelector .day-circle').forEach(el => el.classList.remove('selected'));
-                if (task.selectedDays && Array.isArray(task.selectedDays)) {
-                    task.selectedDays.forEach(d => {
-                        const circle = document.querySelector('#editDaySelector .day-circle[data-day="' + d + '"]');
-                        if (circle) circle.classList.add('selected');
-                    });
-                }
-                updateSelectedDays('editDaySelector', 'editSelectedDays');
+                // Set selected days
+                const selectedDays = task.selectedDays || [];
+                document.querySelectorAll('#weekdaySelectorEdit .weekday-btn').forEach(btn => {
+                    if (selectedDays.includes(parseInt(btn.dataset.day))) {
+                        btn.classList.add('active');
+                    } else {
+                        btn.classList.remove('active');
+                    }
+                });
+                document.getElementById('editSelectedDaysInput').value = JSON.stringify(selectedDays);
+                
                 openModal('editTaskModal');
             }).catch(err => { showToast('Failed', 'error'); });
         }
@@ -1295,18 +1618,22 @@ function writeMainEJS() {
 
         function submitTaskForm(event) {
             event.preventDefault(); 
-            const selected = document.getElementById('addSelectedDays').value;
-            if (!selected || selected === '[]') { showToast('Please select at least one day.', 'error'); return; }
-            fetch('/api/tasks', { method: 'POST', body: new URLSearchParams(new FormData(event.target)) })
+            const formData = new FormData(event.target);
+            // Ensure selectedDays is sent as JSON string
+            const selectedDays = JSON.parse(document.getElementById('selectedDaysInput').value || '[]');
+            formData.set('selectedDays', JSON.stringify(selectedDays));
+            
+            fetch('/api/tasks', { method: 'POST', body: new URLSearchParams(formData) })
             .then(res => { if(res.ok){ closeModal('addTaskModal'); showToast('Success'); switchPage('tasks'); } else { return res.text().then(t => {throw new Error(t);}); } })
             .catch(err => { showToast('Failed', 'error'); });
         }
 
         function submitEditTaskForm(event) {
             event.preventDefault(); 
-            const selected = document.getElementById('editSelectedDays').value;
-            if (!selected || selected === '[]') { showToast('Please select at least one day.', 'error'); return; }
             const formData = new FormData(event.target);
+            const selectedDays = JSON.parse(document.getElementById('editSelectedDaysInput').value || '[]');
+            formData.set('selectedDays', JSON.stringify(selectedDays));
+            
             fetch('/api/tasks/' + formData.get('taskId') + '/update', { method: 'POST', body: new URLSearchParams(formData) })
             .then(res => { if(res.ok){ closeModal('editTaskModal'); showToast('Success'); switchPage('tasks'); } else { return res.text().then(t => {throw new Error(t);}); } })
             .catch(err => { showToast('Failed', 'error'); });
@@ -1317,7 +1644,12 @@ function writeMainEJS() {
         function submitNoteForm(event) { event.preventDefault(); fetch('/api/notes', { method: 'POST', body: new URLSearchParams(new FormData(event.target)) }).then(res => { if(res.ok){ closeModal('addNoteModal'); showToast('Success'); switchPage('notes'); } else throw new Error(''); }).catch(err => { showToast('Failed', 'error'); }); }
         function submitEditNoteForm(event) { event.preventDefault(); const formData = new FormData(event.target); fetch('/api/notes/' + formData.get('noteId') + '/update', { method: 'POST', body: new URLSearchParams(formData) }).then(res => { if(res.ok){ closeModal('editNoteModal'); showToast('Success'); switchPage('notes'); } else throw new Error(''); }).catch(err => { showToast('Failed', 'error'); }); }
         function toggleSubtask(taskId, subtaskId) { fetch('/api/tasks/' + taskId + '/subtasks/' + subtaskId + '/toggle', { method: 'POST' }).then(res => { if(res.ok){ showToast('Success'); switchPage('tasks'); } else throw new Error(''); }).catch(err => { showToast('Failed', 'error'); }); }
-        function deleteSubtask(taskId, subtaskId) { if (!confirm('Delete this subtask?')) return; fetch('/api/tasks/' + taskId + '/subtasks/' + subtaskId + '/delete', { method: 'POST' }).then(res => { if(res.ok){ showToast('Success'); switchPage('tasks'); } else throw new Error(''); }).catch(err => { showToast('Failed', 'error'); }); }
+        function deleteSubtask(taskId, subtaskId) { 
+            if (!confirm('Delete this subtask?')) return; 
+            fetch('/api/tasks/' + taskId + '/subtasks/' + subtaskId + '/delete', { method: 'POST' })
+            .then(res => { if(res.ok){ showToast('Success'); switchPage('tasks'); } else throw new Error(''); })
+            .catch(err => { showToast('Failed', 'error'); }); 
+        }
         
         function completeTask(taskId) {
             if (!confirm('Complete this task?')) return;
@@ -1331,9 +1663,7 @@ function writeMainEJS() {
         function moveNote(noteId, direction) { const formData = new FormData(); formData.append('direction', direction); fetch('/api/notes/' + noteId + '/move', { method: 'POST', body: new URLSearchParams(formData) }).then(res => { if(res.ok){ switchPage('notes'); } else throw new Error(''); }).catch(err => { showToast('Failed', 'error'); }); }
 
         document.addEventListener('DOMContentLoaded', function() {
-            setupDaySelector('addDaySelector', 'addSelectedDays');
-            setupDaySelector('editDaySelector', 'editSelectedDays');
-
+            // Apply System Theme Auto-Sync
             const themeToggle = document.getElementById('themeToggle');
             if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
                 if (themeToggle) themeToggle.checked = true;
@@ -1355,12 +1685,37 @@ function writeMainEJS() {
             document.getElementById('pageTitleDisplay').innerText = currentPage;
             renderPage(); updateActiveNav();
             
+            setInterval(() => {
+                const now = new Date();
+                const istNow = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
+                const timeDisplay = document.getElementById('currentTimeDisplay');
+                const dateDisplay = document.getElementById('currentDateDisplay');
+                if (timeDisplay) timeDisplay.innerHTML = String(istNow.getUTCHours()).padStart(2, '0') + ':' + String(istNow.getUTCMinutes()).padStart(2, '0');
+                if (dateDisplay) dateDisplay.innerHTML = String(istNow.getUTCDate()).padStart(2, '0') + '-' + String(istNow.getUTCMonth() + 1).padStart(2, '0') + '-' + istNow.getUTCFullYear();
+            }, 1000);
+            
+            // Initialize weekday selectors
+            initWeekdaySelector('weekdaySelectorAdd', 'selectedDaysInput', []);
+            initWeekdaySelector('weekdaySelectorEdit', 'editSelectedDaysInput', []);
+            
+            // Priority Unselect & Popup dismiss logic
             window.addEventListener('click', function(event) { 
-                if (event.target.classList.contains('modal')) { event.target.style.display = 'none'; document.body.style.overflow = 'auto'; } 
-                if(!event.target.closest(".grow-day") && !event.target.closest(".grow-bubble")) hideGrowBubble();
-                if (!event.target.closest('.task-title-container') && !event.target.closest('.priority-btns')) document.querySelectorAll('.priority-mode').forEach(el => el.classList.remove('priority-mode'));
+                if (event.target.classList.contains('modal')) { 
+                    event.target.style.display = 'none'; 
+                    document.body.style.overflow = 'auto'; 
+                } 
+                if(!event.target.closest(".grow-day") && !event.target.closest(".grow-bubble")) {
+                    hideGrowBubble();
+                }
+                if (!event.target.closest('.task-title-container') && !event.target.closest('.priority-btns')) {
+                    document.querySelectorAll('.priority-mode').forEach(el => el.classList.remove('priority-mode'));
+                }
             });
-            window.oncontextmenu = function(event) { event.preventDefault(); };
+            
+            // Prevent Browser Context Menu
+            window.oncontextmenu = function(event) {
+                event.preventDefault(); 
+            };
         });
     </script>
 </body>
@@ -1435,6 +1790,30 @@ function calculateSubtaskProgress(subtasks) {
     return Math.round((subtasks.filter(s => s.completed).length / subtasks.length) * 100);
 }
 
+// Helper: get next occurrence date based on selected days and dayCounts
+function getNextOccurrence(selectedDays, dayCounts, afterDate = new Date()) {
+    if (!selectedDays || selectedDays.length === 0) return null;
+    // Filter days that have remaining count > 0
+    const availableDays = selectedDays.filter(d => dayCounts[d] > 0);
+    if (availableDays.length === 0) return null;
+    
+    const now = new Date(afterDate);
+    // Start from tomorrow to avoid today if already passed
+    let checkDate = new Date(now);
+    checkDate.setUTCHours(0,0,0,0);
+    checkDate.setUTCDate(checkDate.getUTCDate() + 1);
+    
+    // Look ahead up to 365 days
+    for (let i = 0; i < 365; i++) {
+        const dayOfWeek = checkDate.getUTCDay(); // 0=Sun,6=Sat
+        if (availableDays.includes(dayOfWeek)) {
+            return new Date(checkDate);
+        }
+        checkDate.setUTCDate(checkDate.getUTCDate() + 1);
+    }
+    return null;
+}
+
 // ==========================================
 // 🤖 BOT SETUP & SCHEDULERS
 // ==========================================
@@ -1442,10 +1821,12 @@ const bot = new Telegraf(BOT_TOKEN);
 const activeSchedules = new Map();
 let isShuttingDown = false;
 
+// Task State Variables
 let currentReminderTaskId = null;
 let activeReminderMessageIds = [];
 let lastHourlyMessageId = null;
 
+// Admin Check Middleware
 bot.use(async (ctx, next) => {
     if (ctx.from && ctx.from.id !== CHAT_ID) {
         try { await ctx.reply('🚫 Admin has restricted new users to use the task manager bot.'); } catch(e){}
@@ -1477,6 +1858,7 @@ async function sendStartMenu(ctx) {
             completedTasks = Object.values(combined);
         }
 
+        // Merge and sort combined list purely by Priority (orderIndex)
         let allTasks = [];
         completedTasks.forEach(t => allTasks.push({ ...t, isCompleted: true }));
         pendingTasks.forEach(t => allTasks.push({ ...t, isCompleted: false }));
@@ -1484,11 +1866,14 @@ async function sendStartMenu(ctx) {
 
         const total = allTasks.length;
         let percentage = 0;
-        let progressBar = '░░░░░░░░░░░░░░░░░░░░'; 
+        let progressBar = '░░░░░░░░░░░░░░░░░░░░'; // Default to 20 empty blocks
         
         if (total > 0) {
             percentage = Math.round((completedTasks.length / total) * 100);
+            
+            // Divide by 5 because each of the 20 blocks represents 5%
             const filledCount = Math.floor(percentage / 5); 
+            
             progressBar = '█'.repeat(filledCount) + '░'.repeat(20 - filledCount);
         }
 
@@ -1668,6 +2053,7 @@ function setupAutoCompletion() {
 
             for (const task of pendingTasks) {
                 const historySubtasks = (task.subtasks || []).map(s => ({ id: s.id, completed: s.completed }));
+                const completedDayOfWeek = new Date(task.nextOccurrence).getUTCDay();
 
                 await db.collection('history').insertOne({
                     taskId: task.taskId,
@@ -1675,30 +2061,42 @@ function setupAutoCompletion() {
                     completedDateStr: istDateObj.displayDate,
                     completedTimeStr: istDateObj.displayTime,
                     status: 'completed',
-                    subtasks: historySubtasks
+                    subtasks: historySubtasks,
+                    dayOfWeek: completedDayOfWeek
                 });
 
                 cancelTaskSchedule(task.taskId);
 
-                if (task.remainingOccurrences > 1) {
-                    let searchBase = new Date(task.nextOccurrence.getTime() + 60000); 
-                    let nextUTC = calculateNextOccurrence(searchBase, task.startTimeStr, task.selectedDays);
-                    let endUTC = new Date(nextUTC.getTime() + (task.endDate.getTime() - task.startDate.getTime()));
-                    let nextISTDisplay = formatLegacyIST(nextUTC, 'date');
-
-                    await db.collection('tasks').updateOne(
-                        { taskId: task.taskId },
-                        { $set: {
-                            nextOccurrence: nextUTC,
-                            remainingOccurrences: task.remainingOccurrences - 1,
-                            startDate: nextUTC,
-                            startDateStr: nextISTDisplay,
-                            endDate: endUTC,
-                            subtasks: (task.subtasks || []).map(s => ({...s, completed: false}))
-                        }}
-                    );
-                    const t = await db.collection('tasks').findOne({ taskId: task.taskId });
-                    if (t && t.nextOccurrence > new Date()) scheduleTask(t);
+                // Decrement dayCounts for this day
+                const dayCounts = task.dayCounts || {};
+                if (dayCounts[completedDayOfWeek] > 0) {
+                    dayCounts[completedDayOfWeek]--;
+                }
+                
+                // If any counts remain >0, compute next occurrence
+                const remainingDays = Object.keys(dayCounts).filter(d => dayCounts[d] > 0).map(Number);
+                if (remainingDays.length > 0) {
+                    const nextUTC = getNextOccurrence(task.selectedDays || [], dayCounts, task.nextOccurrence);
+                    if (nextUTC) {
+                        const nextISTDisplay = formatLegacyIST(nextUTC, 'date');
+                        await db.collection('tasks').updateOne(
+                            { taskId: task.taskId },
+                            { $set: {
+                                nextOccurrence: nextUTC,
+                                dayCounts: dayCounts,
+                                startDate: nextUTC,
+                                startDateStr: nextISTDisplay,
+                                endDate: new Date(nextUTC.getTime() + (task.endDate.getTime() - task.startDate.getTime())),
+                                subtasks: (task.subtasks || []).map(s => ({...s, completed: false}))
+                            }}
+                        );
+                        const t = await db.collection('tasks').findOne({ taskId: task.taskId });
+                        if (t && t.nextOccurrence > new Date()) scheduleTask(t);
+                    } else {
+                        // No more occurrences, delete
+                        await db.collection('deleted_tasks').insertOne({ ...task, deletedAt: new Date(), deleteReason: 'auto_completed' });
+                        await db.collection('tasks').deleteOne({ taskId: task.taskId });
+                    }
                 } else {
                     await db.collection('deleted_tasks').insertOne({ ...task, deletedAt: new Date(), deleteReason: 'auto_completed' });
                     await db.collection('tasks').deleteOne({ taskId: task.taskId });
@@ -1717,12 +2115,13 @@ function setupAutoCompletion() {
 function setupHourlyNotifications() {
     const rule = new schedule.RecurrenceRule();
     rule.minute = 0;
-    rule.hour = new schedule.Range(8, 23); 
+    rule.hour = new schedule.Range(8, 23); // 8 AM to 11 PM
     rule.tz = 'Asia/Kolkata';
 
     schedule.scheduleJob(rule, async function() {
         if (isShuttingDown || !globalSettings.notifications) return;
         
+        // Clear previous hourly message
         if (lastHourlyMessageId) {
             try { await bot.telegram.deleteMessage(CHAT_ID, lastHourlyMessageId); } catch(e){}
             lastHourlyMessageId = null;
@@ -1754,6 +2153,7 @@ function setupHourlyNotifications() {
                 completedTasks = Object.values(combined);
             }
 
+            // Merge and sort combined list purely by Priority (orderIndex)
             let allTasks = [];
             completedTasks.forEach(t => allTasks.push({ ...t, isCompleted: true }));
             pendingTasks.forEach(t => allTasks.push({ ...t, isCompleted: false }));
@@ -1762,7 +2162,7 @@ function setupHourlyNotifications() {
             const total = allTasks.length;
             if (total === 0) return;
             let percentage = Math.round((completedTasks.length / total) * 100);
-            const filledCount = Math.floor(percentage / 5);
+            const filledCount = Math.floor(percentage / 5); // Divide by 5 for 20 blocks
             let progressBar = '█'.repeat(filledCount) + '░'.repeat(20 - filledCount);
             
             let msg = `${istDateObj.displayDate} - ${istDateObj.dayName}\n`;
@@ -1798,7 +2198,7 @@ async function getHydratedHistory() {
 
     const groupedHistory = {};
     historyList.forEach(item => {
-        const baseTask = taskDict[item.taskId] || { title: 'Deleted Task', description: '', startTimeStr: '??:??', endTimeStr: '??:??', subtasks: [], deleted_subtasks: [] };
+        const baseTask = taskDict[item.taskId] || { title: 'Deleted Task', description: '', startTimeStr: '??:??', endTimeStr: '??:??', subtasks: [], deleted_subtasks: [], selectedDays: [] };
         
         const combined = { ...baseTask, ...item }; 
 
@@ -1858,9 +2258,7 @@ app.get('/tasks', async (req, res) => {
                 dateIST: task.startDateStr || formatLegacyIST(task.startDate, 'date'), 
                 durationFormatted: formatDuration(calculateDuration(task.startDate, task.endDate)), 
                 subtaskProgress: calculateSubtaskProgress(task.subtasks), 
-                subtasks: task.subtasks || [],
-                selectedDays: task.selectedDays || [],
-                remainingOccurrences: task.remainingOccurrences || 0
+                subtasks: task.subtasks || []
             })),
             notes: [], groupedHistory: {}, growData: {items: [], progress: {}}, currentTime: istDateObj.displayTime, currentDate: istDateObj.displayDate
         });
@@ -1900,7 +2298,7 @@ app.get('/api/page/:page', async (req, res) => {
             const startOfDayUTC = istToUTC(istDateObj.date, "00:00");
             const endOfDayUTC = istToUTC(istDateObj.date, "23:59");
             const tasks = await db.collection('tasks').find({ status: 'pending', nextOccurrence: { $gte: startOfDayUTC, $lt: endOfDayUTC } }).sort({ orderIndex: 1, nextOccurrence: 1 }).toArray();
-            res.json({ tasks: tasks.map(t => ({ ...t, startTimeIST: t.startTimeStr || formatLegacyIST(t.startDate, 'time'), endTimeIST: t.endTimeStr || formatLegacyIST(t.endDate, 'time'), dateIST: t.startDateStr || formatLegacyIST(t.startDate, 'date'), durationFormatted: formatDuration(calculateDuration(t.startDate, t.endDate)), subtaskProgress: calculateSubtaskProgress(t.subtasks), selectedDays: t.selectedDays || [], remainingOccurrences: t.remainingOccurrences || 0 })) });
+            res.json({ tasks: tasks.map(t => ({ ...t, startTimeIST: t.startTimeStr || formatLegacyIST(t.startDate, 'time'), endTimeIST: t.endTimeStr || formatLegacyIST(t.endDate, 'time'), dateIST: t.startDateStr || formatLegacyIST(t.startDate, 'date'), durationFormatted: formatDuration(calculateDuration(t.startDate, t.endDate)), subtaskProgress: calculateSubtaskProgress(t.subtasks) })) });
         } else if (page === 'grow') {
             const data = await db.collection('grow').findOne({ type: 'tracker' });
             res.json({ growData: data ? { items: data.items || [], progress: data.progress || {} } : { items: [], progress: {} } });
@@ -2027,34 +2425,40 @@ app.get('/api/tasks/:taskId', async (req, res) => {
 
 app.post('/api/tasks', async (req, res) => {
     try {
-        const { title, description, startTime, endTime, selectedDays, repeatWeeks } = req.body;
+        const { title, description, startTime, endTime, selectedDays: selectedDaysStr, repeatCount } = req.body;
+        const selectedDays = JSON.parse(selectedDaysStr || '[]');
+        if (!selectedDays.length) return res.status(400).send('Please select at least one day.');
         
-        const daysArr = JSON.parse(selectedDays || '[]');
-        if (daysArr.length === 0) return res.status(400).send('Select at least one day.');
+        const repeatCountNum = parseInt(repeatCount) || 1;
         
-        let wks = parseInt(repeatWeeks) || 1;
-        let totalOccurrences = daysArr.length * wks;
+        // Build dayCounts object
+        const dayCounts = {};
+        selectedDays.forEach(d => dayCounts[d] = repeatCountNum);
         
-        let nowUTC = new Date();
-        let nextUTC = calculateNextOccurrence(nowUTC, startTime, daysArr);
-        if (!nextUTC) return res.status(400).send('Invalid date calculation.');
-
-        const [startH, startM] = startTime.split(':').map(Number);
-        const [endH, endM] = endTime.split(':').map(Number);
-        let durationMins = (endH * 60 + endM) - (startH * 60 + startM);
-        if (durationMins < 0) durationMins += 24 * 60;
-        let endUTC = new Date(nextUTC.getTime() + durationMins * 60000);
+        // Determine first occurrence date (next matching day from today)
+        const now = new Date();
+        const firstOccurrence = getNextOccurrence(selectedDays, dayCounts, now);
+        if (!firstOccurrence) return res.status(400).send('Could not determine first occurrence.');
         
-        const startDateISTDisplay = formatLegacyIST(nextUTC, 'date');
+        const startDateUTC = new Date(firstOccurrence);
+        // Set time
+        const [startHour, startMin] = startTime.split(':').map(Number);
+        startDateUTC.setUTCHours(startHour, startMin, 0, 0);
+        
+        const endDateUTC = new Date(startDateUTC);
+        const [endHour, endMin] = endTime.split(':').map(Number);
+        endDateUTC.setUTCHours(endHour, endMin, 0, 0);
+        if (endDateUTC <= startDateUTC) return res.status(400).send('End time must be after start time.');
+        
+        const startDateStr = formatLegacyIST(startDateUTC, 'date');
         
         const task = { 
             taskId: generateId('t'), title: title.trim(), description: description ? description.trim() : '', 
-            selectedDays: daysArr, repeatWeeks: wks, remainingOccurrences: totalOccurrences,
-            startDate: nextUTC, endDate: endUTC, nextOccurrence: nextUTC, 
-            status: 'pending', subtasks: [], createdAt: new Date(), orderIndex: (await db.collection('tasks').countDocuments()) || 0, 
-            startTimeStr: startTime, endTimeStr: endTime, startDateStr: startDateISTDisplay 
+            startDate: startDateUTC, endDate: endDateUTC, nextOccurrence: startDateUTC, 
+            status: 'pending', selectedDays: selectedDays, dayCounts: dayCounts, repeatCount: repeatCountNum,
+            subtasks: [], createdAt: new Date(), orderIndex: (await db.collection('tasks').countDocuments()) || 0, 
+            startTimeStr: startTime, endTimeStr: endTime, startDateStr: startDateStr 
         };
-        
         await db.collection('tasks').insertOne(task);
         if (task.startDate > new Date()) scheduleTask(task);
         
@@ -2069,33 +2473,36 @@ app.post('/api/tasks', async (req, res) => {
 
 app.post('/api/tasks/:taskId/update', async (req, res) => {
     try {
-        const { title, description, startTime, endTime, selectedDays, repeatWeeks } = req.body;
+        const { title, description, startTime, endTime, selectedDays: selectedDaysStr, repeatCount } = req.body;
+        const selectedDays = JSON.parse(selectedDaysStr || '[]');
+        if (!selectedDays.length) return res.status(400).send('Please select at least one day.');
         
-        const daysArr = JSON.parse(selectedDays || '[]');
-        if (daysArr.length === 0) return res.status(400).send('Select at least one day.');
+        const repeatCountNum = parseInt(repeatCount) || 1;
         
-        let wks = parseInt(repeatWeeks) || 1;
-        let totalOccurrences = daysArr.length * wks;
+        // Build new dayCounts (reset)
+        const dayCounts = {};
+        selectedDays.forEach(d => dayCounts[d] = repeatCountNum);
         
-        let nowUTC = new Date();
-        let nextUTC = calculateNextOccurrence(nowUTC, startTime, daysArr);
-        if (!nextUTC) return res.status(400).send('Invalid date calculation.');
-
-        const [startH, startM] = startTime.split(':').map(Number);
-        const [endH, endM] = endTime.split(':').map(Number);
-        let durationMins = (endH * 60 + endM) - (startH * 60 + startM);
-        if (durationMins < 0) durationMins += 24 * 60;
-        let endUTC = new Date(nextUTC.getTime() + durationMins * 60000);
+        // Determine next occurrence from now
+        const now = new Date();
+        const nextOccurrence = getNextOccurrence(selectedDays, dayCounts, now);
+        if (!nextOccurrence) return res.status(400).send('Could not determine next occurrence.');
         
-        const startDateISTDisplay = formatLegacyIST(nextUTC, 'date');
+        const startDateUTC = new Date(nextOccurrence);
+        const [startHour, startMin] = startTime.split(':').map(Number);
+        startDateUTC.setUTCHours(startHour, startMin, 0, 0);
+        
+        const endDateUTC = new Date(startDateUTC);
+        const [endHour, endMin] = endTime.split(':').map(Number);
+        endDateUTC.setUTCHours(endHour, endMin, 0, 0);
+        if (endDateUTC <= startDateUTC) return res.status(400).send('End time must be after start time.');
+        
+        const startDateStr = formatLegacyIST(startDateUTC, 'date');
         
         cancelTaskSchedule(req.params.taskId);
         await db.collection('tasks').updateOne(
             { taskId: req.params.taskId }, 
-            { $set: { title: title.trim(), description: description ? description.trim() : '', 
-                selectedDays: daysArr, repeatWeeks: wks, remainingOccurrences: totalOccurrences,
-                startDate: nextUTC, endDate: endUTC, nextOccurrence: nextUTC, 
-                startTimeStr: startTime, endTimeStr: endTime, startDateStr: startDateISTDisplay, updatedAt: new Date() } }
+            { $set: { title: title.trim(), description: description ? description.trim() : '', startDate: startDateUTC, endDate: endDateUTC, nextOccurrence: startDateUTC, selectedDays: selectedDays, dayCounts: dayCounts, repeatCount: repeatCountNum, startTimeStr: startTime, endTimeStr: endTime, startDateStr: startDateStr, updatedAt: new Date() } }
         );
         const t = await db.collection('tasks').findOne({ taskId: req.params.taskId });
         if (t && t.nextOccurrence > new Date()) scheduleTask(t);
@@ -2116,6 +2523,7 @@ app.post('/api/tasks/:taskId/complete', async (req, res) => {
         
         const istNow = getCurrentISTDisplay();
         const historySubtasks = (task.subtasks || []).map(s => ({ id: s.id, completed: s.completed }));
+        const completedDayOfWeek = new Date(task.nextOccurrence).getUTCDay();
 
         await db.collection('history').insertOne({ 
             taskId: task.taskId, 
@@ -2123,30 +2531,40 @@ app.post('/api/tasks/:taskId/complete', async (req, res) => {
             completedDateStr: istNow.displayDate, 
             completedTimeStr: istNow.displayTime, 
             status: 'completed',
-            subtasks: historySubtasks 
+            subtasks: historySubtasks,
+            dayOfWeek: completedDayOfWeek
         });
         
         cancelTaskSchedule(task.taskId);
         
-        if (task.remainingOccurrences > 1) {
-            let searchBase = new Date(task.nextOccurrence.getTime() + 60000); 
-            let nextUTC = calculateNextOccurrence(searchBase, task.startTimeStr, task.selectedDays);
-            let endUTC = new Date(nextUTC.getTime() + (task.endDate.getTime() - task.startDate.getTime()));
-            let nextISTDisplay = formatLegacyIST(nextUTC, 'date');
-
-            await db.collection('tasks').updateOne(
-                { taskId: task.taskId },
-                { $set: {
-                    nextOccurrence: nextUTC,
-                    remainingOccurrences: task.remainingOccurrences - 1,
-                    startDate: nextUTC,
-                    startDateStr: nextISTDisplay,
-                    endDate: endUTC,
-                    subtasks: (task.subtasks || []).map(s => ({...s, completed: false}))
-                }}
-            );
-            const t = await db.collection('tasks').findOne({ taskId: task.taskId });
-            if (t && t.nextOccurrence > new Date()) scheduleTask(t);
+        // Decrement dayCounts
+        const dayCounts = task.dayCounts || {};
+        if (dayCounts[completedDayOfWeek] > 0) {
+            dayCounts[completedDayOfWeek]--;
+        }
+        
+        const remainingDays = Object.keys(dayCounts).filter(d => dayCounts[d] > 0).map(Number);
+        if (remainingDays.length > 0) {
+            const nextUTC = getNextOccurrence(task.selectedDays || [], dayCounts, task.nextOccurrence);
+            if (nextUTC) {
+                const nextISTDisplay = formatLegacyIST(nextUTC, 'date');
+                await db.collection('tasks').updateOne(
+                    { taskId: task.taskId },
+                    { $set: {
+                        nextOccurrence: nextUTC,
+                        dayCounts: dayCounts,
+                        startDate: nextUTC,
+                        startDateStr: nextISTDisplay,
+                        endDate: new Date(nextUTC.getTime() + (task.endDate.getTime() - task.startDate.getTime())),
+                        subtasks: (task.subtasks || []).map(s => ({...s, completed: false}))
+                    }}
+                );
+                const t = await db.collection('tasks').findOne({ taskId: task.taskId });
+                if (t && t.nextOccurrence > new Date()) scheduleTask(t);
+            } else {
+                await db.collection('deleted_tasks').insertOne({ ...task, deletedAt: new Date(), deleteReason: 'completed' });
+                await db.collection('tasks').deleteOne({ taskId: task.taskId });
+            }
         } else {
             await db.collection('deleted_tasks').insertOne({ ...task, deletedAt: new Date(), deleteReason: 'completed' });
             await db.collection('tasks').deleteOne({ taskId: task.taskId });
