@@ -243,7 +243,7 @@ function writeMainEJS() {
         .glass-content { background: rgba(255, 255, 255, 0.65); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.4); border-radius: 24px; padding: 40px 24px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2); width: 85%; max-width: 360px; text-align: center; }
         body[data-theme="dark"] .glass-content { background: rgba(30, 41, 59, 0.65); border-color: rgba(255, 255, 255, 0.1); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5); color: #f8fafc; }
 
-        #settingsAppModal { align-items: flex-start !important; justify-content: flex-end !important; background: transparent !important; backdrop-filter: none !important; padding-top: 55px; padding-right: 12px; }
+        #settingsAppModal { align-items: flex-start !important; justify-content: flex-end !important; background: rgba(0,0,0,0) !important; backdrop-filter: none !important; pointer-events: none; } #settingsAppModal .modal-content { pointer-events: auto; }
         #settingsAppModal .modal-content { width: 170px; max-width: 170px; margin: 0; padding: 12px; border-radius: 16px; box-shadow: 0 8px 25px rgba(0,0,0,0.15); transform-origin: top right; animation: dropdownPop 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
         body[data-theme="dark"] #settingsAppModal .modal-content { box-shadow: 0 8px 25px rgba(0,0,0,0.5); }
         @keyframes dropdownPop { from { opacity: 0; transform: scale(0.9) translateY(-10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
@@ -1620,13 +1620,7 @@ function writeMainEJS() {
         function closeModal(modalId) { document.getElementById(modalId).style.display = 'none'; document.body.style.overflow = 'auto'; }
         function openAddModal() { if (currentPage === 'tasks') openAddTaskModal(); else if (currentPage === 'notes') openAddNoteModal(); else if (currentPage === 'grow') openAddGrowModal(); }
 
-        function openSettingsModal() {
-            document.getElementById('notifToggle').checked = globalAppVars.notifications;
-            document.getElementById('alertsToggle').checked = globalAppVars.alerts;
-            document.getElementById('remindersToggle').checked = globalAppVars.reminders;
-            document.getElementById('themeToggle').checked = document.body.getAttribute('data-theme') === 'dark';
-            openModal('settingsAppModal');
-        }
+        function openSettingsModal() { const modal = document.getElementById('settingsAppModal'); if (modal.style.display === 'flex') { closeModal('settingsAppModal'); } else { document.getElementById('notifToggle').checked = globalAppVars.notifications; document.getElementById('alertsToggle').checked = globalAppVars.alerts; document.getElementById('remindersToggle').checked = globalAppVars.reminders; document.getElementById('themeToggle').checked = document.body.getAttribute('data-theme') === 'dark'; openModal('settingsAppModal'); } }
 
         function toggleTheme() {
             const isDark = document.getElementById('themeToggle').checked;
@@ -1779,11 +1773,7 @@ function writeMainEJS() {
                 document.getElementById('dailyStatusModal').style.display = 'flex';
             }
             
-            window.addEventListener('click', function(event) { 
-                if (event.target.classList.contains('modal') && event.target.id !== 'dailyStatusModal') { event.target.style.display = 'none'; document.body.style.overflow = 'auto'; } 
-                if(!event.target.closest(".grow-day") && !event.target.closest(".grow-bubble")) hideGrowBubble();
-                if (!event.target.closest('.task-title-container') && !event.target.closest('.priority-btns')) document.querySelectorAll('.priority-mode').forEach(el => el.classList.remove('priority-mode'));
-            });
+            window.addEventListener('click', function(event) { if (event.target.classList.contains('modal') && event.target.id !== 'dailyStatusModal') { event.target.style.display = 'none'; document.body.style.overflow = 'auto'; } if (event.target.id === 'settingsAppModal') { closeModal('settingsAppModal'); } if(!event.target.closest(".grow-day") && !event.target.closest(".grow-bubble")) hideGrowBubble(); if (!event.target.closest('.task-title-container') && !event.target.closest('.priority-btns')) document.querySelectorAll('.priority-mode').forEach(el => el.classList.remove('priority-mode')); });
             window.oncontextmenu = function(event) { event.preventDefault(); };
         });
     </script>
