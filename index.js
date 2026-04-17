@@ -110,7 +110,6 @@ async function getActiveTasksForToday() {
     };
 
     if (currentType === 'WD') {
-        // Fallback for legacy tasks that don't have dayTypes saved yet
         query.$or = [ { dayTypes: 'WD' }, { dayTypes: { $exists: false } }, { dayTypes: null }, { dayTypes: [] } ];
     } else if (currentType === 'HOL') {
         query.dayTypes = 'HOL';
@@ -232,18 +231,19 @@ function writeMainEJS() {
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .day-box { background: var(--hover-dark); border-color: var(--border-dark); color: var(--text-secondary-dark); } }
         body[data-theme="dark"] .day-box { background: var(--hover-dark); border-color: var(--border-dark); color: var(--text-secondary-dark); }
 
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); align-items: center; justify-content: center; z-index: 1000; }
-        .modal-content { background: var(--card-bg-light); border: 1px solid var(--border-light); border-radius: 20px; padding: 20px; width: 90%; max-width: 500px; max-height: 85vh; overflow-y: auto; }
+        /* MODAL FIX FOR IOS SAFARI BUBBLING */
+        .modal { cursor: pointer; display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); align-items: center; justify-content: center; z-index: 1000; }
+        .modal-content { cursor: default; background: var(--card-bg-light); border: 1px solid var(--border-light); border-radius: 20px; padding: 20px; width: 90%; max-width: 500px; max-height: 85vh; overflow-y: auto; }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .modal-content { background: var(--card-bg-dark); border: 1px solid var(--border-dark); } }
         body[data-theme="dark"] .modal-content { background: var(--card-bg-dark); border-color: var(--border-dark); color: var(--text-primary-dark); }
         body[data-theme="light"] .modal-content { background: var(--card-bg-light); border-color: var(--border-light); color: var(--text-primary-light); }
 
         /* GLASSMORPHISM UI FOR DAILY STATUS */
         #dailyStatusModal { background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 10000; display: none; align-items: center; justify-content: center; }
-        .glass-content { background: rgba(255, 255, 255, 0.65); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.4); border-radius: 24px; padding: 40px 24px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2); width: 85%; max-width: 360px; text-align: center; }
+        .glass-content { cursor: default; background: rgba(255, 255, 255, 0.65); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.4); border-radius: 24px; padding: 40px 24px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2); width: 85%; max-width: 360px; text-align: center; }
         body[data-theme="dark"] .glass-content { background: rgba(30, 41, 59, 0.65); border-color: rgba(255, 255, 255, 0.1); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5); color: #f8fafc; }
 
-        #settingsAppModal { align-items: flex-start !important; justify-content: flex-end !important; background: rgba(0,0,0,0) !important; backdrop-filter: none !important; pointer-events: none; } #settingsAppModal .modal-content { pointer-events: auto; }
+        #settingsAppModal { align-items: flex-start !important; justify-content: flex-end !important; background: transparent !important; backdrop-filter: none !important; padding-top: 55px; padding-right: 12px; }
         #settingsAppModal .modal-content { width: 170px; max-width: 170px; margin: 0; padding: 12px; border-radius: 16px; box-shadow: 0 8px 25px rgba(0,0,0,0.15); transform-origin: top right; animation: dropdownPop 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
         body[data-theme="dark"] #settingsAppModal .modal-content { box-shadow: 0 8px 25px rgba(0,0,0,0.5); }
         @keyframes dropdownPop { from { opacity: 0; transform: scale(0.9) translateY(-10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
@@ -345,7 +345,7 @@ function writeMainEJS() {
         .subtask-btn:hover { background: var(--accent-light); color: white; }
         .subtask-btn.delete:hover { background: var(--danger-light); }
         
-        .subtask-description-container { margin: 6px 0 28px; width: calc(100% - 28px); }
+        .subtask-description-container { margin-top: 6px; margin-left: 28px; width: calc(100% - 28px); }
         .subtask-description { font-size: 0.8rem; color: var(--text-secondary-light); padding: 4px 6px; background: var(--card-bg-light); border-radius: 8px; border-left: 2px solid var(--accent-light); word-break: break-word; white-space: pre-wrap; width: 100%; box-sizing: border-box; line-height: 1.4; }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .subtask-description { background: var(--card-bg-dark); color: var(--text-secondary-dark); } }
 
@@ -512,14 +512,14 @@ function writeMainEJS() {
 
     </style>
 </head>
-<body>
+<body onclick="void(0)">
     <div class="toast-container" id="toastContainer"></div>
 
     <div class="app-header">
         <div class="header-top">
             <div class="header-icon" onclick="switchPage('tasks')"><i class="fas fa-tasks"></i></div>
             <div class="header-title" id="pageTitleDisplay"><%= currentPage %></div>
-            <div class="header-icon" onclick="openSettingsModal()"><i class="fas fa-cog"></i></div>
+            <div class="header-icon" onclick="event.stopPropagation(); openSettingsModal()"><i class="fas fa-cog"></i></div>
         </div>
         <div class="nav-links">
             <button class="nav-btn <%= currentPage === 'tasks' ? 'active' : '' %>" onclick="switchPage('tasks')">
@@ -554,8 +554,8 @@ function writeMainEJS() {
         </div>
     </div>
 
-    <div class="modal" id="settingsAppModal">
-        <div class="modal-content">
+    <div class="modal" id="settingsAppModal" onclick="if(event.target === this) closeModal('settingsAppModal')">
+        <div class="modal-content" onclick="event.stopPropagation()">
             <div class="settings-row">
                 <span class="settings-label">Dark Theme</span>
                 <label class="switch"><input type="checkbox" id="themeToggle" onchange="toggleTheme()"><span class="slider"></span></label>
@@ -575,8 +575,8 @@ function writeMainEJS() {
         </div>
     </div>
 
-    <div class="modal" id="addTaskModal">
-        <div class="modal-content">
+    <div class="modal" id="addTaskModal" onclick="if(event.target === this) closeModal('addTaskModal')">
+        <div class="modal-content" onclick="event.stopPropagation()">
             <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                 <h2 style="font-size: 1.2rem;">Create New Task</h2>
                 <button class="action-btn" onclick="closeModal('addTaskModal')">&times;</button>
@@ -626,8 +626,8 @@ function writeMainEJS() {
         </div>
     </div>
 
-    <div class="modal" id="editTaskModal">
-        <div class="modal-content">
+    <div class="modal" id="editTaskModal" onclick="if(event.target === this) closeModal('editTaskModal')">
+        <div class="modal-content" onclick="event.stopPropagation()">
             <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                 <h2 style="font-size: 1.2rem;">Edit Task</h2>
                 <button class="action-btn" onclick="closeModal('editTaskModal')">&times;</button>
@@ -678,8 +678,8 @@ function writeMainEJS() {
         </div>
     </div>
 
-    <div class="modal" id="addGrowModal">
-        <div class="modal-content">
+    <div class="modal" id="addGrowModal" onclick="if(event.target === this) closeModal('addGrowModal')">
+        <div class="modal-content" onclick="event.stopPropagation()">
             <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                 <h2 style="font-size: 1.2rem;">Add New Growth</h2>
                 <button class="action-btn" onclick="closeModal('addGrowModal')">&times;</button>
@@ -708,8 +708,8 @@ function writeMainEJS() {
         </div>
     </div>
 
-    <div class="modal" id="editGrowModal">
-        <div class="modal-content">
+    <div class="modal" id="editGrowModal" onclick="if(event.target === this) closeModal('editGrowModal')">
+        <div class="modal-content" onclick="event.stopPropagation()">
             <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                 <h2 style="font-size: 1.2rem;">Edit Growth</h2>
                 <button class="action-btn" onclick="closeModal('editGrowModal')">&times;</button>
@@ -739,8 +739,8 @@ function writeMainEJS() {
         </div>
     </div>
 
-    <div class="modal" id="logGrowModal">
-        <div class="modal-content">
+    <div class="modal" id="logGrowModal" onclick="if(event.target === this) closeModal('logGrowModal')">
+        <div class="modal-content" onclick="event.stopPropagation()">
             <div id="logGrowListView">
                 <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                     <h2 id="logGrowTitle" style="font-size: 1.2rem;">Log Progress</h2>
@@ -763,10 +763,10 @@ function writeMainEJS() {
         </div>
     </div>
 
-    <div class="modal" id="addSubtaskModal"><div class="modal-content"><div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;"><h2 style="font-size: 1.2rem;">Add Subtask</h2><button class="action-btn" onclick="closeModal('addSubtaskModal')">&times;</button></div><form id="addSubtaskForm" onsubmit="submitSubtaskForm(event)"><input type="hidden" name="taskId" id="subtaskTaskId"><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.95rem; font-weight: 500;">Title *</label><input type="text" class="form-control" name="title" required maxlength="100"></div><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.95rem; font-weight: 500;">Description</label><textarea class="form-control" name="description" rows="3"></textarea></div><div style="display: flex; gap: 12px; margin-top: 16px;"><button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('addSubtaskModal')">Cancel</button><button type="submit" class="btn btn-primary" style="flex: 1;">Add</button></div></form></div></div>
-    <div class="modal" id="editSubtaskModal"><div class="modal-content"><div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;"><h2 style="font-size: 1.2rem;">Edit Subtask</h2><button class="action-btn" onclick="closeModal('editSubtaskModal')">&times;</button></div><form id="editSubtaskForm" onsubmit="submitEditSubtaskForm(event)"><input type="hidden" name="taskId" id="editSubtaskTaskId"><input type="hidden" name="subtaskId" id="editSubtaskId"><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.95rem; font-weight: 500;">Title *</label><input type="text" class="form-control" name="title" id="editSubtaskTitle" required maxlength="100"></div><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.95rem; font-weight: 500;">Description</label><textarea class="form-control" name="description" id="editSubtaskDescription" rows="3"></textarea></div><div style="display: flex; gap: 12px; margin-top: 16px;"><button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('editSubtaskModal')">Cancel</button><button type="submit" class="btn btn-primary" style="flex: 1;">Update</button></div></form></div></div>
-    <div class="modal" id="addNoteModal"><div class="modal-content"><div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;"><h2 style="font-size: 1.2rem;">Create Note</h2><button class="action-btn" onclick="closeModal('addNoteModal')">&times;</button></div><form id="addNoteForm" onsubmit="submitNoteForm(event)"><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.95rem; font-weight: 500;">Title *</label><input type="text" class="form-control" name="title" required maxlength="200"></div><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.95rem; font-weight: 500;">Content</label><textarea class="form-control" name="description" rows="4"></textarea></div><div style="display: flex; gap: 12px; margin-top: 16px;"><button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('addNoteModal')">Cancel</button><button type="submit" class="btn btn-primary" style="flex: 1;">Save</button></div></form></div></div>
-    <div class="modal" id="editNoteModal"><div class="modal-content"><div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;"><h2 style="font-size: 1.2rem;">Edit Note</h2><button class="action-btn" onclick="closeModal('editNoteModal')">&times;</button></div><form id="editNoteForm" onsubmit="submitEditNoteForm(event)"><input type="hidden" name="noteId" id="editNoteId"><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.95rem; font-weight: 500;">Title *</label><input type="text" class="form-control" name="title" id="editNoteTitle" required maxlength="200"></div><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.95rem; font-weight: 500;">Content</label><textarea class="form-control" name="description" id="editNoteDescription" rows="4"></textarea></div><div style="display: flex; gap: 12px; margin-top: 16px;"><button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('editNoteModal')">Cancel</button><button type="submit" class="btn btn-primary" style="flex: 1;">Update</button></div></form></div></div>
+    <div class="modal" id="addSubtaskModal" onclick="if(event.target === this) closeModal('addSubtaskModal')"><div class="modal-content" onclick="event.stopPropagation()"><div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;"><h2 style="font-size: 1.2rem;">Add Subtask</h2><button class="action-btn" onclick="closeModal('addSubtaskModal')">&times;</button></div><form id="addSubtaskForm" onsubmit="submitSubtaskForm(event)"><input type="hidden" name="taskId" id="subtaskTaskId"><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.95rem; font-weight: 500;">Title *</label><input type="text" class="form-control" name="title" required maxlength="100"></div><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.95rem; font-weight: 500;">Description</label><textarea class="form-control" name="description" rows="3"></textarea></div><div style="display: flex; gap: 12px; margin-top: 16px;"><button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('addSubtaskModal')">Cancel</button><button type="submit" class="btn btn-primary" style="flex: 1;">Add</button></div></form></div></div>
+    <div class="modal" id="editSubtaskModal" onclick="if(event.target === this) closeModal('editSubtaskModal')"><div class="modal-content" onclick="event.stopPropagation()"><div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;"><h2 style="font-size: 1.2rem;">Edit Subtask</h2><button class="action-btn" onclick="closeModal('editSubtaskModal')">&times;</button></div><form id="editSubtaskForm" onsubmit="submitEditSubtaskForm(event)"><input type="hidden" name="taskId" id="editSubtaskTaskId"><input type="hidden" name="subtaskId" id="editSubtaskId"><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.95rem; font-weight: 500;">Title *</label><input type="text" class="form-control" name="title" id="editSubtaskTitle" required maxlength="100"></div><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.95rem; font-weight: 500;">Description</label><textarea class="form-control" name="description" id="editSubtaskDescription" rows="3"></textarea></div><div style="display: flex; gap: 12px; margin-top: 16px;"><button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('editSubtaskModal')">Cancel</button><button type="submit" class="btn btn-primary" style="flex: 1;">Update</button></div></form></div></div>
+    <div class="modal" id="addNoteModal" onclick="if(event.target === this) closeModal('addNoteModal')"><div class="modal-content" onclick="event.stopPropagation()"><div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;"><h2 style="font-size: 1.2rem;">Create Note</h2><button class="action-btn" onclick="closeModal('addNoteModal')">&times;</button></div><form id="addNoteForm" onsubmit="submitNoteForm(event)"><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.95rem; font-weight: 500;">Title *</label><input type="text" class="form-control" name="title" required maxlength="200"></div><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.95rem; font-weight: 500;">Content</label><textarea class="form-control" name="description" rows="4"></textarea></div><div style="display: flex; gap: 12px; margin-top: 16px;"><button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('addNoteModal')">Cancel</button><button type="submit" class="btn btn-primary" style="flex: 1;">Save</button></div></form></div></div>
+    <div class="modal" id="editNoteModal" onclick="if(event.target === this) closeModal('editNoteModal')"><div class="modal-content" onclick="event.stopPropagation()"><div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;"><h2 style="font-size: 1.2rem;">Edit Note</h2><button class="action-btn" onclick="closeModal('editNoteModal')">&times;</button></div><form id="editNoteForm" onsubmit="submitEditNoteForm(event)"><input type="hidden" name="noteId" id="editNoteId"><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.95rem; font-weight: 500;">Title *</label><input type="text" class="form-control" name="title" id="editNoteTitle" required maxlength="200"></div><div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 0.95rem; font-weight: 500;">Content</label><textarea class="form-control" name="description" id="editNoteDescription" rows="4"></textarea></div><div style="display: flex; gap: 12px; margin-top: 16px;"><button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal('editNoteModal')">Cancel</button><button type="submit" class="btn btn-primary" style="flex: 1;">Update</button></div></form></div></div>
 
     <script>
         const tg = window.Telegram.WebApp;
@@ -802,6 +802,8 @@ function writeMainEJS() {
         let notesData = <%- JSON.stringify(notes || []) %>;
         let historyData = <%- JSON.stringify(groupedHistory || {}) %>;
         let growTrackerData = <%- JSON.stringify(growData || {items: [], progress: {}}) %>;
+        let dailyTypeSaved = '<%= globalSettings.dailyType || "" %>';
+        let dailyTypeDateSaved = '<%= globalSettings.dailyTypeDate || "" %>';
         
         let currentMonth = new Date().getMonth();
         let currentYear = new Date().getFullYear();
@@ -972,7 +974,14 @@ function writeMainEJS() {
                         if(d === growToday && !allDone) {
                             openLogGrowModal(d);
                         } else {
-                            showGrowBubble(cell, d);
+                            const bubble = document.getElementById("growBubble");
+                            if (bubble.classList.contains("show") && bubble.dataset.currentDate === d) {
+                                hideGrowBubble();
+                                bubble.dataset.currentDate = "";
+                            } else {
+                                bubble.dataset.currentDate = d;
+                                showGrowBubble(cell, d);
+                            }
                         }
                     }
                 };
@@ -1620,7 +1629,13 @@ function writeMainEJS() {
         function closeModal(modalId) { document.getElementById(modalId).style.display = 'none'; document.body.style.overflow = 'auto'; }
         function openAddModal() { if (currentPage === 'tasks') openAddTaskModal(); else if (currentPage === 'notes') openAddNoteModal(); else if (currentPage === 'grow') openAddGrowModal(); }
 
-        function openSettingsModal() { const modal = document.getElementById('settingsAppModal'); if (modal.style.display === 'flex') { closeModal('settingsAppModal'); } else { document.getElementById('notifToggle').checked = globalAppVars.notifications; document.getElementById('alertsToggle').checked = globalAppVars.alerts; document.getElementById('remindersToggle').checked = globalAppVars.reminders; document.getElementById('themeToggle').checked = document.body.getAttribute('data-theme') === 'dark'; openModal('settingsAppModal'); } }
+        function openSettingsModal() {
+            document.getElementById('notifToggle').checked = globalAppVars.notifications;
+            document.getElementById('alertsToggle').checked = globalAppVars.alerts;
+            document.getElementById('remindersToggle').checked = globalAppVars.reminders;
+            document.getElementById('themeToggle').checked = document.body.getAttribute('data-theme') === 'dark';
+            openModal('settingsAppModal');
+        }
 
         function toggleTheme() {
             const isDark = document.getElementById('themeToggle').checked;
@@ -1773,7 +1788,16 @@ function writeMainEJS() {
                 document.getElementById('dailyStatusModal').style.display = 'flex';
             }
             
-            window.addEventListener('click', function(event) { if (event.target.classList.contains('modal') && event.target.id !== 'dailyStatusModal') { event.target.style.display = 'none'; document.body.style.overflow = 'auto'; } if (event.target.id === 'settingsAppModal') { closeModal('settingsAppModal'); } if(!event.target.closest(".grow-day") && !event.target.closest(".grow-bubble")) hideGrowBubble(); if (!event.target.closest('.task-title-container') && !event.target.closest('.priority-btns')) document.querySelectorAll('.priority-mode').forEach(el => el.classList.remove('priority-mode')); });
+            window.addEventListener('click', function(event) { 
+                if(!event.target.closest(".grow-day") && !event.target.closest(".grow-bubble")) {
+                    hideGrowBubble();
+                    const bubble = document.getElementById("growBubble");
+                    if (bubble) bubble.dataset.currentDate = "";
+                }
+                if (!event.target.closest('.task-title-container') && !event.target.closest('.priority-btns')) {
+                    document.querySelectorAll('.priority-mode').forEach(el => el.classList.remove('priority-mode'));
+                }
+            });
             window.oncontextmenu = function(event) { event.preventDefault(); };
         });
     </script>
