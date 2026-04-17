@@ -1903,8 +1903,8 @@ async function sendStartMenu(ctx) {
         if (totalToday === 0) {
             msg += `No tasks scheduled for today.`;
         } else {
-            completedTasks.forEach(t => msg += `✅ ${escapeHTML(t.title)} (${f12(t.startTimeStr)} - ${f12(t.endTimeStr)})\n`);
-            pendingTasks.forEach(t => msg += `❌ ${escapeHTML(t.title)} (${f12(t.startTimeStr)} - ${f12(t.endTimeStr)})\n`);
+            completedTasks.forEach(t => msg += `✅ ${escapeHTML(t.title)} (${f12(t.startTimeStr)})\n`);
+            pendingTasks.forEach(t => msg += `❌ ${escapeHTML(t.title)} (${f12(t.startTimeStr)})\n`);
         }
         msg += `</blockquote>\n`;
         
