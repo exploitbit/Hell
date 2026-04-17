@@ -102,13 +102,21 @@ async function getActiveTasksForToday() {
     let currentType = (globalSettings.dailyTypeDate === istDateObj.displayDate) ? globalSettings.dailyType : null;
     if (!currentType) return { pendingTasks: [], completedTasks: [], todayHistory: [], totalToday: 0 };
 
-    const pending = await db.collection('tasks').find({
+    let query = {
         status: 'pending',
         selectedDays: currentDayOfWeek,
-        dayTypes: currentType, 
         startDate: { $lte: endOfDayUTC },
         endDate: { $gte: startOfDayUTC }
-    }).sort({ orderIndex: 1 }).toArray();
+    };
+
+    if (currentType === 'WD') {
+        // Fallback for legacy tasks that don't have dayTypes saved yet
+        query.$or = [ { dayTypes: 'WD' }, { dayTypes: { $exists: false } }, { dayTypes: null }, { dayTypes: [] } ];
+    } else if (currentType === 'HOL') {
+        query.dayTypes = 'HOL';
+    }
+
+    const pending = await db.collection('tasks').find(query).sort({ orderIndex: 1 }).toArray();
 
     const todayHistory = await db.collection('history').find({ completedDateStr: istDateObj.displayDate }).toArray();
     const completedTaskIds = todayHistory.map(h => h.taskId);
@@ -337,7 +345,7 @@ function writeMainEJS() {
         .subtask-btn:hover { background: var(--accent-light); color: white; }
         .subtask-btn.delete:hover { background: var(--danger-light); }
         
-        .subtask-description-container { margin-top: 6px; margin-left: 28px; width: calc(100% - 28px); }
+        .subtask-description-container { margin: 6px 0 28px; width: calc(100% - 28px); }
         .subtask-description { font-size: 0.8rem; color: var(--text-secondary-light); padding: 4px 6px; background: var(--card-bg-light); border-radius: 8px; border-left: 2px solid var(--accent-light); word-break: break-word; white-space: pre-wrap; width: 100%; box-sizing: border-box; line-height: 1.4; }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .subtask-description { background: var(--card-bg-dark); color: var(--text-secondary-dark); } }
 
@@ -794,8 +802,6 @@ function writeMainEJS() {
         let notesData = <%- JSON.stringify(notes || []) %>;
         let historyData = <%- JSON.stringify(groupedHistory || {}) %>;
         let growTrackerData = <%- JSON.stringify(growData || {items: [], progress: {}}) %>;
-        let dailyTypeSaved = '<%= globalSettings.dailyType || "" %>';
-        let dailyTypeDateSaved = '<%= globalSettings.dailyTypeDate || "" %>';
         
         let currentMonth = new Date().getMonth();
         let currentYear = new Date().getFullYear();
@@ -804,7 +810,7 @@ function writeMainEJS() {
         const growColors = ["#ec4899","#a855f7","#38bdf8","#ef4444","#f97316","#16a34a","#84cc16","#3b82f6", "#eab308", "#14b8a6"];
 
         function getDayBoxes(daysArr) {
-            if (!daysArr || daysArr.length === 0) return '';
+            if (!Array.isArray(daysArr) || daysArr.length === 0) return '';
             const map = {1:'MO', 2:'TU', 3:'WE', 4:'TH', 5:'FR', 6:'SA', 0:'SU'};
             const sortOrder = {1:1, 2:2, 3:3, 4:4, 5:5, 6:6, 0:7};
             
@@ -812,6 +818,16 @@ function writeMainEJS() {
             return '<div style="display:flex; gap:4px; flex-wrap:wrap;">' + 
                    sortedDays.map(d => '<span class="day-box">' + map[d] + '</span>').join('') + 
                    '</div>';
+        }
+
+        function f12(tStr) {
+            if (!tStr) return '';
+            try {
+                let [h, m] = tStr.split(':').map(Number);
+                let ampm = h >= 12 ? 'PM' : 'AM';
+                h = h % 12 || 12;
+                return h + ':' + String(m).padStart(2, '0') + ' ' + ampm;
+            } catch(e) { return ''; }
         }
 
         function setupDaySelector(selectorId, inputId) {
@@ -883,18 +899,20 @@ function writeMainEJS() {
         }
 
         function renderPage() {
-            const content = document.getElementById('mainContent');
-            const fabButton = document.getElementById('fabButton');
-            
-            if (currentPage === 'tasks') { fabButton.style.display = 'flex'; content.innerHTML = renderTasksPage(); } 
-            else if (currentPage === 'grow') { 
-                fabButton.style.display = 'flex'; 
-                content.innerHTML = renderGrowPageStaticShell();
-                renderGrowAll();
-                setupGrowSwipeGestures();
-            }
-            else if (currentPage === 'notes') { fabButton.style.display = 'flex'; content.innerHTML = renderNotesPage(); } 
-            else if (currentPage === 'history') { fabButton.style.display = 'none'; content.innerHTML = renderHistoryPage(); }
+            try {
+                const content = document.getElementById('mainContent');
+                const fabButton = document.getElementById('fabButton');
+                
+                if (currentPage === 'tasks') { fabButton.style.display = 'flex'; content.innerHTML = renderTasksPage(); } 
+                else if (currentPage === 'grow') { 
+                    fabButton.style.display = 'flex'; 
+                    content.innerHTML = renderGrowPageStaticShell();
+                    renderGrowAll();
+                    setupGrowSwipeGestures();
+                }
+                else if (currentPage === 'notes') { fabButton.style.display = 'flex'; content.innerHTML = renderNotesPage(); } 
+                else if (currentPage === 'history') { fabButton.style.display = 'none'; content.innerHTML = renderHistoryPage(); }
+            } catch(e) { console.error("Render error:", e); }
         }
 
         function hasContent(text) { return text && text.trim().length > 0; }
@@ -1470,7 +1488,7 @@ function writeMainEJS() {
                     
                     const time12 = f12(task.startTimeStr) + ' - ' + f12(task.endTimeStr);
                     html += '<div class="task-time-row" style="margin-bottom:8px;"><span class="time-chip"><i class="fas fa-clock"></i> ' + time12 + '</span>';
-                    html += '<span class="badge" style="margin-left:auto; background:transparent; border:1px solid var(--border-light);"><i class="fas fa-sync"></i> ' + (task.repeatWeeks == 1 ? '1 Week' : task.repeatWeeks + ' Weeks') + '</span></div>';
+                    html += '<span class="badge" style="margin-left:auto; background:transparent; border:1px solid var(--border-light);"><i class="fas fa-sync"></i> ' + (task.repeatWeeks == 1 ? '1 Week' : (task.repeatWeeks||1) + ' Weeks') + '</span></div>';
                     
                     if (totalSubtasks > 0) {
                         html += '<details class="task-subtasks"><summary class="flex-row" style="cursor: pointer;"><div class="progress-ring-small"><svg width="34" height="34"><circle class="progress-ring-circle-small" stroke="var(--progress-bg-light)" stroke-width="3" fill="transparent" r="14" cx="17" cy="17"/><circle class="progress-ring-circle-small" stroke="var(--accent-light)" stroke-width="3" fill="transparent" r="14" cx="17" cy="17" style="stroke-dasharray: ' + circleCircumference + '; stroke-dashoffset: ' + circleOffset + '; "/></svg><span class="progress-text-small">' + progress + '%</span></div><span style="font-size: 0.85rem; font-weight: 500; color: var(--text-secondary-light);">' + completedSubtasks + '/' + totalSubtasks + ' subtasks</span></summary><div class="subtasks-container w-100">';
@@ -1491,9 +1509,10 @@ function writeMainEJS() {
                         html += '</div></details>';
                     } else { html += '<div class="flex-row" style="margin-top: 8px; margin-bottom:8px;"><span style="font-size: 0.85rem; color: var(--text-secondary-light);"><i class="fas fa-tasks"></i> No subtasks</span></div>'; }
                     
+                    const dtArray = Array.isArray(task.dayTypes) ? task.dayTypes : (task.dayTypes ? [task.dayTypes] : ['WD']);
                     html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px; flex-wrap:wrap; gap:8px;">';
                     html += '<div>' + getDayBoxes(task.selectedDays) + '</div>';
-                    html += '<span class="badge" style="font-weight:bold; letter-spacing:1px; border:1px solid var(--border-light);">' + (task.dayTypes || []).join('/') + '</span>';
+                    html += '<span class="badge" style="font-weight:bold; letter-spacing:1px; border:1px solid var(--border-light);">' + dtArray.join('/') + '</span>';
                     html += '</div></div>';
                 });
             }
@@ -1543,7 +1562,7 @@ function writeMainEJS() {
                     html += '<div class="history-date-card"><details class="history-details">';
                     
                     const taskText = tasks.length === 1 ? '1 Task' : tasks.length + ' Tasks';
-                    const dailyType = tasks[0].dailyType || 'WD';
+                    const dailyType = tasks.length > 0 ? (tasks[0].dailyType || 'WD') : 'WD';
 
                     html += '<summary style="display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; width: 100%;"><span style="font-weight: 600; text-align: left;"><i class="fas fa-calendar-alt"></i> ' + displayDateHeader + '</span><span class="badge" style="font-weight: bold; letter-spacing: 1px; text-align: center;">' + dailyType + '</span><span style="text-align: right;">' + taskText + '</span></summary>';
                     html += '<div class="history-tasks-grid">';
@@ -1558,7 +1577,8 @@ function writeMainEJS() {
                         html += '<div style="display: flex; gap: 6px; margin: 8px 0 6px 0; flex-wrap: wrap;"><span class="badge"><i class="fas fa-clock"></i> ' + f12(task.startTimeStr || task.startTimeIST) + '-' + f12(task.endTimeStr || task.endTimeIST) + '</span>';
                         html += '<span class="badge" style="margin-left:auto; border:1px solid var(--border-light); background:transparent;"><i class="fas fa-sync"></i> ' + (task.repeatWeeks == 1 ? '1 Week' : (task.repeatWeeks||1) + ' Weeks') + '</span></div>';
 
-                        html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">' + getDayBoxes(task.selectedDays) + '<span class="badge" style="padding: 2px 8px; border-radius: 20px; font-size: 0.7rem; letter-spacing: 0.5px; font-weight: normal;">' + ((task.dayTypes && task.dayTypes.length) ? task.dayTypes.join('/') : 'WD') + '</span></div>';
+                        const dtArray = Array.isArray(task.dayTypes) ? task.dayTypes : (task.dayTypes ? [task.dayTypes] : ['WD']);
+                        html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">' + getDayBoxes(task.selectedDays) + '<span class="badge" style="padding: 2px 8px; border-radius: 20px; font-size: 0.7rem; letter-spacing: 0.5px; font-weight: normal;">' + dtArray.join('/') + '</span></div>';
                         
                         if (task.subtasks && task.subtasks.length > 0) {
                             html += '<details style="margin-top: 8px;"><summary style="cursor: pointer; color: var(--accent-light); font-weight: 600; font-size: 0.85rem;"><i class="fas fa-tasks"></i> Subtasks (' + task.subtasks.filter(s => s.completed).length + '/' + task.subtasks.length + ')</summary><div style="margin-top: 8px;">';
@@ -1646,10 +1666,12 @@ function writeMainEJS() {
                 document.getElementById('editRepeatWeeks').value = task.repeatWeeks || 1;
                 
                 document.querySelectorAll('#editTaskForm input[name="dayTypes"]').forEach(cb => cb.checked = false);
-                if (task.dayTypes) {
+                if (task.dayTypes && Array.isArray(task.dayTypes)) {
                     task.dayTypes.forEach(dt => { const cb = document.querySelector('#editTaskForm input[name="dayTypes"][value="'+dt+'"]'); if(cb) cb.checked = true; });
+                } else if (typeof task.dayTypes === 'string') {
+                    const cb = document.querySelector('#editTaskForm input[name="dayTypes"][value="'+task.dayTypes+'"]'); if(cb) cb.checked = true;
                 } else {
-                    document.querySelector('#editTaskForm input[name="dayTypes"][value="WD"]').checked = true;
+                    const cb = document.querySelector('#editTaskForm input[name="dayTypes"][value="WD"]'); if (cb) cb.checked = true;
                 }
 
                 document.querySelectorAll('#editDaySelector .day-circle').forEach(el => el.classList.remove('selected'));
@@ -1821,13 +1843,17 @@ const bot = new Telegraf(BOT_TOKEN);
 // Auto-delete all sent messages after 1 hour (3,600,000 ms)
 const originalSendMessage = bot.telegram.sendMessage.bind(bot.telegram);
 bot.telegram.sendMessage = async function(chatId, text, extra) {
-    const msg = await originalSendMessage(chatId, text, extra);
-    if (msg && msg.message_id && msg.chat && msg.chat.id) {
-        setTimeout(() => {
-            bot.telegram.deleteMessage(msg.chat.id, msg.message_id).catch(() => {});
-        }, 3600000);
+    try {
+        const msg = await originalSendMessage(chatId, text, extra);
+        if (msg && msg.message_id && msg.chat && msg.chat.id) {
+            setTimeout(() => {
+                bot.telegram.deleteMessage(msg.chat.id, msg.message_id).catch(() => {});
+            }, 3600000);
+        }
+        return msg;
+    } catch(e) {
+        console.error("Failed to send message", e);
     }
-    return msg;
 };
 
 const activeSchedules = new Map();
@@ -1933,57 +1959,60 @@ bot.action('set_hol_start', async ctx => {
 });
 
 function scheduleTask(task) {
-    cancelTaskSchedule(task.taskId);
-    if (new Date() > new Date(task.endDate)) return; 
-    if (!task.selectedDays || task.selectedDays.length === 0) return;
+    try {
+        cancelTaskSchedule(task.taskId);
+        if (!task || !task.endDate || new Date() > new Date(task.endDate)) return; 
+        if (!task.selectedDays || !Array.isArray(task.selectedDays) || task.selectedDays.length === 0) return;
+        if (!task.startTimeStr) return;
 
-    const [h, m] = task.startTimeStr.split(':').map(Number);
-    let notifyMins = m - 10;
-    let notifyH = h;
-    if (notifyMins < 0) { notifyMins += 60; notifyH -= 1; }
-    if (notifyH < 0) notifyH += 24;
+        const [h, m] = task.startTimeStr.split(':').map(Number);
+        let notifyMins = m - 10;
+        let notifyH = h;
+        if (notifyMins < 0) { notifyMins += 60; notifyH -= 1; }
+        if (notifyH < 0) notifyH += 24;
 
-    const daysStr = task.selectedDays.join(',');
-    const cronExp10Min = `${notifyMins} ${notifyH} * * ${daysStr}`;
+        const daysStr = task.selectedDays.join(',');
+        const cronExp10Min = `${notifyMins} ${notifyH} * * ${daysStr}`;
 
-    const startJob = schedule.scheduleJob({ rule: cronExp10Min, tz: 'Asia/Kolkata' }, async function() {
-        if (isShuttingDown || !globalSettings.reminders) return;
-        const istDateObj = getCurrentISTDisplay();
-        
-        const currentType = (globalSettings.dailyTypeDate === istDateObj.displayDate) ? globalSettings.dailyType : null;
-        if (!currentType || !(task.dayTypes || ['WD']).includes(currentType)) return;
-
-        const hist = await db.collection('history').findOne({ taskId: task.taskId, completedDateStr: istDateObj.displayDate });
-        if (hist) return; 
-
-        let count = 0;
-        const sendRem = async () => {
+        const startJob = schedule.scheduleJob({ rule: cronExp10Min, tz: 'Asia/Kolkata' }, async function() {
             if (isShuttingDown || !globalSettings.reminders) return;
-            const histCheck = await db.collection('history').findOne({ taskId: task.taskId, completedDateStr: istDateObj.displayDate });
-            if (histCheck) {
-                if(activeSchedules.has(task.taskId) && activeSchedules.get(task.taskId).interval) clearInterval(activeSchedules.get(task.taskId).interval);
-                return;
-            }
+            const istDateObj = getCurrentISTDisplay();
             
-            let minsLeft = 10 - count;
-            if (minsLeft === 0) {
-                try { await bot.telegram.sendMessage(CHAT_ID, `🚀 <b>START NOW:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} to ${f12(task.endTimeStr)}`, { parse_mode: 'HTML' }); } catch(e){}
-            } else {
-                try { await bot.telegram.sendMessage(CHAT_ID, `🔔 <b>In ${minsLeft}m:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} to ${f12(task.endTimeStr)}`, { parse_mode: 'HTML' }); } catch(e){}
-            }
-            
-            count++;
-            if(count >= 11) { 
-                if(activeSchedules.has(task.taskId) && activeSchedules.get(task.taskId).interval) clearInterval(activeSchedules.get(task.taskId).interval);
-            }
-        };
-        
-        await sendRem(); 
-        const iv = setInterval(sendRem, 60000); 
-        if(activeSchedules.has(task.taskId)) activeSchedules.get(task.taskId).interval = iv;
-    });
+            const currentType = (globalSettings.dailyTypeDate === istDateObj.displayDate) ? globalSettings.dailyType : null;
+            if (!currentType || !(task.dayTypes || ['WD']).includes(currentType)) return;
 
-    activeSchedules.set(task.taskId, { startJob });
+            const hist = await db.collection('history').findOne({ taskId: task.taskId, completedDateStr: istDateObj.displayDate });
+            if (hist) return; 
+
+            let count = 0;
+            const sendRem = async () => {
+                if (isShuttingDown || !globalSettings.reminders) return;
+                const histCheck = await db.collection('history').findOne({ taskId: task.taskId, completedDateStr: istDateObj.displayDate });
+                if (histCheck) {
+                    if(activeSchedules.has(task.taskId) && activeSchedules.get(task.taskId).interval) clearInterval(activeSchedules.get(task.taskId).interval);
+                    return;
+                }
+                
+                let minsLeft = 10 - count;
+                if (minsLeft === 0) {
+                    try { await bot.telegram.sendMessage(CHAT_ID, `🚀 <b>START NOW:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} to ${f12(task.endTimeStr)}`, { parse_mode: 'HTML' }); } catch(e){}
+                } else {
+                    try { await bot.telegram.sendMessage(CHAT_ID, `🔔 <b>In ${minsLeft}m:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} to ${f12(task.endTimeStr)}`, { parse_mode: 'HTML' }); } catch(e){}
+                }
+                
+                count++;
+                if(count >= 11) { 
+                    if(activeSchedules.has(task.taskId) && activeSchedules.get(task.taskId).interval) clearInterval(activeSchedules.get(task.taskId).interval);
+                }
+            };
+            
+            await sendRem(); 
+            const iv = setInterval(sendRem, 60000); 
+            if(activeSchedules.has(task.taskId)) activeSchedules.get(task.taskId).interval = iv;
+        });
+
+        activeSchedules.set(task.taskId, { startJob });
+    } catch (e) { console.error("Error scheduling task:", e); }
 }
 
 function cancelTaskSchedule(taskId) {
@@ -2027,7 +2056,7 @@ function setupHourlyNotifications() {
             msg += `</blockquote>`;
 
             const sentMsg = await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' });
-            lastHourlyMessageId = sentMsg.message_id;
+            if (sentMsg) lastHourlyMessageId = sentMsg.message_id;
         } catch (e) {}
     });
 }
@@ -2088,24 +2117,26 @@ async function getHydratedHistory() {
 
     const groupedHistory = {};
     historyList.forEach(item => {
-        const baseTask = taskDict[item.taskId] || { title: 'Deleted Task', description: '', startTimeStr: '??:??', endTimeStr: '??:??', subtasks: [], deleted_subtasks: [] };
-        const combined = { ...baseTask, ...item }; 
+        try {
+            const baseTask = taskDict[item.taskId] || { title: 'Deleted Task', description: '', startTimeStr: '??:??', endTimeStr: '??:??', subtasks: [], deleted_subtasks: [] };
+            const combined = { ...baseTask, ...item }; 
 
-        if (item.subtasks && Array.isArray(item.subtasks)) {
-            combined.subtasks = item.subtasks.map(hSub => {
-                const baseSub = (baseTask.subtasks || []).find(s => s.id === hSub.id) || (baseTask.deleted_subtasks || []).find(s => s.id === hSub.id) || { title: 'Deleted Subtask', description: '' };
-                return { ...baseSub, completed: hSub.completed };
+            if (item.subtasks && Array.isArray(item.subtasks)) {
+                combined.subtasks = item.subtasks.map(hSub => {
+                    const baseSub = (baseTask.subtasks || []).find(s => s.id === hSub.id) || (baseTask.deleted_subtasks || []).find(s => s.id === hSub.id) || { title: 'Deleted Subtask', description: '' };
+                    return { ...baseSub, completed: hSub.completed };
+                });
+            } else combined.subtasks = [];
+
+            const dateKey = combined.completedDateStr || formatLegacyIST(combined.completedAt, 'date');
+            if (!groupedHistory[dateKey]) groupedHistory[dateKey] = [];
+            groupedHistory[dateKey].push({
+                ...combined,
+                dailyType: combined.dailyType || 'WD',
+                repeatWeeks: combined.repeatWeeks || 1, 
+                completedTimeIST: combined.completedTimeStr || formatLegacyIST(combined.completedAt, 'time'),
             });
-        } else combined.subtasks = [];
-
-        const dateKey = combined.completedDateStr || formatLegacyIST(combined.completedAt, 'date');
-        if (!groupedHistory[dateKey]) groupedHistory[dateKey] = [];
-        groupedHistory[dateKey].push({
-            ...combined,
-            dailyType: combined.dailyType || 'WD',
-            repeatWeeks: combined.repeatWeeks || 1, 
-            completedTimeIST: combined.completedTimeStr || formatLegacyIST(combined.completedAt, 'time'),
-        });
+        } catch(e) { console.error("Error hydrating history entry", e); }
     });
     return groupedHistory;
 }
@@ -2285,7 +2316,7 @@ app.post('/api/tasks', async (req, res) => {
         };
         
         await db.collection('tasks').insertOne(task);
-        scheduleTask(task);
+        try { scheduleTask(task); } catch(e){}
         
         if(globalSettings.alerts) {
             let msg = `➕ <b>Task Added</b>\n📌 <b>Title:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} - ${f12(task.endTimeStr)}\n🔄 <b>Repeats:</b> ${repeatWks} Week(s)`;
@@ -2315,7 +2346,7 @@ app.post('/api/tasks/:taskId/update', async (req, res) => {
         );
         const t = await db.collection('tasks').findOne({ taskId: req.params.taskId });
         if (t) {
-            scheduleTask(t);
+            try { scheduleTask(t); } catch(e){}
             if(globalSettings.alerts) {
                 let msg = `✏️ <b>Task Edited</b>\n📌 <b>Title:</b> ${escapeHTML(t.title)}\n🕒 <b>Time:</b> ${f12(t.startTimeStr)} - ${f12(t.endTimeStr)}`;
                 try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
@@ -2372,7 +2403,7 @@ app.post('/api/tasks/:taskId/move', async (req, res) => {
 app.post('/api/tasks/:taskId/delete', async (req, res) => {
     try {
         const t = await db.collection('tasks').findOne({taskId: req.params.taskId});
-        cancelTaskSchedule(req.params.taskId);
+        try { cancelTaskSchedule(req.params.taskId); } catch(e){}
         if(t) {
             const inHistory = await db.collection('history').findOne({ taskId: req.params.taskId });
             if (inHistory) await db.collection('deleted_tasks').insertOne({ ...t, deletedAt: new Date(), deleteReason: 'manual' });
