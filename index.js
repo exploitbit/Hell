@@ -6,7 +6,7 @@ const path = require('path');
 const fs = require('fs');
 
 // ==========================================
-// ⚙️ CONFIGURATION
+// âš™ï¸ CONFIGURATION
 // ==========================================
 const BOT_TOKEN = '8620233151:AAErK3SxDjdPWYd2RFafQ_-tGg8_mAOuocI';
 const MONGODB_URI = 'mongodb+srv://sandip:9E9AISFqTfU3VI5i@cluster0.p8irtov.mongodb.net/telegram_bot';
@@ -26,10 +26,10 @@ app.set('views', path.join(__dirname, 'views'));
 const viewsDir = path.join(__dirname, 'views');
 if (!fs.existsSync(viewsDir)) fs.mkdirSync(viewsDir, { recursive: true });
 
-let globalSettings = { notifications: true, alerts: true, reminders: true, dailyType: null, dailyTypeDate: null };
+let globalSettings = { notifications: true, alerts: true, reminders: true, dailyType: null, dailyTypeDate: null, saveAutoCompleted: true };
 
 // ==========================================
-// 🕐 TIMEZONE & UTILITIES
+// ðŸ• TIMEZONE & UTILITIES
 // ==========================================
 function istToUTC(istDate, istTime) {
     if (!istDate || !istTime) return null;
@@ -76,7 +76,7 @@ function f12(timeStr) {
 function generateId(type = 'task') { return type.charAt(0) + Math.random().toString(36).substring(2, 10); }
 
 // ==========================================
-// 🔄 TASK LIFECYCLE MANAGEMENT
+// ðŸ”„ TASK LIFECYCLE MANAGEMENT
 // ==========================================
 async function cleanExpiredTasks() {
     const istDateObj = getCurrentISTDisplay();
@@ -134,7 +134,7 @@ async function getActiveTasksForToday() {
 }
 
 // ==========================================
-// 🎨 EJS TEMPLATE GENERATOR
+// ðŸŽ¨ EJS TEMPLATE GENERATOR
 // ==========================================
 function writeMainEJS() {
     const mainEJS = `<!DOCTYPE html>
@@ -145,6 +145,7 @@ function writeMainEJS() {
     <title>Task Manager</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
         
@@ -286,6 +287,11 @@ function writeMainEJS() {
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .task-card { background: var(--card-bg-dark); border: 1px solid var(--border-dark); } }
         body[data-theme="dark"] .task-card { background: var(--card-bg-dark); border-color: var(--border-dark); color: var(--text-primary-dark); }
         body[data-theme="light"] .task-card { background: var(--card-bg-light); border-color: var(--border-light); color: var(--text-primary-light); }
+        .task-card.colored-card { background: var(--card-color, var(--card-bg-light)) !important; border-color: transparent !important; }
+        .drag-handle { cursor: grab; color: var(--text-secondary-light); padding: 2px 4px; font-size: 0.9rem; touch-action: none; }
+        body[data-theme="dark"] .drag-handle { color: var(--text-secondary-dark); }
+        .sortable-ghost { opacity: 0.4; }
+        .sortable-drag { opacity: 0.9; }
 
         .task-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; width: 100%; }
         .task-title-section { flex: 1; min-width: 0; }
@@ -418,6 +424,7 @@ function writeMainEJS() {
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .grow-card { background: var(--card-bg-dark); border-color: var(--border-dark); } }
         body[data-theme="dark"] .grow-card { background: var(--card-bg-dark); border-color: var(--border-dark); color: var(--text-primary-dark); }
         body[data-theme="light"] .grow-card { background: var(--card-bg-light); border-color: var(--border-light); color: var(--text-primary-light); }
+        .grow-card.colored-card { background: var(--card-color, var(--card-bg-light)) !important; border-color: transparent !important; }
 
         .grow-card summary { display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none; outline: none; padding: 4px 0;}
         .grow-card summary::-webkit-details-marker { display: none; }
@@ -465,6 +472,7 @@ function writeMainEJS() {
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .history-date-card { background: var(--card-bg-dark); border: 1px solid var(--border-dark); } }
         body[data-theme="dark"] .history-date-card { background: var(--card-bg-dark); border-color: var(--border-dark); color: var(--text-primary-dark); }
         body[data-theme="light"] .history-date-card { background: var(--card-bg-light); border-color: var(--border-light); color: var(--text-primary-light); }
+        .history-date-card.colored-card { background: var(--card-color, var(--card-bg-light)) !important; border-color: transparent !important; }
 
         .history-details summary { display: flex; align-items: center; width: 100%; cursor: pointer; list-style: none; font-size: 1rem; font-weight: 600; }
         .history-details summary::-webkit-details-marker { display: none; }
@@ -496,6 +504,7 @@ function writeMainEJS() {
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .note-card { background: var(--card-bg-dark); border: 1px solid var(--border-dark); } }
         body[data-theme="dark"] .note-card { background: var(--card-bg-dark); border-color: var(--border-dark); color: var(--text-primary-dark); }
         body[data-theme="light"] .note-card { background: var(--card-bg-light); border-color: var(--border-light); color: var(--text-primary-light); }
+        .note-card.colored-card { background: var(--card-color, var(--card-bg-light)) !important; border-color: transparent !important; }
 
         .note-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; width: 100%; }
         .note-title { font-size: 1.1rem; font-weight: 600; color: var(--text-primary-light); word-break: break-word; flex: 1; cursor: pointer; user-select: none; }
@@ -518,7 +527,7 @@ function writeMainEJS() {
     <div class="app-header">
         <div class="header-top">
             <div class="header-icon" onclick="switchPage('tasks')"><i class="fas fa-tasks"></i></div>
-            <div class="header-title" id="pageTitleDisplay"><%= currentPage %></div>
+            <div class="header-title" id="pageTitleDisplay"><%= currentPage %><% if(currentPage === 'tasks' && globalSettings.dailyType) { %> <span style="font-size:0.75rem; font-weight:600; padding:2px 7px; border-radius:20px; background:<%= globalSettings.dailyType === 'WD' ? '#2563eb' : '#dc2626' %>; color:white; letter-spacing:1px; margin-left:4px; vertical-align: middle;"><%= globalSettings.dailyType %></span><% } %></div>
             <div class="header-icon" onclick="event.stopPropagation(); openSettingsModal()"><i class="fas fa-cog"></i></div>
         </div>
         <div class="nav-links">
@@ -548,8 +557,8 @@ function writeMainEJS() {
             <h2 style="font-size:1.5rem; margin-bottom:8px;">Good Morning!</h2>
             <p style="color:var(--text-secondary-light); margin-bottom:24px; font-size:1rem;">Is today a Working Day or a Holiday?</p>
             <div style="display:flex; gap:16px; flex-wrap:wrap;">
-                <button class="btn btn-primary" style="flex:1; min-width:130px; padding:14px; font-size:1rem;" onclick="setDailyStatus('WD')">💼 Working Day</button>
-                <button class="btn btn-secondary" style="flex:1; min-width:130px; padding:14px; font-size:1rem; background:var(--danger-light); color:white;" onclick="setDailyStatus('HOL')">🏖️ Holiday</button>
+                <button class="btn btn-primary" style="flex:1; min-width:130px; padding:14px; font-size:1rem;" onclick="setDailyStatus('WD')">ðŸ’¼ Working Day</button>
+                <button class="btn btn-secondary" style="flex:1; min-width:130px; padding:14px; font-size:1rem; background:var(--danger-light); color:white;" onclick="setDailyStatus('HOL')">ðŸ–ï¸ Holiday</button>
             </div>
         </div>
     </div>
@@ -571,6 +580,10 @@ function writeMainEJS() {
             <div class="settings-row">
                 <span class="settings-label">Reminders</span>
                 <label class="switch"><input type="checkbox" id="remindersToggle" onchange="updateSettings()"><span class="slider"></span></label>
+            </div>
+            <div class="settings-row">
+                <span class="settings-label">Save Auto-completed</span>
+                <label class="switch"><input type="checkbox" id="saveAutoCompletedToggle" onchange="updateSettings()"><span class="slider"></span></label>
             </div>
         </div>
     </div>
@@ -775,7 +788,8 @@ function writeMainEJS() {
         let globalAppVars = {
             notifications: <%= globalSettings.notifications %>,
             alerts: <%= globalSettings.alerts %>,
-            reminders: <%= globalSettings.reminders %>
+            reminders: <%= globalSettings.reminders %>,
+            saveAutoCompleted: <%= globalSettings.saveAutoCompleted !== false ? 'true' : 'false' %>
         };
 
         function showToast(message, type = 'success') {
@@ -905,14 +919,14 @@ function writeMainEJS() {
                 const content = document.getElementById('mainContent');
                 const fabButton = document.getElementById('fabButton');
                 
-                if (currentPage === 'tasks') { fabButton.style.display = 'flex'; content.innerHTML = renderTasksPage(); } 
+                if (currentPage === 'tasks') { fabButton.style.display = 'flex'; content.innerHTML = renderTasksPage(); setTimeout(initTaskSortable, 50); } 
                 else if (currentPage === 'grow') { 
                     fabButton.style.display = 'flex'; 
                     content.innerHTML = renderGrowPageStaticShell();
                     renderGrowAll();
                     setupGrowSwipeGestures();
                 }
-                else if (currentPage === 'notes') { fabButton.style.display = 'flex'; content.innerHTML = renderNotesPage(); } 
+                else if (currentPage === 'notes') { fabButton.style.display = 'flex'; content.innerHTML = renderNotesPage(); setTimeout(initNoteSortable, 50); } 
                 else if (currentPage === 'history') { fabButton.style.display = 'none'; content.innerHTML = renderHistoryPage(); }
             } catch(e) { console.error("Render error:", e); }
         }
@@ -928,6 +942,98 @@ function writeMainEJS() {
             if (!str) return '';
             return str.replace(/\\\\/g, '\\\\\\\\').replace(/'/g, "\\\\'").replace(/"/g, '\\\\"').replace(/\\n/g, '\\\\n').replace(/\\r/g, '\\\\r').replace(/\\t/g, '\\\\t');
         }
+        // ==========================================
+        // ðŸŽ¨ RANDOM GRADIENT COLORS FOR CARDS
+        // ==========================================
+        const cardGradients = [
+            'linear-gradient(135deg, rgba(239,68,68,0.13) 0%, rgba(251,146,60,0.13) 100%)',
+            'linear-gradient(135deg, rgba(59,130,246,0.13) 0%, rgba(139,92,246,0.13) 100%)',
+            'linear-gradient(135deg, rgba(16,185,129,0.13) 0%, rgba(56,189,248,0.13) 100%)',
+            'linear-gradient(135deg, rgba(234,179,8,0.13) 0%, rgba(249,115,22,0.13) 100%)',
+            'linear-gradient(135deg, rgba(168,85,247,0.13) 0%, rgba(236,72,153,0.13) 100%)',
+            'linear-gradient(135deg, rgba(20,184,166,0.13) 0%, rgba(132,204,22,0.13) 100%)',
+            'linear-gradient(135deg, rgba(99,102,241,0.13) 0%, rgba(34,211,238,0.13) 100%)',
+            'linear-gradient(135deg, rgba(244,63,94,0.13) 0%, rgba(249,168,212,0.13) 100%)',
+        ];
+        const cardColorCache = {};
+        function getCardGradient(id) {
+            if (!cardColorCache[id]) {
+                let hash = 0;
+                for (let i = 0; i < id.length; i++) hash = id.charCodeAt(i) + ((hash << 5) - hash);
+                cardColorCache[id] = cardGradients[Math.abs(hash) % cardGradients.length];
+            }
+            return cardColorCache[id];
+        }
+
+        // ==========================================
+        // ðŸ”€ SORTABLEJS DRAG-AND-DROP INIT
+        // ==========================================
+        let taskSortable = null;
+        let noteSortable = null;
+        let subtaskSortables = {};
+
+        function initTaskSortable() {
+            const grid = document.querySelector('.tasks-grid');
+            if (!grid || typeof Sortable === 'undefined') return;
+            if (taskSortable) taskSortable.destroy();
+            taskSortable = Sortable.create(grid, {
+                handle: '.drag-handle',
+                animation: 150,
+                ghostClass: 'sortable-ghost',
+                dragClass: 'sortable-drag',
+                onEnd: function(evt) {
+                    const taskId = evt.item.dataset.taskId;
+                    const newIndex = evt.newIndex;
+                    const oldIndex = evt.oldIndex;
+                    if (newIndex === oldIndex) return;
+                    // Build new order from DOM
+                    const allCards = grid.querySelectorAll('.task-card[data-task-id]');
+                    const orderedIds = Array.from(allCards).map(el => el.dataset.taskId);
+                    fetch('/api/tasks/reorder', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ orderedIds }) })
+                    .catch(e => showToast('Failed', 'error'));
+                }
+            });
+        }
+
+        function initNoteSortable() {
+            const grid = document.querySelector('.tasks-grid');
+            if (!grid || typeof Sortable === 'undefined') return;
+            if (noteSortable) noteSortable.destroy();
+            noteSortable = Sortable.create(grid, {
+                handle: '.drag-handle',
+                animation: 150,
+                ghostClass: 'sortable-ghost',
+                onEnd: function(evt) {
+                    const noteId = evt.item.dataset.noteId;
+                    const newIndex = evt.newIndex;
+                    const oldIndex = evt.oldIndex;
+                    if (newIndex === oldIndex) return;
+                    const allCards = grid.querySelectorAll('.note-card[data-note-id]');
+                    const orderedIds = Array.from(allCards).map(el => el.dataset.noteId);
+                    fetch('/api/notes/reorder', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ orderedIds }) })
+                    .catch(e => showToast('Failed', 'error'));
+                }
+            });
+        }
+
+        function initSubtaskSortable(taskId) {
+            const container = document.querySelector('.subtasks-container[data-task-id="' + taskId + '"]');
+            if (!container || typeof Sortable === 'undefined') return;
+            if (subtaskSortables[taskId]) subtaskSortables[taskId].destroy();
+            subtaskSortables[taskId] = Sortable.create(container, {
+                handle: '.drag-handle',
+                animation: 150,
+                ghostClass: 'sortable-ghost',
+                onEnd: function(evt) {
+                    if (evt.newIndex === evt.oldIndex) return;
+                    const allItems = container.querySelectorAll('.subtask-item[data-subtask-id]');
+                    const orderedIds = Array.from(allItems).map(el => el.dataset.subtaskId);
+                    fetch('/api/tasks/' + taskId + '/subtasks/reorder', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ orderedIds }) })
+                    .catch(e => showToast('Failed', 'error'));
+                }
+            });
+        }
+
         function toggleDescription(elementId) {
             const element = document.getElementById(elementId);
             if (element) {
@@ -937,7 +1043,7 @@ function writeMainEJS() {
         }
 
         // ==========================================
-        // 🌱 GROW FRONTEND LOGIC 
+        // ðŸŒ± GROW FRONTEND LOGIC 
         // ==========================================
         function renderGrowPageStaticShell() {
             return '<details class="grow-panel"><summary><span>Progress Overview</span><i class="fas fa-chevron-down"></i></summary>' +
@@ -1043,7 +1149,7 @@ function writeMainEJS() {
                 let left = item.endCount - passed;
                 if(left < 0) left = 0;
                 
-                html += '<div class="grow-card"><details><summary><div class="grow-title-section"><i class="fas fa-chevron-right"></i><span class="grow-title">' + escapeHtml(item.title) + '</span></div>' +
+                html += '<div class="grow-card colored-card" style="--card-color: ' + getCardGradient(item.id) + '"><details><summary><div class="grow-title-section"><i class="fas fa-chevron-right"></i><span class="grow-title">' + escapeHtml(item.title) + '</span></div>' +
                         '<div class="task-actions-wrapper"><button class="action-btn" onclick="event.preventDefault(); openEditGrowModal(\\'' + item.id + '\\')" title="Edit"><i class="fas fa-pencil"></i></button>' +
                         '<button class="action-btn delete" onclick="event.preventDefault(); deleteGrowTracker(\\'' + item.id + '\\')" title="Delete"><i class="fas fa-trash"></i></button></div></summary>';
                         
@@ -1483,15 +1589,14 @@ function writeMainEJS() {
                     const descriptionId = 'task_desc_' + task.taskId;
                     const escapedTitle = escapeHtml(task.title);
                     
-                    html += '<div class="task-card"><div class="task-header"><div class="task-title-section"><div class="task-title-container" onclick="toggleDescription(\\'' + descriptionId + '\\')" oncontextmenu="event.preventDefault(); toggleTaskPriorityMode(\\'' + task.taskId + '\\')"><i class="fas fa-chevron-right" id="' + descriptionId + '_icon"></i><span class="task-title">' + escapedTitle + '</span></div></div><div class="task-actions-wrapper" id="task_actions_' + task.taskId + '">';
+                    html += '<div class="task-card colored-card" data-task-id="' + task.taskId + '" style="--card-color: ' + getCardGradient(task.taskId) + '"><div class="task-header"><div class="task-title-section"><div class="task-title-container" onclick="toggleDescription(\\'' + descriptionId + '\\')" oncontextmenu="event.preventDefault()"><i class="fas fa-chevron-right" id="' + descriptionId + '_icon"></i><span class="task-title">' + escapedTitle + '</span></div></div><div class="task-actions-wrapper" id="task_actions_' + task.taskId + '">';
                     
                     html += '<div class="normal-btns">';
+                    html += '<span class="drag-handle" title="Drag to reorder"><i class="fas fa-grip-vertical"></i></span>';
                     if (totalSubtasks < 10) html += '<button class="action-btn" onclick="openAddSubtaskModal(\\'' + task.taskId + '\\')"><i class="fas fa-plus"></i></button>';
                     html += '<button class="action-btn" onclick="openEditTaskModal(\\'' + task.taskId + '\\')"><i class="fas fa-pencil-alt"></i></button><button class="action-btn" onclick="completeTask(\\'' + task.taskId + '\\')"><i class="fas fa-check"></i></button><button class="action-btn delete" onclick="deleteTask(\\'' + task.taskId + '\\')"><i class="fas fa-trash"></i></button></div>';
                     
-                    html += '<div class="priority-btns">';
-                    html += '<button class="action-btn" onclick="moveTask(\\'' + task.taskId + '\\', \\'up\\')"><i class="fas fa-arrow-up"></i></button>';
-                    html += '<button class="action-btn" onclick="moveTask(\\'' + task.taskId + '\\', \\'down\\')"><i class="fas fa-arrow-down"></i></button></div></div></div>';
+                    html += '</div></div>';
                     
                     if (hasDescription) html += '<div id="' + descriptionId + '" class="task-description-container hidden"><div class="task-description">' + preserveLineBreaks(task.description) + '</div></div>';
                     
@@ -1500,17 +1605,17 @@ function writeMainEJS() {
                     html += '<span class="badge" style="margin-left:auto; background:transparent; border:1px solid var(--border-light);"><i class="fas fa-sync"></i> ' + (task.repeatWeeks == 1 ? '1 Week' : (task.repeatWeeks||1) + ' Weeks') + '</span></div>';
                     
                     if (totalSubtasks > 0) {
-                        html += '<details class="task-subtasks"><summary class="flex-row" style="cursor: pointer;"><div class="progress-ring-small"><svg width="34" height="34"><circle class="progress-ring-circle-small" stroke="var(--progress-bg-light)" stroke-width="3" fill="transparent" r="14" cx="17" cy="17"/><circle class="progress-ring-circle-small" stroke="var(--accent-light)" stroke-width="3" fill="transparent" r="14" cx="17" cy="17" style="stroke-dasharray: ' + circleCircumference + '; stroke-dashoffset: ' + circleOffset + '; "/></svg><span class="progress-text-small">' + progress + '%</span></div><span style="font-size: 0.85rem; font-weight: 500; color: var(--text-secondary-light);">' + completedSubtasks + '/' + totalSubtasks + ' subtasks</span></summary><div class="subtasks-container w-100">';
+                        html += '<details class="task-subtasks" ontoggle="if(this.open) setTimeout(function(){ initSubtaskSortable(\\'' + task.taskId + '\\'); }, 50);"><summary class="flex-row" style="cursor: pointer;"><div class="progress-ring-small"><svg width="34" height="34"><circle class="progress-ring-circle-small" stroke="var(--progress-bg-light)" stroke-width="3" fill="transparent" r="14" cx="17" cy="17"/><circle class="progress-ring-circle-small" stroke="var(--accent-light)" stroke-width="3" fill="transparent" r="14" cx="17" cy="17" style="stroke-dasharray: ' + circleCircumference + '; stroke-dashoffset: ' + circleOffset + '; "/></svg><span class="progress-text-small">' + progress + '%</span></div><span style="font-size: 0.85rem; font-weight: 500; color: var(--text-secondary-light);">' + completedSubtasks + '/' + totalSubtasks + ' subtasks</span></summary><div class="subtasks-container w-100" data-task-id="' + task.taskId + '">';
                         task.subtasks.forEach((subtask) => {
                             const subtaskHasDesc = hasContent(subtask.description);
                             const subtaskDescId = 'subtask_desc_' + task.taskId + '_' + subtask.id;
                             const escapedSubtaskTitle = escapeHtml(subtask.title);
                             const escapedSubtaskDescription = escapeJsString(subtask.description || '');
-                            html += '<div class="subtask-item"><div class="subtask-main-row"><div class="subtask-checkbox ' + (subtask.completed ? 'completed' : '') + '" onclick="toggleSubtask(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\')">' + (subtask.completed ? '<i class="fas fa-check"></i>' : '') + '</div><div class="subtask-details"><div class="subtask-title-container" onclick="toggleDescription(\\'' + subtaskDescId + '\\')" oncontextmenu="event.preventDefault(); toggleSubtaskPriorityMode(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\')"><span class="subtask-title ' + (subtask.completed ? 'completed' : '') + '">' + escapedSubtaskTitle + '</span></div></div><div class="task-actions-wrapper" id="subtask_actions_' + task.taskId + '_' + subtask.id + '">';
+                            html += '<div class="subtask-item" data-subtask-id="' + subtask.id + '"><div class="subtask-main-row"><span class="drag-handle" title="Drag to reorder"><i class="fas fa-grip-vertical"></i></span><div class="subtask-checkbox ' + (subtask.completed ? 'completed' : '') + '" onclick="toggleSubtask(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\')">' + (subtask.completed ? '<i class="fas fa-check"></i>' : '') + '</div><div class="subtask-details"><div class="subtask-title-container" onclick="toggleDescription(\\'' + subtaskDescId + '\\')"><span class="subtask-title ' + (subtask.completed ? 'completed' : '') + '">' + escapedSubtaskTitle + '</span></div></div><div class="task-actions-wrapper" id="subtask_actions_' + task.taskId + '_' + subtask.id + '">';
                             
                             html += '<div class="normal-btns"><button class="subtask-btn" onclick="editSubtask(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\', \\'' + escapedSubtaskTitle.replace(/'/g, "\\\\'") + '\\', \\'' + escapedSubtaskDescription.replace(/'/g, "\\\\'") + '\\')"><i class="fas fa-pencil-alt"></i></button><button class="subtask-btn delete" onclick="deleteSubtask(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\')"><i class="fas fa-trash"></i></button></div>';
                             
-                            html += '<div class="priority-btns"><button class="subtask-btn" onclick="moveSubtask(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\', \\'up\\')"><i class="fas fa-arrow-up"></i></button><button class="subtask-btn" onclick="moveSubtask(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\', \\'down\\')"><i class="fas fa-arrow-down"></i></button></div></div></div>';
+                            html += '</div></div>';
                             
                             if (subtaskHasDesc) html += '<div id="' + subtaskDescId + '" class="subtask-description-container hidden"><div class="subtask-description">' + preserveLineBreaks(subtask.description) + '</div></div>';
                             html += '</div>';
@@ -1539,12 +1644,12 @@ function writeMainEJS() {
                     const escapedNoteTitle = escapeHtml(note.title);
                     const escapedNoteDescription = escapeJsString(note.description || '');
                     
-                    html += '<div class="note-card"><div class="note-header"><div class="task-title-container" onclick="toggleDescription(\\'' + noteDescId + '\\')" oncontextmenu="event.preventDefault(); toggleNotePriorityMode(\\'' + note.noteId + '\\')"><i class="fas fa-chevron-right" id="' + noteDescId + '_icon"></i><span class="note-title">' + escapedNoteTitle + '</span></div>';
+                    html += '<div class="note-card colored-card" data-note-id="' + note.noteId + '" style="--card-color: ' + getCardGradient(note.noteId) + '"><div class="note-header"><div class="task-title-container" onclick="toggleDescription(\\'' + noteDescId + '\\')"><i class="fas fa-chevron-right" id="' + noteDescId + '_icon"></i><span class="note-title">' + escapedNoteTitle + '</span></div>';
                     
                     html += '<div class="task-actions-wrapper" id="note_actions_' + note.noteId + '">';
-                    html += '<div class="normal-btns"><button class="action-btn" onclick="openEditNoteModal(\\'' + note.noteId + '\\', \\'' + escapedNoteTitle.replace(/'/g, "\\\\'") + '\\', \\'' + escapedNoteDescription.replace(/'/g, "\\\\'") + '\\')"><i class="fas fa-pencil-alt"></i></button><button class="action-btn delete" onclick="deleteNote(\\'' + note.noteId + '\\')"><i class="fas fa-trash"></i></button></div>';
+                    html += '<div class="normal-btns"><span class="drag-handle" title="Drag to reorder"><i class="fas fa-grip-vertical"></i></span><button class="action-btn" onclick="openEditNoteModal(\\'' + note.noteId + '\\', \\'' + escapedNoteTitle.replace(/'/g, "\\\\'") + '\\', \\'' + escapedNoteDescription.replace(/'/g, "\\\\'") + '\\')"><i class="fas fa-pencil-alt"></i></button><button class="action-btn delete" onclick="deleteNote(\\'' + note.noteId + '\\')"><i class="fas fa-trash"></i></button></div>';
                     
-                    html += '<div class="priority-btns"><button class="action-btn" onclick="moveNote(\\'' + note.noteId + '\\', \\'up\\')"><i class="fas fa-arrow-up"></i></button><button class="action-btn" onclick="moveNote(\\'' + note.noteId + '\\', \\'down\\')"><i class="fas fa-arrow-down"></i></button></div></div></div>';
+                    html += '</div></div>';
                     
                     if (hasDescription) html += '<div id="' + noteDescId + '" class="note-content-container hidden"><div class="note-content">' + preserveLineBreaks(note.description) + '</div></div>';
                     html += '<div class="note-meta"><span><i class="fas fa-clock"></i> ' + note.createdAtIST + '</span>' + (note.updatedAtIST !== note.createdAtIST ? '<span><i class="fas fa-pencil-alt"></i> ' + note.updatedAtIST + '</span>' : '') + '</div></div>';
@@ -1568,7 +1673,7 @@ function writeMainEJS() {
                     if (date.includes('-') && date.split('-')[0].length === 4) {
                         const parts = date.split('-'); displayDateHeader = parts[2] + '-' + parts[1] + '-' + parts[0];
                     }
-                    html += '<div class="history-date-card"><details class="history-details">';
+                    html += '<div class="history-date-card colored-card" style="--card-color: ' + getCardGradient(date) + '"><details class="history-details">';
                     
                     const taskText = tasks.length === 1 ? '1 Task' : tasks.length + ' Tasks';
                     const dailyType = tasks.length > 0 ? (tasks[0].dailyType || 'WD') : 'WD';
@@ -1633,6 +1738,7 @@ function writeMainEJS() {
             document.getElementById('notifToggle').checked = globalAppVars.notifications;
             document.getElementById('alertsToggle').checked = globalAppVars.alerts;
             document.getElementById('remindersToggle').checked = globalAppVars.reminders;
+            document.getElementById('saveAutoCompletedToggle').checked = globalAppVars.saveAutoCompleted !== false;
             document.getElementById('themeToggle').checked = document.body.getAttribute('data-theme') === 'dark';
             openModal('settingsAppModal');
         }
@@ -1647,6 +1753,7 @@ function writeMainEJS() {
             globalAppVars.notifications = document.getElementById('notifToggle').checked;
             globalAppVars.alerts = document.getElementById('alertsToggle').checked;
             globalAppVars.reminders = document.getElementById('remindersToggle').checked;
+            globalAppVars.saveAutoCompleted = document.getElementById('saveAutoCompletedToggle').checked;
             fetch('/api/settings/update', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(globalAppVars) }).then(() => showToast('Success'));
         }
 
@@ -1809,7 +1916,7 @@ function writeMainEJS() {
 writeMainEJS();
 
 // ==========================================
-// 🗄️ DATABASE CONNECTION
+// ðŸ—„ï¸ DATABASE CONNECTION
 // ==========================================
 let db;
 let client;
@@ -1821,14 +1928,14 @@ async function connectDB() {
             client = new MongoClient(MONGODB_URI, { serverSelectionTimeoutMS: 5000, maxPoolSize: 10 });
             await client.connect();
             db = client.db('telegram_bot');
-            console.log('✅ Connected to MongoDB');
+            console.log('âœ… Connected to MongoDB');
             
             let s = await db.collection('settings').findOne({ _id: 'bot_config' });
             if (!s) {
                 await db.collection('settings').insertOne({ _id: 'bot_config', notifications: true, alerts: true, reminders: true, dailyType: null, dailyTypeDate: null });
                 globalSettings = { notifications: true, alerts: true, reminders: true, dailyType: null, dailyTypeDate: null };
             } else {
-                globalSettings = { notifications: s.notifications !== false, alerts: s.alerts !== false, reminders: s.reminders !== false, dailyType: s.dailyType, dailyTypeDate: s.dailyTypeDate };
+                globalSettings = { notifications: s.notifications !== false, alerts: s.alerts !== false, reminders: s.reminders !== false, dailyType: s.dailyType, dailyTypeDate: s.dailyTypeDate, saveAutoCompleted: s.saveAutoCompleted !== false };
             }
             
             const exists = await db.collection('grow').findOne({ type: 'tracker' });
@@ -1850,33 +1957,36 @@ function escapeHTML(str) {
 }
 
 // ==========================================
-// 🤖 BOT SETUP & CRON SCHEDULERS
+// ðŸ¤– BOT SETUP & CRON SCHEDULERS
 // ==========================================
 const bot = new Telegraf(BOT_TOKEN);
 
-// Auto-delete all sent messages after 1 hour (3,600,000 ms)
-const originalSendMessage = bot.telegram.sendMessage.bind(bot.telegram);
-bot.telegram.sendMessage = async function(chatId, text, extra) {
-    try {
-        const msg = await originalSendMessage(chatId, text, extra);
-        if (msg && msg.message_id && msg.chat && msg.chat.id) {
-            setTimeout(() => {
-                bot.telegram.deleteMessage(msg.chat.id, msg.message_id).catch(() => {});
-            }, 3600000);
-        }
-        return msg;
-    } catch(e) {
-        console.error("Failed to send message", e);
-    }
-};
+// Messages are NOT auto-deleted. /start command clears previous messages.
 
 const activeSchedules = new Map();
 let isShuttingDown = false;
 let lastHourlyMessageId = null;
+let sentMessageIds = []; // Track all sent message IDs for /start clear
+
+async function trackAndSend(chatId, text, extra) {
+    try {
+        const msg = await bot.telegram.sendMessage(chatId, text, extra);
+        if (msg && msg.message_id) sentMessageIds.push(msg.message_id);
+        return msg;
+    } catch(e) { console.error("Failed to send message", e); }
+}
+
+async function clearAllMessages() {
+    const toDelete = [...sentMessageIds];
+    sentMessageIds = [];
+    for (const msgId of toDelete) {
+        try { await bot.telegram.deleteMessage(CHAT_ID, msgId); } catch(e) {}
+    }
+}
 
 bot.use(async (ctx, next) => {
     if (ctx.from && ctx.from.id !== CHAT_ID) {
-        try { await ctx.reply('🚫 Admin has restricted new users to use the task manager bot.'); } catch(e){}
+        try { await ctx.reply('ðŸš« Admin has restricted new users to use the task manager bot.'); } catch(e){}
         return;
     }
     return next();
@@ -1887,43 +1997,53 @@ async function sendStartMenu(ctx) {
         const { pendingTasks, completedTasks, totalToday } = await getActiveTasksForToday();
         
         let percentage = 0;
-        let progressBar = '░░░░░░░░░░░░░░░░░░░░'; 
+        let progressBar = 'â–‘â–‘â–‘â–‘â–‘â–‘â–‘â–‘â–‘â–‘â–‘â–‘â–‘â–‘â–‘â–‘â–‘â–‘â–‘â–‘'; 
         
         if (totalToday > 0) {
             percentage = Math.round((completedTasks.length / totalToday) * 100);
             const filledCount = Math.floor(percentage / 5); 
-            progressBar = '█'.repeat(filledCount) + '░'.repeat(20 - filledCount);
+            progressBar = 'â–ˆ'.repeat(filledCount) + 'â–‘'.repeat(20 - filledCount);
         }
 
         let msg = `<i>Welcome, <b><a href="tg://user?id=${ctx.from.id}">${(ctx.from.username || ctx.from.first_name || 'Admin').toUpperCase()}</a></b>!</i>\n`;
         msg += `${progressBar} ${percentage}%\n`;
-        msg += `⚙️Completed: <i><b>${completedTasks.length}/${totalToday}</b></i> tasks.\n\n`;
+        msg += `âš™ï¸Completed: <i><b>${completedTasks.length}/${totalToday}</b></i> tasks.\n\n`;
         
         msg += `<blockquote expandable>`;
         if (totalToday === 0) {
             msg += `No tasks scheduled for today.`;
         } else {
-            completedTasks.forEach(t => msg += `✅ ${escapeHTML(t.title)} (${f12(t.startTimeStr)})\n`);
-            pendingTasks.forEach(t => msg += `❌ ${escapeHTML(t.title)} (${f12(t.startTimeStr)})\n`);
+            completedTasks.forEach(t => msg += `âœ… ${escapeHTML(t.title)} (${f12(t.startTimeStr)})\n`);
+            pendingTasks.forEach(t => msg += `âŒ ${escapeHTML(t.title)} (${f12(t.startTimeStr)})\n`);
         }
         msg += `</blockquote>\n`;
         
-        msg += `Notifications:  ${globalSettings.notifications ? '🔔 ON' : '🔕 OFF'}\n`;
-        msg += `Alerts : ${globalSettings.alerts ? '🔔 ON' : '🔕 OFF'}\n`;
-        msg += `Reminders : ${globalSettings.reminders ? '🔔 ON' : '🔕 OFF'}`;
+        msg += `Notifications:  ${globalSettings.notifications ? 'ðŸ”” ON' : 'ðŸ”• OFF'}\n`;
+        msg += `Alerts : ${globalSettings.alerts ? 'ðŸ”” ON' : 'ðŸ”• OFF'}\n`;
+        msg += `Reminders : ${globalSettings.reminders ? 'ðŸ”” ON' : 'ðŸ”• OFF'}`;
 
-        const kb = { inline_keyboard: [ [ { text: '🌐 Task Manager', web_app: { url: WEB_APP_URL } } ], [ { text: '⚙️ Settings', callback_data: 'open_settings' } ] ] };
+        const kb = { inline_keyboard: [ [ { text: 'ðŸŒ Task Manager', web_app: { url: WEB_APP_URL } } ], [ { text: 'âš™ï¸ Settings', callback_data: 'open_settings' } ] ] };
 
         if (ctx.callbackQuery) await ctx.editMessageText(msg, { parse_mode: 'HTML', reply_markup: kb });
-        else await ctx.reply(msg, { parse_mode: 'HTML', reply_markup: kb });
+        else {
+            const m = await ctx.reply(msg, { parse_mode: 'HTML', reply_markup: kb });
+            if (m && m.message_id) sentMessageIds.push(m.message_id);
+        }
     } catch (err) { console.error("Start Menu Error:", err); }
 }
 
 bot.command('start', async (ctx) => {
+    // Clear all previous bot messages
+    await clearAllMessages();
+    // Also delete the /start command message itself
+    try { await bot.telegram.deleteMessage(ctx.chat.id, ctx.message.message_id); } catch(e) {}
+    
     const istDateObj = getCurrentISTDisplay();
     if (globalSettings.dailyTypeDate !== istDateObj.displayDate) {
-        const kb = { inline_keyboard: [[{text:'💼 Working Day', callback_data:'set_wd_start'}, {text:'🏖️ Holiday', callback_data:'set_hol_start'}]] };
-        return ctx.reply(`Good Morning! 🌅\nIs today (${istDateObj.displayDate}) a Working Day or Holiday?`, {reply_markup: kb});
+        const kb = { inline_keyboard: [[{text:'ðŸ’¼ Working Day', callback_data:'set_wd_start'}, {text:'ðŸ–ï¸ Holiday', callback_data:'set_hol_start'}]] };
+        const m = await ctx.reply(`Good Morning! ðŸŒ…\nIs today (${istDateObj.displayDate}) a Working Day or Holiday?`, {reply_markup: kb});
+        if (m && m.message_id) sentMessageIds.push(m.message_id);
+        return;
     }
     return sendStartMenu(ctx);
 });
@@ -1932,13 +2052,13 @@ bot.action('open_settings', async (ctx) => {
     const gs = globalSettings;
     const kb = {
         inline_keyboard: [
-            [ { text: gs.notifications ? '🔔 Notifications: ON' : '🔕 Notifications: OFF', callback_data: 'tgl_notif' } ],
-            [ { text: gs.alerts ? '🔔 Alerts: ON' : '🔕 Alerts: OFF', callback_data: 'tgl_alerts' } ],
-            [ { text: gs.reminders ? '🔔 Reminders: ON' : '🔕 Reminders: OFF', callback_data: 'tgl_reminders' } ],
-            [ { text: '⬅️ Back', callback_data: 'back_start' }, { text: '🌐 Tasks', web_app: { url: WEB_APP_URL } } ]
+            [ { text: gs.notifications ? 'ðŸ”” Notifications: ON' : 'ðŸ”• Notifications: OFF', callback_data: 'tgl_notif' } ],
+            [ { text: gs.alerts ? 'ðŸ”” Alerts: ON' : 'ðŸ”• Alerts: OFF', callback_data: 'tgl_alerts' } ],
+            [ { text: gs.reminders ? 'ðŸ”” Reminders: ON' : 'ðŸ”• Reminders: OFF', callback_data: 'tgl_reminders' } ],
+            [ { text: 'â¬…ï¸ Back', callback_data: 'back_start' }, { text: 'ðŸŒ Tasks', web_app: { url: WEB_APP_URL } } ]
         ]
     };
-    await ctx.editMessageText('⚙️ <b>Bot Settings:</b>\n\n<i>Toggle your preferences below:</i>', { parse_mode: 'HTML', reply_markup: kb });
+    await ctx.editMessageText('âš™ï¸ <b>Bot Settings:</b>\n\n<i>Toggle your preferences below:</i>', { parse_mode: 'HTML', reply_markup: kb });
 });
 
 bot.action('back_start', sendStartMenu);
@@ -1959,7 +2079,7 @@ bot.action('set_wd_start', async ctx => {
     globalSettings.dailyType = 'WD';
     globalSettings.dailyTypeDate = istDateObj.displayDate;
     await db.collection('settings').updateOne({_id:'bot_config'}, {$set:{dailyType: 'WD', dailyTypeDate: istDateObj.displayDate}}, {upsert:true});
-    await ctx.editMessageText(`✅ Today (${istDateObj.displayDate}) successfully set as a Working Day (WD).`);
+    await ctx.editMessageText(`âœ… Today (${istDateObj.displayDate}) successfully set as a Working Day (WD).`);
     sendStartMenu(ctx);
 });
 
@@ -1968,7 +2088,7 @@ bot.action('set_hol_start', async ctx => {
     globalSettings.dailyType = 'HOL';
     globalSettings.dailyTypeDate = istDateObj.displayDate;
     await db.collection('settings').updateOne({_id:'bot_config'}, {$set:{dailyType: 'HOL', dailyTypeDate: istDateObj.displayDate}}, {upsert:true});
-    await ctx.editMessageText(`✅ Today (${istDateObj.displayDate}) successfully set as a Holiday (HOL).`);
+    await ctx.editMessageText(`âœ… Today (${istDateObj.displayDate}) successfully set as a Holiday (HOL).`);
     sendStartMenu(ctx);
 });
 
@@ -2009,9 +2129,9 @@ function scheduleTask(task) {
                 
                 let minsLeft = 10 - count;
                 if (minsLeft === 0) {
-                    try { await bot.telegram.sendMessage(CHAT_ID, `🚀 <b>START NOW:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} to ${f12(task.endTimeStr)}`, { parse_mode: 'HTML' }); } catch(e){}
+                    try { await bot.telegram.sendMessage(CHAT_ID, `ðŸš€ <b>START NOW:</b> ${escapeHTML(task.title)}\nðŸ•’ <b>Time:</b> ${f12(task.startTimeStr)} to ${f12(task.endTimeStr)}`, { parse_mode: 'HTML' }); } catch(e){}
                 } else {
-                    try { await bot.telegram.sendMessage(CHAT_ID, `🔔 <b>In ${minsLeft}m:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} to ${f12(task.endTimeStr)}`, { parse_mode: 'HTML' }); } catch(e){}
+                    try { await bot.telegram.sendMessage(CHAT_ID, `ðŸ”” <b>In ${minsLeft}m:</b> ${escapeHTML(task.title)}\nðŸ•’ <b>Time:</b> ${f12(task.startTimeStr)} to ${f12(task.endTimeStr)}`, { parse_mode: 'HTML' }); } catch(e){}
                 }
                 
                 count++;
@@ -2061,17 +2181,51 @@ function setupHourlyNotifications() {
 
             let percentage = Math.round((completedTasks.length / totalToday) * 100);
             const filledCount = Math.floor(percentage / 5);
-            let progressBar = '█'.repeat(filledCount) + '░'.repeat(20 - filledCount);
+            let progressBar = 'â–ˆ'.repeat(filledCount) + 'â–‘'.repeat(20 - filledCount);
             
             let msg = `${istDateObj.displayDate} - ${istDateObj.dayName}\n${progressBar} ${percentage}%\n`;
-            msg += `⚙️ Completed: <i><b>${completedTasks.length}/${totalToday}</b></i> tasks\n\n<blockquote expandable>`;
-            completedTasks.forEach(t => msg += `✅ ${escapeHTML(t.title)} (${f12(t.startTimeStr)})\n`);
-            pendingTasks.forEach(t => msg += `❌ ${escapeHTML(t.title)} (${f12(t.startTimeStr)})\n`);
+            msg += `âš™ï¸ Completed: <i><b>${completedTasks.length}/${totalToday}</b></i> tasks\n\n<blockquote expandable>`;
+            completedTasks.forEach(t => msg += `âœ… ${escapeHTML(t.title)} (${f12(t.startTimeStr)})\n`);
+            pendingTasks.forEach(t => msg += `âŒ ${escapeHTML(t.title)} (${f12(t.startTimeStr)})\n`);
             msg += `</blockquote>`;
 
             const sentMsg = await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' });
             if (sentMsg) lastHourlyMessageId = sentMsg.message_id;
         } catch (e) {}
+    });
+}
+
+// Daily 12:01 AM - Ask WD or Holiday
+function setupDailyQuestion() {
+    const rule = new schedule.RecurrenceRule();
+    rule.hour = 0; rule.minute = 1; rule.tz = 'Asia/Kolkata';
+    schedule.scheduleJob(rule, async function() {
+        if (isShuttingDown) return;
+        try {
+            const istDateObj = getCurrentISTDisplay();
+            const kb = { inline_keyboard: [[{text:'ðŸ’¼ Working Day', callback_data:'set_wd_start'}, {text:'ðŸ–ï¸ Holiday', callback_data:'set_hol_start'}]] };
+            const m = await bot.telegram.sendMessage(CHAT_ID, `ðŸŒ™ Good Morning!\nIs today (${istDateObj.displayDate}) a Working Day or Holiday?\n\n<i>If no choice is made by 12:00 PM, it will be set as Working Day automatically.</i>`, { parse_mode: 'HTML', reply_markup: kb });
+            if (m && m.message_id) sentMessageIds.push(m.message_id);
+        } catch(e) {}
+    });
+}
+
+// Daily 12:00 PM - Auto-set Working Day if not chosen
+function setupAutoWorkingDay() {
+    const rule = new schedule.RecurrenceRule();
+    rule.hour = 12; rule.minute = 0; rule.tz = 'Asia/Kolkata';
+    schedule.scheduleJob(rule, async function() {
+        if (isShuttingDown) return;
+        try {
+            const istDateObj = getCurrentISTDisplay();
+            if (globalSettings.dailyTypeDate !== istDateObj.displayDate) {
+                globalSettings.dailyType = 'WD';
+                globalSettings.dailyTypeDate = istDateObj.displayDate;
+                await db.collection('settings').updateOne({_id:'bot_config'}, {$set:{dailyType:'WD', dailyTypeDate: istDateObj.displayDate}}, {upsert:true});
+                const m = await bot.telegram.sendMessage(CHAT_ID, `â° No selection was made. Today (${istDateObj.displayDate}) has been automatically set as a <b>Working Day (WD)</b>.`, { parse_mode: 'HTML' });
+                if (m && m.message_id) sentMessageIds.push(m.message_id);
+            }
+        } catch(e) {}
     });
 }
 
@@ -2090,18 +2244,20 @@ function setupAutoCompletion() {
 
             for (const task of pendingTasks) {
                 const historySubtasks = (task.subtasks || []).map(s => ({ id: s.id, completed: s.completed }));
-                await db.collection('history').insertOne({
-                    taskId: task.taskId,
-                    completedAt: new Date(),
-                    completedDateStr: istDateObj.displayDate,
-                    completedTimeStr: istDateObj.displayTime,
-                    status: 'completed',
-                    dailyType: currentType,
-                    subtasks: historySubtasks
-                });
+                if (globalSettings.saveAutoCompleted !== false) {
+                    await db.collection('history').insertOne({
+                        taskId: task.taskId,
+                        completedAt: new Date(),
+                        completedDateStr: istDateObj.displayDate,
+                        completedTimeStr: istDateObj.displayTime,
+                        status: 'completed',
+                        dailyType: currentType,
+                        subtasks: historySubtasks
+                    });
+                }
             }
             if (pendingTasks.length > 0) {
-                try { await bot.telegram.sendMessage(CHAT_ID, `🌙 <b>Auto-completed</b> ${pendingTasks.length} tasks.\n🕒 <b>Time:</b> ${istDateObj.displayTime}\n📅 <b>Date:</b> ${istDateObj.displayDate}\n🗓 <b>Day:</b> ${istDateObj.dayName}\n`, { parse_mode: 'HTML' }); } catch(e){}
+                try { await bot.telegram.sendMessage(CHAT_ID, `ðŸŒ™ <b>Auto-completed</b> ${pendingTasks.length} tasks.\nðŸ•’ <b>Time:</b> ${istDateObj.displayTime}\nðŸ“… <b>Date:</b> ${istDateObj.displayDate}\nðŸ—“ <b>Day:</b> ${istDateObj.dayName}\n`, { parse_mode: 'HTML' }); } catch(e){}
             }
             await cleanExpiredTasks();
             
@@ -2115,7 +2271,7 @@ function setupAutoCompletion() {
 }
 
 // ==========================================
-// 🛠️ SHARED HISTORY HYDRATION TOOL
+// ðŸ› ï¸ SHARED HISTORY HYDRATION TOOL
 // ==========================================
 async function getHydratedHistory() {
     const historyList = await db.collection('history').find().sort({ completedAt: -1 }).limit(500).toArray();
@@ -2156,7 +2312,7 @@ async function getHydratedHistory() {
 }
 
 // ==========================================
-// 📱 WEB INTERFACE ROUTES
+// ðŸ“± WEB INTERFACE ROUTES
 // ==========================================
 app.post('/api/daily_status', async (req, res) => {
     try {
@@ -2235,7 +2391,7 @@ app.get('/api/page/:page', async (req, res) => {
 });
 
 // ==========================================
-// 🌱 GROW BACKEND ROUTES 
+// ðŸŒ± GROW BACKEND ROUTES 
 // ==========================================
 app.post('/api/grow', async (req, res) => {
     try {
@@ -2245,7 +2401,7 @@ app.post('/api/grow', async (req, res) => {
         await db.collection('grow').updateOne({ type: 'tracker' }, { $push: { items: item } }, { upsert: true });
         
         if(globalSettings.alerts) {
-            let msg = `🌱 <b>Grow Added</b>\n📌 <b>Title:</b> ${escapeHTML(item.title)}\n⏳ <b>Duration:</b> ${item.endCount} Days`;
+            let msg = `ðŸŒ± <b>Grow Added</b>\nðŸ“Œ <b>Title:</b> ${escapeHTML(item.title)}\nâ³ <b>Duration:</b> ${item.endCount} Days`;
             try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
         }
         res.json({ success: true });
@@ -2260,7 +2416,7 @@ app.post('/api/grow/:id/update', async (req, res) => {
         await db.collection('grow').updateOne({ type: 'tracker', 'items.id': id }, { $set: { 'items.$': updatedItem } });
         
         if(globalSettings.alerts) {
-            let msg = `✏️ <b>Grow Edited</b>\n📌 <b>Title:</b> ${escapeHTML(updatedItem.title)}`;
+            let msg = `âœï¸ <b>Grow Edited</b>\nðŸ“Œ <b>Title:</b> ${escapeHTML(updatedItem.title)}`;
             try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
         }
         res.json({ success: true });
@@ -2274,7 +2430,7 @@ app.post('/api/grow/:id/delete', async (req, res) => {
         await db.collection('grow').updateOne({ type: 'tracker' }, { $pull: { items: { id: req.params.id } } });
         
         if(globalSettings.alerts && item) {
-            let msg = `🗑️ <b>Grow Deleted</b>\n📌 <b>Title:</b> ${escapeHTML(item.title)}`;
+            let msg = `ðŸ—‘ï¸ <b>Grow Deleted</b>\nðŸ“Œ <b>Title:</b> ${escapeHTML(item.title)}`;
             try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
         }
         res.json({ success: true });
@@ -2290,7 +2446,7 @@ app.post('/api/grow/log', async (req, res) => {
             const tracker = await db.collection('grow').findOne({ type: 'tracker' });
             const item = tracker?.items.find(i => i.id === itemId);
             if(item) {
-                let msg = `📈 <b>Grow Logged</b>\n📌 <b>Title:</b> ${escapeHTML(item.title)}\n📅 <b>Date:</b> ${dateStr}\n🔢 <b>Value:</b> ${value}`;
+                let msg = `ðŸ“ˆ <b>Grow Logged</b>\nðŸ“Œ <b>Title:</b> ${escapeHTML(item.title)}\nðŸ“… <b>Date:</b> ${dateStr}\nðŸ”¢ <b>Value:</b> ${value}`;
                 try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
             }
         }
@@ -2299,7 +2455,7 @@ app.post('/api/grow/log', async (req, res) => {
 });
 
 // ==========================================
-// 🚀 TASKS / NOTES BACKEND ROUTES
+// ðŸš€ TASKS / NOTES BACKEND ROUTES
 // ==========================================
 app.get('/api/tasks/:taskId', async (req, res) => {
     try {
@@ -2333,7 +2489,7 @@ app.post('/api/tasks', async (req, res) => {
         try { scheduleTask(task); } catch(e){}
         
         if(globalSettings.alerts) {
-            let msg = `➕ <b>Task Added</b>\n📌 <b>Title:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} - ${f12(task.endTimeStr)}\n🔄 <b>Repeats:</b> ${repeatWks} Week(s)`;
+            let msg = `âž• <b>Task Added</b>\nðŸ“Œ <b>Title:</b> ${escapeHTML(task.title)}\nðŸ•’ <b>Time:</b> ${f12(task.startTimeStr)} - ${f12(task.endTimeStr)}\nðŸ”„ <b>Repeats:</b> ${repeatWks} Week(s)`;
             try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
         }
         res.json({success: true});
@@ -2362,7 +2518,7 @@ app.post('/api/tasks/:taskId/update', async (req, res) => {
         if (t) {
             try { scheduleTask(t); } catch(e){}
             if(globalSettings.alerts) {
-                let msg = `✏️ <b>Task Edited</b>\n📌 <b>Title:</b> ${escapeHTML(t.title)}\n🕒 <b>Time:</b> ${f12(t.startTimeStr)} - ${f12(t.endTimeStr)}`;
+                let msg = `âœï¸ <b>Task Edited</b>\nðŸ“Œ <b>Title:</b> ${escapeHTML(t.title)}\nðŸ•’ <b>Time:</b> ${f12(t.startTimeStr)} - ${f12(t.endTimeStr)}`;
                 try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
             }
         }
@@ -2391,7 +2547,7 @@ app.post('/api/tasks/:taskId/complete', async (req, res) => {
         });
         
         if(globalSettings.alerts) {
-            let msg = `✅ <b>Task Completed</b>\n📌 <b>Title:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} - ${f12(task.endTimeStr)}`;
+            let msg = `âœ… <b>Task Completed</b>\nðŸ“Œ <b>Title:</b> ${escapeHTML(task.title)}\nðŸ•’ <b>Time:</b> ${f12(task.startTimeStr)} - ${f12(task.endTimeStr)}`;
             try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
         }
         res.json({success: true});
@@ -2424,7 +2580,7 @@ app.post('/api/tasks/:taskId/delete', async (req, res) => {
             await db.collection('tasks').deleteOne({ taskId: req.params.taskId });
             
             if(globalSettings.alerts) {
-                let msg = `🗑️ <b>Task Deleted</b>\n📌 <b>Title:</b> ${escapeHTML(t.title)}`;
+                let msg = `ðŸ—‘ï¸ <b>Task Deleted</b>\nðŸ“Œ <b>Title:</b> ${escapeHTML(t.title)}`;
                 try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
             }
         }
@@ -2440,7 +2596,7 @@ app.post('/api/tasks/:taskId/subtasks', async (req, res) => {
         if(globalSettings.alerts) {
             const parent = await db.collection('tasks').findOne({taskId: req.params.taskId});
             if(parent) {
-                let msg = `➕ <b>Subtask Added</b>\n📂 <b>Task:</b> ${escapeHTML(parent.title)}\n📌 <b>Subtask:</b> ${escapeHTML(req.body.title.trim())}`;
+                let msg = `âž• <b>Subtask Added</b>\nðŸ“‚ <b>Task:</b> ${escapeHTML(parent.title)}\nðŸ“Œ <b>Subtask:</b> ${escapeHTML(req.body.title.trim())}`;
                 try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
             }
         }
@@ -2456,7 +2612,7 @@ app.post('/api/tasks/:taskId/subtasks/:subtaskId/update', async (req, res) => {
         if(globalSettings.alerts) {
             const parent = await db.collection('tasks').findOne({taskId: req.params.taskId});
             if(parent) {
-                let msg = `✏️ <b>Subtask Edited</b>\n📂 <b>Task:</b> ${escapeHTML(parent.title)}\n📌 <b>Subtask:</b> ${escapeHTML(req.body.title.trim())}`;
+                let msg = `âœï¸ <b>Subtask Edited</b>\nðŸ“‚ <b>Task:</b> ${escapeHTML(parent.title)}\nðŸ“Œ <b>Subtask:</b> ${escapeHTML(req.body.title.trim())}`;
                 try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
             }
         }
@@ -2471,7 +2627,7 @@ app.post('/api/tasks/:taskId/subtasks/:subtaskId/toggle', async (req, res) => {
         await db.collection('tasks').updateOne({ taskId: req.params.taskId, "subtasks.id": req.params.subtaskId }, { $set: { "subtasks.$.completed": !sub.completed } });
         
         if(globalSettings.alerts) {
-            let msg = `${!sub.completed ? '✅' : '🔄'} <b>Subtask Toggled</b>\n📂 <b>Task:</b> ${escapeHTML(task.title)}\n📌 <b>Subtask:</b> ${escapeHTML(sub.title)}`;
+            let msg = `${!sub.completed ? 'âœ…' : 'ðŸ”„'} <b>Subtask Toggled</b>\nðŸ“‚ <b>Task:</b> ${escapeHTML(task.title)}\nðŸ“Œ <b>Subtask:</b> ${escapeHTML(sub.title)}`;
             try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
         }
         res.json({success: true});
@@ -2488,10 +2644,46 @@ app.post('/api/tasks/:taskId/subtasks/:subtaskId/delete', async (req, res) => {
         else await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { $pull: { subtasks: { id: req.params.subtaskId } } });
         
         if(globalSettings.alerts && subtask) {
-            let msg = `🗑️ <b>Subtask Deleted</b>\n📂 <b>Task:</b> ${escapeHTML(task.title)}\n📌 <b>Subtask:</b> ${escapeHTML(subtask.title)}`;
+            let msg = `ðŸ—‘ï¸ <b>Subtask Deleted</b>\nðŸ“‚ <b>Task:</b> ${escapeHTML(task.title)}\nðŸ“Œ <b>Subtask:</b> ${escapeHTML(subtask.title)}`;
             try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
         }
         res.json({success: true});
+    } catch (error) { res.status(500).send(error.message); }
+});
+
+app.post('/api/tasks/reorder', async (req, res) => {
+    try {
+        const { orderedIds } = req.body;
+        if (!orderedIds || !Array.isArray(orderedIds)) return res.status(400).send('Invalid');
+        for (let i = 0; i < orderedIds.length; i++) {
+            await db.collection('tasks').updateOne({ taskId: orderedIds[i] }, { $set: { orderIndex: i } });
+        }
+        res.json({ success: true });
+    } catch (error) { res.status(500).send(error.message); }
+});
+
+app.post('/api/notes/reorder', async (req, res) => {
+    try {
+        const { orderedIds } = req.body;
+        if (!orderedIds || !Array.isArray(orderedIds)) return res.status(400).send('Invalid');
+        for (let i = 0; i < orderedIds.length; i++) {
+            await db.collection('notes').updateOne({ noteId: orderedIds[i] }, { $set: { orderIndex: i } });
+        }
+        res.json({ success: true });
+    } catch (error) { res.status(500).send(error.message); }
+});
+
+app.post('/api/tasks/:taskId/subtasks/reorder', async (req, res) => {
+    try {
+        const { orderedIds } = req.body;
+        if (!orderedIds || !Array.isArray(orderedIds)) return res.status(400).send('Invalid');
+        const task = await db.collection('tasks').findOne({ taskId: req.params.taskId });
+        if (!task) return res.status(404).send('Not found');
+        const subtaskMap = {};
+        (task.subtasks || []).forEach(s => subtaskMap[s.id] = s);
+        const reordered = orderedIds.map(id => subtaskMap[id]).filter(Boolean);
+        await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { $set: { subtasks: reordered } });
+        res.json({ success: true });
     } catch (error) { res.status(500).send(error.message); }
 });
 
@@ -2513,7 +2705,7 @@ app.post('/api/notes', async (req, res) => {
         await db.collection('notes').insertOne({ noteId: generateId('n'), title: req.body.title.trim(), description: req.body.description || '', createdAt: new Date(), updatedAt: new Date(), orderIndex: await db.collection('notes').countDocuments() });
         
         if(globalSettings.alerts) {
-            let msg = `📝 <b>Note Added</b>\n📌 <b>Title:</b> ${escapeHTML(req.body.title.trim())}`;
+            let msg = `ðŸ“ <b>Note Added</b>\nðŸ“Œ <b>Title:</b> ${escapeHTML(req.body.title.trim())}`;
             try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
         }
         res.json({success: true});
@@ -2526,7 +2718,7 @@ app.post('/api/notes/:noteId/update', async (req, res) => {
         await db.collection('notes').updateOne({ noteId: req.params.noteId }, { $set: { title: req.body.title.trim(), description: req.body.description || '', updatedAt: new Date() } });
         
         if(globalSettings.alerts) {
-            let msg = `✏️ <b>Note Edited</b>\n📌 <b>Title:</b> ${escapeHTML(req.body.title.trim())}`;
+            let msg = `âœï¸ <b>Note Edited</b>\nðŸ“Œ <b>Title:</b> ${escapeHTML(req.body.title.trim())}`;
             try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
         }
         res.json({success: true});
@@ -2539,7 +2731,7 @@ app.post('/api/notes/:noteId/delete', async (req, res) => {
         await db.collection('notes').deleteOne({ noteId: req.params.noteId });
         
         if(globalSettings.alerts && doc) {
-            let msg = `🗑️ <b>Note Deleted</b>\n📌 <b>Title:</b> ${escapeHTML(doc.title)}`;
+            let msg = `ðŸ—‘ï¸ <b>Note Deleted</b>\nðŸ“Œ <b>Title:</b> ${escapeHTML(doc.title)}`;
             try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
         }
         res.json({success: true});
@@ -2562,7 +2754,7 @@ app.post('/api/notes/:noteId/move', async (req, res) => {
 });
 
 // ==========================================
-// 🚀 BOOTSTRAP
+// ðŸš€ BOOTSTRAP
 // ==========================================
 async function start() {
     try {
@@ -2571,14 +2763,16 @@ async function start() {
             await rescheduleAllPending();
             setupHourlyNotifications();
             setupAutoCompletion();
+            setupDailyQuestion();
+            setupAutoWorkingDay();
             
             app.listen(PORT, '0.0.0.0', () => {
-                console.log('🌐 Web interface running on port ' + PORT);
-                console.log('🕐 IST Time: ' + getCurrentISTDisplay().dateTime);
+                console.log('ðŸŒ Web interface running on port ' + PORT);
+                console.log('ðŸ• IST Time: ' + getCurrentISTDisplay().dateTime);
             });
             
             await bot.launch();
-            console.log('🤖 Bot Started Successfully!');
+            console.log('ðŸ¤– Bot Started Successfully!');
         } else {
             setTimeout(start, 5000);
         }
