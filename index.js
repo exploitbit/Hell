@@ -6,7 +6,7 @@ const path = require('path');
 const fs = require('fs');
 
 // ==========================================
-// âš™ï¸ CONFIGURATION
+// ⚙️ CONFIGURATION
 // ==========================================
 const BOT_TOKEN = '8620233151:AAErK3SxDjdPWYd2RFafQ_-tGg8_mAOuocI';
 const MONGODB_URI = 'mongodb+srv://sandip:9E9AISFqTfU3VI5i@cluster0.p8irtov.mongodb.net/telegram_bot';
@@ -29,7 +29,7 @@ if (!fs.existsSync(viewsDir)) fs.mkdirSync(viewsDir, { recursive: true });
 let globalSettings = { notifications: true, alerts: true, reminders: true, dailyType: null, dailyTypeDate: null, saveAutoCompleted: true };
 
 // ==========================================
-// ðŸ• TIMEZONE & UTILITIES
+// 🕐 TIMEZONE & UTILITIES
 // ==========================================
 function istToUTC(istDate, istTime) {
     if (!istDate || !istTime) return null;
@@ -76,7 +76,7 @@ function f12(timeStr) {
 function generateId(type = 'task') { return type.charAt(0) + Math.random().toString(36).substring(2, 10); }
 
 // ==========================================
-// ðŸ”„ TASK LIFECYCLE MANAGEMENT
+// 🔄 TASK LIFECYCLE MANAGEMENT
 // ==========================================
 async function cleanExpiredTasks() {
     const istDateObj = getCurrentISTDisplay();
@@ -134,7 +134,7 @@ async function getActiveTasksForToday() {
 }
 
 // ==========================================
-// ðŸŽ¨ EJS TEMPLATE GENERATOR
+// 🎨 EJS TEMPLATE GENERATOR
 // ==========================================
 function writeMainEJS() {
     const mainEJS = `<!DOCTYPE html>
@@ -186,7 +186,7 @@ function writeMainEJS() {
         body[data-theme="light"] .app-header { background: var(--card-bg-light); border-color: var(--border-light); color: var(--text-primary-light); }
 
         .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-        .header-title { font-weight: 600; font-size: 1.1rem; text-transform: capitalize; }
+        .header-title { font-weight: 600; font-size: 1.1rem; text-transform: capitalize; display: flex; align-items: center; }
         .header-icon { font-size: 1.2rem; cursor: pointer; color: var(--accent-light); padding: 4px; }
         
         .nav-links { display: flex; gap: 2px; background: var(--hover-light); padding: 3px; border-radius: 100px; width: 100%; justify-content: space-between;}
@@ -203,7 +203,7 @@ function writeMainEJS() {
         
         .main-content { max-width: 1400px; margin: 16px auto; padding: 0 16px; padding-bottom: 80px; }
 
-        .action-btn { width: 28px; height: 28px; border-radius: 8px; border: none; background: var(--hover-light); color: var(--text-secondary-light); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; font-size: 0.9rem; }
+        .action-btn { width: 28px; height: 28px; border-radius: 8px; border: none; background: var(--hover-light); color: var(--text-secondary-light); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; font-size: 0.9rem; z-index: 2; position: relative;}
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .action-btn { background: var(--hover-dark); color: var(--text-secondary-dark); } }
         body[data-theme="dark"] .action-btn { background: var(--hover-dark); color: var(--text-secondary-dark); }
         body[data-theme="light"] .action-btn { background: var(--hover-light); color: var(--text-secondary-light); }
@@ -245,7 +245,7 @@ function writeMainEJS() {
         body[data-theme="dark"] .glass-content { background: rgba(30, 41, 59, 0.65); border-color: rgba(255, 255, 255, 0.1); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5); color: #f8fafc; }
 
         #settingsAppModal { align-items: flex-start !important; justify-content: flex-end !important; background: transparent !important; backdrop-filter: none !important; padding-top: 55px; padding-right: 12px; }
-        #settingsAppModal .modal-content { width: 170px; max-width: 170px; margin: 0; padding: 12px; border-radius: 16px; box-shadow: 0 8px 25px rgba(0,0,0,0.15); transform-origin: top right; animation: dropdownPop 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
+        #settingsAppModal .modal-content { width: 180px; max-width: 180px; margin: 0; padding: 12px; border-radius: 16px; box-shadow: 0 8px 25px rgba(0,0,0,0.15); transform-origin: top right; animation: dropdownPop 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
         body[data-theme="dark"] #settingsAppModal .modal-content { box-shadow: 0 8px 25px rgba(0,0,0,0.5); }
         @keyframes dropdownPop { from { opacity: 0; transform: scale(0.9) translateY(-10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
 
@@ -258,9 +258,9 @@ function writeMainEJS() {
         .settings-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border-light); }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .settings-row { border-color: var(--border-dark); } }
         .settings-row:last-child { border-bottom: none; }
-        .settings-label { font-size: 0.95rem; font-weight: 500; }
+        .settings-label { font-size: 0.9rem; font-weight: 500; }
 
-        .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+        .switch { position: relative; display: inline-block; width: 44px; height: 24px; flex-shrink: 0;}
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #cbd5e1; transition: .4s; border-radius: 34px; }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .slider { background-color: var(--border-dark); } }
@@ -283,18 +283,19 @@ function writeMainEJS() {
 
         /* TASKS CSS */
         .tasks-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
-        .task-card { background: var(--card-bg-light); border: 1px solid var(--border-light); border-radius: 16px; padding: 14px; transition: all 0.2s ease; word-wrap: break-word; overflow-wrap: break-word; }
+        .task-card { background: var(--card-bg-light); border: 1px solid var(--border-light); border-radius: 16px; padding: 14px; transition: all 0.2s ease; word-wrap: break-word; overflow-wrap: break-word; position: relative; cursor: pointer; }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .task-card { background: var(--card-bg-dark); border: 1px solid var(--border-dark); } }
         body[data-theme="dark"] .task-card { background: var(--card-bg-dark); border-color: var(--border-dark); color: var(--text-primary-dark); }
         body[data-theme="light"] .task-card { background: var(--card-bg-light); border-color: var(--border-light); color: var(--text-primary-light); }
         .task-card.colored-card { background: var(--card-color, var(--card-bg-light)) !important; border-color: transparent !important; }
-        .drag-handle { cursor: grab; color: var(--text-secondary-light); padding: 2px 4px; font-size: 0.9rem; touch-action: none; }
-        body[data-theme="dark"] .drag-handle { color: var(--text-secondary-dark); }
+        
+        /* Drag styles */
         .sortable-ghost { opacity: 0.4; }
-        .sortable-drag { opacity: 0.9; }
+        .sortable-drag { opacity: 0.9; cursor: grabbing !important; transform: scale(1.02); box-shadow: 0 10px 20px rgba(0,0,0,0.15); z-index: 100; }
+        body[data-theme="dark"] .sortable-drag { box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
 
-        .task-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; width: 100%; }
-        .task-title-section { flex: 1; min-width: 0; }
+        .task-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; width: 100%; position: relative; z-index: 2; pointer-events: none; }
+        .task-title-section { flex: 1; min-width: 0; pointer-events: auto; }
         .task-title-container { display: flex; align-items: center; gap: 8px; cursor: pointer; }
         .task-title-container i { font-size: 0.85rem; color: var(--accent-light); }
         
@@ -303,19 +304,19 @@ function writeMainEJS() {
         body[data-theme="dark"] .task-title { color: var(--text-primary-dark); }
         body[data-theme="light"] .task-title { color: var(--text-primary-light); }
         
-        .task-description-container { margin: 8px 0 4px 0; width: 100%; }
+        .task-description-container { margin: 8px 0 4px 0; width: 100%; position: relative; z-index: 2; pointer-events: auto; }
         .task-description { font-size: 0.85rem; color: var(--text-secondary-light); padding: 6px 8px; background: var(--hover-light); border-radius: 10px; border-left: 3px solid var(--accent-light); word-break: break-word; white-space: pre-wrap; width: 100%; box-sizing: border-box; line-height: 1.4; }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .task-description { color: var(--text-secondary-dark); background: var(--hover-dark); } }
         body[data-theme="dark"] .task-description { background: var(--hover-dark); color: var(--text-secondary-dark); }
         body[data-theme="light"] .task-description { background: var(--hover-light); color: var(--text-secondary-light); }
 
-        .task-time-row { display: flex; justify-content: space-between; align-items: center; width: 100%; margin: 8px 0 4px 0; }
+        .task-time-row { display: flex; justify-content: space-between; align-items: center; width: 100%; margin: 8px 0 4px 0; position: relative; z-index: 2; pointer-events: none;}
         .date-chip, .time-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; background: var(--hover-light); border-radius: 100px; font-size: 0.8rem; color: var(--text-secondary-light); width: fit-content; }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .date-chip, body:not([data-theme="light"]) .time-chip { background: var(--hover-dark); color: var(--text-secondary-dark); } }
         body[data-theme="dark"] .date-chip, body[data-theme="dark"] .time-chip { background: var(--hover-dark); color: var(--text-secondary-dark); }
         body[data-theme="light"] .date-chip, body[data-theme="light"] .time-chip { background: var(--hover-light); color: var(--text-secondary-light); }
 
-        .task-actions-wrapper { display: flex; gap: 4px; flex-shrink: 0; }
+        .task-actions-wrapper { display: flex; gap: 4px; flex-shrink: 0; pointer-events: auto; }
         .normal-btns, .priority-btns { display: flex; gap: 4px; }
         .priority-btns { display: none; }
         .priority-mode .normal-btns { display: none; }
@@ -326,32 +327,32 @@ function writeMainEJS() {
         .progress-text-small { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 0.7rem; color: var(--accent-light); font-weight: 600; }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .progress-text-small { color: var(--accent-dark); } }
         
-        .subtasks-container { margin-top: 10px; border-top: 1px solid var(--border-light); padding-top: 10px; width: 100%; }
+        .subtasks-container { margin-top: 10px; border-top: 1px solid var(--border-light); padding-top: 10px; width: 100%; position: relative; z-index: 2; pointer-events: auto;}
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .subtasks-container { border-top-color: var(--border-dark); } }
         
-        .subtask-item { display: flex; flex-direction: column; background: var(--hover-light); border-radius: 10px; margin-bottom: 6px; padding: 6px; width: 100%; }
+        .subtask-item { display: flex; flex-direction: column; background: var(--hover-light); border-radius: 10px; margin-bottom: 6px; padding: 6px; width: 100%; cursor: pointer;}
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .subtask-item { background: var(--hover-dark); } }
         body[data-theme="dark"] .subtask-item { background: var(--hover-dark); color: var(--text-secondary-dark); }
         body[data-theme="light"] .subtask-item { background: var(--hover-light); color: var(--text-secondary-light); }
 
-        .subtask-main-row { display: flex; align-items: flex-start; gap: 8px; width: 100%; }
-        .subtask-checkbox { width: 20px; height: 20px; border-radius: 6px; border: 2px solid var(--accent-light); background: transparent; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; color: white; font-size: 0.75rem; flex-shrink: 0; margin-top: 1px; }
+        .subtask-main-row { display: flex; align-items: flex-start; gap: 8px; width: 100%; pointer-events: none;}
+        .subtask-checkbox { width: 20px; height: 20px; border-radius: 6px; border: 2px solid var(--accent-light); background: transparent; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; color: white; font-size: 0.75rem; flex-shrink: 0; margin-top: 1px; pointer-events: auto;}
         .subtask-checkbox.completed { background: var(--success-light); border-color: var(--success-light); }
-        .subtask-details { flex: 1; min-width: 0; }
+        .subtask-details { flex: 1; min-width: 0; pointer-events: auto;}
         
         .subtask-title { color: var(--text-primary-light); margin-bottom: 2px; font-size: 0.95rem; font-weight: 500; word-break: break-word; cursor: pointer; user-select: none; }
         .subtask-title.completed { text-decoration: line-through; color: var(--text-secondary-light); opacity: 0.7; }
         body[data-theme="dark"] .subtask-title { color: var(--text-primary-dark); }
         body[data-theme="light"] .subtask-title { color: var(--text-primary-light); }
 
-        .subtask-btn { width: 26px; height: 26px; border-radius: 6px; border: none; background: var(--card-bg-light); color: var(--text-secondary-light); cursor: pointer; transition: all 0.2s ease; font-size: 0.85rem; display: flex; align-items: center; justify-content: center; }
+        .subtask-btn { width: 26px; height: 26px; border-radius: 6px; border: none; background: var(--card-bg-light); color: var(--text-secondary-light); cursor: pointer; transition: all 0.2s ease; font-size: 0.85rem; display: flex; align-items: center; justify-content: center; pointer-events: auto;}
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .subtask-btn { background: var(--card-bg-dark); color: var(--text-secondary-dark); } }
         body[data-theme="dark"] .subtask-btn { background: var(--card-bg-dark); border-color: var(--border-dark); color: var(--text-primary-dark); }
         body[data-theme="light"] .subtask-btn { background: var(--card-bg-light); border-color: var(--border-light); color: var(--text-primary-light); }
         .subtask-btn:hover { background: var(--accent-light); color: white; }
         .subtask-btn.delete:hover { background: var(--danger-light); }
         
-        .subtask-description-container { margin-top: 6px; margin-left: 28px; width: calc(100% - 28px); }
+        .subtask-description-container { margin-top: 6px; margin-left: 28px; width: calc(100% - 28px); pointer-events: auto;}
         .subtask-description { font-size: 0.8rem; color: var(--text-secondary-light); padding: 4px 6px; background: var(--card-bg-light); border-radius: 8px; border-left: 2px solid var(--accent-light); word-break: break-word; white-space: pre-wrap; width: 100%; box-sizing: border-box; line-height: 1.4; }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .subtask-description { background: var(--card-bg-dark); color: var(--text-secondary-dark); } }
 
@@ -500,23 +501,23 @@ function writeMainEJS() {
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .history-subtask { border-left-color: var(--border-dark); } }
 
         /* NOTES CSS */
-        .note-card { margin-bottom: 12px; background: var(--card-bg-light); border: 1px solid var(--border-light); border-radius: 16px; padding: 14px; transition: all 0.2s ease; word-wrap: break-word; overflow-wrap: break-word; }
+        .note-card { margin-bottom: 12px; background: var(--card-bg-light); border: 1px solid var(--border-light); border-radius: 16px; padding: 14px; transition: all 0.2s ease; word-wrap: break-word; overflow-wrap: break-word; cursor: pointer; position: relative;}
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .note-card { background: var(--card-bg-dark); border: 1px solid var(--border-dark); } }
         body[data-theme="dark"] .note-card { background: var(--card-bg-dark); border-color: var(--border-dark); color: var(--text-primary-dark); }
         body[data-theme="light"] .note-card { background: var(--card-bg-light); border-color: var(--border-light); color: var(--text-primary-light); }
         .note-card.colored-card { background: var(--card-color, var(--card-bg-light)) !important; border-color: transparent !important; }
 
-        .note-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; width: 100%; }
-        .note-title { font-size: 1.1rem; font-weight: 600; color: var(--text-primary-light); word-break: break-word; flex: 1; cursor: pointer; user-select: none; }
+        .note-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; width: 100%; position: relative; z-index: 2; pointer-events: none; }
+        .note-title { font-size: 1.1rem; font-weight: 600; color: var(--text-primary-light); word-break: break-word; flex: 1; cursor: pointer; user-select: none; pointer-events: auto;}
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .note-title { color: var(--text-primary-dark); } }
         body[data-theme="dark"] .note-title { color: var(--text-primary-dark); }
         body[data-theme="light"] .note-title { color: var(--text-primary-light); }
 
-        .note-content-container { margin: 4px 0 8px 0; width: 100%; }
+        .note-content-container { margin: 4px 0 8px 0; width: 100%; position: relative; z-index: 2; pointer-events: auto;}
         .note-content { font-size: 0.85rem; color: var(--text-secondary-light); padding: 6px 8px; background: var(--hover-light); border-radius: 10px; border-left: 3px solid var(--accent-light); word-break: break-word; white-space: pre-wrap; width: 100%; box-sizing: border-box; line-height: 1.4; }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .note-content { color: var(--text-secondary-dark); background: var(--hover-dark); } }
         
-        .note-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-light); font-size: 0.75rem; color: var(--text-secondary-light); }
+        .note-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-light); font-size: 0.75rem; color: var(--text-secondary-light); position: relative; z-index: 2;}
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .note-meta { border-top-color: var(--border-dark); color: var(--text-secondary-dark); } }
 
     </style>
@@ -527,7 +528,12 @@ function writeMainEJS() {
     <div class="app-header">
         <div class="header-top">
             <div class="header-icon" onclick="switchPage('tasks')"><i class="fas fa-tasks"></i></div>
-            <div class="header-title" id="pageTitleDisplay"><%= currentPage %><% if(currentPage === 'tasks' && globalSettings.dailyType) { %> <span style="font-size:0.75rem; font-weight:600; padding:2px 7px; border-radius:20px; background:<%= globalSettings.dailyType === 'WD' ? '#2563eb' : '#dc2626' %>; color:white; letter-spacing:1px; margin-left:4px; vertical-align: middle;"><%= globalSettings.dailyType %></span><% } %></div>
+            <div class="header-title" id="pageTitleDisplay">
+                <%= currentPage.charAt(0).toUpperCase() + currentPage.slice(1) %>
+                <% if(currentPage === 'tasks' && globalSettings.dailyType) { %> 
+                    <span style="font-size:0.75rem; font-weight:600; padding:2px 7px; border-radius:20px; background:<%= globalSettings.dailyType === 'WD' ? '#2563eb' : '#dc2626' %>; color:white; letter-spacing:1px; margin-left:4px; vertical-align: middle;"><%= globalSettings.dailyType %></span>
+                <% } %>
+            </div>
             <div class="header-icon" onclick="event.stopPropagation(); openSettingsModal()"><i class="fas fa-cog"></i></div>
         </div>
         <div class="nav-links">
@@ -557,8 +563,8 @@ function writeMainEJS() {
             <h2 style="font-size:1.5rem; margin-bottom:8px;">Good Morning!</h2>
             <p style="color:var(--text-secondary-light); margin-bottom:24px; font-size:1rem;">Is today a Working Day or a Holiday?</p>
             <div style="display:flex; gap:16px; flex-wrap:wrap;">
-                <button class="btn btn-primary" style="flex:1; min-width:130px; padding:14px; font-size:1rem;" onclick="setDailyStatus('WD')">ðŸ’¼ Working Day</button>
-                <button class="btn btn-secondary" style="flex:1; min-width:130px; padding:14px; font-size:1rem; background:var(--danger-light); color:white;" onclick="setDailyStatus('HOL')">ðŸ–ï¸ Holiday</button>
+                <button class="btn btn-primary" style="flex:1; min-width:130px; padding:14px; font-size:1rem;" onclick="setDailyStatus('WD')">💼 Working Day</button>
+                <button class="btn btn-secondary" style="flex:1; min-width:130px; padding:14px; font-size:1rem; background:var(--danger-light); color:white;" onclick="setDailyStatus('HOL')">🏖️ Holiday</button>
             </div>
         </div>
     </div>
@@ -582,7 +588,7 @@ function writeMainEJS() {
                 <label class="switch"><input type="checkbox" id="remindersToggle" onchange="updateSettings()"><span class="slider"></span></label>
             </div>
             <div class="settings-row">
-                <span class="settings-label">Save Auto-completed</span>
+                <span class="settings-label">Auto complete (enable / disabled)</span>
                 <label class="switch"><input type="checkbox" id="saveAutoCompletedToggle" onchange="updateSettings()"><span class="slider"></span></label>
             </div>
         </div>
@@ -882,7 +888,15 @@ function writeMainEJS() {
         function switchPage(page) {
             currentPage = page;
             updateActiveNav(); 
-            document.getElementById('pageTitleDisplay').innerText = page;
+            
+            // Generate Header Title with dynamic WD/HOL Tag at the top
+            let titleText = page.charAt(0).toUpperCase() + page.slice(1);
+            if (page === 'tasks' && dailyTypeSaved) {
+                const bgStr = dailyTypeSaved === 'WD' ? '#2563eb' : '#dc2626';
+                titleText += ' <span style="font-size:0.75rem; font-weight:600; padding:2px 7px; border-radius:20px; background:' + bgStr + '; color:white; letter-spacing:1px; margin-left:4px; vertical-align: middle;">' + dailyTypeSaved + '</span>';
+            }
+            document.getElementById('pageTitleDisplay').innerHTML = titleText;
+            
             renderPage(); 
             
             fetch('/api/page/' + page).then(async res => {
@@ -943,7 +957,7 @@ function writeMainEJS() {
             return str.replace(/\\\\/g, '\\\\\\\\').replace(/'/g, "\\\\'").replace(/"/g, '\\\\"').replace(/\\n/g, '\\\\n').replace(/\\r/g, '\\\\r').replace(/\\t/g, '\\\\t');
         }
         // ==========================================
-        // ðŸŽ¨ RANDOM GRADIENT COLORS FOR CARDS
+        // 🎨 RANDOM GRADIENT COLORS FOR CARDS
         // ==========================================
         const cardGradients = [
             'linear-gradient(135deg, rgba(239,68,68,0.13) 0%, rgba(251,146,60,0.13) 100%)',
@@ -966,7 +980,7 @@ function writeMainEJS() {
         }
 
         // ==========================================
-        // ðŸ”€ SORTABLEJS DRAG-AND-DROP INIT
+        // 🔀 SORTABLEJS DRAG-AND-DROP INIT
         // ==========================================
         let taskSortable = null;
         let noteSortable = null;
@@ -977,8 +991,11 @@ function writeMainEJS() {
             if (!grid || typeof Sortable === 'undefined') return;
             if (taskSortable) taskSortable.destroy();
             taskSortable = Sortable.create(grid, {
-                handle: '.drag-handle',
-                animation: 150,
+                delay: 600,
+                delayOnTouchOnly: false,
+                touchStartThreshold: 5,
+                animation: 250,
+                easing: "cubic-bezier(0.25, 1, 0.5, 1)",
                 ghostClass: 'sortable-ghost',
                 dragClass: 'sortable-drag',
                 onEnd: function(evt) {
@@ -986,7 +1003,6 @@ function writeMainEJS() {
                     const newIndex = evt.newIndex;
                     const oldIndex = evt.oldIndex;
                     if (newIndex === oldIndex) return;
-                    // Build new order from DOM
                     const allCards = grid.querySelectorAll('.task-card[data-task-id]');
                     const orderedIds = Array.from(allCards).map(el => el.dataset.taskId);
                     fetch('/api/tasks/reorder', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ orderedIds }) })
@@ -1000,9 +1016,13 @@ function writeMainEJS() {
             if (!grid || typeof Sortable === 'undefined') return;
             if (noteSortable) noteSortable.destroy();
             noteSortable = Sortable.create(grid, {
-                handle: '.drag-handle',
-                animation: 150,
+                delay: 600,
+                delayOnTouchOnly: false,
+                touchStartThreshold: 5,
+                animation: 250,
+                easing: "cubic-bezier(0.25, 1, 0.5, 1)",
                 ghostClass: 'sortable-ghost',
+                dragClass: 'sortable-drag',
                 onEnd: function(evt) {
                     const noteId = evt.item.dataset.noteId;
                     const newIndex = evt.newIndex;
@@ -1021,9 +1041,13 @@ function writeMainEJS() {
             if (!container || typeof Sortable === 'undefined') return;
             if (subtaskSortables[taskId]) subtaskSortables[taskId].destroy();
             subtaskSortables[taskId] = Sortable.create(container, {
-                handle: '.drag-handle',
-                animation: 150,
+                delay: 600,
+                delayOnTouchOnly: false,
+                touchStartThreshold: 5,
+                animation: 250,
+                easing: "cubic-bezier(0.25, 1, 0.5, 1)",
                 ghostClass: 'sortable-ghost',
+                dragClass: 'sortable-drag',
                 onEnd: function(evt) {
                     if (evt.newIndex === evt.oldIndex) return;
                     const allItems = container.querySelectorAll('.subtask-item[data-subtask-id]');
@@ -1043,7 +1067,7 @@ function writeMainEJS() {
         }
 
         // ==========================================
-        // ðŸŒ± GROW FRONTEND LOGIC 
+        // 🌱 GROW FRONTEND LOGIC 
         // ==========================================
         function renderGrowPageStaticShell() {
             return '<details class="grow-panel"><summary><span>Progress Overview</span><i class="fas fa-chevron-down"></i></summary>' +
@@ -1592,7 +1616,6 @@ function writeMainEJS() {
                     html += '<div class="task-card colored-card" data-task-id="' + task.taskId + '" style="--card-color: ' + getCardGradient(task.taskId) + '"><div class="task-header"><div class="task-title-section"><div class="task-title-container" onclick="toggleDescription(\\'' + descriptionId + '\\')" oncontextmenu="event.preventDefault()"><i class="fas fa-chevron-right" id="' + descriptionId + '_icon"></i><span class="task-title">' + escapedTitle + '</span></div></div><div class="task-actions-wrapper" id="task_actions_' + task.taskId + '">';
                     
                     html += '<div class="normal-btns">';
-                    html += '<span class="drag-handle" title="Drag to reorder"><i class="fas fa-grip-vertical"></i></span>';
                     if (totalSubtasks < 10) html += '<button class="action-btn" onclick="openAddSubtaskModal(\\'' + task.taskId + '\\')"><i class="fas fa-plus"></i></button>';
                     html += '<button class="action-btn" onclick="openEditTaskModal(\\'' + task.taskId + '\\')"><i class="fas fa-pencil-alt"></i></button><button class="action-btn" onclick="completeTask(\\'' + task.taskId + '\\')"><i class="fas fa-check"></i></button><button class="action-btn delete" onclick="deleteTask(\\'' + task.taskId + '\\')"><i class="fas fa-trash"></i></button></div>';
                     
@@ -1611,7 +1634,7 @@ function writeMainEJS() {
                             const subtaskDescId = 'subtask_desc_' + task.taskId + '_' + subtask.id;
                             const escapedSubtaskTitle = escapeHtml(subtask.title);
                             const escapedSubtaskDescription = escapeJsString(subtask.description || '');
-                            html += '<div class="subtask-item" data-subtask-id="' + subtask.id + '"><div class="subtask-main-row"><span class="drag-handle" title="Drag to reorder"><i class="fas fa-grip-vertical"></i></span><div class="subtask-checkbox ' + (subtask.completed ? 'completed' : '') + '" onclick="toggleSubtask(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\')">' + (subtask.completed ? '<i class="fas fa-check"></i>' : '') + '</div><div class="subtask-details"><div class="subtask-title-container" onclick="toggleDescription(\\'' + subtaskDescId + '\\')"><span class="subtask-title ' + (subtask.completed ? 'completed' : '') + '">' + escapedSubtaskTitle + '</span></div></div><div class="task-actions-wrapper" id="subtask_actions_' + task.taskId + '_' + subtask.id + '">';
+                            html += '<div class="subtask-item" data-subtask-id="' + subtask.id + '"><div class="subtask-main-row"><div class="subtask-checkbox ' + (subtask.completed ? 'completed' : '') + '" onclick="toggleSubtask(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\')">' + (subtask.completed ? '<i class="fas fa-check"></i>' : '') + '</div><div class="subtask-details"><div class="subtask-title-container" onclick="toggleDescription(\\'' + subtaskDescId + '\\')"><span class="subtask-title ' + (subtask.completed ? 'completed' : '') + '">' + escapedSubtaskTitle + '</span></div></div><div class="task-actions-wrapper" id="subtask_actions_' + task.taskId + '_' + subtask.id + '">';
                             
                             html += '<div class="normal-btns"><button class="subtask-btn" onclick="editSubtask(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\', \\'' + escapedSubtaskTitle.replace(/'/g, "\\\\'") + '\\', \\'' + escapedSubtaskDescription.replace(/'/g, "\\\\'") + '\\')"><i class="fas fa-pencil-alt"></i></button><button class="subtask-btn delete" onclick="deleteSubtask(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\')"><i class="fas fa-trash"></i></button></div>';
                             
@@ -1647,7 +1670,7 @@ function writeMainEJS() {
                     html += '<div class="note-card colored-card" data-note-id="' + note.noteId + '" style="--card-color: ' + getCardGradient(note.noteId) + '"><div class="note-header"><div class="task-title-container" onclick="toggleDescription(\\'' + noteDescId + '\\')"><i class="fas fa-chevron-right" id="' + noteDescId + '_icon"></i><span class="note-title">' + escapedNoteTitle + '</span></div>';
                     
                     html += '<div class="task-actions-wrapper" id="note_actions_' + note.noteId + '">';
-                    html += '<div class="normal-btns"><span class="drag-handle" title="Drag to reorder"><i class="fas fa-grip-vertical"></i></span><button class="action-btn" onclick="openEditNoteModal(\\'' + note.noteId + '\\', \\'' + escapedNoteTitle.replace(/'/g, "\\\\'") + '\\', \\'' + escapedNoteDescription.replace(/'/g, "\\\\'") + '\\')"><i class="fas fa-pencil-alt"></i></button><button class="action-btn delete" onclick="deleteNote(\\'' + note.noteId + '\\')"><i class="fas fa-trash"></i></button></div>';
+                    html += '<div class="normal-btns"><button class="action-btn" onclick="openEditNoteModal(\\'' + note.noteId + '\\', \\'' + escapedNoteTitle.replace(/'/g, "\\\\'") + '\\', \\'' + escapedNoteDescription.replace(/'/g, "\\\\'") + '\\')"><i class="fas fa-pencil-alt"></i></button><button class="action-btn delete" onclick="deleteNote(\\'' + note.noteId + '\\')"><i class="fas fa-trash"></i></button></div>';
                     
                     html += '</div></div>';
                     
@@ -1916,7 +1939,7 @@ function writeMainEJS() {
 writeMainEJS();
 
 // ==========================================
-// ðŸ—„ï¸ DATABASE CONNECTION
+// 🗄️ DATABASE CONNECTION
 // ==========================================
 let db;
 let client;
@@ -1928,7 +1951,7 @@ async function connectDB() {
             client = new MongoClient(MONGODB_URI, { serverSelectionTimeoutMS: 5000, maxPoolSize: 10 });
             await client.connect();
             db = client.db('telegram_bot');
-            console.log('âœ… Connected to MongoDB');
+            console.log('✅ Connected to MongoDB');
             
             let s = await db.collection('settings').findOne({ _id: 'bot_config' });
             if (!s) {
@@ -1957,7 +1980,7 @@ function escapeHTML(str) {
 }
 
 // ==========================================
-// ðŸ¤– BOT SETUP & CRON SCHEDULERS
+// 🤖 BOT SETUP & CRON SCHEDULERS
 // ==========================================
 const bot = new Telegraf(BOT_TOKEN);
 
@@ -1986,7 +2009,7 @@ async function clearAllMessages() {
 
 bot.use(async (ctx, next) => {
     if (ctx.from && ctx.from.id !== CHAT_ID) {
-        try { await ctx.reply('ðŸš« Admin has restricted new users to use the task manager bot.'); } catch(e){}
+        try { await ctx.reply('🚫 Admin has restricted new users to use the task manager bot.'); } catch(e){}
         return;
     }
     return next();
@@ -1997,32 +2020,33 @@ async function sendStartMenu(ctx) {
         const { pendingTasks, completedTasks, totalToday } = await getActiveTasksForToday();
         
         let percentage = 0;
-        let progressBar = 'â–‘â–‘â–‘â–‘â–‘â–‘â–‘â–‘â–‘â–‘â–‘â–‘â–‘â–‘â–‘â–‘â–‘â–‘â–‘â–‘'; 
+        let progressBar = '░░░░░░░░░░░░░░░░░░░░'; 
         
         if (totalToday > 0) {
             percentage = Math.round((completedTasks.length / totalToday) * 100);
             const filledCount = Math.floor(percentage / 5); 
-            progressBar = 'â–ˆ'.repeat(filledCount) + 'â–‘'.repeat(20 - filledCount);
+            progressBar = '█'.repeat(filledCount) + '░'.repeat(20 - filledCount);
         }
 
         let msg = `<i>Welcome, <b><a href="tg://user?id=${ctx.from.id}">${(ctx.from.username || ctx.from.first_name || 'Admin').toUpperCase()}</a></b>!</i>\n`;
         msg += `${progressBar} ${percentage}%\n`;
-        msg += `âš™ï¸Completed: <i><b>${completedTasks.length}/${totalToday}</b></i> tasks.\n\n`;
+        msg += `⚙️Completed: <i><b>${completedTasks.length}/${totalToday}</b></i> tasks.\n\n`;
         
         msg += `<blockquote expandable>`;
         if (totalToday === 0) {
             msg += `No tasks scheduled for today.`;
         } else {
-            completedTasks.forEach(t => msg += `âœ… ${escapeHTML(t.title)} (${f12(t.startTimeStr)})\n`);
-            pendingTasks.forEach(t => msg += `âŒ ${escapeHTML(t.title)} (${f12(t.startTimeStr)})\n`);
+            completedTasks.forEach(t => msg += `✅ ${escapeHTML(t.title)} (${f12(t.startTimeStr)})\n`);
+            pendingTasks.forEach(t => msg += `❌ ${escapeHTML(t.title)} (${f12(t.startTimeStr)})\n`);
         }
         msg += `</blockquote>\n`;
         
-        msg += `Notifications:  ${globalSettings.notifications ? 'ðŸ”” ON' : 'ðŸ”• OFF'}\n`;
-        msg += `Alerts : ${globalSettings.alerts ? 'ðŸ”” ON' : 'ðŸ”• OFF'}\n`;
-        msg += `Reminders : ${globalSettings.reminders ? 'ðŸ”” ON' : 'ðŸ”• OFF'}`;
+        msg += `Notifications : ${globalSettings.notifications ? '🔔 ON' : '🔕 OFF'}\n`;
+        msg += `Alerts : ${globalSettings.alerts ? '🔔 ON' : '🔕 OFF'}\n`;
+        msg += `Reminders : ${globalSettings.reminders ? '🔔 ON' : '🔕 OFF'}\n`;
+        msg += `Auto Complete : ${globalSettings.saveAutoCompleted !== false ? '✅ ON' : '❌ OFF'}`;
 
-        const kb = { inline_keyboard: [ [ { text: 'ðŸŒ Task Manager', web_app: { url: WEB_APP_URL } } ], [ { text: 'âš™ï¸ Settings', callback_data: 'open_settings' } ] ] };
+        const kb = { inline_keyboard: [ [ { text: '🌐 Task Manager', web_app: { url: WEB_APP_URL } } ], [ { text: '⚙️ Settings', callback_data: 'open_settings' } ] ] };
 
         if (ctx.callbackQuery) await ctx.editMessageText(msg, { parse_mode: 'HTML', reply_markup: kb });
         else {
@@ -2040,8 +2064,8 @@ bot.command('start', async (ctx) => {
     
     const istDateObj = getCurrentISTDisplay();
     if (globalSettings.dailyTypeDate !== istDateObj.displayDate) {
-        const kb = { inline_keyboard: [[{text:'ðŸ’¼ Working Day', callback_data:'set_wd_start'}, {text:'ðŸ–ï¸ Holiday', callback_data:'set_hol_start'}]] };
-        const m = await ctx.reply(`Good Morning! ðŸŒ…\nIs today (${istDateObj.displayDate}) a Working Day or Holiday?`, {reply_markup: kb});
+        const kb = { inline_keyboard: [[{text:'💼 Working Day', callback_data:'set_wd_start'}, {text:'🏖️ Holiday', callback_data:'set_hol_start'}]] };
+        const m = await ctx.reply(`🌅 Good Morning!\nIs today (${istDateObj.displayDate}) a Working Day or Holiday?`, {reply_markup: kb});
         if (m && m.message_id) sentMessageIds.push(m.message_id);
         return;
     }
@@ -2052,13 +2076,14 @@ bot.action('open_settings', async (ctx) => {
     const gs = globalSettings;
     const kb = {
         inline_keyboard: [
-            [ { text: gs.notifications ? 'ðŸ”” Notifications: ON' : 'ðŸ”• Notifications: OFF', callback_data: 'tgl_notif' } ],
-            [ { text: gs.alerts ? 'ðŸ”” Alerts: ON' : 'ðŸ”• Alerts: OFF', callback_data: 'tgl_alerts' } ],
-            [ { text: gs.reminders ? 'ðŸ”” Reminders: ON' : 'ðŸ”• Reminders: OFF', callback_data: 'tgl_reminders' } ],
-            [ { text: 'â¬…ï¸ Back', callback_data: 'back_start' }, { text: 'ðŸŒ Tasks', web_app: { url: WEB_APP_URL } } ]
+            [ { text: gs.notifications ? '🔔 Notifications: ON' : '🔕 Notifications: OFF', callback_data: 'tgl_notif' } ],
+            [ { text: gs.alerts ? '🔔 Alerts: ON' : '🔕 Alerts: OFF', callback_data: 'tgl_alerts' } ],
+            [ { text: gs.reminders ? '🔔 Reminders: ON' : '🔕 Reminders: OFF', callback_data: 'tgl_reminders' } ],
+            [ { text: gs.saveAutoCompleted !== false ? '✅ Auto Complete: ON' : '❌ Auto Complete: OFF', callback_data: 'tgl_autocomplete' } ],
+            [ { text: '⬅️ Back', callback_data: 'back_start' }, { text: '🌐 Tasks', web_app: { url: WEB_APP_URL } } ]
         ]
     };
-    await ctx.editMessageText('âš™ï¸ <b>Bot Settings:</b>\n\n<i>Toggle your preferences below:</i>', { parse_mode: 'HTML', reply_markup: kb });
+    await ctx.editMessageText('⚙️ <b>Bot Settings:</b>\n\n<i>Toggle your preferences below:</i>', { parse_mode: 'HTML', reply_markup: kb });
 });
 
 bot.action('back_start', sendStartMenu);
@@ -2072,6 +2097,7 @@ async function toggleSetting(ctx, key) {
 bot.action('tgl_notif', ctx => toggleSetting(ctx, 'notifications'));
 bot.action('tgl_alerts', ctx => toggleSetting(ctx, 'alerts'));
 bot.action('tgl_reminders', ctx => toggleSetting(ctx, 'reminders'));
+bot.action('tgl_autocomplete', ctx => toggleSetting(ctx, 'saveAutoCompleted'));
 
 // Set Daily Status via Telegram Command
 bot.action('set_wd_start', async ctx => {
@@ -2079,7 +2105,7 @@ bot.action('set_wd_start', async ctx => {
     globalSettings.dailyType = 'WD';
     globalSettings.dailyTypeDate = istDateObj.displayDate;
     await db.collection('settings').updateOne({_id:'bot_config'}, {$set:{dailyType: 'WD', dailyTypeDate: istDateObj.displayDate}}, {upsert:true});
-    await ctx.editMessageText(`âœ… Today (${istDateObj.displayDate}) successfully set as a Working Day (WD).`);
+    await ctx.editMessageText(`✅ Today (${istDateObj.displayDate}) successfully set as a Working Day (WD).`);
     sendStartMenu(ctx);
 });
 
@@ -2088,7 +2114,7 @@ bot.action('set_hol_start', async ctx => {
     globalSettings.dailyType = 'HOL';
     globalSettings.dailyTypeDate = istDateObj.displayDate;
     await db.collection('settings').updateOne({_id:'bot_config'}, {$set:{dailyType: 'HOL', dailyTypeDate: istDateObj.displayDate}}, {upsert:true});
-    await ctx.editMessageText(`âœ… Today (${istDateObj.displayDate}) successfully set as a Holiday (HOL).`);
+    await ctx.editMessageText(`✅ Today (${istDateObj.displayDate}) successfully set as a Holiday (HOL).`);
     sendStartMenu(ctx);
 });
 
@@ -2129,9 +2155,9 @@ function scheduleTask(task) {
                 
                 let minsLeft = 10 - count;
                 if (minsLeft === 0) {
-                    try { await bot.telegram.sendMessage(CHAT_ID, `ðŸš€ <b>START NOW:</b> ${escapeHTML(task.title)}\nðŸ•’ <b>Time:</b> ${f12(task.startTimeStr)} to ${f12(task.endTimeStr)}`, { parse_mode: 'HTML' }); } catch(e){}
+                    try { await bot.telegram.sendMessage(CHAT_ID, `🚀 <b>START NOW:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} to ${f12(task.endTimeStr)}`, { parse_mode: 'HTML' }); } catch(e){}
                 } else {
-                    try { await bot.telegram.sendMessage(CHAT_ID, `ðŸ”” <b>In ${minsLeft}m:</b> ${escapeHTML(task.title)}\nðŸ•’ <b>Time:</b> ${f12(task.startTimeStr)} to ${f12(task.endTimeStr)}`, { parse_mode: 'HTML' }); } catch(e){}
+                    try { await bot.telegram.sendMessage(CHAT_ID, `🔔 <b>In ${minsLeft}m:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} to ${f12(task.endTimeStr)}`, { parse_mode: 'HTML' }); } catch(e){}
                 }
                 
                 count++;
@@ -2181,12 +2207,12 @@ function setupHourlyNotifications() {
 
             let percentage = Math.round((completedTasks.length / totalToday) * 100);
             const filledCount = Math.floor(percentage / 5);
-            let progressBar = 'â–ˆ'.repeat(filledCount) + 'â–‘'.repeat(20 - filledCount);
+            let progressBar = '█'.repeat(filledCount) + '░'.repeat(20 - filledCount);
             
             let msg = `${istDateObj.displayDate} - ${istDateObj.dayName}\n${progressBar} ${percentage}%\n`;
-            msg += `âš™ï¸ Completed: <i><b>${completedTasks.length}/${totalToday}</b></i> tasks\n\n<blockquote expandable>`;
-            completedTasks.forEach(t => msg += `âœ… ${escapeHTML(t.title)} (${f12(t.startTimeStr)})\n`);
-            pendingTasks.forEach(t => msg += `âŒ ${escapeHTML(t.title)} (${f12(t.startTimeStr)})\n`);
+            msg += `⚙️ Completed: <i><b>${completedTasks.length}/${totalToday}</b></i> tasks\n\n<blockquote expandable>`;
+            completedTasks.forEach(t => msg += `✅ ${escapeHTML(t.title)} (${f12(t.startTimeStr)})\n`);
+            pendingTasks.forEach(t => msg += `❌ ${escapeHTML(t.title)} (${f12(t.startTimeStr)})\n`);
             msg += `</blockquote>`;
 
             const sentMsg = await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' });
@@ -2203,8 +2229,8 @@ function setupDailyQuestion() {
         if (isShuttingDown) return;
         try {
             const istDateObj = getCurrentISTDisplay();
-            const kb = { inline_keyboard: [[{text:'ðŸ’¼ Working Day', callback_data:'set_wd_start'}, {text:'ðŸ–ï¸ Holiday', callback_data:'set_hol_start'}]] };
-            const m = await bot.telegram.sendMessage(CHAT_ID, `ðŸŒ™ Good Morning!\nIs today (${istDateObj.displayDate}) a Working Day or Holiday?\n\n<i>If no choice is made by 12:00 PM, it will be set as Working Day automatically.</i>`, { parse_mode: 'HTML', reply_markup: kb });
+            const kb = { inline_keyboard: [[{text:'💼 Working Day', callback_data:'set_wd_start'}, {text:'🏖️ Holiday', callback_data:'set_hol_start'}]] };
+            const m = await bot.telegram.sendMessage(CHAT_ID, `🌅 Good Morning!\nIs today (${istDateObj.displayDate}) a Working Day or Holiday?\n\n<i>If no choice is made by 12:00 PM, it will be set as Working Day automatically.</i>`, { parse_mode: 'HTML', reply_markup: kb });
             if (m && m.message_id) sentMessageIds.push(m.message_id);
         } catch(e) {}
     });
@@ -2222,7 +2248,7 @@ function setupAutoWorkingDay() {
                 globalSettings.dailyType = 'WD';
                 globalSettings.dailyTypeDate = istDateObj.displayDate;
                 await db.collection('settings').updateOne({_id:'bot_config'}, {$set:{dailyType:'WD', dailyTypeDate: istDateObj.displayDate}}, {upsert:true});
-                const m = await bot.telegram.sendMessage(CHAT_ID, `â° No selection was made. Today (${istDateObj.displayDate}) has been automatically set as a <b>Working Day (WD)</b>.`, { parse_mode: 'HTML' });
+                const m = await bot.telegram.sendMessage(CHAT_ID, `⏰ No selection was made. Today (${istDateObj.displayDate}) has been automatically set as a <b>Working Day (WD)</b>.`, { parse_mode: 'HTML' });
                 if (m && m.message_id) sentMessageIds.push(m.message_id);
             }
         } catch(e) {}
@@ -2257,7 +2283,7 @@ function setupAutoCompletion() {
                 }
             }
             if (pendingTasks.length > 0) {
-                try { await bot.telegram.sendMessage(CHAT_ID, `ðŸŒ™ <b>Auto-completed</b> ${pendingTasks.length} tasks.\nðŸ•’ <b>Time:</b> ${istDateObj.displayTime}\nðŸ“… <b>Date:</b> ${istDateObj.displayDate}\nðŸ—“ <b>Day:</b> ${istDateObj.dayName}\n`, { parse_mode: 'HTML' }); } catch(e){}
+                try { await bot.telegram.sendMessage(CHAT_ID, `🌙 <b>Auto-completed</b> ${pendingTasks.length} tasks.\n🕒 <b>Time:</b> ${istDateObj.displayTime}\n📅 <b>Date:</b> ${istDateObj.displayDate}\n🗓 <b>Day:</b> ${istDateObj.dayName}\n`, { parse_mode: 'HTML' }); } catch(e){}
             }
             await cleanExpiredTasks();
             
@@ -2271,7 +2297,7 @@ function setupAutoCompletion() {
 }
 
 // ==========================================
-// ðŸ› ï¸ SHARED HISTORY HYDRATION TOOL
+// 🛠️ SHARED HISTORY HYDRATION TOOL
 // ==========================================
 async function getHydratedHistory() {
     const historyList = await db.collection('history').find().sort({ completedAt: -1 }).limit(500).toArray();
@@ -2312,7 +2338,7 @@ async function getHydratedHistory() {
 }
 
 // ==========================================
-// ðŸ“± WEB INTERFACE ROUTES
+// 📱 WEB INTERFACE ROUTES
 // ==========================================
 app.post('/api/daily_status', async (req, res) => {
     try {
@@ -2391,7 +2417,7 @@ app.get('/api/page/:page', async (req, res) => {
 });
 
 // ==========================================
-// ðŸŒ± GROW BACKEND ROUTES 
+// 🌱 GROW BACKEND ROUTES 
 // ==========================================
 app.post('/api/grow', async (req, res) => {
     try {
@@ -2401,7 +2427,7 @@ app.post('/api/grow', async (req, res) => {
         await db.collection('grow').updateOne({ type: 'tracker' }, { $push: { items: item } }, { upsert: true });
         
         if(globalSettings.alerts) {
-            let msg = `ðŸŒ± <b>Grow Added</b>\nðŸ“Œ <b>Title:</b> ${escapeHTML(item.title)}\nâ³ <b>Duration:</b> ${item.endCount} Days`;
+            let msg = `🌱 <b>Grow Added</b>\n📌 <b>Title:</b> ${escapeHTML(item.title)}\n⏳ <b>Duration:</b> ${item.endCount} Days`;
             try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
         }
         res.json({ success: true });
@@ -2416,7 +2442,7 @@ app.post('/api/grow/:id/update', async (req, res) => {
         await db.collection('grow').updateOne({ type: 'tracker', 'items.id': id }, { $set: { 'items.$': updatedItem } });
         
         if(globalSettings.alerts) {
-            let msg = `âœï¸ <b>Grow Edited</b>\nðŸ“Œ <b>Title:</b> ${escapeHTML(updatedItem.title)}`;
+            let msg = `✏️ <b>Grow Edited</b>\n📌 <b>Title:</b> ${escapeHTML(updatedItem.title)}`;
             try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
         }
         res.json({ success: true });
@@ -2430,7 +2456,7 @@ app.post('/api/grow/:id/delete', async (req, res) => {
         await db.collection('grow').updateOne({ type: 'tracker' }, { $pull: { items: { id: req.params.id } } });
         
         if(globalSettings.alerts && item) {
-            let msg = `ðŸ—‘ï¸ <b>Grow Deleted</b>\nðŸ“Œ <b>Title:</b> ${escapeHTML(item.title)}`;
+            let msg = `🗑️ <b>Grow Deleted</b>\n📌 <b>Title:</b> ${escapeHTML(item.title)}`;
             try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
         }
         res.json({ success: true });
@@ -2446,7 +2472,7 @@ app.post('/api/grow/log', async (req, res) => {
             const tracker = await db.collection('grow').findOne({ type: 'tracker' });
             const item = tracker?.items.find(i => i.id === itemId);
             if(item) {
-                let msg = `ðŸ“ˆ <b>Grow Logged</b>\nðŸ“Œ <b>Title:</b> ${escapeHTML(item.title)}\nðŸ“… <b>Date:</b> ${dateStr}\nðŸ”¢ <b>Value:</b> ${value}`;
+                let msg = `📈 <b>Grow Logged</b>\n📌 <b>Title:</b> ${escapeHTML(item.title)}\n📅 <b>Date:</b> ${dateStr}\n🔢 <b>Value:</b> ${value}`;
                 try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
             }
         }
@@ -2455,7 +2481,7 @@ app.post('/api/grow/log', async (req, res) => {
 });
 
 // ==========================================
-// ðŸš€ TASKS / NOTES BACKEND ROUTES
+// 🚀 TASKS / NOTES BACKEND ROUTES
 // ==========================================
 app.get('/api/tasks/:taskId', async (req, res) => {
     try {
@@ -2489,7 +2515,7 @@ app.post('/api/tasks', async (req, res) => {
         try { scheduleTask(task); } catch(e){}
         
         if(globalSettings.alerts) {
-            let msg = `âž• <b>Task Added</b>\nðŸ“Œ <b>Title:</b> ${escapeHTML(task.title)}\nðŸ•’ <b>Time:</b> ${f12(task.startTimeStr)} - ${f12(task.endTimeStr)}\nðŸ”„ <b>Repeats:</b> ${repeatWks} Week(s)`;
+            let msg = `➕ <b>Task Added</b>\n📌 <b>Title:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} - ${f12(task.endTimeStr)}\n🔄 <b>Repeats:</b> ${repeatWks} Week(s)`;
             try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
         }
         res.json({success: true});
@@ -2518,7 +2544,7 @@ app.post('/api/tasks/:taskId/update', async (req, res) => {
         if (t) {
             try { scheduleTask(t); } catch(e){}
             if(globalSettings.alerts) {
-                let msg = `âœï¸ <b>Task Edited</b>\nðŸ“Œ <b>Title:</b> ${escapeHTML(t.title)}\nðŸ•’ <b>Time:</b> ${f12(t.startTimeStr)} - ${f12(t.endTimeStr)}`;
+                let msg = `✏️ <b>Task Edited</b>\n📌 <b>Title:</b> ${escapeHTML(t.title)}\n🕒 <b>Time:</b> ${f12(t.startTimeStr)} - ${f12(t.endTimeStr)}`;
                 try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
             }
         }
@@ -2547,7 +2573,7 @@ app.post('/api/tasks/:taskId/complete', async (req, res) => {
         });
         
         if(globalSettings.alerts) {
-            let msg = `âœ… <b>Task Completed</b>\nðŸ“Œ <b>Title:</b> ${escapeHTML(task.title)}\nðŸ•’ <b>Time:</b> ${f12(task.startTimeStr)} - ${f12(task.endTimeStr)}`;
+            let msg = `✅ <b>Task Completed</b>\n📌 <b>Title:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} - ${f12(task.endTimeStr)}`;
             try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
         }
         res.json({success: true});
@@ -2580,7 +2606,7 @@ app.post('/api/tasks/:taskId/delete', async (req, res) => {
             await db.collection('tasks').deleteOne({ taskId: req.params.taskId });
             
             if(globalSettings.alerts) {
-                let msg = `ðŸ—‘ï¸ <b>Task Deleted</b>\nðŸ“Œ <b>Title:</b> ${escapeHTML(t.title)}`;
+                let msg = `🗑️ <b>Task Deleted</b>\n📌 <b>Title:</b> ${escapeHTML(t.title)}`;
                 try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
             }
         }
@@ -2596,7 +2622,7 @@ app.post('/api/tasks/:taskId/subtasks', async (req, res) => {
         if(globalSettings.alerts) {
             const parent = await db.collection('tasks').findOne({taskId: req.params.taskId});
             if(parent) {
-                let msg = `âž• <b>Subtask Added</b>\nðŸ“‚ <b>Task:</b> ${escapeHTML(parent.title)}\nðŸ“Œ <b>Subtask:</b> ${escapeHTML(req.body.title.trim())}`;
+                let msg = `➕ <b>Subtask Added</b>\n📂 <b>Task:</b> ${escapeHTML(parent.title)}\n📌 <b>Subtask:</b> ${escapeHTML(req.body.title.trim())}`;
                 try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
             }
         }
@@ -2612,7 +2638,7 @@ app.post('/api/tasks/:taskId/subtasks/:subtaskId/update', async (req, res) => {
         if(globalSettings.alerts) {
             const parent = await db.collection('tasks').findOne({taskId: req.params.taskId});
             if(parent) {
-                let msg = `âœï¸ <b>Subtask Edited</b>\nðŸ“‚ <b>Task:</b> ${escapeHTML(parent.title)}\nðŸ“Œ <b>Subtask:</b> ${escapeHTML(req.body.title.trim())}`;
+                let msg = `✏️ <b>Subtask Edited</b>\n📂 <b>Task:</b> ${escapeHTML(parent.title)}\n📌 <b>Subtask:</b> ${escapeHTML(req.body.title.trim())}`;
                 try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
             }
         }
@@ -2627,7 +2653,7 @@ app.post('/api/tasks/:taskId/subtasks/:subtaskId/toggle', async (req, res) => {
         await db.collection('tasks').updateOne({ taskId: req.params.taskId, "subtasks.id": req.params.subtaskId }, { $set: { "subtasks.$.completed": !sub.completed } });
         
         if(globalSettings.alerts) {
-            let msg = `${!sub.completed ? 'âœ…' : 'ðŸ”„'} <b>Subtask Toggled</b>\nðŸ“‚ <b>Task:</b> ${escapeHTML(task.title)}\nðŸ“Œ <b>Subtask:</b> ${escapeHTML(sub.title)}`;
+            let msg = `${!sub.completed ? '✅' : '🔄'} <b>Subtask Toggled</b>\n📂 <b>Task:</b> ${escapeHTML(task.title)}\n📌 <b>Subtask:</b> ${escapeHTML(sub.title)}`;
             try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
         }
         res.json({success: true});
@@ -2644,7 +2670,7 @@ app.post('/api/tasks/:taskId/subtasks/:subtaskId/delete', async (req, res) => {
         else await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { $pull: { subtasks: { id: req.params.subtaskId } } });
         
         if(globalSettings.alerts && subtask) {
-            let msg = `ðŸ—‘ï¸ <b>Subtask Deleted</b>\nðŸ“‚ <b>Task:</b> ${escapeHTML(task.title)}\nðŸ“Œ <b>Subtask:</b> ${escapeHTML(subtask.title)}`;
+            let msg = `🗑️ <b>Subtask Deleted</b>\n📂 <b>Task:</b> ${escapeHTML(task.title)}\n📌 <b>Subtask:</b> ${escapeHTML(subtask.title)}`;
             try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
         }
         res.json({success: true});
@@ -2705,7 +2731,7 @@ app.post('/api/notes', async (req, res) => {
         await db.collection('notes').insertOne({ noteId: generateId('n'), title: req.body.title.trim(), description: req.body.description || '', createdAt: new Date(), updatedAt: new Date(), orderIndex: await db.collection('notes').countDocuments() });
         
         if(globalSettings.alerts) {
-            let msg = `ðŸ“ <b>Note Added</b>\nðŸ“Œ <b>Title:</b> ${escapeHTML(req.body.title.trim())}`;
+            let msg = `📝 <b>Note Added</b>\n📌 <b>Title:</b> ${escapeHTML(req.body.title.trim())}`;
             try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
         }
         res.json({success: true});
@@ -2718,7 +2744,7 @@ app.post('/api/notes/:noteId/update', async (req, res) => {
         await db.collection('notes').updateOne({ noteId: req.params.noteId }, { $set: { title: req.body.title.trim(), description: req.body.description || '', updatedAt: new Date() } });
         
         if(globalSettings.alerts) {
-            let msg = `âœï¸ <b>Note Edited</b>\nðŸ“Œ <b>Title:</b> ${escapeHTML(req.body.title.trim())}`;
+            let msg = `✏️ <b>Note Edited</b>\n📌 <b>Title:</b> ${escapeHTML(req.body.title.trim())}`;
             try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
         }
         res.json({success: true});
@@ -2731,7 +2757,7 @@ app.post('/api/notes/:noteId/delete', async (req, res) => {
         await db.collection('notes').deleteOne({ noteId: req.params.noteId });
         
         if(globalSettings.alerts && doc) {
-            let msg = `ðŸ—‘ï¸ <b>Note Deleted</b>\nðŸ“Œ <b>Title:</b> ${escapeHTML(doc.title)}`;
+            let msg = `🗑️ <b>Note Deleted</b>\n📌 <b>Title:</b> ${escapeHTML(doc.title)}`;
             try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
         }
         res.json({success: true});
@@ -2754,7 +2780,7 @@ app.post('/api/notes/:noteId/move', async (req, res) => {
 });
 
 // ==========================================
-// ðŸš€ BOOTSTRAP
+// 🚀 BOOTSTRAP
 // ==========================================
 async function start() {
     try {
@@ -2767,12 +2793,12 @@ async function start() {
             setupAutoWorkingDay();
             
             app.listen(PORT, '0.0.0.0', () => {
-                console.log('ðŸŒ Web interface running on port ' + PORT);
-                console.log('ðŸ• IST Time: ' + getCurrentISTDisplay().dateTime);
+                console.log('🌐 Web interface running on port ' + PORT);
+                console.log('🕐 IST Time: ' + getCurrentISTDisplay().dateTime);
             });
             
             await bot.launch();
-            console.log('ðŸ¤– Bot Started Successfully!');
+            console.log('🤖 Bot Started Successfully!');
         } else {
             setTimeout(start, 5000);
         }
