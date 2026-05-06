@@ -26,7 +26,7 @@ app.set('views', path.join(__dirname, 'views'));
 const viewsDir = path.join(__dirname, 'views');
 if (!fs.existsSync(viewsDir)) fs.mkdirSync(viewsDir, { recursive: true });
 
-let globalSettings = { notifications: true, alerts: true, reminders: true, dailyType: null, dailyTypeDate: null, saveAutoCompleted: true };
+let globalSettings = { notifications: true, alerts: true, reminders: true, dailyType: null, dailyTypeDate: null, saveAutoCompleted: true, fontSize: 1 };
 
 // ==========================================
 // 🕐 TIMEZONE & UTILITIES
@@ -99,9 +99,6 @@ async function getActiveTasksForToday() {
     const startOfDayUTC = istToUTC(istDateObj.date, "00:00");
     const endOfDayUTC = istToUTC(istDateObj.date, "23:59");
 
-    let currentType = (globalSettings.dailyTypeDate === istDateObj.displayDate) ? globalSettings.dailyType : null;
-    if (!currentType) return { pendingTasks: [], completedTasks: [], todayHistory: [], totalToday: 0 };
-
     let query = {
         status: 'pending',
         selectedDays: currentDayOfWeek,
@@ -109,12 +106,8 @@ async function getActiveTasksForToday() {
         endDate: { $gte: startOfDayUTC }
     };
 
-    if (currentType === 'WD') {
-        query.$or = [ { dayTypes: 'WD' }, { dayTypes: { $exists: false } }, { dayTypes: null }, { dayTypes: [] } ];
-    } else if (currentType === 'HOL') {
-        query.dayTypes = 'HOL';
-    }
-
+    // We no longer filter out tasks by globalSettings.dailyType here 
+    // so both the WD and HOL folders can display their respective tasks.
     const pending = await db.collection('tasks').find(query).sort({ orderIndex: 1 }).toArray();
 
     const todayHistory = await db.collection('history').find({ completedDateStr: istDateObj.displayDate }).toArray();
@@ -145,6 +138,7 @@ function writeMainEJS() {
     <title>Task Manager</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
         
@@ -155,13 +149,17 @@ function writeMainEJS() {
             --bg-dark: #0f172a; --card-bg-dark: #1e293b; --text-primary-dark: #f8fafc; --text-secondary-dark: #cbd5e1;
             --border-dark: #334155; --accent-dark: #60a5fa; --accent-soft-dark: #1e3a5f; --success-dark: #34d399;
             --warning-dark: #fbbf24; --danger-dark: #f87171; --hover-dark: #2d3b4f; --progress-bg-dark: #334155;
+            
+            --app-font-size: 13px; /* Default medium */
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif; }
         
+        html { font-size: var(--app-font-size); transition: font-size 0.2s ease; }
+        
         body { 
             background: var(--bg-light); color: var(--text-primary-light); transition: background-color 0.2s ease, color 0.2s ease; 
-            min-height: 100vh; font-size: 13px; line-height: 1.4; 
+            min-height: 100vh; font-size: 1rem; line-height: 1.4; 
             -webkit-touch-callout: none; -webkit-user-select: none; -khtml-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none;
         }
         
@@ -244,7 +242,7 @@ function writeMainEJS() {
         body[data-theme="dark"] .glass-content { background: rgba(30, 41, 59, 0.65); border-color: rgba(255, 255, 255, 0.1); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5); color: #f8fafc; }
 
         #settingsAppModal { align-items: flex-start !important; justify-content: flex-end !important; background: transparent !important; backdrop-filter: none !important; padding-top: 55px; padding-right: 12px; }
-        #settingsAppModal .modal-content { width: 180px; max-width: 180px; margin: 0; padding: 12px; border-radius: 16px; box-shadow: 0 8px 25px rgba(0,0,0,0.15); transform-origin: top right; animation: dropdownPop 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
+        #settingsAppModal .modal-content { width: 200px; max-width: 200px; margin: 0; padding: 12px; border-radius: 16px; box-shadow: 0 8px 25px rgba(0,0,0,0.15); transform-origin: top right; animation: dropdownPop 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
         body[data-theme="dark"] #settingsAppModal .modal-content { box-shadow: 0 8px 25px rgba(0,0,0,0.5); }
         @keyframes dropdownPop { from { opacity: 0; transform: scale(0.9) translateY(-10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
 
@@ -282,14 +280,23 @@ function writeMainEJS() {
 
         /* TASKS CSS */
         .tasks-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
-        .task-card { background: var(--card-bg-light); border: 1px solid var(--border-light); border-radius: 16px; padding: 14px; transition: all 0.2s ease; word-wrap: break-word; overflow-wrap: break-word; position: relative; cursor: pointer; }
+        .task-card { background: var(--card-bg-light); border: 1px solid var(--border-light); border-radius: 16px; padding: 14px; transition: all 0.2s ease; word-wrap: break-word; overflow-wrap: break-word; position: relative; }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .task-card { background: var(--card-bg-dark); border: 1px solid var(--border-dark); } }
         body[data-theme="dark"] .task-card { background: var(--card-bg-dark); border-color: var(--border-dark); color: var(--text-primary-dark); }
         body[data-theme="light"] .task-card { background: var(--card-bg-light); border-color: var(--border-light); color: var(--text-primary-light); }
         .task-card.colored-card { background: var(--card-color, var(--card-bg-light)) !important; border-color: transparent !important; }
+        
+        /* Sortable Handle Styles */
+        .drag-handle { display: flex; align-items: center; justify-content: center; color: var(--text-secondary-light); font-size: 1rem; cursor: grab; padding: 4px; border-radius: 6px; transition: background 0.2s; }
+        .drag-handle:active { cursor: grabbing; }
+        .drag-handle:hover { background: var(--hover-light); }
+        body[data-theme="dark"] .drag-handle { color: var(--text-secondary-dark); }
+        body[data-theme="dark"] .drag-handle:hover { background: var(--hover-dark); }
+        .sortable-ghost { opacity: 0.4; }
+        .sortable-drag { cursor: grabbing !important; }
 
-        .task-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; width: 100%; position: relative; z-index: 2; pointer-events: none; }
-        .task-title-section { flex: 1; min-width: 0; pointer-events: auto; }
+        .task-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; width: 100%; position: relative; z-index: 2;}
+        .task-title-section { flex: 1; min-width: 0; }
         .task-title-container { display: flex; align-items: center; gap: 8px; cursor: pointer; }
         .task-title-container i { font-size: 0.85rem; color: var(--accent-light); }
         
@@ -298,55 +305,52 @@ function writeMainEJS() {
         body[data-theme="dark"] .task-title { color: var(--text-primary-dark); }
         body[data-theme="light"] .task-title { color: var(--text-primary-light); }
         
-        .task-description-container { margin: 8px 0 4px 0; width: 100%; position: relative; z-index: 2; pointer-events: auto; }
+        .task-description-container { margin: 8px 0 4px 0; width: 100%; position: relative; z-index: 2; }
         .task-description { font-size: 0.85rem; color: var(--text-secondary-light); padding: 6px 8px; background: var(--hover-light); border-radius: 10px; border-left: 3px solid var(--accent-light); word-break: break-word; white-space: pre-wrap; width: 100%; box-sizing: border-box; line-height: 1.4; }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .task-description { color: var(--text-secondary-dark); background: var(--hover-dark); } }
         body[data-theme="dark"] .task-description { background: var(--hover-dark); color: var(--text-secondary-dark); }
         body[data-theme="light"] .task-description { background: var(--hover-light); color: var(--text-secondary-light); }
 
-        .task-time-row { display: flex; justify-content: space-between; align-items: center; width: 100%; margin: 8px 0 4px 0; position: relative; z-index: 2; pointer-events: none;}
+        .task-time-row { display: flex; justify-content: space-between; align-items: center; width: 100%; margin: 8px 0 4px 0; position: relative; z-index: 2;}
         .date-chip, .time-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; background: var(--hover-light); border-radius: 100px; font-size: 0.8rem; color: var(--text-secondary-light); width: fit-content; }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .date-chip, body:not([data-theme="light"]) .time-chip { background: var(--hover-dark); color: var(--text-secondary-dark); } }
         body[data-theme="dark"] .date-chip, body[data-theme="dark"] .time-chip { background: var(--hover-dark); color: var(--text-secondary-dark); }
         body[data-theme="light"] .date-chip, body[data-theme="light"] .time-chip { background: var(--hover-light); color: var(--text-secondary-light); }
 
-        .task-actions-wrapper { display: flex; gap: 4px; flex-shrink: 0; pointer-events: auto; }
-        .normal-btns, .priority-btns { display: flex; gap: 4px; }
-        .priority-btns { display: none; }
-        .priority-mode .normal-btns { display: none; }
-        .priority-mode .priority-btns { display: flex; }
+        .task-actions-wrapper { display: flex; gap: 4px; flex-shrink: 0; }
+        .normal-btns { display: flex; gap: 4px; }
 
         .progress-ring-small { position: relative; width: 34px; height: 34px; }
         .progress-ring-circle-small { transition: stroke-dashoffset 0.5s; transform: rotate(-90deg); transform-origin: 50% 50%; }
         .progress-text-small { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 0.7rem; color: var(--accent-light); font-weight: 600; }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .progress-text-small { color: var(--accent-dark); } }
         
-        .subtasks-container { margin-top: 10px; border-top: 1px solid var(--border-light); padding-top: 10px; width: 100%; position: relative; z-index: 2; pointer-events: auto;}
+        .subtasks-container { margin-top: 10px; border-top: 1px solid var(--border-light); padding-top: 10px; width: 100%; position: relative; z-index: 2; }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .subtasks-container { border-top-color: var(--border-dark); } }
         
-        .subtask-item { display: flex; flex-direction: column; background: var(--hover-light); border-radius: 10px; margin-bottom: 6px; padding: 6px; width: 100%; cursor: pointer;}
+        .subtask-item { display: flex; flex-direction: column; background: var(--hover-light); border-radius: 10px; margin-bottom: 6px; padding: 6px; width: 100%; }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .subtask-item { background: var(--hover-dark); } }
         body[data-theme="dark"] .subtask-item { background: var(--hover-dark); color: var(--text-secondary-dark); }
         body[data-theme="light"] .subtask-item { background: var(--hover-light); color: var(--text-secondary-light); }
 
-        .subtask-main-row { display: flex; align-items: flex-start; gap: 8px; width: 100%; pointer-events: none;}
-        .subtask-checkbox { width: 20px; height: 20px; border-radius: 6px; border: 2px solid var(--accent-light); background: transparent; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; color: white; font-size: 0.75rem; flex-shrink: 0; margin-top: 1px; pointer-events: auto;}
+        .subtask-main-row { display: flex; align-items: flex-start; gap: 8px; width: 100%; }
+        .subtask-checkbox { width: 20px; height: 20px; border-radius: 6px; border: 2px solid var(--accent-light); background: transparent; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; color: white; font-size: 0.75rem; flex-shrink: 0; margin-top: 1px; }
         .subtask-checkbox.completed { background: var(--success-light); border-color: var(--success-light); }
-        .subtask-details { flex: 1; min-width: 0; pointer-events: auto;}
+        .subtask-details { flex: 1; min-width: 0; }
         
         .subtask-title { color: var(--text-primary-light); margin-bottom: 2px; font-size: 0.95rem; font-weight: 500; word-break: break-word; cursor: pointer; user-select: none; }
         .subtask-title.completed { text-decoration: line-through; color: var(--text-secondary-light); opacity: 0.7; }
         body[data-theme="dark"] .subtask-title { color: var(--text-primary-dark); }
         body[data-theme="light"] .subtask-title { color: var(--text-primary-light); }
 
-        .subtask-btn { width: 26px; height: 26px; border-radius: 6px; border: none; background: var(--card-bg-light); color: var(--text-secondary-light); cursor: pointer; transition: all 0.2s ease; font-size: 0.85rem; display: flex; align-items: center; justify-content: center; pointer-events: auto;}
+        .subtask-btn { width: 26px; height: 26px; border-radius: 6px; border: none; background: var(--card-bg-light); color: var(--text-secondary-light); cursor: pointer; transition: all 0.2s ease; font-size: 0.85rem; display: flex; align-items: center; justify-content: center; }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .subtask-btn { background: var(--card-bg-dark); color: var(--text-secondary-dark); } }
         body[data-theme="dark"] .subtask-btn { background: var(--card-bg-dark); border-color: var(--border-dark); color: var(--text-primary-dark); }
         body[data-theme="light"] .subtask-btn { background: var(--card-bg-light); border-color: var(--border-light); color: var(--text-primary-light); }
         .subtask-btn:hover { background: var(--accent-light); color: white; }
         .subtask-btn.delete:hover { background: var(--danger-light); }
         
-        .subtask-description-container { margin-top: 6px; margin-left: 28px; width: calc(100% - 28px); pointer-events: auto;}
+        .subtask-description-container { margin-top: 6px; margin-left: 28px; width: calc(100% - 28px); }
         .subtask-description { font-size: 0.8rem; color: var(--text-secondary-light); padding: 4px 6px; background: var(--card-bg-light); border-radius: 8px; border-left: 2px solid var(--accent-light); word-break: break-word; white-space: pre-wrap; width: 100%; box-sizing: border-box; line-height: 1.4; }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .subtask-description { background: var(--card-bg-dark); color: var(--text-secondary-dark); } }
 
@@ -495,19 +499,19 @@ function writeMainEJS() {
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .history-subtask { border-left-color: var(--border-dark); } }
 
         /* NOTES CSS */
-        .note-card { margin-bottom: 12px; background: var(--card-bg-light); border: 1px solid var(--border-light); border-radius: 16px; padding: 14px; transition: all 0.2s ease; word-wrap: break-word; overflow-wrap: break-word; cursor: pointer; position: relative;}
+        .note-card { margin-bottom: 12px; background: var(--card-bg-light); border: 1px solid var(--border-light); border-radius: 16px; padding: 14px; transition: all 0.2s ease; word-wrap: break-word; overflow-wrap: break-word; }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .note-card { background: var(--card-bg-dark); border: 1px solid var(--border-dark); } }
         body[data-theme="dark"] .note-card { background: var(--card-bg-dark); border-color: var(--border-dark); color: var(--text-primary-dark); }
         body[data-theme="light"] .note-card { background: var(--card-bg-light); border-color: var(--border-light); color: var(--text-primary-light); }
         .note-card.colored-card { background: var(--card-color, var(--card-bg-light)) !important; border-color: transparent !important; }
 
-        .note-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; width: 100%; position: relative; z-index: 2; pointer-events: none; }
-        .note-title { font-size: 1.1rem; font-weight: 600; color: var(--text-primary-light); word-break: break-word; flex: 1; cursor: pointer; user-select: none; pointer-events: auto;}
+        .note-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; width: 100%; position: relative; z-index: 2; }
+        .note-title { font-size: 1.1rem; font-weight: 600; color: var(--text-primary-light); word-break: break-word; flex: 1; cursor: pointer; user-select: none;}
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .note-title { color: var(--text-primary-dark); } }
         body[data-theme="dark"] .note-title { color: var(--text-primary-dark); }
         body[data-theme="light"] .note-title { color: var(--text-primary-light); }
 
-        .note-content-container { margin: 4px 0 8px 0; width: 100%; position: relative; z-index: 2; pointer-events: auto;}
+        .note-content-container { margin: 4px 0 8px 0; width: 100%; position: relative; z-index: 2;}
         .note-content { font-size: 0.85rem; color: var(--text-secondary-light); padding: 6px 8px; background: var(--hover-light); border-radius: 10px; border-left: 3px solid var(--accent-light); word-break: break-word; white-space: pre-wrap; width: 100%; box-sizing: border-box; line-height: 1.4; }
         @media (prefers-color-scheme: dark) { body:not([data-theme="light"]) .note-content { color: var(--text-secondary-dark); background: var(--hover-dark); } }
         
@@ -584,6 +588,17 @@ function writeMainEJS() {
             <div class="settings-row">
                 <span class="settings-label">Auto complete</span>
                 <label class="switch"><input type="checkbox" id="saveAutoCompletedToggle" onchange="updateSettings()"><span class="slider"></span></label>
+            </div>
+            <div class="settings-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
+                <span class="settings-label" style="display:flex; justify-content:space-between; align-items:center;">
+                    Font Size <span id="fontLabelVal" style="font-size:0.75rem; color:var(--accent-light);">Medium</span>
+                </span>
+                <input type="range" id="fontSizeSlider" min="0" max="2" step="1" style="width: 100%; margin: 8px 0;" oninput="updateFontLabel()" onchange="updateSettings()">
+                <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-secondary-light); font-weight: 500; margin-top:-4px;">
+                    <span>Small</span>
+                    <span>Medium</span>
+                    <span>Big</span>
+                </div>
             </div>
         </div>
     </div>
@@ -789,7 +804,19 @@ function writeMainEJS() {
             notifications: <%= globalSettings.notifications %>,
             alerts: <%= globalSettings.alerts %>,
             reminders: <%= globalSettings.reminders %>,
-            saveAutoCompleted: <%= globalSettings.saveAutoCompleted !== false ? 'true' : 'false' %>
+            saveAutoCompleted: <%= globalSettings.saveAutoCompleted !== false ? 'true' : 'false' %>,
+            fontSize: <%= globalSettings.fontSize !== undefined ? globalSettings.fontSize : 1 %>
+        };
+
+        window.updateFontLabel = function() {
+            const val = document.getElementById('fontSizeSlider').value;
+            const map = {0: 'Small', 1: 'Medium', 2: 'Big'};
+            document.getElementById('fontLabelVal').innerText = map[val];
+        };
+
+        window.applyFontSize = function() {
+            const sizes = ['11px', '13px', '16px'];
+            document.documentElement.style.setProperty('--app-font-size', sizes[globalAppVars.fontSize || 1]);
         };
 
         function showToast(message, type = 'success') {
@@ -812,6 +839,8 @@ function writeMainEJS() {
         }
 
         let currentPage = '<%= currentPage || "tasks" %>';
+        let currentTaskFolder = 'WD'; // Default task folder state
+        
         let tasksData = <%- JSON.stringify(tasks || []) %>;
         let notesData = <%- JSON.stringify(notes || []) %>;
         let historyData = <%- JSON.stringify(groupedHistory || {}) %>;
@@ -912,6 +941,13 @@ function writeMainEJS() {
             });
         }
 
+        window.setTaskFolder = function(folder) {
+            currentTaskFolder = folder;
+            const content = document.getElementById('mainContent');
+            content.innerHTML = renderTasksPage();
+            setTimeout(initTaskSortable, 50);
+        };
+
         function setDailyStatus(type) {
             fetch('/api/daily_status', { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({type}) })
             .then(res => {
@@ -927,14 +963,14 @@ function writeMainEJS() {
                 const content = document.getElementById('mainContent');
                 const fabButton = document.getElementById('fabButton');
                 
-                if (currentPage === 'tasks') { fabButton.style.display = 'flex'; content.innerHTML = renderTasksPage(); } 
+                if (currentPage === 'tasks') { fabButton.style.display = 'flex'; content.innerHTML = renderTasksPage(); setTimeout(initTaskSortable, 50); } 
                 else if (currentPage === 'grow') { 
                     fabButton.style.display = 'flex'; 
                     content.innerHTML = renderGrowPageStaticShell();
                     renderGrowAll();
                     setupGrowSwipeGestures();
                 }
-                else if (currentPage === 'notes') { fabButton.style.display = 'flex'; content.innerHTML = renderNotesPage(); } 
+                else if (currentPage === 'notes') { fabButton.style.display = 'flex'; content.innerHTML = renderNotesPage(); setTimeout(initNoteSortable, 50); } 
                 else if (currentPage === 'history') { fabButton.style.display = 'none'; content.innerHTML = renderHistoryPage(); }
             } catch(e) { console.error("Render error:", e); }
         }
@@ -950,6 +986,100 @@ function writeMainEJS() {
             if (!str) return '';
             return str.replace(/\\\\/g, '\\\\\\\\').replace(/'/g, "\\\\'").replace(/"/g, '\\\\"').replace(/\\n/g, '\\\\n').replace(/\\r/g, '\\\\r').replace(/\\t/g, '\\\\t');
         }
+
+        // ==========================================
+        // 🎨 RANDOM GRADIENT COLORS FOR CARDS
+        // ==========================================
+        const cardGradients = [
+            'linear-gradient(135deg, rgba(239,68,68,0.13) 0%, rgba(251,146,60,0.13) 100%)',
+            'linear-gradient(135deg, rgba(59,130,246,0.13) 0%, rgba(139,92,246,0.13) 100%)',
+            'linear-gradient(135deg, rgba(16,185,129,0.13) 0%, rgba(56,189,248,0.13) 100%)',
+            'linear-gradient(135deg, rgba(234,179,8,0.13) 0%, rgba(249,115,22,0.13) 100%)',
+            'linear-gradient(135deg, rgba(168,85,247,0.13) 0%, rgba(236,72,153,0.13) 100%)',
+            'linear-gradient(135deg, rgba(20,184,166,0.13) 0%, rgba(132,204,22,0.13) 100%)',
+            'linear-gradient(135deg, rgba(99,102,241,0.13) 0%, rgba(34,211,238,0.13) 100%)',
+            'linear-gradient(135deg, rgba(244,63,94,0.13) 0%, rgba(249,168,212,0.13) 100%)',
+        ];
+        const cardColorCache = {};
+        function getCardGradient(id) {
+            if (!cardColorCache[id]) {
+                let hash = 0;
+                for (let i = 0; i < id.length; i++) hash = id.charCodeAt(i) + ((hash << 5) - hash);
+                cardColorCache[id] = cardGradients[Math.abs(hash) % cardGradients.length];
+            }
+            return cardColorCache[id];
+        }
+
+        // ==========================================
+        // 🔀 SORTABLEJS DRAG-AND-DROP INIT
+        // ==========================================
+        let taskSortable = null;
+        let noteSortable = null;
+        let subtaskSortables = {};
+
+        function initTaskSortable() {
+            const grid = document.querySelector('.tasks-grid');
+            if (!grid || typeof Sortable === 'undefined') return;
+            if (taskSortable) taskSortable.destroy();
+            taskSortable = Sortable.create(grid, {
+                handle: '.drag-handle',
+                animation: 150,
+                ghostClass: 'sortable-ghost',
+                dragClass: 'sortable-drag',
+                onEnd: function(evt) {
+                    const taskId = evt.item.dataset.taskId;
+                    const newIndex = evt.newIndex;
+                    const oldIndex = evt.oldIndex;
+                    if (newIndex === oldIndex) return;
+                    const allCards = grid.querySelectorAll('.task-card[data-task-id]');
+                    const orderedIds = Array.from(allCards).map(el => el.dataset.taskId);
+                    fetch('/api/tasks/reorder', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ orderedIds }) })
+                    .catch(e => showToast('Failed', 'error'));
+                }
+            });
+        }
+
+        function initNoteSortable() {
+            const grid = document.querySelector('.tasks-grid');
+            if (!grid || typeof Sortable === 'undefined') return;
+            if (noteSortable) noteSortable.destroy();
+            noteSortable = Sortable.create(grid, {
+                handle: '.drag-handle',
+                animation: 150,
+                ghostClass: 'sortable-ghost',
+                dragClass: 'sortable-drag',
+                onEnd: function(evt) {
+                    const noteId = evt.item.dataset.noteId;
+                    const newIndex = evt.newIndex;
+                    const oldIndex = evt.oldIndex;
+                    if (newIndex === oldIndex) return;
+                    const allCards = grid.querySelectorAll('.note-card[data-note-id]');
+                    const orderedIds = Array.from(allCards).map(el => el.dataset.noteId);
+                    fetch('/api/notes/reorder', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ orderedIds }) })
+                    .catch(e => showToast('Failed', 'error'));
+                }
+            });
+        }
+
+        function initSubtaskSortable(taskId) {
+            const container = document.querySelector('.subtasks-container[data-task-id="' + taskId + '"]');
+            if (!container || typeof Sortable === 'undefined') return;
+            if (subtaskSortables[taskId]) subtaskSortables[taskId].destroy();
+            subtaskSortables[taskId] = Sortable.create(container, {
+                handle: '.drag-handle',
+                animation: 150,
+                ghostClass: 'sortable-ghost',
+                dragClass: 'sortable-drag',
+                onEnd: function(evt) {
+                    if (evt.newIndex === evt.oldIndex) return;
+                    const allItems = container.querySelectorAll('.subtask-item[data-subtask-id]');
+                    const orderedIds = Array.from(allItems).map(el => el.dataset.subtaskId);
+                    fetch('/api/tasks/' + taskId + '/subtasks/reorder', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ orderedIds }) })
+                    .catch(e => showToast('Failed', 'error'));
+                }
+            });
+        }
+
         function toggleDescription(elementId) {
             const element = document.getElementById(elementId);
             if (element) {
@@ -1456,46 +1586,23 @@ function writeMainEJS() {
 
         window.showGrowLogList = function() { document.getElementById("logGrowListView").style.display = "block"; document.getElementById("logGrowQuestionView").style.display = "none"; };
 
-        // Priority Mode Toggles
-        window.toggleTaskPriorityMode = function(taskId) {
-            document.querySelectorAll('.priority-mode').forEach(el => {
-                if(el.id !== 'task_actions_' + taskId) el.classList.remove('priority-mode');
-            });
-            document.getElementById('task_actions_' + taskId).classList.add('priority-mode');
-        };
-
-        window.toggleSubtaskPriorityMode = function(taskId, subtaskId) {
-            document.querySelectorAll('.priority-mode').forEach(el => {
-                if(el.id !== 'subtask_actions_' + taskId + '_' + subtaskId) el.classList.remove('priority-mode');
-            });
-            document.getElementById('subtask_actions_' + taskId + '_' + subtaskId).classList.add('priority-mode');
-        };
-        
-        window.toggleNotePriorityMode = function(noteId) {
-            document.querySelectorAll('.priority-mode').forEach(el => {
-                if(el.id !== 'note_actions_' + noteId) el.classList.remove('priority-mode');
-            });
-            document.getElementById('note_actions_' + noteId).classList.add('priority-mode');
-        };
-
-        window.moveTask = function(taskId, direction) {
-            fetch('/api/tasks/' + taskId + '/move', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({direction}) })
-            .then(res => { if(res.ok) switchPage('tasks'); else throw new Error(''); })
-            .catch(e => showToast('Failed', 'error'));
-        };
-
-        window.moveSubtask = function(taskId, subtaskId, direction) {
-            fetch('/api/tasks/' + taskId + '/subtasks/' + subtaskId + '/move', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({direction}) })
-            .then(res => { if(res.ok) switchPage('tasks'); else throw new Error(''); })
-            .catch(e => showToast('Failed', 'error'));
-        };
-
         function renderTasksPage() {
-            let html = '<div class="tasks-grid">';
-            if (!tasksData || tasksData.length === 0) {
+            let html = '<div class="task-tabs" style="display:flex; background:var(--hover-light); border-radius:10px; padding:4px; margin-bottom:16px;">';
+            html += '<button style="flex:1; padding:8px; border:none; background:' + (currentTaskFolder === 'WD' ? 'var(--card-bg-light)' : 'transparent') + '; border-radius:8px; font-weight:600; font-size:0.95rem; color:' + (currentTaskFolder === 'WD' ? 'var(--accent-light)' : 'var(--text-secondary-light)') + '; box-shadow:' + (currentTaskFolder === 'WD' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none') + '; transition:all 0.2s; cursor:pointer;" onclick="setTaskFolder(\\'WD\\')">Working Day</button>';
+            html += '<button style="flex:1; padding:8px; border:none; background:' + (currentTaskFolder === 'HOL' ? 'var(--card-bg-light)' : 'transparent') + '; border-radius:8px; font-weight:600; font-size:0.95rem; color:' + (currentTaskFolder === 'HOL' ? 'var(--accent-light)' : 'var(--text-secondary-light)') + '; box-shadow:' + (currentTaskFolder === 'HOL' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none') + '; transition:all 0.2s; cursor:pointer;" onclick="setTaskFolder(\\'HOL\\')">Holiday</button>';
+            html += '</div>';
+
+            html += '<div class="tasks-grid">';
+            
+            let folderTasks = tasksData.filter(task => {
+                const dtArray = Array.isArray(task.dayTypes) ? task.dayTypes : (task.dayTypes ? [task.dayTypes] : ['WD']);
+                return dtArray.includes(currentTaskFolder);
+            });
+
+            if (!folderTasks || folderTasks.length === 0) {
                 html += '<div class="empty-state" style="grid-column: 1/-1;"><i class="fas fa-clipboard-list" style="font-size: 2.5rem;"></i><h3 style="margin-top: 12px; font-size:1.1rem;">No tasks</h3></div>';
             } else {
-                tasksData.forEach((task) => {
+                folderTasks.forEach((task) => {
                     const hasDescription = hasContent(task.description);
                     const progress = task.subtaskProgress || 0;
                     const circleCircumference = 2 * Math.PI * 16;
@@ -1505,15 +1612,14 @@ function writeMainEJS() {
                     const descriptionId = 'task_desc_' + task.taskId;
                     const escapedTitle = escapeHtml(task.title);
                     
-                    html += '<div class="task-card"><div class="task-header"><div class="task-title-section"><div class="task-title-container" onclick="toggleDescription(\\'' + descriptionId + '\\')" oncontextmenu="event.preventDefault(); toggleTaskPriorityMode(\\'' + task.taskId + '\\')"><i class="fas fa-chevron-right" id="' + descriptionId + '_icon"></i><span class="task-title">' + escapedTitle + '</span></div></div><div class="task-actions-wrapper" id="task_actions_' + task.taskId + '">';
+                    html += '<div class="task-card colored-card" data-task-id="' + task.taskId + '" style="--card-color: ' + getCardGradient(task.taskId) + '"><div class="task-header"><div class="task-title-section"><div class="task-title-container" onclick="toggleDescription(\\'' + descriptionId + '\\')" oncontextmenu="event.preventDefault();"><i class="fas fa-chevron-right" id="' + descriptionId + '_icon"></i><span class="task-title">' + escapedTitle + '</span></div></div><div class="task-actions-wrapper" id="task_actions_' + task.taskId + '">';
                     
                     html += '<div class="normal-btns">';
+                    html += '<span class="drag-handle" title="Drag to reorder"><i class="fas fa-grip-vertical"></i></span>';
                     if (totalSubtasks < 10) html += '<button class="action-btn" onclick="openAddSubtaskModal(\\'' + task.taskId + '\\')"><i class="fas fa-plus"></i></button>';
                     html += '<button class="action-btn" onclick="openEditTaskModal(\\'' + task.taskId + '\\')"><i class="fas fa-pencil-alt"></i></button><button class="action-btn" onclick="completeTask(\\'' + task.taskId + '\\')"><i class="fas fa-check"></i></button><button class="action-btn delete" onclick="deleteTask(\\'' + task.taskId + '\\')"><i class="fas fa-trash"></i></button></div>';
                     
-                    html += '<div class="priority-btns">';
-                    html += '<button class="action-btn" onclick="moveTask(\\'' + task.taskId + '\\', \\'up\\')"><i class="fas fa-arrow-up"></i></button>';
-                    html += '<button class="action-btn" onclick="moveTask(\\'' + task.taskId + '\\', \\'down\\')"><i class="fas fa-arrow-down"></i></button></div></div></div>';
+                    html += '</div></div>';
                     
                     if (hasDescription) html += '<div id="' + descriptionId + '" class="task-description-container hidden"><div class="task-description">' + preserveLineBreaks(task.description) + '</div></div>';
                     
@@ -1522,17 +1628,19 @@ function writeMainEJS() {
                     html += '<span class="badge" style="margin-left:auto; background:transparent; border:1px solid var(--border-light);"><i class="fas fa-sync"></i> ' + (task.repeatWeeks == 1 ? '1 Week' : (task.repeatWeeks||1) + ' Weeks') + '</span></div>';
                     
                     if (totalSubtasks > 0) {
-                        html += '<details class="task-subtasks"><summary class="flex-row" style="cursor: pointer;"><div class="progress-ring-small"><svg width="34" height="34"><circle class="progress-ring-circle-small" stroke="var(--progress-bg-light)" stroke-width="3" fill="transparent" r="14" cx="17" cy="17"/><circle class="progress-ring-circle-small" stroke="var(--accent-light)" stroke-width="3" fill="transparent" r="14" cx="17" cy="17" style="stroke-dasharray: ' + circleCircumference + '; stroke-dashoffset: ' + circleOffset + '; "/></svg><span class="progress-text-small">' + progress + '%</span></div><span style="font-size: 0.85rem; font-weight: 500; color: var(--text-secondary-light);">' + completedSubtasks + '/' + totalSubtasks + ' subtasks</span></summary><div class="subtasks-container w-100">';
+                        html += '<details class="task-subtasks" ontoggle="if(this.open) setTimeout(function(){ initSubtaskSortable(\\'' + task.taskId + '\\'); }, 50);"><summary class="flex-row" style="cursor: pointer;"><div class="progress-ring-small"><svg width="34" height="34"><circle class="progress-ring-circle-small" stroke="var(--progress-bg-light)" stroke-width="3" fill="transparent" r="14" cx="17" cy="17"/><circle class="progress-ring-circle-small" stroke="var(--accent-light)" stroke-width="3" fill="transparent" r="14" cx="17" cy="17" style="stroke-dasharray: ' + circleCircumference + '; stroke-dashoffset: ' + circleOffset + '; "/></svg><span class="progress-text-small">' + progress + '%</span></div><span style="font-size: 0.85rem; font-weight: 500; color: var(--text-secondary-light);">' + completedSubtasks + '/' + totalSubtasks + ' subtasks</span></summary><div class="subtasks-container w-100" data-task-id="' + task.taskId + '">';
                         task.subtasks.forEach((subtask) => {
                             const subtaskHasDesc = hasContent(subtask.description);
                             const subtaskDescId = 'subtask_desc_' + task.taskId + '_' + subtask.id;
                             const escapedSubtaskTitle = escapeHtml(subtask.title);
                             const escapedSubtaskDescription = escapeJsString(subtask.description || '');
-                            html += '<div class="subtask-item"><div class="subtask-main-row"><div class="subtask-checkbox ' + (subtask.completed ? 'completed' : '') + '" onclick="toggleSubtask(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\')">' + (subtask.completed ? '<i class="fas fa-check"></i>' : '') + '</div><div class="subtask-details"><div class="subtask-title-container" onclick="toggleDescription(\\'' + subtaskDescId + '\\')" oncontextmenu="event.preventDefault(); toggleSubtaskPriorityMode(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\')"><span class="subtask-title ' + (subtask.completed ? 'completed' : '') + '">' + escapedSubtaskTitle + '</span></div></div><div class="task-actions-wrapper" id="subtask_actions_' + task.taskId + '_' + subtask.id + '">';
+                            html += '<div class="subtask-item" data-subtask-id="' + subtask.id + '"><div class="subtask-main-row"><div class="subtask-checkbox ' + (subtask.completed ? 'completed' : '') + '" onclick="toggleSubtask(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\')">' + (subtask.completed ? '<i class="fas fa-check"></i>' : '') + '</div><div class="subtask-details"><div class="subtask-title-container" onclick="toggleDescription(\\'' + subtaskDescId + '\\')" oncontextmenu="event.preventDefault();"><span class="subtask-title ' + (subtask.completed ? 'completed' : '') + '">' + escapedSubtaskTitle + '</span></div></div><div class="task-actions-wrapper" id="subtask_actions_' + task.taskId + '_' + subtask.id + '">';
                             
-                            html += '<div class="normal-btns"><button class="subtask-btn" onclick="editSubtask(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\', \\'' + escapedSubtaskTitle.replace(/'/g, "\\\\'") + '\\', \\'' + escapedSubtaskDescription.replace(/'/g, "\\\\'") + '\\')"><i class="fas fa-pencil-alt"></i></button><button class="subtask-btn delete" onclick="deleteSubtask(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\')"><i class="fas fa-trash"></i></button></div>';
+                            html += '<div class="normal-btns">';
+                            html += '<span class="drag-handle" title="Drag to reorder"><i class="fas fa-grip-vertical"></i></span>';
+                            html += '<button class="subtask-btn" onclick="editSubtask(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\', \\'' + escapedSubtaskTitle.replace(/'/g, "\\\\'") + '\\', \\'' + escapedSubtaskDescription.replace(/'/g, "\\\\'") + '\\')"><i class="fas fa-pencil-alt"></i></button><button class="subtask-btn delete" onclick="deleteSubtask(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\')"><i class="fas fa-trash"></i></button></div>';
                             
-                            html += '<div class="priority-btns"><button class="subtask-btn" onclick="moveSubtask(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\', \\'up\\')"><i class="fas fa-arrow-up"></i></button><button class="subtask-btn" onclick="moveSubtask(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\', \\'down\\')"><i class="fas fa-arrow-down"></i></button></div></div></div>';
+                            html += '</div></div>';
                             
                             if (subtaskHasDesc) html += '<div id="' + subtaskDescId + '" class="subtask-description-container hidden"><div class="subtask-description">' + preserveLineBreaks(subtask.description) + '</div></div>';
                             html += '</div>';
@@ -1561,12 +1669,14 @@ function writeMainEJS() {
                     const escapedNoteTitle = escapeHtml(note.title);
                     const escapedNoteDescription = escapeJsString(note.description || '');
                     
-                    html += '<div class="note-card"><div class="note-header"><div class="task-title-container" onclick="toggleDescription(\\'' + noteDescId + '\\')" oncontextmenu="event.preventDefault(); toggleNotePriorityMode(\\'' + note.noteId + '\\')"><i class="fas fa-chevron-right" id="' + noteDescId + '_icon"></i><span class="note-title">' + escapedNoteTitle + '</span></div>';
+                    html += '<div class="note-card colored-card" data-note-id="' + note.noteId + '" style="--card-color: ' + getCardGradient(note.noteId) + '"><div class="note-header"><div class="task-title-container" onclick="toggleDescription(\\'' + noteDescId + '\\')" oncontextmenu="event.preventDefault();"><i class="fas fa-chevron-right" id="' + noteDescId + '_icon"></i><span class="note-title">' + escapedNoteTitle + '</span></div>';
                     
                     html += '<div class="task-actions-wrapper" id="note_actions_' + note.noteId + '">';
-                    html += '<div class="normal-btns"><button class="action-btn" onclick="openEditNoteModal(\\'' + note.noteId + '\\', \\'' + escapedNoteTitle.replace(/'/g, "\\\\'") + '\\', \\'' + escapedNoteDescription.replace(/'/g, "\\\\'") + '\\')"><i class="fas fa-pencil-alt"></i></button><button class="action-btn delete" onclick="deleteNote(\\'' + note.noteId + '\\')"><i class="fas fa-trash"></i></button></div>';
+                    html += '<div class="normal-btns">';
+                    html += '<span class="drag-handle" title="Drag to reorder"><i class="fas fa-grip-vertical"></i></span>';
+                    html += '<button class="action-btn" onclick="openEditNoteModal(\\'' + note.noteId + '\\', \\'' + escapedNoteTitle.replace(/'/g, "\\\\'") + '\\', \\'' + escapedNoteDescription.replace(/'/g, "\\\\'") + '\\')"><i class="fas fa-pencil-alt"></i></button><button class="action-btn delete" onclick="deleteNote(\\'' + note.noteId + '\\')"><i class="fas fa-trash"></i></button></div>';
                     
-                    html += '<div class="priority-btns"><button class="action-btn" onclick="moveNote(\\'' + note.noteId + '\\', \\'up\\')"><i class="fas fa-arrow-up"></i></button><button class="action-btn" onclick="moveNote(\\'' + note.noteId + '\\', \\'down\\')"><i class="fas fa-arrow-down"></i></button></div></div></div>';
+                    html += '</div></div>';
                     
                     if (hasDescription) html += '<div id="' + noteDescId + '" class="note-content-container hidden"><div class="note-content">' + preserveLineBreaks(note.description) + '</div></div>';
                     html += '<div class="note-meta"><span><i class="fas fa-clock"></i> ' + note.createdAtIST + '</span>' + (note.updatedAtIST !== note.createdAtIST ? '<span><i class="fas fa-pencil-alt"></i> ' + note.updatedAtIST + '</span>' : '') + '</div></div>';
@@ -1590,7 +1700,7 @@ function writeMainEJS() {
                     if (date.includes('-') && date.split('-')[0].length === 4) {
                         const parts = date.split('-'); displayDateHeader = parts[2] + '-' + parts[1] + '-' + parts[0];
                     }
-                    html += '<div class="history-date-card"><details class="history-details">';
+                    html += '<div class="history-date-card colored-card" style="--card-color: ' + getCardGradient(date) + '"><details class="history-details">';
                     
                     const taskText = tasks.length === 1 ? '1 Task' : tasks.length + ' Tasks';
                     const dailyType = tasks.length > 0 ? (tasks[0].dailyType || 'WD') : 'WD';
@@ -1655,7 +1765,10 @@ function writeMainEJS() {
             document.getElementById('notifToggle').checked = globalAppVars.notifications;
             document.getElementById('alertsToggle').checked = globalAppVars.alerts;
             document.getElementById('remindersToggle').checked = globalAppVars.reminders;
+            document.getElementById('saveAutoCompletedToggle').checked = globalAppVars.saveAutoCompleted !== false;
+            document.getElementById('fontSizeSlider').value = globalAppVars.fontSize || 1;
             document.getElementById('themeToggle').checked = document.body.getAttribute('data-theme') === 'dark';
+            updateFontLabel();
             openModal('settingsAppModal');
         }
 
@@ -1669,6 +1782,11 @@ function writeMainEJS() {
             globalAppVars.notifications = document.getElementById('notifToggle').checked;
             globalAppVars.alerts = document.getElementById('alertsToggle').checked;
             globalAppVars.reminders = document.getElementById('remindersToggle').checked;
+            globalAppVars.saveAutoCompleted = document.getElementById('saveAutoCompletedToggle').checked;
+            globalAppVars.fontSize = parseInt(document.getElementById('fontSizeSlider').value);
+            
+            applyFontSize();
+            
             fetch('/api/settings/update', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(globalAppVars) }).then(() => showToast('Success'));
         }
 
@@ -1779,11 +1897,11 @@ function writeMainEJS() {
         
         function deleteTask(taskId) { if (!confirm('Delete this task?')) return; fetch('/api/tasks/' + taskId + '/delete', { method: 'POST' }).then(res => { if(res.ok){ showToast('Success'); switchPage('tasks'); } else throw new Error(''); }).catch(err => { showToast('Failed', 'error'); }); }
         function deleteNote(noteId) { if (!confirm('Delete this note?')) return; fetch('/api/notes/' + noteId + '/delete', { method: 'POST' }).then(res => { if(res.ok){ showToast('Success'); switchPage('notes'); } else throw new Error(''); }).catch(err => { showToast('Failed', 'error'); }); }
-        function moveNote(noteId, direction) { const formData = new FormData(); formData.append('direction', direction); fetch('/api/notes/' + noteId + '/move', { method: 'POST', body: new URLSearchParams(formData) }).then(res => { if(res.ok){ switchPage('notes'); } else throw new Error(''); }).catch(err => { showToast('Failed', 'error'); }); }
 
         document.addEventListener('DOMContentLoaded', function() {
             setupDaySelector('addDaySelector', 'addSelectedDays');
             setupDaySelector('editDaySelector', 'editSelectedDays');
+            applyFontSize();
 
             const themeToggle = document.getElementById('themeToggle');
             if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
@@ -1816,9 +1934,6 @@ function writeMainEJS() {
                     const bubble = document.getElementById("growBubble");
                     if (bubble) bubble.dataset.currentDate = "";
                 }
-                if (!event.target.closest('.task-title-container') && !event.target.closest('.priority-btns')) {
-                    document.querySelectorAll('.priority-mode').forEach(el => el.classList.remove('priority-mode'));
-                }
             });
             window.oncontextmenu = function(event) { event.preventDefault(); };
         });
@@ -1847,10 +1962,10 @@ async function connectDB() {
             
             let s = await db.collection('settings').findOne({ _id: 'bot_config' });
             if (!s) {
-                await db.collection('settings').insertOne({ _id: 'bot_config', notifications: true, alerts: true, reminders: true, dailyType: null, dailyTypeDate: null });
-                globalSettings = { notifications: true, alerts: true, reminders: true, dailyType: null, dailyTypeDate: null };
+                await db.collection('settings').insertOne({ _id: 'bot_config', notifications: true, alerts: true, reminders: true, dailyType: null, dailyTypeDate: null, fontSize: 1 });
+                globalSettings = { notifications: true, alerts: true, reminders: true, dailyType: null, dailyTypeDate: null, saveAutoCompleted: true, fontSize: 1 };
             } else {
-                globalSettings = { notifications: s.notifications !== false, alerts: s.alerts !== false, reminders: s.reminders !== false, dailyType: s.dailyType, dailyTypeDate: s.dailyTypeDate, saveAutoCompleted: s.saveAutoCompleted !== false };
+                globalSettings = { notifications: s.notifications !== false, alerts: s.alerts !== false, reminders: s.reminders !== false, dailyType: s.dailyType, dailyTypeDate: s.dailyTypeDate, saveAutoCompleted: s.saveAutoCompleted !== false, fontSize: s.fontSize !== undefined ? s.fontSize : 1 };
             }
             
             const exists = await db.collection('grow').findOne({ type: 'tracker' });
