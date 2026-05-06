@@ -2070,7 +2070,8 @@ async function sendStartMenu(ctx) {
         msg += `Reminders : ${globalSettings.reminders ? '🔔 ON' : '🔕 OFF'}\n`;
         msg += `Auto Complete : ${globalSettings.saveAutoCompleted !== false ? '✅ ON' : '❌ OFF'}`;
 
-        const kb = { inline_keyboard: [ [ { text: '🌐 Task Manager', web_app: { url: WEB_APP_URL } } ], [ { text: '⚙️ Settings', callback_data: 'open_settings' } ] ] };
+        const kb = { inline_keyboard: [ [ { text: '🌐 Task Manager', web_app: { url: WEB_APP_URL }, style: 'primary' } ], [ { text: '⚙️ Settings', callback_data: 'open_settings', style: 'primary' } ] ] };
+    
 
         if (ctx.callbackQuery) {
             await ctx.editMessageText(msg, { parse_mode: 'HTML', reply_markup: kb });
@@ -2123,7 +2124,7 @@ bot.action('open_settings', async (ctx) => {
                 style: gs.saveAutoCompleted !== false ? 'success' : 'danger'
             } ],
             [ 
-                { text: '⬅️ Back', callback_data: 'back_start' }, // Default style
+                { text: '⬅️ Back', callback_data: 'back_start', style: 'primary' }, // Default style
                 { text: '🌐 Tasks', web_app: { url: WEB_APP_URL }, style: 'primary' } // Blue style
             ]
         ]
