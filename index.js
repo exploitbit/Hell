@@ -582,7 +582,7 @@ function writeMainEJS() {
                 <label class="switch"><input type="checkbox" id="remindersToggle" onchange="updateSettings()"><span class="slider"></span></label>
             </div>
             <div class="settings-row">
-                <span class="settings-label">Auto complete (enable / disabled)</span>
+                <span class="settings-label">Auto complete</span>
                 <label class="switch"><input type="checkbox" id="saveAutoCompletedToggle" onchange="updateSettings()"><span class="slider"></span></label>
             </div>
         </div>
