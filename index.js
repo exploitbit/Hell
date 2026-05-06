@@ -290,9 +290,9 @@ function writeMainEJS() {
         .task-card.colored-card { background: var(--card-color, var(--card-bg-light)) !important; border-color: transparent !important; }
         
         /* Drag styles */
-        .sortable-ghost { opacity: 0.4; }
-        .sortable-drag { opacity: 0.9; cursor: grabbing !important; transform: scale(1.02); box-shadow: 0 10px 20px rgba(0,0,0,0.15); z-index: 100; }
-        body[data-theme="dark"] .sortable-drag { box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+        .sortable-ghost { opacity: 0 !important; }
+        .sortable-drag { opacity: 1 !important; transform: scale(1.02) !important; box-shadow: 0 15px 30px rgba(0,0,0,0.15) !important; z-index: 1000 !important; cursor: grabbing !important; background: var(--card-bg-light) !important; }
+        body[data-theme="dark"] .sortable-drag { box-shadow: 0 15px 30px rgba(0,0,0,0.6) !important; background: var(--card-bg-dark) !important; }
 
         .task-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; width: 100%; position: relative; z-index: 2; pointer-events: none; }
         .task-title-section { flex: 1; min-width: 0; pointer-events: auto; }
@@ -991,13 +991,16 @@ function writeMainEJS() {
             if (!grid || typeof Sortable === 'undefined') return;
             if (taskSortable) taskSortable.destroy();
             taskSortable = Sortable.create(grid, {
-                delay: 600,
-                delayOnTouchOnly: false,
-                touchStartThreshold: 5,
-                animation: 250,
+                delay: 400,
+                delayOnTouchOnly: false, 
+                animation: 350,
                 easing: "cubic-bezier(0.25, 1, 0.5, 1)",
                 ghostClass: 'sortable-ghost',
                 dragClass: 'sortable-drag',
+                forceFallback: true,
+                fallbackClass: 'sortable-drag',
+                filter: 'button, input, textarea, .action-btn, .subtask-checkbox, .task-title-container, details, summary',
+                preventOnFilter: false,
                 onEnd: function(evt) {
                     const taskId = evt.item.dataset.taskId;
                     const newIndex = evt.newIndex;
@@ -1016,13 +1019,16 @@ function writeMainEJS() {
             if (!grid || typeof Sortable === 'undefined') return;
             if (noteSortable) noteSortable.destroy();
             noteSortable = Sortable.create(grid, {
-                delay: 600,
+                delay: 400,
                 delayOnTouchOnly: false,
-                touchStartThreshold: 5,
-                animation: 250,
+                animation: 350,
                 easing: "cubic-bezier(0.25, 1, 0.5, 1)",
                 ghostClass: 'sortable-ghost',
                 dragClass: 'sortable-drag',
+                forceFallback: true,
+                fallbackClass: 'sortable-drag',
+                filter: 'button, input, textarea, .action-btn, .subtask-checkbox, .task-title-container, details, summary',
+                preventOnFilter: false,
                 onEnd: function(evt) {
                     const noteId = evt.item.dataset.noteId;
                     const newIndex = evt.newIndex;
@@ -1041,13 +1047,16 @@ function writeMainEJS() {
             if (!container || typeof Sortable === 'undefined') return;
             if (subtaskSortables[taskId]) subtaskSortables[taskId].destroy();
             subtaskSortables[taskId] = Sortable.create(container, {
-                delay: 600,
+                delay: 400,
                 delayOnTouchOnly: false,
-                touchStartThreshold: 5,
-                animation: 250,
+                animation: 350,
                 easing: "cubic-bezier(0.25, 1, 0.5, 1)",
                 ghostClass: 'sortable-ghost',
                 dragClass: 'sortable-drag',
+                forceFallback: true,
+                fallbackClass: 'sortable-drag',
+                filter: 'button, input, textarea, .action-btn, .subtask-checkbox, .task-title-container, details, summary',
+                preventOnFilter: false,
                 onEnd: function(evt) {
                     if (evt.newIndex === evt.oldIndex) return;
                     const allItems = container.querySelectorAll('.subtask-item[data-subtask-id]');
@@ -1984,27 +1993,27 @@ function escapeHTML(str) {
 // ==========================================
 const bot = new Telegraf(BOT_TOKEN);
 
-// Messages are NOT auto-deleted. /start command clears previous messages.
-
+// Global state trackers for auto-cleaning messages
 const activeSchedules = new Map();
 let isShuttingDown = false;
+
+let lastStartMenuMsgId = null;
 let lastHourlyMessageId = null;
-let sentMessageIds = []; // Track all sent message IDs for /start clear
+let lastAlertMsgId = null;
 
-async function trackAndSend(chatId, text, extra) {
-    try {
-        const msg = await bot.telegram.sendMessage(chatId, text, extra);
-        if (msg && msg.message_id) sentMessageIds.push(msg.message_id);
-        return msg;
-    } catch(e) { console.error("Failed to send message", e); }
-}
+let currentReminderTaskId = null;
+let reminderMsgIds = [];
 
-async function clearAllMessages() {
-    const toDelete = [...sentMessageIds];
-    sentMessageIds = [];
-    for (const msgId of toDelete) {
-        try { await bot.telegram.deleteMessage(CHAT_ID, msgId); } catch(e) {}
+// Helper function to send and replace the last alert message seamlessly
+async function sendAlertMsg(text) {
+    if (!globalSettings.alerts) return;
+    if (lastAlertMsgId) {
+        try { await bot.telegram.deleteMessage(CHAT_ID, lastAlertMsgId); } catch(e){}
     }
+    try {
+        const m = await bot.telegram.sendMessage(CHAT_ID, text, { parse_mode: 'HTML' });
+        if (m) lastAlertMsgId = m.message_id;
+    } catch(e) {}
 }
 
 bot.use(async (ctx, next) => {
@@ -2048,25 +2057,30 @@ async function sendStartMenu(ctx) {
 
         const kb = { inline_keyboard: [ [ { text: '🌐 Task Manager', web_app: { url: WEB_APP_URL } } ], [ { text: '⚙️ Settings', callback_data: 'open_settings' } ] ] };
 
-        if (ctx.callbackQuery) await ctx.editMessageText(msg, { parse_mode: 'HTML', reply_markup: kb });
-        else {
+        if (ctx.callbackQuery) {
+            await ctx.editMessageText(msg, { parse_mode: 'HTML', reply_markup: kb });
+        } else {
+            // Delete previous Start menu instance
+            if (lastStartMenuMsgId) {
+                try { await bot.telegram.deleteMessage(CHAT_ID, lastStartMenuMsgId); } catch(e){}
+            }
             const m = await ctx.reply(msg, { parse_mode: 'HTML', reply_markup: kb });
-            if (m && m.message_id) sentMessageIds.push(m.message_id);
+            if (m) lastStartMenuMsgId = m.message_id;
         }
     } catch (err) { console.error("Start Menu Error:", err); }
 }
 
 bot.command('start', async (ctx) => {
-    // Clear all previous bot messages
-    await clearAllMessages();
-    // Also delete the /start command message itself
+    // Delete the triggering /start command to keep chat clean
     try { await bot.telegram.deleteMessage(ctx.chat.id, ctx.message.message_id); } catch(e) {}
     
     const istDateObj = getCurrentISTDisplay();
     if (globalSettings.dailyTypeDate !== istDateObj.displayDate) {
         const kb = { inline_keyboard: [[{text:'💼 Working Day', callback_data:'set_wd_start'}, {text:'🏖️ Holiday', callback_data:'set_hol_start'}]] };
+        
+        if (lastStartMenuMsgId) { try { await bot.telegram.deleteMessage(CHAT_ID, lastStartMenuMsgId); } catch(e){} }
         const m = await ctx.reply(`🌅 Good Morning!\nIs today (${istDateObj.displayDate}) a Working Day or Holiday?`, {reply_markup: kb});
-        if (m && m.message_id) sentMessageIds.push(m.message_id);
+        if (m) lastStartMenuMsgId = m.message_id;
         return;
     }
     return sendStartMenu(ctx);
@@ -2144,6 +2158,15 @@ function scheduleTask(task) {
             const hist = await db.collection('history').findOne({ taskId: task.taskId, completedDateStr: istDateObj.displayDate });
             if (hist) return; 
 
+            // Wipe previous task's reminders when a new task starts generating reminders
+            if (currentReminderTaskId !== task.taskId) {
+                for (let mid of reminderMsgIds) {
+                    try { await bot.telegram.deleteMessage(CHAT_ID, mid); } catch(e){}
+                }
+                reminderMsgIds = [];
+                currentReminderTaskId = task.taskId;
+            }
+
             let count = 0;
             const sendRem = async () => {
                 if (isShuttingDown || !globalSettings.reminders) return;
@@ -2154,11 +2177,13 @@ function scheduleTask(task) {
                 }
                 
                 let minsLeft = 10 - count;
+                let m;
                 if (minsLeft === 0) {
-                    try { await bot.telegram.sendMessage(CHAT_ID, `🚀 <b>START NOW:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} to ${f12(task.endTimeStr)}`, { parse_mode: 'HTML' }); } catch(e){}
+                    try { m = await bot.telegram.sendMessage(CHAT_ID, `🚀 <b>START NOW:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} to ${f12(task.endTimeStr)}`, { parse_mode: 'HTML' }); } catch(e){}
                 } else {
-                    try { await bot.telegram.sendMessage(CHAT_ID, `🔔 <b>In ${minsLeft}m:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} to ${f12(task.endTimeStr)}`, { parse_mode: 'HTML' }); } catch(e){}
+                    try { m = await bot.telegram.sendMessage(CHAT_ID, `🔔 <b>In ${minsLeft}m:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} to ${f12(task.endTimeStr)}`, { parse_mode: 'HTML' }); } catch(e){}
                 }
+                if (m) reminderMsgIds.push(m.message_id);
                 
                 count++;
                 if(count >= 11) { 
@@ -2191,7 +2216,7 @@ async function rescheduleAllPending() {
     } catch (error) {}
 }
 
-// Hourly Updates
+// Hourly Updates (Deletes previous hourly automatically)
 function setupHourlyNotifications() {
     const rule = new schedule.RecurrenceRule();
     rule.minute = 0; rule.hour = new schedule.Range(8, 23); rule.tz = 'Asia/Kolkata';
@@ -2230,8 +2255,11 @@ function setupDailyQuestion() {
         try {
             const istDateObj = getCurrentISTDisplay();
             const kb = { inline_keyboard: [[{text:'💼 Working Day', callback_data:'set_wd_start'}, {text:'🏖️ Holiday', callback_data:'set_hol_start'}]] };
+            
+            // Re-use lastAlertMsgId so this popup wipes itself when another action is triggered
+            if (lastAlertMsgId) { try { await bot.telegram.deleteMessage(CHAT_ID, lastAlertMsgId); } catch(e){} }
             const m = await bot.telegram.sendMessage(CHAT_ID, `🌅 Good Morning!\nIs today (${istDateObj.displayDate}) a Working Day or Holiday?\n\n<i>If no choice is made by 12:00 PM, it will be set as Working Day automatically.</i>`, { parse_mode: 'HTML', reply_markup: kb });
-            if (m && m.message_id) sentMessageIds.push(m.message_id);
+            if (m) lastAlertMsgId = m.message_id;
         } catch(e) {}
     });
 }
@@ -2248,8 +2276,7 @@ function setupAutoWorkingDay() {
                 globalSettings.dailyType = 'WD';
                 globalSettings.dailyTypeDate = istDateObj.displayDate;
                 await db.collection('settings').updateOne({_id:'bot_config'}, {$set:{dailyType:'WD', dailyTypeDate: istDateObj.displayDate}}, {upsert:true});
-                const m = await bot.telegram.sendMessage(CHAT_ID, `⏰ No selection was made. Today (${istDateObj.displayDate}) has been automatically set as a <b>Working Day (WD)</b>.`, { parse_mode: 'HTML' });
-                if (m && m.message_id) sentMessageIds.push(m.message_id);
+                await sendAlertMsg(`⏰ No selection was made. Today (${istDateObj.displayDate}) has been automatically set as a <b>Working Day (WD)</b>.`);
             }
         } catch(e) {}
     });
@@ -2283,7 +2310,7 @@ function setupAutoCompletion() {
                 }
             }
             if (pendingTasks.length > 0) {
-                try { await bot.telegram.sendMessage(CHAT_ID, `🌙 <b>Auto-completed</b> ${pendingTasks.length} tasks.\n🕒 <b>Time:</b> ${istDateObj.displayTime}\n📅 <b>Date:</b> ${istDateObj.displayDate}\n🗓 <b>Day:</b> ${istDateObj.dayName}\n`, { parse_mode: 'HTML' }); } catch(e){}
+                await sendAlertMsg(`🌙 <b>Auto-completed</b> ${pendingTasks.length} tasks.\n🕒 <b>Time:</b> ${istDateObj.displayTime}\n📅 <b>Date:</b> ${istDateObj.displayDate}\n🗓 <b>Day:</b> ${istDateObj.dayName}\n`);
             }
             await cleanExpiredTasks();
             
@@ -2426,10 +2453,7 @@ app.post('/api/grow', async (req, res) => {
         if (item.hasData) { item.question = question || ''; if (start !== undefined && start !== '') item.start = type === 'float' ? parseFloat(start) : parseInt(start); if (end !== undefined && end !== '') item.end = type === 'float' ? parseFloat(end) : parseInt(end); }
         await db.collection('grow').updateOne({ type: 'tracker' }, { $push: { items: item } }, { upsert: true });
         
-        if(globalSettings.alerts) {
-            let msg = `🌱 <b>Grow Added</b>\n📌 <b>Title:</b> ${escapeHTML(item.title)}\n⏳ <b>Duration:</b> ${item.endCount} Days`;
-            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
-        }
+        await sendAlertMsg(`🌱 <b>Grow Added</b>\n📌 <b>Title:</b> ${escapeHTML(item.title)}\n⏳ <b>Duration:</b> ${item.endCount} Days`);
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
@@ -2441,10 +2465,7 @@ app.post('/api/grow/:id/update', async (req, res) => {
         if (updatedItem.hasData) { updatedItem.question = question || ''; if (start !== undefined && start !== '') updatedItem.start = type === 'float' ? parseFloat(start) : parseInt(start); if (end !== undefined && end !== '') updatedItem.end = type === 'float' ? parseFloat(end) : parseInt(end); }
         await db.collection('grow').updateOne({ type: 'tracker', 'items.id': id }, { $set: { 'items.$': updatedItem } });
         
-        if(globalSettings.alerts) {
-            let msg = `✏️ <b>Grow Edited</b>\n📌 <b>Title:</b> ${escapeHTML(updatedItem.title)}`;
-            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
-        }
+        await sendAlertMsg(`✏️ <b>Grow Edited</b>\n📌 <b>Title:</b> ${escapeHTML(updatedItem.title)}`);
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
@@ -2455,10 +2476,7 @@ app.post('/api/grow/:id/delete', async (req, res) => {
         const item = tracker?.items.find(i => i.id === req.params.id);
         await db.collection('grow').updateOne({ type: 'tracker' }, { $pull: { items: { id: req.params.id } } });
         
-        if(globalSettings.alerts && item) {
-            let msg = `🗑️ <b>Grow Deleted</b>\n📌 <b>Title:</b> ${escapeHTML(item.title)}`;
-            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
-        }
+        if (item) await sendAlertMsg(`🗑️ <b>Grow Deleted</b>\n📌 <b>Title:</b> ${escapeHTML(item.title)}`);
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
@@ -2468,13 +2486,10 @@ app.post('/api/grow/log', async (req, res) => {
         const { itemId, dateStr, value } = req.body;
         await db.collection('grow').updateOne({ type: 'tracker' }, { $set: { [`progress.${dateStr}.${itemId}`]: value } });
         
-        if(globalSettings.alerts) {
-            const tracker = await db.collection('grow').findOne({ type: 'tracker' });
-            const item = tracker?.items.find(i => i.id === itemId);
-            if(item) {
-                let msg = `📈 <b>Grow Logged</b>\n📌 <b>Title:</b> ${escapeHTML(item.title)}\n📅 <b>Date:</b> ${dateStr}\n🔢 <b>Value:</b> ${value}`;
-                try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
-            }
+        const tracker = await db.collection('grow').findOne({ type: 'tracker' });
+        const item = tracker?.items.find(i => i.id === itemId);
+        if(item) {
+            await sendAlertMsg(`📈 <b>Grow Logged</b>\n📌 <b>Title:</b> ${escapeHTML(item.title)}\n📅 <b>Date:</b> ${dateStr}\n🔢 <b>Value:</b> ${value}`);
         }
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
@@ -2514,10 +2529,7 @@ app.post('/api/tasks', async (req, res) => {
         await db.collection('tasks').insertOne(task);
         try { scheduleTask(task); } catch(e){}
         
-        if(globalSettings.alerts) {
-            let msg = `➕ <b>Task Added</b>\n📌 <b>Title:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} - ${f12(task.endTimeStr)}\n🔄 <b>Repeats:</b> ${repeatWks} Week(s)`;
-            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
-        }
+        await sendAlertMsg(`➕ <b>Task Added</b>\n📌 <b>Title:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} - ${f12(task.endTimeStr)}\n🔄 <b>Repeats:</b> ${repeatWks} Week(s)`);
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -2543,10 +2555,7 @@ app.post('/api/tasks/:taskId/update', async (req, res) => {
         const t = await db.collection('tasks').findOne({ taskId: req.params.taskId });
         if (t) {
             try { scheduleTask(t); } catch(e){}
-            if(globalSettings.alerts) {
-                let msg = `✏️ <b>Task Edited</b>\n📌 <b>Title:</b> ${escapeHTML(t.title)}\n🕒 <b>Time:</b> ${f12(t.startTimeStr)} - ${f12(t.endTimeStr)}`;
-                try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
-            }
+            await sendAlertMsg(`✏️ <b>Task Edited</b>\n📌 <b>Title:</b> ${escapeHTML(t.title)}\n🕒 <b>Time:</b> ${f12(t.startTimeStr)} - ${f12(t.endTimeStr)}`);
         }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
@@ -2572,10 +2581,7 @@ app.post('/api/tasks/:taskId/complete', async (req, res) => {
             subtasks: historySubtasks 
         });
         
-        if(globalSettings.alerts) {
-            let msg = `✅ <b>Task Completed</b>\n📌 <b>Title:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} - ${f12(task.endTimeStr)}`;
-            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
-        }
+        await sendAlertMsg(`✅ <b>Task Completed</b>\n📌 <b>Title:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} - ${f12(task.endTimeStr)}`);
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -2605,10 +2611,7 @@ app.post('/api/tasks/:taskId/delete', async (req, res) => {
             if (inHistory) await db.collection('deleted_tasks').insertOne({ ...t, deletedAt: new Date(), deleteReason: 'manual' });
             await db.collection('tasks').deleteOne({ taskId: req.params.taskId });
             
-            if(globalSettings.alerts) {
-                let msg = `🗑️ <b>Task Deleted</b>\n📌 <b>Title:</b> ${escapeHTML(t.title)}`;
-                try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
-            }
+            await sendAlertMsg(`🗑️ <b>Task Deleted</b>\n📌 <b>Title:</b> ${escapeHTML(t.title)}`);
         }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
@@ -2619,13 +2622,9 @@ app.post('/api/tasks/:taskId/subtasks', async (req, res) => {
         if (!req.body.title) return res.status(400).send('Empty title');
         await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { $push: { subtasks: { id: generateId('s'), title: req.body.title.trim(), description: req.body.description || '', completed: false, createdAt: new Date() } } });
         
-        if(globalSettings.alerts) {
-            const parent = await db.collection('tasks').findOne({taskId: req.params.taskId});
-            if(parent) {
-                let msg = `➕ <b>Subtask Added</b>\n📂 <b>Task:</b> ${escapeHTML(parent.title)}\n📌 <b>Subtask:</b> ${escapeHTML(req.body.title.trim())}`;
-                try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
-            }
-        }
+        const parent = await db.collection('tasks').findOne({taskId: req.params.taskId});
+        if(parent) await sendAlertMsg(`➕ <b>Subtask Added</b>\n📂 <b>Task:</b> ${escapeHTML(parent.title)}\n📌 <b>Subtask:</b> ${escapeHTML(req.body.title.trim())}`);
+
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -2635,13 +2634,9 @@ app.post('/api/tasks/:taskId/subtasks/:subtaskId/update', async (req, res) => {
         if (!req.body.title) return res.status(400).send('Empty title');
         await db.collection('tasks').updateOne({ taskId: req.params.taskId, "subtasks.id": req.params.subtaskId }, { $set: { "subtasks.$.title": req.body.title.trim(), "subtasks.$.description": req.body.description || '' } });
         
-        if(globalSettings.alerts) {
-            const parent = await db.collection('tasks').findOne({taskId: req.params.taskId});
-            if(parent) {
-                let msg = `✏️ <b>Subtask Edited</b>\n📂 <b>Task:</b> ${escapeHTML(parent.title)}\n📌 <b>Subtask:</b> ${escapeHTML(req.body.title.trim())}`;
-                try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
-            }
-        }
+        const parent = await db.collection('tasks').findOne({taskId: req.params.taskId});
+        if(parent) await sendAlertMsg(`✏️ <b>Subtask Edited</b>\n📂 <b>Task:</b> ${escapeHTML(parent.title)}\n📌 <b>Subtask:</b> ${escapeHTML(req.body.title.trim())}`);
+
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -2652,10 +2647,7 @@ app.post('/api/tasks/:taskId/subtasks/:subtaskId/toggle', async (req, res) => {
         const sub = (task.subtasks || []).find(s => s.id === req.params.subtaskId);
         await db.collection('tasks').updateOne({ taskId: req.params.taskId, "subtasks.id": req.params.subtaskId }, { $set: { "subtasks.$.completed": !sub.completed } });
         
-        if(globalSettings.alerts) {
-            let msg = `${!sub.completed ? '✅' : '🔄'} <b>Subtask Toggled</b>\n📂 <b>Task:</b> ${escapeHTML(task.title)}\n📌 <b>Subtask:</b> ${escapeHTML(sub.title)}`;
-            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
-        }
+        await sendAlertMsg(`${!sub.completed ? '✅' : '🔄'} <b>Subtask Toggled</b>\n📂 <b>Task:</b> ${escapeHTML(task.title)}\n📌 <b>Subtask:</b> ${escapeHTML(sub.title)}`);
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -2669,10 +2661,8 @@ app.post('/api/tasks/:taskId/subtasks/:subtaskId/delete', async (req, res) => {
         if (inHistory && subtask) await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { $pull: { subtasks: { id: req.params.subtaskId } }, $push: { deleted_subtasks: subtask } });
         else await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { $pull: { subtasks: { id: req.params.subtaskId } } });
         
-        if(globalSettings.alerts && subtask) {
-            let msg = `🗑️ <b>Subtask Deleted</b>\n📂 <b>Task:</b> ${escapeHTML(task.title)}\n📌 <b>Subtask:</b> ${escapeHTML(subtask.title)}`;
-            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
-        }
+        if (subtask) await sendAlertMsg(`🗑️ <b>Subtask Deleted</b>\n📂 <b>Task:</b> ${escapeHTML(task.title)}\n📌 <b>Subtask:</b> ${escapeHTML(subtask.title)}`);
+
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -2730,10 +2720,7 @@ app.post('/api/notes', async (req, res) => {
         if (!req.body.title) return res.status(400).send('Empty title');
         await db.collection('notes').insertOne({ noteId: generateId('n'), title: req.body.title.trim(), description: req.body.description || '', createdAt: new Date(), updatedAt: new Date(), orderIndex: await db.collection('notes').countDocuments() });
         
-        if(globalSettings.alerts) {
-            let msg = `📝 <b>Note Added</b>\n📌 <b>Title:</b> ${escapeHTML(req.body.title.trim())}`;
-            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
-        }
+        await sendAlertMsg(`📝 <b>Note Added</b>\n📌 <b>Title:</b> ${escapeHTML(req.body.title.trim())}`);
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -2743,10 +2730,7 @@ app.post('/api/notes/:noteId/update', async (req, res) => {
         if (!req.body.title) return res.status(400).send('Empty title');
         await db.collection('notes').updateOne({ noteId: req.params.noteId }, { $set: { title: req.body.title.trim(), description: req.body.description || '', updatedAt: new Date() } });
         
-        if(globalSettings.alerts) {
-            let msg = `✏️ <b>Note Edited</b>\n📌 <b>Title:</b> ${escapeHTML(req.body.title.trim())}`;
-            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
-        }
+        await sendAlertMsg(`✏️ <b>Note Edited</b>\n📌 <b>Title:</b> ${escapeHTML(req.body.title.trim())}`);
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -2756,10 +2740,8 @@ app.post('/api/notes/:noteId/delete', async (req, res) => {
         const doc = await db.collection('notes').findOne({noteId: req.params.noteId});
         await db.collection('notes').deleteOne({ noteId: req.params.noteId });
         
-        if(globalSettings.alerts && doc) {
-            let msg = `🗑️ <b>Note Deleted</b>\n📌 <b>Title:</b> ${escapeHTML(doc.title)}`;
-            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
-        }
+        if(doc) await sendAlertMsg(`🗑️ <b>Note Deleted</b>\n📌 <b>Title:</b> ${escapeHTML(doc.title)}`);
+
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
