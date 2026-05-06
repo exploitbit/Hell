@@ -2102,15 +2102,38 @@ bot.action('open_settings', async (ctx) => {
     const gs = globalSettings;
     const kb = {
         inline_keyboard: [
-            [ { text: gs.notifications ? '🔔 Notifications: ON' : '🔕 Notifications: OFF', callback_data: 'tgl_notif' } ],
-            [ { text: gs.alerts ? '🔔 Alerts: ON' : '🔕 Alerts: OFF', callback_data: 'tgl_alerts' } ],
-            [ { text: gs.reminders ? '🔔 Reminders: ON' : '🔕 Reminders: OFF', callback_data: 'tgl_reminders' } ],
-            [ { text: gs.saveAutoCompleted !== false ? '✅ Auto Complete: ON' : '❌ Auto Complete: OFF', callback_data: 'tgl_autocomplete' } ],
-            [ { text: '⬅️ Back', callback_data: 'back_start' }, { text: '🌐 Tasks', web_app: { url: WEB_APP_URL } } ]
+            [ { 
+                text: gs.notifications ? '🔔 Notifications: ON' : '🔕 Notifications: OFF', 
+                callback_data: 'tgl_notif',
+                style: gs.notifications ? 'success' : 'danger' // Green if ON, Red if OFF
+            } ],
+            [ { 
+                text: gs.alerts ? '🔔 Alerts: ON' : '🔕 Alerts: OFF', 
+                callback_data: 'tgl_alerts',
+                style: gs.alerts ? 'success' : 'danger'
+            } ],
+            [ { 
+                text: gs.reminders ? '🔔 Reminders: ON' : '🔕 Reminders: OFF', 
+                callback_data: 'tgl_reminders',
+                style: gs.reminders ? 'success' : 'danger'
+            } ],
+            [ { 
+                text: gs.saveAutoCompleted !== false ? '✅ Auto Complete: ON' : '❌ Auto Complete: OFF', 
+                callback_data: 'tgl_autocomplete',
+                style: gs.saveAutoCompleted !== false ? 'success' : 'danger'
+            } ],
+            [ 
+                { text: '⬅️ Back', callback_data: 'back_start' }, // Default style
+                { text: '🌐 Tasks', web_app: { url: WEB_APP_URL }, style: 'primary' } // Blue style
+            ]
         ]
     };
-    await ctx.editMessageText('⚙️ <b>Bot Settings:</b>\n\n<i>Toggle your preferences below:</i>', { parse_mode: 'HTML', reply_markup: kb });
+    await ctx.editMessageText('⚙️ <b>Bot Settings:</b>\n\n<i>Toggle your preferences below:</i>', { 
+        parse_mode: 'HTML', 
+        reply_markup: kb 
+    });
 });
+
 
 bot.action('back_start', sendStartMenu);
 
