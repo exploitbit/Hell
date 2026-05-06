@@ -991,17 +991,21 @@ function writeMainEJS() {
             if (!grid || typeof Sortable === 'undefined') return;
             if (taskSortable) taskSortable.destroy();
             taskSortable = Sortable.create(grid, {
-                delay: 400,
-                delayOnTouchOnly: false, 
-                animation: 350,
+                delay: 1500,
+                delayOnTouchOnly: false,
+                fallbackTolerance: 5,
+                forceFallback: true,
+                animation: 250,
                 easing: "cubic-bezier(0.25, 1, 0.5, 1)",
                 ghostClass: 'sortable-ghost',
                 dragClass: 'sortable-drag',
-                forceFallback: true,
-                fallbackClass: 'sortable-drag',
-                filter: 'button, input, textarea, .action-btn, .subtask-checkbox, .task-title-container, details, summary',
+                filter: 'button, input, textarea, .action-btn, .subtask-checkbox, details, summary',
                 preventOnFilter: false,
+                onChoose: function(evt) { evt.item.classList.add('is-pressing'); },
+                onUnchoose: function(evt) { evt.item.classList.remove('is-pressing'); },
+                onStart: function(evt) { evt.item.classList.remove('is-pressing'); },
                 onEnd: function(evt) {
+                    evt.item.classList.remove('is-pressing');
                     const taskId = evt.item.dataset.taskId;
                     const newIndex = evt.newIndex;
                     const oldIndex = evt.oldIndex;
@@ -1019,17 +1023,21 @@ function writeMainEJS() {
             if (!grid || typeof Sortable === 'undefined') return;
             if (noteSortable) noteSortable.destroy();
             noteSortable = Sortable.create(grid, {
-                delay: 400,
+                delay: 1500,
                 delayOnTouchOnly: false,
-                animation: 350,
+                fallbackTolerance: 5,
+                forceFallback: true,
+                animation: 250,
                 easing: "cubic-bezier(0.25, 1, 0.5, 1)",
                 ghostClass: 'sortable-ghost',
                 dragClass: 'sortable-drag',
-                forceFallback: true,
-                fallbackClass: 'sortable-drag',
-                filter: 'button, input, textarea, .action-btn, .subtask-checkbox, .task-title-container, details, summary',
+                filter: 'button, input, textarea, .action-btn, .subtask-checkbox, details, summary',
                 preventOnFilter: false,
+                onChoose: function(evt) { evt.item.classList.add('is-pressing'); },
+                onUnchoose: function(evt) { evt.item.classList.remove('is-pressing'); },
+                onStart: function(evt) { evt.item.classList.remove('is-pressing'); },
                 onEnd: function(evt) {
+                    evt.item.classList.remove('is-pressing');
                     const noteId = evt.item.dataset.noteId;
                     const newIndex = evt.newIndex;
                     const oldIndex = evt.oldIndex;
@@ -1047,17 +1055,21 @@ function writeMainEJS() {
             if (!container || typeof Sortable === 'undefined') return;
             if (subtaskSortables[taskId]) subtaskSortables[taskId].destroy();
             subtaskSortables[taskId] = Sortable.create(container, {
-                delay: 400,
+                delay: 1500,
                 delayOnTouchOnly: false,
-                animation: 350,
+                fallbackTolerance: 5,
+                forceFallback: true,
+                animation: 250,
                 easing: "cubic-bezier(0.25, 1, 0.5, 1)",
                 ghostClass: 'sortable-ghost',
                 dragClass: 'sortable-drag',
-                forceFallback: true,
-                fallbackClass: 'sortable-drag',
-                filter: 'button, input, textarea, .action-btn, .subtask-checkbox, .task-title-container, details, summary',
+                filter: 'button, input, textarea, .action-btn, .subtask-checkbox, details, summary',
                 preventOnFilter: false,
+                onChoose: function(evt) { evt.item.classList.add('is-pressing'); },
+                onUnchoose: function(evt) { evt.item.classList.remove('is-pressing'); },
+                onStart: function(evt) { evt.item.classList.remove('is-pressing'); },
                 onEnd: function(evt) {
+                    evt.item.classList.remove('is-pressing');
                     if (evt.newIndex === evt.oldIndex) return;
                     const allItems = container.querySelectorAll('.subtask-item[data-subtask-id]');
                     const orderedIds = Array.from(allItems).map(el => el.dataset.subtaskId);
