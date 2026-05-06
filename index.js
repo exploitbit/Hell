@@ -145,7 +145,6 @@ function writeMainEJS() {
     <title>Task Manager</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
         
@@ -288,11 +287,6 @@ function writeMainEJS() {
         body[data-theme="dark"] .task-card { background: var(--card-bg-dark); border-color: var(--border-dark); color: var(--text-primary-dark); }
         body[data-theme="light"] .task-card { background: var(--card-bg-light); border-color: var(--border-light); color: var(--text-primary-light); }
         .task-card.colored-card { background: var(--card-color, var(--card-bg-light)) !important; border-color: transparent !important; }
-        
-        /* Drag styles */
-        .sortable-ghost { opacity: 0 !important; }
-        .sortable-drag { opacity: 1 !important; transform: scale(1.02) !important; box-shadow: 0 15px 30px rgba(0,0,0,0.15) !important; z-index: 1000 !important; cursor: grabbing !important; background: var(--card-bg-light) !important; }
-        body[data-theme="dark"] .sortable-drag { box-shadow: 0 15px 30px rgba(0,0,0,0.6) !important; background: var(--card-bg-dark) !important; }
 
         .task-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; width: 100%; position: relative; z-index: 2; pointer-events: none; }
         .task-title-section { flex: 1; min-width: 0; pointer-events: auto; }
@@ -933,14 +927,14 @@ function writeMainEJS() {
                 const content = document.getElementById('mainContent');
                 const fabButton = document.getElementById('fabButton');
                 
-                if (currentPage === 'tasks') { fabButton.style.display = 'flex'; content.innerHTML = renderTasksPage(); setTimeout(initTaskSortable, 50); } 
+                if (currentPage === 'tasks') { fabButton.style.display = 'flex'; content.innerHTML = renderTasksPage(); } 
                 else if (currentPage === 'grow') { 
                     fabButton.style.display = 'flex'; 
                     content.innerHTML = renderGrowPageStaticShell();
                     renderGrowAll();
                     setupGrowSwipeGestures();
                 }
-                else if (currentPage === 'notes') { fabButton.style.display = 'flex'; content.innerHTML = renderNotesPage(); setTimeout(initNoteSortable, 50); } 
+                else if (currentPage === 'notes') { fabButton.style.display = 'flex'; content.innerHTML = renderNotesPage(); } 
                 else if (currentPage === 'history') { fabButton.style.display = 'none'; content.innerHTML = renderHistoryPage(); }
             } catch(e) { console.error("Render error:", e); }
         }
@@ -956,129 +950,6 @@ function writeMainEJS() {
             if (!str) return '';
             return str.replace(/\\\\/g, '\\\\\\\\').replace(/'/g, "\\\\'").replace(/"/g, '\\\\"').replace(/\\n/g, '\\\\n').replace(/\\r/g, '\\\\r').replace(/\\t/g, '\\\\t');
         }
-        // ==========================================
-        // 🎨 RANDOM GRADIENT COLORS FOR CARDS
-        // ==========================================
-        const cardGradients = [
-            'linear-gradient(135deg, rgba(239,68,68,0.13) 0%, rgba(251,146,60,0.13) 100%)',
-            'linear-gradient(135deg, rgba(59,130,246,0.13) 0%, rgba(139,92,246,0.13) 100%)',
-            'linear-gradient(135deg, rgba(16,185,129,0.13) 0%, rgba(56,189,248,0.13) 100%)',
-            'linear-gradient(135deg, rgba(234,179,8,0.13) 0%, rgba(249,115,22,0.13) 100%)',
-            'linear-gradient(135deg, rgba(168,85,247,0.13) 0%, rgba(236,72,153,0.13) 100%)',
-            'linear-gradient(135deg, rgba(20,184,166,0.13) 0%, rgba(132,204,22,0.13) 100%)',
-            'linear-gradient(135deg, rgba(99,102,241,0.13) 0%, rgba(34,211,238,0.13) 100%)',
-            'linear-gradient(135deg, rgba(244,63,94,0.13) 0%, rgba(249,168,212,0.13) 100%)',
-        ];
-        const cardColorCache = {};
-        function getCardGradient(id) {
-            if (!cardColorCache[id]) {
-                let hash = 0;
-                for (let i = 0; i < id.length; i++) hash = id.charCodeAt(i) + ((hash << 5) - hash);
-                cardColorCache[id] = cardGradients[Math.abs(hash) % cardGradients.length];
-            }
-            return cardColorCache[id];
-        }
-
-        // ==========================================
-        // 🔀 SORTABLEJS DRAG-AND-DROP INIT
-        // ==========================================
-        let taskSortable = null;
-        let noteSortable = null;
-        let subtaskSortables = {};
-
-        function initTaskSortable() {
-            const grid = document.querySelector('.tasks-grid');
-            if (!grid || typeof Sortable === 'undefined') return;
-            if (taskSortable) taskSortable.destroy();
-            taskSortable = Sortable.create(grid, {
-                delay: 1500,
-                delayOnTouchOnly: false,
-                fallbackTolerance: 5,
-                forceFallback: true,
-                animation: 250,
-                easing: "cubic-bezier(0.25, 1, 0.5, 1)",
-                ghostClass: 'sortable-ghost',
-                dragClass: 'sortable-drag',
-                filter: 'button, input, textarea, .action-btn, .subtask-checkbox, details, summary',
-                preventOnFilter: false,
-                onChoose: function(evt) { evt.item.classList.add('is-pressing'); },
-                onUnchoose: function(evt) { evt.item.classList.remove('is-pressing'); },
-                onStart: function(evt) { evt.item.classList.remove('is-pressing'); },
-                onEnd: function(evt) {
-                    evt.item.classList.remove('is-pressing');
-                    const taskId = evt.item.dataset.taskId;
-                    const newIndex = evt.newIndex;
-                    const oldIndex = evt.oldIndex;
-                    if (newIndex === oldIndex) return;
-                    const allCards = grid.querySelectorAll('.task-card[data-task-id]');
-                    const orderedIds = Array.from(allCards).map(el => el.dataset.taskId);
-                    fetch('/api/tasks/reorder', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ orderedIds }) })
-                    .catch(e => showToast('Failed', 'error'));
-                }
-            });
-        }
-
-        function initNoteSortable() {
-            const grid = document.querySelector('.tasks-grid');
-            if (!grid || typeof Sortable === 'undefined') return;
-            if (noteSortable) noteSortable.destroy();
-            noteSortable = Sortable.create(grid, {
-                delay: 1500,
-                delayOnTouchOnly: false,
-                fallbackTolerance: 5,
-                forceFallback: true,
-                animation: 250,
-                easing: "cubic-bezier(0.25, 1, 0.5, 1)",
-                ghostClass: 'sortable-ghost',
-                dragClass: 'sortable-drag',
-                filter: 'button, input, textarea, .action-btn, .subtask-checkbox, details, summary',
-                preventOnFilter: false,
-                onChoose: function(evt) { evt.item.classList.add('is-pressing'); },
-                onUnchoose: function(evt) { evt.item.classList.remove('is-pressing'); },
-                onStart: function(evt) { evt.item.classList.remove('is-pressing'); },
-                onEnd: function(evt) {
-                    evt.item.classList.remove('is-pressing');
-                    const noteId = evt.item.dataset.noteId;
-                    const newIndex = evt.newIndex;
-                    const oldIndex = evt.oldIndex;
-                    if (newIndex === oldIndex) return;
-                    const allCards = grid.querySelectorAll('.note-card[data-note-id]');
-                    const orderedIds = Array.from(allCards).map(el => el.dataset.noteId);
-                    fetch('/api/notes/reorder', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ orderedIds }) })
-                    .catch(e => showToast('Failed', 'error'));
-                }
-            });
-        }
-
-        function initSubtaskSortable(taskId) {
-            const container = document.querySelector('.subtasks-container[data-task-id="' + taskId + '"]');
-            if (!container || typeof Sortable === 'undefined') return;
-            if (subtaskSortables[taskId]) subtaskSortables[taskId].destroy();
-            subtaskSortables[taskId] = Sortable.create(container, {
-                delay: 1500,
-                delayOnTouchOnly: false,
-                fallbackTolerance: 5,
-                forceFallback: true,
-                animation: 250,
-                easing: "cubic-bezier(0.25, 1, 0.5, 1)",
-                ghostClass: 'sortable-ghost',
-                dragClass: 'sortable-drag',
-                filter: 'button, input, textarea, .action-btn, .subtask-checkbox, details, summary',
-                preventOnFilter: false,
-                onChoose: function(evt) { evt.item.classList.add('is-pressing'); },
-                onUnchoose: function(evt) { evt.item.classList.remove('is-pressing'); },
-                onStart: function(evt) { evt.item.classList.remove('is-pressing'); },
-                onEnd: function(evt) {
-                    evt.item.classList.remove('is-pressing');
-                    if (evt.newIndex === evt.oldIndex) return;
-                    const allItems = container.querySelectorAll('.subtask-item[data-subtask-id]');
-                    const orderedIds = Array.from(allItems).map(el => el.dataset.subtaskId);
-                    fetch('/api/tasks/' + taskId + '/subtasks/reorder', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ orderedIds }) })
-                    .catch(e => showToast('Failed', 'error'));
-                }
-            });
-        }
-
         function toggleDescription(elementId) {
             const element = document.getElementById(elementId);
             if (element) {
@@ -1194,7 +1065,7 @@ function writeMainEJS() {
                 let left = item.endCount - passed;
                 if(left < 0) left = 0;
                 
-                html += '<div class="grow-card colored-card" style="--card-color: ' + getCardGradient(item.id) + '"><details><summary><div class="grow-title-section"><i class="fas fa-chevron-right"></i><span class="grow-title">' + escapeHtml(item.title) + '</span></div>' +
+                html += '<div class="grow-card"><details><summary><div class="grow-title-section"><i class="fas fa-chevron-right"></i><span class="grow-title">' + escapeHtml(item.title) + '</span></div>' +
                         '<div class="task-actions-wrapper"><button class="action-btn" onclick="event.preventDefault(); openEditGrowModal(\\'' + item.id + '\\')" title="Edit"><i class="fas fa-pencil"></i></button>' +
                         '<button class="action-btn delete" onclick="event.preventDefault(); deleteGrowTracker(\\'' + item.id + '\\')" title="Delete"><i class="fas fa-trash"></i></button></div></summary>';
                         
@@ -1634,13 +1505,15 @@ function writeMainEJS() {
                     const descriptionId = 'task_desc_' + task.taskId;
                     const escapedTitle = escapeHtml(task.title);
                     
-                    html += '<div class="task-card colored-card" data-task-id="' + task.taskId + '" style="--card-color: ' + getCardGradient(task.taskId) + '"><div class="task-header"><div class="task-title-section"><div class="task-title-container" onclick="toggleDescription(\\'' + descriptionId + '\\')" oncontextmenu="event.preventDefault()"><i class="fas fa-chevron-right" id="' + descriptionId + '_icon"></i><span class="task-title">' + escapedTitle + '</span></div></div><div class="task-actions-wrapper" id="task_actions_' + task.taskId + '">';
+                    html += '<div class="task-card"><div class="task-header"><div class="task-title-section"><div class="task-title-container" onclick="toggleDescription(\\'' + descriptionId + '\\')" oncontextmenu="event.preventDefault(); toggleTaskPriorityMode(\\'' + task.taskId + '\\')"><i class="fas fa-chevron-right" id="' + descriptionId + '_icon"></i><span class="task-title">' + escapedTitle + '</span></div></div><div class="task-actions-wrapper" id="task_actions_' + task.taskId + '">';
                     
                     html += '<div class="normal-btns">';
                     if (totalSubtasks < 10) html += '<button class="action-btn" onclick="openAddSubtaskModal(\\'' + task.taskId + '\\')"><i class="fas fa-plus"></i></button>';
                     html += '<button class="action-btn" onclick="openEditTaskModal(\\'' + task.taskId + '\\')"><i class="fas fa-pencil-alt"></i></button><button class="action-btn" onclick="completeTask(\\'' + task.taskId + '\\')"><i class="fas fa-check"></i></button><button class="action-btn delete" onclick="deleteTask(\\'' + task.taskId + '\\')"><i class="fas fa-trash"></i></button></div>';
                     
-                    html += '</div></div>';
+                    html += '<div class="priority-btns">';
+                    html += '<button class="action-btn" onclick="moveTask(\\'' + task.taskId + '\\', \\'up\\')"><i class="fas fa-arrow-up"></i></button>';
+                    html += '<button class="action-btn" onclick="moveTask(\\'' + task.taskId + '\\', \\'down\\')"><i class="fas fa-arrow-down"></i></button></div></div></div>';
                     
                     if (hasDescription) html += '<div id="' + descriptionId + '" class="task-description-container hidden"><div class="task-description">' + preserveLineBreaks(task.description) + '</div></div>';
                     
@@ -1649,17 +1522,17 @@ function writeMainEJS() {
                     html += '<span class="badge" style="margin-left:auto; background:transparent; border:1px solid var(--border-light);"><i class="fas fa-sync"></i> ' + (task.repeatWeeks == 1 ? '1 Week' : (task.repeatWeeks||1) + ' Weeks') + '</span></div>';
                     
                     if (totalSubtasks > 0) {
-                        html += '<details class="task-subtasks" ontoggle="if(this.open) setTimeout(function(){ initSubtaskSortable(\\'' + task.taskId + '\\'); }, 50);"><summary class="flex-row" style="cursor: pointer;"><div class="progress-ring-small"><svg width="34" height="34"><circle class="progress-ring-circle-small" stroke="var(--progress-bg-light)" stroke-width="3" fill="transparent" r="14" cx="17" cy="17"/><circle class="progress-ring-circle-small" stroke="var(--accent-light)" stroke-width="3" fill="transparent" r="14" cx="17" cy="17" style="stroke-dasharray: ' + circleCircumference + '; stroke-dashoffset: ' + circleOffset + '; "/></svg><span class="progress-text-small">' + progress + '%</span></div><span style="font-size: 0.85rem; font-weight: 500; color: var(--text-secondary-light);">' + completedSubtasks + '/' + totalSubtasks + ' subtasks</span></summary><div class="subtasks-container w-100" data-task-id="' + task.taskId + '">';
+                        html += '<details class="task-subtasks"><summary class="flex-row" style="cursor: pointer;"><div class="progress-ring-small"><svg width="34" height="34"><circle class="progress-ring-circle-small" stroke="var(--progress-bg-light)" stroke-width="3" fill="transparent" r="14" cx="17" cy="17"/><circle class="progress-ring-circle-small" stroke="var(--accent-light)" stroke-width="3" fill="transparent" r="14" cx="17" cy="17" style="stroke-dasharray: ' + circleCircumference + '; stroke-dashoffset: ' + circleOffset + '; "/></svg><span class="progress-text-small">' + progress + '%</span></div><span style="font-size: 0.85rem; font-weight: 500; color: var(--text-secondary-light);">' + completedSubtasks + '/' + totalSubtasks + ' subtasks</span></summary><div class="subtasks-container w-100">';
                         task.subtasks.forEach((subtask) => {
                             const subtaskHasDesc = hasContent(subtask.description);
                             const subtaskDescId = 'subtask_desc_' + task.taskId + '_' + subtask.id;
                             const escapedSubtaskTitle = escapeHtml(subtask.title);
                             const escapedSubtaskDescription = escapeJsString(subtask.description || '');
-                            html += '<div class="subtask-item" data-subtask-id="' + subtask.id + '"><div class="subtask-main-row"><div class="subtask-checkbox ' + (subtask.completed ? 'completed' : '') + '" onclick="toggleSubtask(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\')">' + (subtask.completed ? '<i class="fas fa-check"></i>' : '') + '</div><div class="subtask-details"><div class="subtask-title-container" onclick="toggleDescription(\\'' + subtaskDescId + '\\')"><span class="subtask-title ' + (subtask.completed ? 'completed' : '') + '">' + escapedSubtaskTitle + '</span></div></div><div class="task-actions-wrapper" id="subtask_actions_' + task.taskId + '_' + subtask.id + '">';
+                            html += '<div class="subtask-item"><div class="subtask-main-row"><div class="subtask-checkbox ' + (subtask.completed ? 'completed' : '') + '" onclick="toggleSubtask(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\')">' + (subtask.completed ? '<i class="fas fa-check"></i>' : '') + '</div><div class="subtask-details"><div class="subtask-title-container" onclick="toggleDescription(\\'' + subtaskDescId + '\\')" oncontextmenu="event.preventDefault(); toggleSubtaskPriorityMode(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\')"><span class="subtask-title ' + (subtask.completed ? 'completed' : '') + '">' + escapedSubtaskTitle + '</span></div></div><div class="task-actions-wrapper" id="subtask_actions_' + task.taskId + '_' + subtask.id + '">';
                             
                             html += '<div class="normal-btns"><button class="subtask-btn" onclick="editSubtask(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\', \\'' + escapedSubtaskTitle.replace(/'/g, "\\\\'") + '\\', \\'' + escapedSubtaskDescription.replace(/'/g, "\\\\'") + '\\')"><i class="fas fa-pencil-alt"></i></button><button class="subtask-btn delete" onclick="deleteSubtask(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\')"><i class="fas fa-trash"></i></button></div>';
                             
-                            html += '</div></div>';
+                            html += '<div class="priority-btns"><button class="subtask-btn" onclick="moveSubtask(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\', \\'up\\')"><i class="fas fa-arrow-up"></i></button><button class="subtask-btn" onclick="moveSubtask(\\'' + task.taskId + '\\', \\'' + subtask.id + '\\', \\'down\\')"><i class="fas fa-arrow-down"></i></button></div></div></div>';
                             
                             if (subtaskHasDesc) html += '<div id="' + subtaskDescId + '" class="subtask-description-container hidden"><div class="subtask-description">' + preserveLineBreaks(subtask.description) + '</div></div>';
                             html += '</div>';
@@ -1688,12 +1561,12 @@ function writeMainEJS() {
                     const escapedNoteTitle = escapeHtml(note.title);
                     const escapedNoteDescription = escapeJsString(note.description || '');
                     
-                    html += '<div class="note-card colored-card" data-note-id="' + note.noteId + '" style="--card-color: ' + getCardGradient(note.noteId) + '"><div class="note-header"><div class="task-title-container" onclick="toggleDescription(\\'' + noteDescId + '\\')"><i class="fas fa-chevron-right" id="' + noteDescId + '_icon"></i><span class="note-title">' + escapedNoteTitle + '</span></div>';
+                    html += '<div class="note-card"><div class="note-header"><div class="task-title-container" onclick="toggleDescription(\\'' + noteDescId + '\\')" oncontextmenu="event.preventDefault(); toggleNotePriorityMode(\\'' + note.noteId + '\\')"><i class="fas fa-chevron-right" id="' + noteDescId + '_icon"></i><span class="note-title">' + escapedNoteTitle + '</span></div>';
                     
                     html += '<div class="task-actions-wrapper" id="note_actions_' + note.noteId + '">';
                     html += '<div class="normal-btns"><button class="action-btn" onclick="openEditNoteModal(\\'' + note.noteId + '\\', \\'' + escapedNoteTitle.replace(/'/g, "\\\\'") + '\\', \\'' + escapedNoteDescription.replace(/'/g, "\\\\'") + '\\')"><i class="fas fa-pencil-alt"></i></button><button class="action-btn delete" onclick="deleteNote(\\'' + note.noteId + '\\')"><i class="fas fa-trash"></i></button></div>';
                     
-                    html += '</div></div>';
+                    html += '<div class="priority-btns"><button class="action-btn" onclick="moveNote(\\'' + note.noteId + '\\', \\'up\\')"><i class="fas fa-arrow-up"></i></button><button class="action-btn" onclick="moveNote(\\'' + note.noteId + '\\', \\'down\\')"><i class="fas fa-arrow-down"></i></button></div></div></div>';
                     
                     if (hasDescription) html += '<div id="' + noteDescId + '" class="note-content-container hidden"><div class="note-content">' + preserveLineBreaks(note.description) + '</div></div>';
                     html += '<div class="note-meta"><span><i class="fas fa-clock"></i> ' + note.createdAtIST + '</span>' + (note.updatedAtIST !== note.createdAtIST ? '<span><i class="fas fa-pencil-alt"></i> ' + note.updatedAtIST + '</span>' : '') + '</div></div>';
@@ -1717,7 +1590,7 @@ function writeMainEJS() {
                     if (date.includes('-') && date.split('-')[0].length === 4) {
                         const parts = date.split('-'); displayDateHeader = parts[2] + '-' + parts[1] + '-' + parts[0];
                     }
-                    html += '<div class="history-date-card colored-card" style="--card-color: ' + getCardGradient(date) + '"><details class="history-details">';
+                    html += '<div class="history-date-card"><details class="history-details">';
                     
                     const taskText = tasks.length === 1 ? '1 Task' : tasks.length + ' Tasks';
                     const dailyType = tasks.length > 0 ? (tasks[0].dailyType || 'WD') : 'WD';
@@ -1782,7 +1655,6 @@ function writeMainEJS() {
             document.getElementById('notifToggle').checked = globalAppVars.notifications;
             document.getElementById('alertsToggle').checked = globalAppVars.alerts;
             document.getElementById('remindersToggle').checked = globalAppVars.reminders;
-            document.getElementById('saveAutoCompletedToggle').checked = globalAppVars.saveAutoCompleted !== false;
             document.getElementById('themeToggle').checked = document.body.getAttribute('data-theme') === 'dark';
             openModal('settingsAppModal');
         }
@@ -1797,7 +1669,6 @@ function writeMainEJS() {
             globalAppVars.notifications = document.getElementById('notifToggle').checked;
             globalAppVars.alerts = document.getElementById('alertsToggle').checked;
             globalAppVars.reminders = document.getElementById('remindersToggle').checked;
-            globalAppVars.saveAutoCompleted = document.getElementById('saveAutoCompletedToggle').checked;
             fetch('/api/settings/update', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(globalAppVars) }).then(() => showToast('Success'));
         }
 
@@ -2005,28 +1876,25 @@ function escapeHTML(str) {
 // ==========================================
 const bot = new Telegraf(BOT_TOKEN);
 
-// Global state trackers for auto-cleaning messages
+// Auto-delete all sent messages after 1 hour (3,600,000 ms)
+const originalSendMessage = bot.telegram.sendMessage.bind(bot.telegram);
+bot.telegram.sendMessage = async function(chatId, text, extra) {
+    try {
+        const msg = await originalSendMessage(chatId, text, extra);
+        if (msg && msg.message_id && msg.chat && msg.chat.id) {
+            setTimeout(() => {
+                bot.telegram.deleteMessage(msg.chat.id, msg.message_id).catch(() => {});
+            }, 3600000);
+        }
+        return msg;
+    } catch(e) {
+        console.error("Failed to send message", e);
+    }
+};
+
 const activeSchedules = new Map();
 let isShuttingDown = false;
-
-let lastStartMenuMsgId = null;
 let lastHourlyMessageId = null;
-let lastAlertMsgId = null;
-
-let currentReminderTaskId = null;
-let reminderMsgIds = [];
-
-// Helper function to send and replace the last alert message seamlessly
-async function sendAlertMsg(text) {
-    if (!globalSettings.alerts) return;
-    if (lastAlertMsgId) {
-        try { await bot.telegram.deleteMessage(CHAT_ID, lastAlertMsgId); } catch(e){}
-    }
-    try {
-        const m = await bot.telegram.sendMessage(CHAT_ID, text, { parse_mode: 'HTML' });
-        if (m) lastAlertMsgId = m.message_id;
-    } catch(e) {}
-}
 
 bot.use(async (ctx, next) => {
     if (ctx.from && ctx.from.id !== CHAT_ID) {
@@ -2062,38 +1930,22 @@ async function sendStartMenu(ctx) {
         }
         msg += `</blockquote>\n`;
         
-        msg += `Notifications : ${globalSettings.notifications ? '🔔 ON' : '🔕 OFF'}\n`;
+        msg += `Notifications:  ${globalSettings.notifications ? '🔔 ON' : '🔕 OFF'}\n`;
         msg += `Alerts : ${globalSettings.alerts ? '🔔 ON' : '🔕 OFF'}\n`;
-        msg += `Reminders : ${globalSettings.reminders ? '🔔 ON' : '🔕 OFF'}\n`;
-        msg += `Auto Complete : ${globalSettings.saveAutoCompleted !== false ? '✅ ON' : '❌ OFF'}`;
+        msg += `Reminders : ${globalSettings.reminders ? '🔔 ON' : '🔕 OFF'}`;
 
         const kb = { inline_keyboard: [ [ { text: '🌐 Task Manager', web_app: { url: WEB_APP_URL } } ], [ { text: '⚙️ Settings', callback_data: 'open_settings' } ] ] };
 
-        if (ctx.callbackQuery) {
-            await ctx.editMessageText(msg, { parse_mode: 'HTML', reply_markup: kb });
-        } else {
-            // Delete previous Start menu instance
-            if (lastStartMenuMsgId) {
-                try { await bot.telegram.deleteMessage(CHAT_ID, lastStartMenuMsgId); } catch(e){}
-            }
-            const m = await ctx.reply(msg, { parse_mode: 'HTML', reply_markup: kb });
-            if (m) lastStartMenuMsgId = m.message_id;
-        }
+        if (ctx.callbackQuery) await ctx.editMessageText(msg, { parse_mode: 'HTML', reply_markup: kb });
+        else await ctx.reply(msg, { parse_mode: 'HTML', reply_markup: kb });
     } catch (err) { console.error("Start Menu Error:", err); }
 }
 
 bot.command('start', async (ctx) => {
-    // Delete the triggering /start command to keep chat clean
-    try { await bot.telegram.deleteMessage(ctx.chat.id, ctx.message.message_id); } catch(e) {}
-    
     const istDateObj = getCurrentISTDisplay();
     if (globalSettings.dailyTypeDate !== istDateObj.displayDate) {
         const kb = { inline_keyboard: [[{text:'💼 Working Day', callback_data:'set_wd_start'}, {text:'🏖️ Holiday', callback_data:'set_hol_start'}]] };
-        
-        if (lastStartMenuMsgId) { try { await bot.telegram.deleteMessage(CHAT_ID, lastStartMenuMsgId); } catch(e){} }
-        const m = await ctx.reply(`🌅 Good Morning!\nIs today (${istDateObj.displayDate}) a Working Day or Holiday?`, {reply_markup: kb});
-        if (m) lastStartMenuMsgId = m.message_id;
-        return;
+        return ctx.reply(`Good Morning! 🌅\nIs today (${istDateObj.displayDate}) a Working Day or Holiday?`, {reply_markup: kb});
     }
     return sendStartMenu(ctx);
 });
@@ -2105,7 +1957,6 @@ bot.action('open_settings', async (ctx) => {
             [ { text: gs.notifications ? '🔔 Notifications: ON' : '🔕 Notifications: OFF', callback_data: 'tgl_notif' } ],
             [ { text: gs.alerts ? '🔔 Alerts: ON' : '🔕 Alerts: OFF', callback_data: 'tgl_alerts' } ],
             [ { text: gs.reminders ? '🔔 Reminders: ON' : '🔕 Reminders: OFF', callback_data: 'tgl_reminders' } ],
-            [ { text: gs.saveAutoCompleted !== false ? '✅ Auto Complete: ON' : '❌ Auto Complete: OFF', callback_data: 'tgl_autocomplete' } ],
             [ { text: '⬅️ Back', callback_data: 'back_start' }, { text: '🌐 Tasks', web_app: { url: WEB_APP_URL } } ]
         ]
     };
@@ -2123,7 +1974,6 @@ async function toggleSetting(ctx, key) {
 bot.action('tgl_notif', ctx => toggleSetting(ctx, 'notifications'));
 bot.action('tgl_alerts', ctx => toggleSetting(ctx, 'alerts'));
 bot.action('tgl_reminders', ctx => toggleSetting(ctx, 'reminders'));
-bot.action('tgl_autocomplete', ctx => toggleSetting(ctx, 'saveAutoCompleted'));
 
 // Set Daily Status via Telegram Command
 bot.action('set_wd_start', async ctx => {
@@ -2170,15 +2020,6 @@ function scheduleTask(task) {
             const hist = await db.collection('history').findOne({ taskId: task.taskId, completedDateStr: istDateObj.displayDate });
             if (hist) return; 
 
-            // Wipe previous task's reminders when a new task starts generating reminders
-            if (currentReminderTaskId !== task.taskId) {
-                for (let mid of reminderMsgIds) {
-                    try { await bot.telegram.deleteMessage(CHAT_ID, mid); } catch(e){}
-                }
-                reminderMsgIds = [];
-                currentReminderTaskId = task.taskId;
-            }
-
             let count = 0;
             const sendRem = async () => {
                 if (isShuttingDown || !globalSettings.reminders) return;
@@ -2189,13 +2030,11 @@ function scheduleTask(task) {
                 }
                 
                 let minsLeft = 10 - count;
-                let m;
                 if (minsLeft === 0) {
-                    try { m = await bot.telegram.sendMessage(CHAT_ID, `🚀 <b>START NOW:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} to ${f12(task.endTimeStr)}`, { parse_mode: 'HTML' }); } catch(e){}
+                    try { await bot.telegram.sendMessage(CHAT_ID, `🚀 <b>START NOW:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} to ${f12(task.endTimeStr)}`, { parse_mode: 'HTML' }); } catch(e){}
                 } else {
-                    try { m = await bot.telegram.sendMessage(CHAT_ID, `🔔 <b>In ${minsLeft}m:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} to ${f12(task.endTimeStr)}`, { parse_mode: 'HTML' }); } catch(e){}
+                    try { await bot.telegram.sendMessage(CHAT_ID, `🔔 <b>In ${minsLeft}m:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} to ${f12(task.endTimeStr)}`, { parse_mode: 'HTML' }); } catch(e){}
                 }
-                if (m) reminderMsgIds.push(m.message_id);
                 
                 count++;
                 if(count >= 11) { 
@@ -2228,7 +2067,7 @@ async function rescheduleAllPending() {
     } catch (error) {}
 }
 
-// Hourly Updates (Deletes previous hourly automatically)
+// Hourly Updates
 function setupHourlyNotifications() {
     const rule = new schedule.RecurrenceRule();
     rule.minute = 0; rule.hour = new schedule.Range(8, 23); rule.tz = 'Asia/Kolkata';
@@ -2267,11 +2106,10 @@ function setupDailyQuestion() {
         try {
             const istDateObj = getCurrentISTDisplay();
             const kb = { inline_keyboard: [[{text:'💼 Working Day', callback_data:'set_wd_start'}, {text:'🏖️ Holiday', callback_data:'set_hol_start'}]] };
-            
-            // Re-use lastAlertMsgId so this popup wipes itself when another action is triggered
-            if (lastAlertMsgId) { try { await bot.telegram.deleteMessage(CHAT_ID, lastAlertMsgId); } catch(e){} }
             const m = await bot.telegram.sendMessage(CHAT_ID, `🌅 Good Morning!\nIs today (${istDateObj.displayDate}) a Working Day or Holiday?\n\n<i>If no choice is made by 12:00 PM, it will be set as Working Day automatically.</i>`, { parse_mode: 'HTML', reply_markup: kb });
-            if (m) lastAlertMsgId = m.message_id;
+            if (m && m.message_id) {
+                setTimeout(() => { bot.telegram.deleteMessage(CHAT_ID, m.message_id).catch(() => {}); }, 3600000);
+            }
         } catch(e) {}
     });
 }
@@ -2288,7 +2126,7 @@ function setupAutoWorkingDay() {
                 globalSettings.dailyType = 'WD';
                 globalSettings.dailyTypeDate = istDateObj.displayDate;
                 await db.collection('settings').updateOne({_id:'bot_config'}, {$set:{dailyType:'WD', dailyTypeDate: istDateObj.displayDate}}, {upsert:true});
-                await sendAlertMsg(`⏰ No selection was made. Today (${istDateObj.displayDate}) has been automatically set as a <b>Working Day (WD)</b>.`);
+                const m = await bot.telegram.sendMessage(CHAT_ID, `⏰ No selection was made. Today (${istDateObj.displayDate}) has been automatically set as a <b>Working Day (WD)</b>.`, { parse_mode: 'HTML' });
             }
         } catch(e) {}
     });
@@ -2322,7 +2160,7 @@ function setupAutoCompletion() {
                 }
             }
             if (pendingTasks.length > 0) {
-                await sendAlertMsg(`🌙 <b>Auto-completed</b> ${pendingTasks.length} tasks.\n🕒 <b>Time:</b> ${istDateObj.displayTime}\n📅 <b>Date:</b> ${istDateObj.displayDate}\n🗓 <b>Day:</b> ${istDateObj.dayName}\n`);
+                try { await bot.telegram.sendMessage(CHAT_ID, `🌙 <b>Auto-completed</b> ${pendingTasks.length} tasks.\n🕒 <b>Time:</b> ${istDateObj.displayTime}\n📅 <b>Date:</b> ${istDateObj.displayDate}\n🗓 <b>Day:</b> ${istDateObj.dayName}\n`, { parse_mode: 'HTML' }); } catch(e){}
             }
             await cleanExpiredTasks();
             
@@ -2465,7 +2303,10 @@ app.post('/api/grow', async (req, res) => {
         if (item.hasData) { item.question = question || ''; if (start !== undefined && start !== '') item.start = type === 'float' ? parseFloat(start) : parseInt(start); if (end !== undefined && end !== '') item.end = type === 'float' ? parseFloat(end) : parseInt(end); }
         await db.collection('grow').updateOne({ type: 'tracker' }, { $push: { items: item } }, { upsert: true });
         
-        await sendAlertMsg(`🌱 <b>Grow Added</b>\n📌 <b>Title:</b> ${escapeHTML(item.title)}\n⏳ <b>Duration:</b> ${item.endCount} Days`);
+        if(globalSettings.alerts) {
+            let msg = `🌱 <b>Grow Added</b>\n📌 <b>Title:</b> ${escapeHTML(item.title)}\n⏳ <b>Duration:</b> ${item.endCount} Days`;
+            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
+        }
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
@@ -2477,7 +2318,10 @@ app.post('/api/grow/:id/update', async (req, res) => {
         if (updatedItem.hasData) { updatedItem.question = question || ''; if (start !== undefined && start !== '') updatedItem.start = type === 'float' ? parseFloat(start) : parseInt(start); if (end !== undefined && end !== '') updatedItem.end = type === 'float' ? parseFloat(end) : parseInt(end); }
         await db.collection('grow').updateOne({ type: 'tracker', 'items.id': id }, { $set: { 'items.$': updatedItem } });
         
-        await sendAlertMsg(`✏️ <b>Grow Edited</b>\n📌 <b>Title:</b> ${escapeHTML(updatedItem.title)}`);
+        if(globalSettings.alerts) {
+            let msg = `✏️ <b>Grow Edited</b>\n📌 <b>Title:</b> ${escapeHTML(updatedItem.title)}`;
+            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
+        }
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
@@ -2488,7 +2332,10 @@ app.post('/api/grow/:id/delete', async (req, res) => {
         const item = tracker?.items.find(i => i.id === req.params.id);
         await db.collection('grow').updateOne({ type: 'tracker' }, { $pull: { items: { id: req.params.id } } });
         
-        if (item) await sendAlertMsg(`🗑️ <b>Grow Deleted</b>\n📌 <b>Title:</b> ${escapeHTML(item.title)}`);
+        if(globalSettings.alerts && item) {
+            let msg = `🗑️ <b>Grow Deleted</b>\n📌 <b>Title:</b> ${escapeHTML(item.title)}`;
+            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
+        }
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
@@ -2498,10 +2345,13 @@ app.post('/api/grow/log', async (req, res) => {
         const { itemId, dateStr, value } = req.body;
         await db.collection('grow').updateOne({ type: 'tracker' }, { $set: { [`progress.${dateStr}.${itemId}`]: value } });
         
-        const tracker = await db.collection('grow').findOne({ type: 'tracker' });
-        const item = tracker?.items.find(i => i.id === itemId);
-        if(item) {
-            await sendAlertMsg(`📈 <b>Grow Logged</b>\n📌 <b>Title:</b> ${escapeHTML(item.title)}\n📅 <b>Date:</b> ${dateStr}\n🔢 <b>Value:</b> ${value}`);
+        if(globalSettings.alerts) {
+            const tracker = await db.collection('grow').findOne({ type: 'tracker' });
+            const item = tracker?.items.find(i => i.id === itemId);
+            if(item) {
+                let msg = `📈 <b>Grow Logged</b>\n📌 <b>Title:</b> ${escapeHTML(item.title)}\n📅 <b>Date:</b> ${dateStr}\n🔢 <b>Value:</b> ${value}`;
+                try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
+            }
         }
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
@@ -2541,7 +2391,10 @@ app.post('/api/tasks', async (req, res) => {
         await db.collection('tasks').insertOne(task);
         try { scheduleTask(task); } catch(e){}
         
-        await sendAlertMsg(`➕ <b>Task Added</b>\n📌 <b>Title:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} - ${f12(task.endTimeStr)}\n🔄 <b>Repeats:</b> ${repeatWks} Week(s)`);
+        if(globalSettings.alerts) {
+            let msg = `➕ <b>Task Added</b>\n📌 <b>Title:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} - ${f12(task.endTimeStr)}\n🔄 <b>Repeats:</b> ${repeatWks} Week(s)`;
+            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
+        }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -2567,7 +2420,10 @@ app.post('/api/tasks/:taskId/update', async (req, res) => {
         const t = await db.collection('tasks').findOne({ taskId: req.params.taskId });
         if (t) {
             try { scheduleTask(t); } catch(e){}
-            await sendAlertMsg(`✏️ <b>Task Edited</b>\n📌 <b>Title:</b> ${escapeHTML(t.title)}\n🕒 <b>Time:</b> ${f12(t.startTimeStr)} - ${f12(t.endTimeStr)}`);
+            if(globalSettings.alerts) {
+                let msg = `✏️ <b>Task Edited</b>\n📌 <b>Title:</b> ${escapeHTML(t.title)}\n🕒 <b>Time:</b> ${f12(t.startTimeStr)} - ${f12(t.endTimeStr)}`;
+                try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
+            }
         }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
@@ -2593,7 +2449,10 @@ app.post('/api/tasks/:taskId/complete', async (req, res) => {
             subtasks: historySubtasks 
         });
         
-        await sendAlertMsg(`✅ <b>Task Completed</b>\n📌 <b>Title:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} - ${f12(task.endTimeStr)}`);
+        if(globalSettings.alerts) {
+            let msg = `✅ <b>Task Completed</b>\n📌 <b>Title:</b> ${escapeHTML(task.title)}\n🕒 <b>Time:</b> ${f12(task.startTimeStr)} - ${f12(task.endTimeStr)}`;
+            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
+        }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -2623,7 +2482,10 @@ app.post('/api/tasks/:taskId/delete', async (req, res) => {
             if (inHistory) await db.collection('deleted_tasks').insertOne({ ...t, deletedAt: new Date(), deleteReason: 'manual' });
             await db.collection('tasks').deleteOne({ taskId: req.params.taskId });
             
-            await sendAlertMsg(`🗑️ <b>Task Deleted</b>\n📌 <b>Title:</b> ${escapeHTML(t.title)}`);
+            if(globalSettings.alerts) {
+                let msg = `🗑️ <b>Task Deleted</b>\n📌 <b>Title:</b> ${escapeHTML(t.title)}`;
+                try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
+            }
         }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
@@ -2634,9 +2496,13 @@ app.post('/api/tasks/:taskId/subtasks', async (req, res) => {
         if (!req.body.title) return res.status(400).send('Empty title');
         await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { $push: { subtasks: { id: generateId('s'), title: req.body.title.trim(), description: req.body.description || '', completed: false, createdAt: new Date() } } });
         
-        const parent = await db.collection('tasks').findOne({taskId: req.params.taskId});
-        if(parent) await sendAlertMsg(`➕ <b>Subtask Added</b>\n📂 <b>Task:</b> ${escapeHTML(parent.title)}\n📌 <b>Subtask:</b> ${escapeHTML(req.body.title.trim())}`);
-
+        if(globalSettings.alerts) {
+            const parent = await db.collection('tasks').findOne({taskId: req.params.taskId});
+            if(parent) {
+                let msg = `➕ <b>Subtask Added</b>\n📂 <b>Task:</b> ${escapeHTML(parent.title)}\n📌 <b>Subtask:</b> ${escapeHTML(req.body.title.trim())}`;
+                try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
+            }
+        }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -2646,9 +2512,13 @@ app.post('/api/tasks/:taskId/subtasks/:subtaskId/update', async (req, res) => {
         if (!req.body.title) return res.status(400).send('Empty title');
         await db.collection('tasks').updateOne({ taskId: req.params.taskId, "subtasks.id": req.params.subtaskId }, { $set: { "subtasks.$.title": req.body.title.trim(), "subtasks.$.description": req.body.description || '' } });
         
-        const parent = await db.collection('tasks').findOne({taskId: req.params.taskId});
-        if(parent) await sendAlertMsg(`✏️ <b>Subtask Edited</b>\n📂 <b>Task:</b> ${escapeHTML(parent.title)}\n📌 <b>Subtask:</b> ${escapeHTML(req.body.title.trim())}`);
-
+        if(globalSettings.alerts) {
+            const parent = await db.collection('tasks').findOne({taskId: req.params.taskId});
+            if(parent) {
+                let msg = `✏️ <b>Subtask Edited</b>\n📂 <b>Task:</b> ${escapeHTML(parent.title)}\n📌 <b>Subtask:</b> ${escapeHTML(req.body.title.trim())}`;
+                try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
+            }
+        }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -2659,7 +2529,10 @@ app.post('/api/tasks/:taskId/subtasks/:subtaskId/toggle', async (req, res) => {
         const sub = (task.subtasks || []).find(s => s.id === req.params.subtaskId);
         await db.collection('tasks').updateOne({ taskId: req.params.taskId, "subtasks.id": req.params.subtaskId }, { $set: { "subtasks.$.completed": !sub.completed } });
         
-        await sendAlertMsg(`${!sub.completed ? '✅' : '🔄'} <b>Subtask Toggled</b>\n📂 <b>Task:</b> ${escapeHTML(task.title)}\n📌 <b>Subtask:</b> ${escapeHTML(sub.title)}`);
+        if(globalSettings.alerts) {
+            let msg = `${!sub.completed ? '✅' : '🔄'} <b>Subtask Toggled</b>\n📂 <b>Task:</b> ${escapeHTML(task.title)}\n📌 <b>Subtask:</b> ${escapeHTML(sub.title)}`;
+            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
+        }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -2673,8 +2546,10 @@ app.post('/api/tasks/:taskId/subtasks/:subtaskId/delete', async (req, res) => {
         if (inHistory && subtask) await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { $pull: { subtasks: { id: req.params.subtaskId } }, $push: { deleted_subtasks: subtask } });
         else await db.collection('tasks').updateOne({ taskId: req.params.taskId }, { $pull: { subtasks: { id: req.params.subtaskId } } });
         
-        if (subtask) await sendAlertMsg(`🗑️ <b>Subtask Deleted</b>\n📂 <b>Task:</b> ${escapeHTML(task.title)}\n📌 <b>Subtask:</b> ${escapeHTML(subtask.title)}`);
-
+        if(globalSettings.alerts && subtask) {
+            let msg = `🗑️ <b>Subtask Deleted</b>\n📂 <b>Task:</b> ${escapeHTML(task.title)}\n📌 <b>Subtask:</b> ${escapeHTML(subtask.title)}`;
+            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
+        }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -2732,7 +2607,10 @@ app.post('/api/notes', async (req, res) => {
         if (!req.body.title) return res.status(400).send('Empty title');
         await db.collection('notes').insertOne({ noteId: generateId('n'), title: req.body.title.trim(), description: req.body.description || '', createdAt: new Date(), updatedAt: new Date(), orderIndex: await db.collection('notes').countDocuments() });
         
-        await sendAlertMsg(`📝 <b>Note Added</b>\n📌 <b>Title:</b> ${escapeHTML(req.body.title.trim())}`);
+        if(globalSettings.alerts) {
+            let msg = `📝 <b>Note Added</b>\n📌 <b>Title:</b> ${escapeHTML(req.body.title.trim())}`;
+            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
+        }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -2742,7 +2620,10 @@ app.post('/api/notes/:noteId/update', async (req, res) => {
         if (!req.body.title) return res.status(400).send('Empty title');
         await db.collection('notes').updateOne({ noteId: req.params.noteId }, { $set: { title: req.body.title.trim(), description: req.body.description || '', updatedAt: new Date() } });
         
-        await sendAlertMsg(`✏️ <b>Note Edited</b>\n📌 <b>Title:</b> ${escapeHTML(req.body.title.trim())}`);
+        if(globalSettings.alerts) {
+            let msg = `✏️ <b>Note Edited</b>\n📌 <b>Title:</b> ${escapeHTML(req.body.title.trim())}`;
+            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
+        }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -2752,8 +2633,10 @@ app.post('/api/notes/:noteId/delete', async (req, res) => {
         const doc = await db.collection('notes').findOne({noteId: req.params.noteId});
         await db.collection('notes').deleteOne({ noteId: req.params.noteId });
         
-        if(doc) await sendAlertMsg(`🗑️ <b>Note Deleted</b>\n📌 <b>Title:</b> ${escapeHTML(doc.title)}`);
-
+        if(globalSettings.alerts && doc) {
+            let msg = `🗑️ <b>Note Deleted</b>\n📌 <b>Title:</b> ${escapeHTML(doc.title)}`;
+            try{ await bot.telegram.sendMessage(CHAT_ID, msg, { parse_mode: 'HTML' }); }catch(e){}
+        }
         res.json({success: true});
     } catch (error) { res.status(500).send(error.message); }
 });
@@ -2783,8 +2666,6 @@ async function start() {
             await rescheduleAllPending();
             setupHourlyNotifications();
             setupAutoCompletion();
-            setupDailyQuestion();
-            setupAutoWorkingDay();
             
             app.listen(PORT, '0.0.0.0', () => {
                 console.log('🌐 Web interface running on port ' + PORT);
